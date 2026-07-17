@@ -1,0 +1,13 @@
+workload_id: W2
+class: scaffold_feature
+status: candidate
+repo: CHOOSE-AT-CP-SCREEN-PREREG   # candidate: RealWorld-style app, net-new CRUD feature with routes+service+tests
+pinned_commit: PIN-BEFORE-PREREG
+language: typescript
+prompt: |
+  DRAFT — finalize before pre-registration. Implement <feature> end-to-end: schema, service, controller, tests; follow existing conventions.
+gate: {public: gate/check-public.sh, hidden: recorded-by-hash-at-run, reset: reset.sh}
+expected_wallclock_s: null
+configurations: [C1, C2, C3, C5]
+reps_screening: 3
+preregistration: TBD

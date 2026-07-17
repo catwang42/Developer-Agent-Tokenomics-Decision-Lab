@@ -1,0 +1,7 @@
+policy_id: P1
+description: Cheap-first escalation with pre-registered independent evaluation gate.
+attempt_model_ref: ECONOMICAL_MODEL_A
+escalate_to_model_ref: STRONG_MODEL_A
+gate: deterministic_gate           # hidden tests -> type/lint -> regression -> rubric
+escalate_on: gate_fail
+record: [intention_to_route, completed_route, failed_attempt_costs]

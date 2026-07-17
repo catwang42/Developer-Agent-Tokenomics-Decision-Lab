@@ -1,0 +1,8 @@
+config_id: C4
+view: product_blackbox
+product_ref: PRODUCT_B
+adapter: agy
+model_ref: PRODUCT_B_STRONG_TIER
+cost_basis: DECLARE_AT_DELIVERY
+cache_protocol: cold_default
+telemetry_expectation: partial; unexposed usage fields recorded as unavailable

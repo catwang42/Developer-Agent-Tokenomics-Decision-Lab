@@ -1,0 +1,8 @@
+config_id: C1
+view: within_product_configuration      # SPEC 2.1
+product_ref: PRODUCT_A                  # intended mapping: Claude Code (manifest resolves)
+adapter: claude_code
+model_ref: STRONG_MODEL_A
+cost_basis: DECLARE_AT_DELIVERY         # marginal_api_cost | allocated_subscription_cost
+cache_protocol: cold_default            # see methodology/cache-protocol.md
+telemetry_expectation: usage authoritative from product JSON metadata

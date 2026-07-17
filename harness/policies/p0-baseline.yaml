@@ -1,0 +1,5 @@
+policy_id: P0
+description: Static strong single-model baseline on the controlled harness.
+model_ref: STRONG_MODEL_A          # resolved by manifest/delivery-manifest.yaml
+escalation: none
+verifier: deterministic_gate       # SPEC 2.6 priority order

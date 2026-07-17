@@ -1,0 +1,13 @@
+workload_id: W1
+class: test_generation
+status: candidate
+repo: CHOOSE-AT-CP-SCREEN-PREREG   # candidate: an under-tested Express/Nest service; coverage lift target
+pinned_commit: PIN-BEFORE-PREREG
+language: typescript
+prompt: |
+  DRAFT — finalize before pre-registration. Raise branch coverage of <module> from X% to >=Y% with meaningful assertions; all existing tests stay green.
+gate: {public: gate/check-public.sh, hidden: recorded-by-hash-at-run, reset: reset.sh}
+expected_wallclock_s: null
+configurations: [C1, C2, C3, C5]
+reps_screening: 3
+preregistration: TBD

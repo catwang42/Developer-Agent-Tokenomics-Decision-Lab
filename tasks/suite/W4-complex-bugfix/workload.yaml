@@ -1,0 +1,13 @@
+workload_id: W4
+class: complex_bugfix
+status: candidate
+repo: CHOOSE-AT-CP-SCREEN-PREREG   # candidate: seeded multi-file defect with failing repro test (expected STRONG favorite)
+pinned_commit: PIN-BEFORE-PREREG
+language: typescript
+prompt: |
+  DRAFT — finalize before pre-registration. Failing test <t> reproduces a defect; find root cause and fix; no unrelated diffs.
+gate: {public: gate/check-public.sh, hidden: recorded-by-hash-at-run, reset: reset.sh}
+expected_wallclock_s: null
+configurations: [C1, C2, C3, C5]
+reps_screening: 3
+preregistration: TBD

@@ -1,0 +1,19 @@
+workload_id: Wx
+class: ""                # test_generation | scaffold_feature | migration | complex_bugfix | small_edit
+status: candidate        # candidate -> validated (10-point) -> pre-registered -> run
+repo: ""                 # public repo URL
+pinned_commit: PIN-BEFORE-PREREG
+language: ""
+prompt: |
+  (verbatim task prompt — MUST NOT ask the model to report its own tokens)
+gate:
+  public: gate/check-public.sh
+  hidden: recorded-by-hash-at-run     # human-held under tasks/hidden/
+  reset: reset.sh
+expected_wallclock_s: null
+configurations: [C1, C2, C3, C5]
+reps_screening: 3
+class_claim_note: >
+  One task = screening signal only. A workload-class claim requires a second,
+  materially different task from this class (SPEC 5.2).
+preregistration: link-to-completed-RUN_TEMPLATE

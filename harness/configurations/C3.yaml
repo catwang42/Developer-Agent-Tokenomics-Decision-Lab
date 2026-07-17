@@ -1,0 +1,8 @@
+config_id: C3
+view: product_blackbox
+product_ref: PRODUCT_B                  # intended mapping: Antigravity CLI
+adapter: agy                            # workshop-owned wrapper; our exit codes
+model_ref: PRODUCT_B_ECON_TIER          # record selector label VERBATIM; never infer backend ID
+cost_basis: DECLARE_AT_DELIVERY         # typically provider_reported_cost or PAYG marginal
+cache_protocol: cold_default
+telemetry_expectation: partial; unexposed usage fields recorded as unavailable

@@ -1,0 +1,13 @@
+workload_id: W3
+class: migration
+status: candidate
+repo: CHOOSE-AT-CP-SCREEN-PREREG   # candidate: JS->TS module conversion or framework version bump with test parity
+pinned_commit: PIN-BEFORE-PREREG
+language: typescript
+prompt: |
+  DRAFT — finalize before pre-registration. Convert <module> to TypeScript strict; zero behavior change; all tests green; lint clean.
+gate: {public: gate/check-public.sh, hidden: recorded-by-hash-at-run, reset: reset.sh}
+expected_wallclock_s: null
+configurations: [C1, C2, C3, C5]
+reps_screening: 3
+preregistration: TBD

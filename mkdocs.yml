@@ -1,0 +1,21 @@
+site_name: Measure Before You Route
+site_description: Developer-Agent Economics Decision Lab
+theme:
+  name: material
+  features: [navigation.sections, navigation.top, content.code.copy]
+  palette:
+    - scheme: default
+      primary: deep purple
+nav:
+  - Home: index.md
+  - Pre-work Setup: setup.md
+  - "M0 · The Decision Problem": m0-decision-problem.md
+  - "M1 · Audit the Evidence": m1-audit-evidence.md
+  - "M2 · One Controlled Experiment": m2-controlled-experiment.md
+  - "M3 · Interpret the Economics": m3-interpret-economics.md
+  - "M4 · Enterprise Decision Exercise": m4-decision-exercise.md
+  - Exercises:
+      - exercises/index.md
+  - Cheatsheet: cheatsheet.md
+  - Facilitator Guide: facilitator.md
+markdown_extensions: [admonition, tables, attr_list, pymdownx.details, pymdownx.superfences]

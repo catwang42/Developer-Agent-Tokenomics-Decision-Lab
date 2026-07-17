@@ -1,0 +1,11 @@
+# Dated delivery manifest — the ONLY place volatile names/prices resolve (SPEC 1.4)
+delivery_date: YYYY-MM-DD
+cohort: pilot
+pricing_snapshot: pricing/prices-YYYY-MM-DD.json
+task_suite_commit: TBD
+configurations:
+  STRONG_MODEL_A:      {provider: TBD, product_surface: controlled_api, model_id: EXACT-VERSIONED-ID, region: TBD}
+  ECONOMICAL_MODEL_A:  {provider: TBD, product_surface: controlled_api, model_id: EXACT-VERSIONED-ID, region: TBD}
+  PRODUCT_B_ECON_TIER: {provider: TBD, product_surface: product_blackbox, selector_label: "verbatim label from product", model_id: null}
+  PRODUCT_B_STRONG_TIER: {provider: TBD, product_surface: product_blackbox, selector_label: "verbatim label from product", model_id: null}
+notes: record selector labels verbatim; never infer unguaranteed backend model IDs (SPEC 6.3)

@@ -1,0 +1,8 @@
+config_id: C2
+view: within_product_configuration
+product_ref: PRODUCT_A
+adapter: claude_code
+model_ref: ECONOMICAL_MODEL_A
+cost_basis: DECLARE_AT_DELIVERY
+cache_protocol: cold_default
+telemetry_expectation: usage authoritative from product JSON metadata

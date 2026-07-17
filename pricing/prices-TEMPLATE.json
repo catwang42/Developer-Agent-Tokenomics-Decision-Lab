@@ -1,0 +1,8 @@
+{
+  "snapshot_date": "YYYY-MM-DD",
+  "note": "All four token classes per provider; copy to prices-<date>.json and pin.",
+  "providers": {
+    "provider_a": {"model_id": {"input": 0, "cache_write": 0, "cache_read": 0, "output": 0, "unit": "usd_per_mtok"}},
+    "provider_b": {"model_id": {"input": 0, "cache_write": 0, "cache_read": 0, "output": 0, "unit": "usd_per_mtok"}}
+  }
+}

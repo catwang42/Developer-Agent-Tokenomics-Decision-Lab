@@ -1,0 +1,13 @@
+workload_id: W5
+class: small_edit
+status: candidate
+repo: CHOOSE-AT-CP-SCREEN-PREREG   # break-even control: trivial one-file change (expected routing LOSER)
+pinned_commit: PIN-BEFORE-PREREG
+language: any
+prompt: |
+  DRAFT — finalize before pre-registration. Make <small documented change>; nothing else.
+gate: {public: gate/check-public.sh, hidden: recorded-by-hash-at-run, reset: reset.sh}
+expected_wallclock_s: null
+configurations: [C1, C2, C3, C5]
+reps_screening: 3
+preregistration: TBD

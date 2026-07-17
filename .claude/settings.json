@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(SPEC.md)",
+      "Write(SPEC.md)",
+      "Edit(CLAUDE.md)",
+      "Write(CLAUDE.md)",
+      "Edit(results/pilot-reference/**)",
+      "Write(results/pilot-reference/**)",
+      "Bash(git push --force*)"
+    ],
+    "ask": [
+      "Bash(claude -p*)",
+      "Bash(agy*)",
+      "Bash(gcloud*)",
+      "Bash(git push*)"
+    ]
+  }
+}

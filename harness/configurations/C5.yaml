@@ -1,0 +1,11 @@
+config_id: C5
+view: blackbox_integrated_workflow      # NOT a controlled routing-policy experiment
+adapter: hybrid_c5
+legs:
+  conductor: {product_ref: PRODUCT_A, model_ref: STRONG_MODEL_A, cost_basis: DECLARE_AT_DELIVERY}
+  executor:  {product_ref: PRODUCT_B, model_ref: PRODUCT_B_ECON_TIER, cost_basis: DECLARE_AT_DELIVERY}
+rules:
+  - both legs metered and reported; totals include failed delegations + verification
+  - frontier_token_share computed as diagnostic only
+  - executor-tier variation within pinned C5 = within-workflow executor-tier comparison
+cache_protocol: cold_default

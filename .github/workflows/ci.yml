@@ -1,0 +1,26 @@
+name: ci
+on:
+  push: {branches: [main]}
+  pull_request:
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install tools
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          pip install mkdocs-material pyyaml
+      - name: Shellcheck
+        run: |
+          files=$(find . -name "*.sh" -not -path "./node_modules/*"); if [ -n "$files" ]; then shellcheck $files; fi
+      - name: Validate JSON/YAML
+        run: |
+          find . -name "*.json" -not -path "./node_modules/*" -print0 | xargs -0 -I{} python3 -c "import json,sys; json.load(open(sys.argv[1]))" {}
+          find . \( -name "*.yml" -o -name "*.yaml" \) -not -path "./node_modules/*" -print0 | xargs -0 -I{} python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" {}
+      - name: Tests
+        run: bash tests/run-tests.sh
+      - name: Docs build
+        run: mkdocs build --strict
