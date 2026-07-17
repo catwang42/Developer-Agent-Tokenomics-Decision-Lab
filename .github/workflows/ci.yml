@@ -13,6 +13,11 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y shellcheck
           pip install mkdocs-material pyyaml
+      - name: Set up project venv (pinned requirements)
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements.txt
       - name: Shellcheck
         run: |
           files=$(find . -name "*.sh" -not -path "./node_modules/*"); if [ -n "$files" ]; then shellcheck $files; fi

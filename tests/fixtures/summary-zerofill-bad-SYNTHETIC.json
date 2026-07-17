@@ -1,0 +1,29 @@
+{
+  "_fixture": "SYNTHETIC — deliberately INVALID telemetry for unit tests ONLY. Contains a zero-filled unavailable field and an unlabeled field; the validator MUST reject it.",
+  "run_id": "SYNTHETIC-run-bad-0001",
+  "task_id": "SYNTHETIC-pilot-task",
+  "task_suite_version": "SYNTHETIC-v0",
+  "configuration_id": "C2",
+  "manifest_ref": "SYNTHETIC-manifest@0",
+  "identity": {
+    "product": {"value": "Product A", "confidence": "authoritative"}
+  },
+  "usage": {
+    "input_tokens": {"value": 1000},
+    "output_tokens": {"value": 0, "confidence": "unavailable"},
+    "cache_read_tokens": {"value": 5000, "confidence": "bogus_tier"}
+  },
+  "behavior": {
+    "turns": {"value": 2, "confidence": "derived"}
+  },
+  "economics": {
+    "cost_basis": "marginal_api_cost"
+  },
+  "human_effort": {
+    "active_minutes": {"value": null, "confidence": "derived"}
+  },
+  "acceptance": {
+    "result": "accepted"
+  },
+  "legs": []
+}

@@ -1,0 +1,68 @@
+{
+  "_fixture": "SYNTHETIC — invented C5 dual-bill telemetry for unit tests ONLY (conductor on provider_a, executor on provider_b). Not a real run.",
+  "run_id": "SYNTHETIC-run-c5-0001",
+  "task_id": "SYNTHETIC-pilot-task",
+  "task_suite_version": "SYNTHETIC-v0",
+  "configuration_id": "C5",
+  "manifest_ref": "SYNTHETIC-manifest@0",
+  "identity": {
+    "product": {"value": "Product A conductor -> Product B executor", "confidence": "authoritative"},
+    "provider": {"value": null, "confidence": "unavailable", "reason": "two providers; see legs"},
+    "model_or_selector": {"value": null, "confidence": "unavailable", "reason": "two models; see legs"}
+  },
+  "usage": {
+    "input_tokens": {"value": 5000, "confidence": "authoritative"},
+    "cache_creation_tokens": {"value": 600, "confidence": "authoritative"},
+    "cache_read_tokens": {"value": 12000, "confidence": "authoritative"},
+    "output_tokens": {"value": 1700, "confidence": "authoritative"},
+    "reasoning_tokens": {"value": null, "confidence": "unavailable", "reason": "not exposed by either leg"}
+  },
+  "behavior": {
+    "turns": {"value": 4, "confidence": "derived"},
+    "subagent_calls": {"value": 1, "confidence": "derived"}
+  },
+  "economics": {
+    "cost_basis": "marginal_api_cost",
+    "marginal_operating_usd": {"value": 0.036375, "confidence": "derived"},
+    "fully_allocated_usd": {"value": 0.036375, "confidence": "derived"}
+  },
+  "human_effort": {
+    "active_minutes": {"value": 6, "confidence": "authoritative"}
+  },
+  "acceptance": {
+    "result": "accepted",
+    "gate_checks": {"hidden_tests": "pass"}
+  },
+  "legs": [
+    {
+      "leg_id": "conductor",
+      "role": "conductor",
+      "provider": {"value": "provider_a", "confidence": "authoritative"},
+      "model_or_selector": {"value": "STRONG_MODEL_A", "confidence": "authoritative"},
+      "cost_basis": "marginal_api_cost",
+      "usage": {
+        "input_tokens": {"value": 1000, "confidence": "authoritative"},
+        "cache_creation_tokens": {"value": 100, "confidence": "authoritative"},
+        "cache_read_tokens": {"value": 2000, "confidence": "authoritative"},
+        "output_tokens": {"value": 200, "confidence": "authoritative"}
+      },
+      "marginal_operating_usd": {"value": 0.02325, "confidence": "derived"},
+      "fully_allocated_usd": {"value": 0.02325, "confidence": "derived"}
+    },
+    {
+      "leg_id": "executor",
+      "role": "executor",
+      "provider": {"value": "provider_b", "confidence": "authoritative"},
+      "model_or_selector": {"value": "ECON_MODEL_B", "confidence": "authoritative"},
+      "cost_basis": "marginal_api_cost",
+      "usage": {
+        "input_tokens": {"value": 4000, "confidence": "authoritative"},
+        "cache_creation_tokens": {"value": 500, "confidence": "authoritative"},
+        "cache_read_tokens": {"value": 10000, "confidence": "authoritative"},
+        "output_tokens": {"value": 1500, "confidence": "authoritative"}
+      },
+      "marginal_operating_usd": {"value": 0.013125, "confidence": "derived"},
+      "fully_allocated_usd": {"value": 0.013125, "confidence": "derived"}
+    }
+  ]
+}
