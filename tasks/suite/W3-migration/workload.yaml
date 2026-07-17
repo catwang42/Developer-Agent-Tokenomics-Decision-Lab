@@ -3,6 +3,7 @@ class: migration
 status: candidate
 repo: CHOOSE-AT-CP-SCREEN-PREREG   # candidate: JS->TS module conversion or framework version bump with test parity
 pinned_commit: PIN-BEFORE-PREREG
+contamination_tier: TBD-AT-PREREG   # depends on repo chosen at CP-SCREEN-PREREG; see tasks/WORKLOAD-SELECTION.md §2
 language: typescript
 prompt: |
   DRAFT — finalize before pre-registration. Convert <module> to TypeScript strict; zero behavior change; all tests green; lint clean.

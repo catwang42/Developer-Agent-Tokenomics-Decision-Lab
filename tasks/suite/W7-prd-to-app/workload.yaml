@@ -1,0 +1,31 @@
+workload_id: W7
+class: greenfield_build
+status: candidate
+# Added before CP-SCREEN-PREREG per SPEC §5 anti-bias protocol (pre-register the
+# task set before running; publish all classes including null/negative findings).
+repo: CHOOSE-AT-CP-SCREEN-PREREG   # candidate: empty scaffold + provided PRD; greenfield, no source repo to re-implement
+pinned_commit: PIN-BEFORE-PREREG
+contamination_tier: TBD-AT-PREREG   # resolve at pre-registration; a freshly authored PRD/app is a candidate post_cutoff. See tasks/WORKLOAD-SELECTION.md §2
+language: typescript
+prompt: |
+  DRAFT — finalize before pre-registration. Implement the small application described
+  in the attached PRD (PRD.md). Follow the PRD's stated requirements and acceptance
+  criteria; produce a buildable project.
+  (MUST NOT ask the model to report its own tokens.)
+gate:
+  # Deterministic: project builds clean, then the sealed acceptance tests derived from
+  # the PRD's acceptance criteria pass.
+  public: gate/check-public.sh
+  hidden: recorded-by-hash-at-run     # sealed acceptance tests + evaluator, human-held under tasks/hidden/
+  reset: reset.sh
+pass_condition: >
+  Clean build (zero errors) AND all seeded acceptance tests pass. Acceptance tests
+  are sealed and hashed per run (SPEC §2.6).
+expected_wallclock_s: null
+configurations: [C1, C2, C3, C5]
+reps_screening: 3
+class_claim_note: >
+  One task = screening signal only. A workload-class claim requires a second,
+  materially different task from this class at tier obscure or post_cutoff
+  (tasks/WORKLOAD-SELECTION.md §3, extending SPEC §5.2); commit mining preferred (§4).
+preregistration: TBD
