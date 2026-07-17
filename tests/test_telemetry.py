@@ -95,6 +95,22 @@ class ValidatorTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertTrue(any("cost_basis" in r for r in reasons))
 
+    def test_contamination_tier_optional_enum(self):
+        # Not required: baseline fixture (no contamination_tier) still validates.
+        ok0, _ = validate_summary(_load("summary-valid-SYNTHETIC.json"))
+        self.assertTrue(ok0)
+        # Present + valid enum value: validates.
+        good = _load("summary-valid-SYNTHETIC.json")
+        good["identity"]["contamination_tier"] = "famous"
+        ok1, r1 = validate_summary(good)
+        self.assertTrue(ok1, msg=f"reasons: {r1}")
+        # Present + off-enum value: rejected by the schema enum.
+        bad = _load("summary-valid-SYNTHETIC.json")
+        bad["identity"]["contamination_tier"] = "not_a_tier"
+        ok2, r2 = validate_summary(bad)
+        self.assertFalse(ok2)
+        self.assertTrue(any("contamination_tier" in r for r in r2), msg=f"reasons: {r2}")
+
     def test_bad_configuration_id_rejected(self):
         summary = _load("summary-valid-SYNTHETIC.json")
         summary["configuration_id"] = "C9"

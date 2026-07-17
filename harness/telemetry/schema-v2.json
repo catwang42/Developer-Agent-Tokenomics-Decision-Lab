@@ -38,7 +38,11 @@
         "permission_profile": {"$ref": "#/definitions/tiered"},
         "network_policy": {"$ref": "#/definitions/tiered"},
         "session_state": {"$ref": "#/definitions/tiered"},
-        "cache_state": {"$ref": "#/definitions/tiered"}
+        "cache_state": {"$ref": "#/definitions/tiered"},
+        "contamination_tier": {
+          "description": "Training-data-contamination tier of the task's source repo, resolved from the workload definition. Optional.",
+          "enum": ["famous", "moderate", "obscure", "post_cutoff"]
+        }
       }
     },
     "usage": {
