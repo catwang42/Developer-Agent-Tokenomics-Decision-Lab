@@ -58,7 +58,10 @@ class ValidatorTests(unittest.TestCase):
     def test_valid_summary_passes(self):
         ok, reasons = validate_summary(_load("summary-valid-SYNTHETIC.json"))
         self.assertTrue(ok, msg=f"expected valid, got reasons: {reasons}")
-        self.assertEqual(reasons, [])
+        # Standalone validation is labelled structural-only / not audit-grade.
+        self.assertTrue(any(r.startswith("note:") and "not audit-grade" in r for r in reasons))
+        # ...and carries no failure reasons.
+        self.assertEqual([r for r in reasons if not r.startswith("note:")], [])
 
     def test_dualbill_summary_valid(self):
         summary = _load("summary-dualbill-SYNTHETIC.json")
@@ -186,13 +189,29 @@ class EventLogTests(unittest.TestCase):
 
 
 class ValidateRunDirTests(unittest.TestCase):
-    def test_validate_run_dir_ok(self):
+    """validate(run_dir) is audit-grade: it re-derives from the event log and
+    fails on any mismatch, so no fabricated/hand-authored value can pass."""
+
+    def _build_run(self, d, events, mutate=None, cost_basis="marginal_api_cost"):
+        log = EventLog(os.path.join(d, "events.jsonl"))
+        for ev in events:
+            payload = {k: v for k, v in ev.items() if k not in ("event_type", "ts")}
+            log.append(ev["event_type"], ev["ts"], **payload)
+        summary = derive_summary(
+            log.read(), run_id="SYNTHETIC-r", task_id="SYNTHETIC-t",
+            task_suite_version="SYNTHETIC-v", configuration_id="C1",
+            manifest_ref="SYNTHETIC-m", economics={"cost_basis": cost_basis},
+        )
+        if mutate:
+            mutate(summary)
+        with open(os.path.join(d, "summary.json"), "w", encoding="utf-8") as fh:
+            json.dump(summary, fh)
+        return summary
+
+    def test_validate_run_dir_ok_rederives(self):
+        events = list(read_events(os.path.join(FIXTURES, "events-SYNTHETIC.jsonl")))
         with tempfile.TemporaryDirectory() as d:
-            with open(os.path.join(d, "summary.json"), "w", encoding="utf-8") as fh:
-                json.dump(_load("summary-valid-SYNTHETIC.json"), fh)
-            log = EventLog(os.path.join(d, "events.jsonl"))
-            log.append("model_call_started", "T0")
-            log.append("acceptance", "T1", result="accepted")
+            self._build_run(d, events)
             ok, reasons = validate(d)
             self.assertTrue(ok, msg=f"reasons: {reasons}")
 
@@ -202,16 +221,65 @@ class ValidateRunDirTests(unittest.TestCase):
             self.assertFalse(ok)
             self.assertTrue(any("missing summary.json" in r for r in reasons))
 
-    def test_validate_flags_bad_event(self):
+    def test_validate_missing_events_not_audit_grade(self):
+        events = list(read_events(os.path.join(FIXTURES, "events-SYNTHETIC.jsonl")))
         with tempfile.TemporaryDirectory() as d:
-            with open(os.path.join(d, "summary.json"), "w", encoding="utf-8") as fh:
-                json.dump(_load("summary-valid-SYNTHETIC.json"), fh)
-            # Hand-write a malformed event line (bypasses EventLog guards).
-            with open(os.path.join(d, "events.jsonl"), "w", encoding="utf-8") as fh:
-                fh.write(json.dumps({"event_type": "bogus", "ts": "T0"}) + "\n")
+            self._build_run(d, events)
+            os.remove(os.path.join(d, "events.jsonl"))
+            ok, reasons = validate(d)
+            self.assertFalse(ok)
+            self.assertTrue(any("missing events.jsonl" in r for r in reasons))
+
+    def test_validate_flags_bad_event(self):
+        events = list(read_events(os.path.join(FIXTURES, "events-SYNTHETIC.jsonl")))
+        with tempfile.TemporaryDirectory() as d:
+            self._build_run(d, events)
+            # Append a malformed event line (bypasses EventLog guards).
+            with open(os.path.join(d, "events.jsonl"), "a", encoding="utf-8") as fh:
+                fh.write(json.dumps({"event_type": "bogus", "ts": "T9"}) + "\n")
             ok, reasons = validate(d)
             self.assertFalse(ok)
             self.assertTrue(any("unknown event_type" in r for r in reasons))
+
+    # --- Case 1: re-derivation corroborates authoritative values incl. zeros ---
+    _AUTH_ZERO_EVENTS = [
+        {"event_type": "model_call_completed", "ts": "T1", "leg": "main", "role": "solo",
+         "provider": {"value": "provider_a", "confidence": "authoritative"},
+         "model_or_selector": {"value": "STRONG_MODEL_A", "confidence": "authoritative"},
+         "cost_basis": "marginal_api_cost",
+         "usage": {
+             "input_tokens": {"value": 100, "confidence": "authoritative"},
+             "cache_creation_tokens": {"value": 0, "confidence": "authoritative"},
+             "cache_read_tokens": {"value": 0, "confidence": "authoritative"},
+             "output_tokens": {"value": 50, "confidence": "authoritative"}}},
+        {"event_type": "acceptance", "ts": "T2", "result": "accepted",
+         "gate_checks": {}, "intention_to_route": None, "completed_route": None},
+    ]
+
+    def test_fabricated_authoritative_zero_rejected(self):
+        # Stored output_tokens claims an authoritative 0 the events do not support
+        # (the event log says 50). Structural/semantic checks pass it; only
+        # re-derivation against the event log catches the fabrication.
+        def fake_zero(summary):
+            summary["usage"]["output_tokens"] = {"value": 0, "confidence": "authoritative"}
+        with tempfile.TemporaryDirectory() as d:
+            self._build_run(d, self._AUTH_ZERO_EVENTS, mutate=fake_zero)
+            ok, reasons = validate(d)
+            self.assertFalse(ok)
+            self.assertTrue(
+                any("corroboration" in r and "output_tokens" in r for r in reasons),
+                msg=f"expected corroboration failure; got {reasons}",
+            )
+
+    def test_legitimate_authoritative_zero_passes(self):
+        # cache_creation/cache_read are authoritative 0 AND the event log agrees,
+        # so the corroborated zero must pass.
+        with tempfile.TemporaryDirectory() as d:
+            summary = self._build_run(d, self._AUTH_ZERO_EVENTS)
+            self.assertEqual(summary["usage"]["cache_read_tokens"],
+                             {"value": 0, "confidence": "authoritative"})
+            ok, reasons = validate(d)
+            self.assertTrue(ok, msg=f"reasons: {reasons}")
 
 
 if __name__ == "__main__":

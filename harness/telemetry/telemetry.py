@@ -401,13 +401,22 @@ def _semantic_tiered_walk(obj: Any, path: str, reasons: List[str]) -> None:
             _semantic_tiered_walk(val, f"{path}[{i}]", reasons)
 
 
-def validate_summary(summary: Dict[str, Any]) -> Tuple[bool, List[str]]:
-    """Validate a run summary. Returns (ok, reasons).
+# Label attached to any summary validated in isolation: without the event log,
+# authoritative values (including zeros) cannot be confirmed real.
+_STRUCTURAL_ONLY_NOTE = (
+    "note: structural check only — not audit-grade; authoritative values are NOT "
+    "corroborated against an event log. Use validate(run_dir) for event-log re-derivation."
+)
 
-    Runs the structural (jsonschema) layer then the semantic (no-zero-fill)
-    layer. jsonschema is mandatory; if it were missing this module would have
-    failed to import.
-    """
+# Behaviour fields the deriver is authoritative for (must match re-derivation).
+_PROJECTION_BEHAVIOR = (
+    "turns", "tool_calls_by_type", "file_reads", "file_read_bytes", "files_modified",
+    "retries", "escalations", "subagent_calls", "verifier_calls", "failures_by_category",
+)
+
+
+def _validate_structural_semantic(summary: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """Structural (jsonschema) + semantic (no-zero-fill) checks; no audit note."""
     if not isinstance(summary, dict):
         return False, ["summary is not a JSON object"]
     reasons = _schema_errors(summary)
@@ -415,13 +424,96 @@ def validate_summary(summary: Dict[str, Any]) -> Tuple[bool, List[str]]:
     return (len(reasons) == 0), reasons
 
 
-def validate(run_dir: str) -> Tuple[bool, List[str]]:
-    """Validate a run directory containing ``summary.json`` (SPEC 2.7).
+def validate_summary(summary: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """Validate a summary IN ISOLATION (structural + semantic). Returns (ok, reasons).
 
-    If ``events.jsonl`` is present, its lines are checked for a known
-    ``event_type``. Returns (ok, reasons).
+    This is a structural/semantic check only and is **not audit-grade**: with no
+    event log it cannot confirm that authoritative values (including legitimate
+    zeros) are real, so a hand-authored or fabricated summary can pass. The
+    returned reasons always begin with a ``note:`` line stating this. For
+    corroborated, audit-grade validation use :func:`validate` on a run directory.
     """
-    reasons: List[str] = []
+    ok, reasons = _validate_structural_semantic(summary)
+    return ok, [_STRUCTURAL_ONLY_NOTE] + reasons
+
+
+def _event_projection(summary: Dict[str, Any]) -> Dict[str, Any]:
+    """Project a summary down to only the fields the event log can prove."""
+    usage = summary.get("usage") or {}
+    beh = summary.get("behavior") or {}
+    acc = summary.get("acceptance") or {}
+    legs = summary.get("legs") or []
+    return {
+        "usage": {k: usage.get(k) for k in _USAGE_TOKEN_CLASSES},
+        "behavior": {k: beh.get(k) for k in _PROJECTION_BEHAVIOR},
+        "acceptance": {
+            "result": acc.get("result"),
+            "gate_checks": acc.get("gate_checks", {}),
+            "intention_to_route": acc.get("intention_to_route"),
+            "completed_route": acc.get("completed_route"),
+        },
+        "legs": [
+            {
+                "leg_id": (leg or {}).get("leg_id"),
+                "usage": {k: ((leg or {}).get("usage") or {}).get(k) for k in _USAGE_TOKEN_CLASSES},
+            }
+            for leg in legs
+        ],
+    }
+
+
+def _diff_projection(stored: Dict[str, Any], rederived: Dict[str, Any],
+                     reasons: List[str]) -> None:
+    """Append a corroboration failure for every event-sourced field that the
+    stored summary reports differently from a fresh re-derivation."""
+    for k in _USAGE_TOKEN_CLASSES:
+        if stored["usage"][k] != rederived["usage"][k]:
+            reasons.append(
+                f"corroboration: usage.{k} stored={stored['usage'][k]!r} != "
+                f"event-log re-derivation {rederived['usage'][k]!r}"
+            )
+    for k in _PROJECTION_BEHAVIOR:
+        if stored["behavior"][k] != rederived["behavior"][k]:
+            reasons.append(
+                f"corroboration: behavior.{k} stored={stored['behavior'][k]!r} != "
+                f"event-log re-derivation {rederived['behavior'][k]!r}"
+            )
+    if stored["acceptance"] != rederived["acceptance"]:
+        reasons.append(
+            f"corroboration: acceptance stored={stored['acceptance']!r} != "
+            f"event-log re-derivation {rederived['acceptance']!r}"
+        )
+    s_legs = {leg["leg_id"]: leg for leg in stored["legs"]}
+    r_legs = {leg["leg_id"]: leg for leg in rederived["legs"]}
+    if set(s_legs) != set(r_legs):
+        reasons.append(
+            f"corroboration: leg ids stored={sorted(map(str, s_legs))} != "
+            f"event-log re-derivation {sorted(map(str, r_legs))}"
+        )
+    for leg_id in sorted(set(s_legs) & set(r_legs), key=str):
+        for k in _USAGE_TOKEN_CLASSES:
+            sv = (s_legs[leg_id].get("usage") or {}).get(k)
+            rv = (r_legs[leg_id].get("usage") or {}).get(k)
+            if sv != rv:
+                reasons.append(
+                    f"corroboration: legs[{leg_id}].usage.{k} stored={sv!r} != "
+                    f"event-log re-derivation {rv!r}"
+                )
+
+
+def validate(run_dir: str) -> Tuple[bool, List[str]]:
+    """Audit-grade validation of a run directory (SPEC 2.7). Returns (ok, reasons).
+
+    Steps:
+      1. Structural + semantic checks on ``summary.json``.
+      2. Re-derive the summary from ``events.jsonl`` (the deriver is
+         deterministic) and fail on ANY mismatch in the event-sourced fields
+         (token usage, behaviour counts, acceptance, per-leg usage). This
+         corroborates every authoritative value — including legitimate zeros —
+         against the immutable event log, so a fabricated or hand-authored value
+         that the events do not support cannot pass. A missing event log is a
+         failure: without it the summary cannot be corroborated.
+    """
     summary_path = os.path.join(run_dir, "summary.json")
     if not os.path.exists(summary_path):
         return False, [f"missing summary.json in {run_dir}"]
@@ -431,16 +523,40 @@ def validate(run_dir: str) -> Tuple[bool, List[str]]:
     except json.JSONDecodeError as exc:
         return False, [f"summary.json is not valid JSON: {exc}"]
 
-    ok, summary_reasons = validate_summary(summary)
-    reasons.extend(summary_reasons)
+    _, reasons = _validate_structural_semantic(summary)
+    reasons = list(reasons)
 
     events_path = os.path.join(run_dir, "events.jsonl")
-    if os.path.exists(events_path):
-        for i, event in enumerate(read_events(events_path)):
-            et = event.get("event_type")
-            if et not in EVENT_TYPES:
-                reasons.append(f"events.jsonl line {i + 1}: unknown event_type {et!r}")
-            if not event.get("ts"):
-                reasons.append(f"events.jsonl line {i + 1}: missing ts")
+    if not os.path.exists(events_path):
+        reasons.append(
+            "missing events.jsonl — summary cannot be corroborated against an "
+            "event log (not audit-grade)"
+        )
+        return (len(reasons) == 0), reasons
+
+    events: List[Dict[str, Any]] = []
+    for i, event in enumerate(read_events(events_path)):
+        et = event.get("event_type")
+        if et not in EVENT_TYPES:
+            reasons.append(f"events.jsonl line {i + 1}: unknown event_type {et!r}")
+        if not event.get("ts"):
+            reasons.append(f"events.jsonl line {i + 1}: missing ts")
+        events.append(event)
+
+    # Re-derive and corroborate (needs the summary's own identifying metadata).
+    if isinstance(summary, dict) and "run_id" in summary:
+        rederived = derive_summary(
+            events,
+            run_id=summary.get("run_id", ""),
+            task_id=summary.get("task_id", ""),
+            task_suite_version=summary.get("task_suite_version", ""),
+            configuration_id=summary.get("configuration_id", "C1"),
+            manifest_ref=summary.get("manifest_ref", ""),
+            identity=summary.get("identity"),
+            economics=summary.get("economics"),
+            human_effort=summary.get("human_effort"),
+            hidden_test_hash=summary.get("hidden_test_hash"),
+        )
+        _diff_projection(_event_projection(summary), _event_projection(rederived), reasons)
 
     return (len(reasons) == 0), reasons
