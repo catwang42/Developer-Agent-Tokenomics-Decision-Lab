@@ -1,0 +1,12 @@
+{
+  "_fixture": "SYNTHETIC — invented round-number prices for unit tests ONLY. Not real vendor pricing. Never use outside tests/.",
+  "snapshot_date": "SYNTHETIC-0000-00-00",
+  "providers": {
+    "provider_a": {
+      "STRONG_MODEL_A": {"input": 10, "cache_write": 12.5, "cache_read": 1, "output": 50, "unit": "usd_per_mtok"}
+    },
+    "provider_b": {
+      "ECON_MODEL_B": {"input": 1, "cache_write": 1.25, "cache_read": 0.1, "output": 5, "unit": "usd_per_mtok"}
+    }
+  }
+}

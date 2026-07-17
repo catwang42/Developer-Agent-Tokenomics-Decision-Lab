@@ -1,0 +1,7 @@
+# Pinned Python dependencies for the Developer-Agent Economics Decision Lab.
+# Exact pins (==) per the Phase 0 pinning policy: the project venv (.venv) must
+# match this file exactly, and tests/run-tests.sh fails the quality gate on drift.
+#
+# Install:  .venv/bin/pip install -r requirements.txt
+jsonschema==4.23.0
+PyYAML==6.0.3

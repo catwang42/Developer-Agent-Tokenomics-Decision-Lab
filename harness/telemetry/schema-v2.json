@@ -1,13 +1,16 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Run Summary v2 (SPEC 2.7) — every field: {value, confidence}",
+  "description": "Derived run summary. Every telemetry field carries value + source/confidence tier. Unavailable is recorded as unavailable, never zero. See SPEC.md 2.7.",
   "definitions": {
     "tiered": {
       "type": "object",
       "required": ["value", "confidence"],
+      "additionalProperties": true,
       "properties": {
         "value": {},
-        "confidence": {"enum": ["authoritative", "derived", "proxy_observed", "unavailable"]}
+        "confidence": {"enum": ["authoritative", "derived", "proxy_observed", "unavailable"]},
+        "reason": {"type": "string"}
       }
     }
   },
@@ -35,7 +38,11 @@
         "permission_profile": {"$ref": "#/definitions/tiered"},
         "network_policy": {"$ref": "#/definitions/tiered"},
         "session_state": {"$ref": "#/definitions/tiered"},
-        "cache_state": {"$ref": "#/definitions/tiered"}
+        "cache_state": {"$ref": "#/definitions/tiered"},
+        "contamination_tier": {
+          "description": "Training-data-contamination tier of the task's source repo, resolved from the workload definition. Optional.",
+          "enum": ["famous", "moderate", "obscure", "post_cutoff"]
+        }
       }
     },
     "usage": {
@@ -48,7 +55,9 @@
         "reasoning_tokens": {"$ref": "#/definitions/tiered"},
         "tool_result_tokens": {"$ref": "#/definitions/tiered"},
         "search_ops": {"$ref": "#/definitions/tiered"},
-        "code_exec_usage": {"$ref": "#/definitions/tiered"}
+        "search_charges_usd": {"$ref": "#/definitions/tiered"},
+        "code_exec_usage": {"$ref": "#/definitions/tiered"},
+        "code_exec_charges_usd": {"$ref": "#/definitions/tiered"}
       }
     },
     "behavior": {
@@ -57,6 +66,7 @@
         "turns": {"$ref": "#/definitions/tiered"},
         "tool_calls_by_type": {"$ref": "#/definitions/tiered"},
         "file_reads": {"$ref": "#/definitions/tiered"},
+        "file_read_bytes": {"$ref": "#/definitions/tiered"},
         "files_modified": {"$ref": "#/definitions/tiered"},
         "retries": {"$ref": "#/definitions/tiered"},
         "escalations": {"$ref": "#/definitions/tiered"},
@@ -75,6 +85,8 @@
         "machine_cost_usd": {"$ref": "#/definitions/tiered"},
         "marginal_operating_usd": {"$ref": "#/definitions/tiered"},
         "fully_allocated_usd": {"$ref": "#/definitions/tiered"},
+        "total_cost_usd": {"$ref": "#/definitions/tiered"},
+        "subscription_allocation_basis": {"$ref": "#/definitions/tiered"},
         "pricing_snapshot": {"type": "string"}
       }
     },
@@ -98,10 +110,25 @@
       }
     },
     "legs": {
-      "description": "Billing legs; C5 has two (conductor, executor).",
+      "description": "Billing legs; a single-provider run has one leg, C5 has two (conductor, executor). Each leg carries its own provider/model identity and per-leg usage + cost so dual-bill workflows can be audited (SPEC 2.7).",
       "type": "array",
-      "items": {"type": "object"}
+      "items": {
+        "type": "object",
+        "required": ["leg_id"],
+        "properties": {
+          "leg_id": {"type": "string"},
+          "role": {"type": "string"},
+          "provider": {"$ref": "#/definitions/tiered"},
+          "model_or_selector": {"$ref": "#/definitions/tiered"},
+          "cost_basis": {"enum": ["marginal_api_cost", "allocated_subscription_cost",
+                                   "provider_reported_cost", "cost_unavailable"]},
+          "usage": {"type": "object"},
+          "marginal_operating_usd": {"$ref": "#/definitions/tiered"},
+          "fully_allocated_usd": {"$ref": "#/definitions/tiered"}
+        }
+      }
     },
-    "wall_clock_seconds": {"$ref": "#/definitions/tiered"}
+    "wall_clock_seconds": {"$ref": "#/definitions/tiered"},
+    "p95_latency_seconds": {"$ref": "#/definitions/tiered"}
   }
 }

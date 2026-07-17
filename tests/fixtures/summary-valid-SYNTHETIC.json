@@ -1,0 +1,84 @@
+{
+  "_fixture": "SYNTHETIC — invented telemetry for unit tests ONLY. Not a real run. Never place under results/.",
+  "run_id": "SYNTHETIC-run-0001",
+  "task_id": "SYNTHETIC-pilot-task",
+  "task_suite_version": "SYNTHETIC-v0",
+  "configuration_id": "C1",
+  "manifest_ref": "SYNTHETIC-manifest@0",
+  "hidden_test_hash": "SYNTHETIC-hash-abc123",
+  "identity": {
+    "product": {"value": "Product A", "confidence": "authoritative"},
+    "provider": {"value": "provider_a", "confidence": "authoritative"},
+    "model_or_selector": {"value": "STRONG_MODEL_A", "confidence": "authoritative"},
+    "product_version": {"value": "SYNTHETIC-1.2.3", "confidence": "authoritative"},
+    "auth_billing_path": {"value": "subscription_seat", "confidence": "authoritative"},
+    "region": {"value": "SYNTHETIC-region", "confidence": "proxy_observed"},
+    "reasoning_config": {"value": "default", "confidence": "authoritative"},
+    "permission_profile": {"value": "restricted", "confidence": "authoritative"},
+    "network_policy": {"value": "offline", "confidence": "authoritative"},
+    "session_state": {"value": "fresh", "confidence": "authoritative"},
+    "cache_state": {"value": "cold", "confidence": "authoritative"}
+  },
+  "usage": {
+    "input_tokens": {"value": 1500, "confidence": "authoritative"},
+    "cache_creation_tokens": {"value": 200, "confidence": "authoritative"},
+    "cache_read_tokens": {"value": 5000, "confidence": "authoritative"},
+    "output_tokens": {"value": 400, "confidence": "authoritative"},
+    "reasoning_tokens": {"value": null, "confidence": "unavailable", "reason": "not exposed separately"},
+    "tool_result_tokens": {"value": null, "confidence": "unavailable", "reason": "folded into input"},
+    "search_ops": {"value": null, "confidence": "unavailable"},
+    "code_exec_usage": {"value": null, "confidence": "unavailable"}
+  },
+  "behavior": {
+    "turns": {"value": 2, "confidence": "derived"},
+    "tool_calls_by_type": {"value": {"Read": 1, "Bash": 1}, "confidence": "derived"},
+    "file_reads": {"value": 1, "confidence": "derived"},
+    "file_read_bytes": {"value": 2048, "confidence": "derived"},
+    "files_modified": {"value": null, "confidence": "unavailable", "reason": "not tracked in event log"},
+    "retries": {"value": 1, "confidence": "derived"},
+    "escalations": {"value": 0, "confidence": "derived"},
+    "subagent_calls": {"value": 0, "confidence": "derived"},
+    "verifier_calls": {"value": 1, "confidence": "derived"},
+    "failures_by_category": {"value": {}, "confidence": "derived"}
+  },
+  "economics": {
+    "cost_basis": "marginal_api_cost",
+    "provider_cost_usd": {"value": 0.0425, "confidence": "derived"},
+    "machine_cost_usd": {"value": null, "confidence": "unavailable"},
+    "marginal_operating_usd": {"value": 0.0425, "confidence": "derived"},
+    "fully_allocated_usd": {"value": 0.0425, "confidence": "derived"},
+    "total_cost_usd": {"value": 0.0425, "confidence": "derived"},
+    "subscription_allocation_basis": {"value": null, "confidence": "unavailable"},
+    "pricing_snapshot": "prices-SYNTHETIC.json"
+  },
+  "human_effort": {
+    "active_minutes": {"value": 3, "confidence": "authoritative"},
+    "review_minutes": {"value": 5, "confidence": "authoritative"},
+    "correction_minutes": {"value": null, "confidence": "unavailable"},
+    "blocked_minutes": {"value": 0, "confidence": "authoritative"}
+  },
+  "acceptance": {
+    "result": "accepted",
+    "gate_checks": {"hidden_tests": "pass", "typecheck": "pass"},
+    "intention_to_route": "P0",
+    "completed_route": "P0"
+  },
+  "legs": [
+    {
+      "leg_id": "main",
+      "role": "solo",
+      "provider": {"value": "provider_a", "confidence": "authoritative"},
+      "model_or_selector": {"value": "STRONG_MODEL_A", "confidence": "authoritative"},
+      "cost_basis": "marginal_api_cost",
+      "usage": {
+        "input_tokens": {"value": 1500, "confidence": "authoritative"},
+        "cache_creation_tokens": {"value": 200, "confidence": "authoritative"},
+        "cache_read_tokens": {"value": 5000, "confidence": "authoritative"},
+        "output_tokens": {"value": 400, "confidence": "authoritative"}
+      },
+      "marginal_operating_usd": {"value": 0.0425, "confidence": "derived"},
+      "fully_allocated_usd": {"value": 0.0425, "confidence": "derived"}
+    }
+  ],
+  "wall_clock_seconds": {"value": 42, "confidence": "authoritative"}
+}

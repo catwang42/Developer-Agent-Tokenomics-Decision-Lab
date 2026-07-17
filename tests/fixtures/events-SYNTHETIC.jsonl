@@ -1,0 +1,9 @@
+{"event_type": "model_call_started", "ts": "SYNTHETIC-T0", "leg": "main"}
+{"event_type": "tool_invoked", "ts": "SYNTHETIC-T1", "tool": "Read"}
+{"event_type": "file_read", "ts": "SYNTHETIC-T2", "path": "src/app.ts", "bytes": 2048}
+{"event_type": "tool_invoked", "ts": "SYNTHETIC-T3", "tool": "Bash"}
+{"event_type": "model_call_completed", "ts": "SYNTHETIC-T4", "leg": "main", "role": "solo", "provider": {"value": "provider_a", "confidence": "authoritative"}, "model_or_selector": {"value": "STRONG_MODEL_A", "confidence": "authoritative"}, "cost_basis": "marginal_api_cost", "usage": {"input_tokens": {"value": 1000, "confidence": "authoritative"}, "cache_creation_tokens": {"value": 200, "confidence": "authoritative"}, "cache_read_tokens": {"value": 5000, "confidence": "authoritative"}, "output_tokens": {"value": 300, "confidence": "authoritative"}}}
+{"event_type": "retry", "ts": "SYNTHETIC-T5", "reason": "SYNTHETIC transient failure"}
+{"event_type": "model_call_completed", "ts": "SYNTHETIC-T6", "leg": "main", "role": "solo", "provider": {"value": "provider_a", "confidence": "authoritative"}, "model_or_selector": {"value": "STRONG_MODEL_A", "confidence": "authoritative"}, "cost_basis": "marginal_api_cost", "usage": {"input_tokens": {"value": 500, "confidence": "authoritative"}, "output_tokens": {"value": 100, "confidence": "authoritative"}}}
+{"event_type": "verifier_call", "ts": "SYNTHETIC-T7", "gate": "hidden_tests"}
+{"event_type": "acceptance", "ts": "SYNTHETIC-T8", "result": "accepted", "gate_checks": {"hidden_tests": "pass", "typecheck": "pass"}, "intention_to_route": "P0", "completed_route": "P0"}
