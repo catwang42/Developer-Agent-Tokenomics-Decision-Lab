@@ -3,6 +3,7 @@ class: small_edit
 status: candidate
 repo: CHOOSE-AT-CP-SCREEN-PREREG   # break-even control: trivial one-file change (expected routing LOSER)
 pinned_commit: PIN-BEFORE-PREREG
+contamination_tier: TBD-AT-PREREG   # depends on repo chosen at CP-SCREEN-PREREG; see tasks/WORKLOAD-SELECTION.md §2
 language: any
 prompt: |
   DRAFT — finalize before pre-registration. Make <small documented change>; nothing else.

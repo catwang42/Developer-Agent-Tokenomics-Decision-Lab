@@ -3,6 +3,7 @@ class: complex_bugfix
 status: candidate
 repo: CHOOSE-AT-CP-SCREEN-PREREG   # candidate: seeded multi-file defect with failing repro test (expected STRONG favorite)
 pinned_commit: PIN-BEFORE-PREREG
+contamination_tier: TBD-AT-PREREG   # depends on repo chosen at CP-SCREEN-PREREG; see tasks/WORKLOAD-SELECTION.md §2
 language: typescript
 prompt: |
   DRAFT — finalize before pre-registration. Failing test <t> reproduces a defect; find root cause and fix; no unrelated diffs.

@@ -3,6 +3,7 @@ class: ""                # test_generation | scaffold_feature | migration | comp
 status: candidate        # candidate -> validated (10-point) -> pre-registered -> run
 repo: ""                 # public repo URL
 pinned_commit: PIN-BEFORE-PREREG
+contamination_tier: TBD-AT-PREREG   # famous | moderate | obscure | post_cutoff (schema-v2 enum); resolved at pre-registration. See tasks/WORKLOAD-SELECTION.md §2.
 language: ""
 prompt: |
   (verbatim task prompt — MUST NOT ask the model to report its own tokens)
