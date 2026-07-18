@@ -1,0 +1,53 @@
+# Pilot task definition (SPEC 2.8). Volatile pins are the source of truth in
+# manifest/delivery-manifest.yaml (pilot_task); this file mirrors them for the
+# harness and adds the task-level acceptance/gate wiring. If the two disagree,
+# the manifest wins (tests/test_pilot_task.py enforces consistency).
+task_id: pilot-realworld-missing-user-id
+task_suite_version: pilot-v1
+class: complex_bugfix          # single-file root-cause fix behind a data-layer selection
+status: candidate              # -> validated once validate.sh reports 10/10 at CP-TASK
+
+# Source (commit-mined, WORKLOAD-SELECTION.md 4)
+repo: https://github.com/gothinkster/node-express-realworld-example-app
+pinned_commit: 88b258ce54aaf54ff52511ba26edd52e36df201e
+canonical_fix_commit: 30b68e1e881462b2f4164ea09ab4c4f5699c7b0b
+license: MIT
+contamination_tier: famous     # schema-v2 identity.contamination_tier
+
+# What the agent is asked to do (participant-visible prompt). It must NOT be
+# asked to report its own token usage (CLAUDE.md rule 2).
+prompt: |
+  The `getCurrentUser` service returns the authenticated user's profile, but the
+  returned object is missing the user's `id` and the issued JWT is signed with an
+  undefined id. Find the root cause and fix it so the current user's numeric id is
+  retrieved from the data layer and carried through to the response and token.
+  Change only what is necessary; do not introduce unrelated diffs.
+
+# Files
+target_path: src/app/routes/auth/auth.service.ts
+canonical_patch: canonical/fix-missing-user-id.patch
+
+# Acceptance gate (SPEC 2.6 deterministic-first; hidden test is authoritative)
+gate:
+  public: gate/check-public.sh          # visible deterministic-first checks
+  hidden: gate/check-hidden.sh          # sealed hidden tests, hash recorded per run
+  reset: reset.sh
+
+# Baseline test scope. The upstream auth suite imports the service before the
+# Prisma mock registers, so it hits a real DB and fails without a live Postgres
+# (a pre-existing upstream bug, reproduced at pinned_commit and at HEAD). The
+# pilot's deterministic-first baseline is therefore the hermetic, DB-free unit
+# suites; the DB-dependent auth integration suite is out of the pilot's hermetic
+# scope. See README.md.
+baseline_test_scope: hermetic_db_free
+baseline_test_pattern: "article|profile|utils"
+
+# Static checks included in the public gate (only checks that pass on the clean
+# canonical solution are admissible acceptance signals). eslint/prettier are
+# excluded because the upstream tree is not clean under them at pinned_commit, so
+# they would fail regardless of the agent's work. See README.md.
+static_checks: [typecheck, build]
+
+expected_wallclock_s: null       # measured in Phase 3 feasibility; never fabricated
+configurations: [C1, C2, P0, P1]
+reps_feasibility: 3

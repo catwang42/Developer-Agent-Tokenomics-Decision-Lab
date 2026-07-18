@@ -1,0 +1,9 @@
+# Keep the pilot-validate build context small and hermetic.
+.git/
+.venv/
+site/
+node_modules/
+**/__pycache__/
+tasks/pilot-realworld/.work/
+tasks/hidden/
+results/

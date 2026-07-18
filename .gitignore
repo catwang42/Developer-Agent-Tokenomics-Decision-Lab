@@ -4,7 +4,13 @@ __pycache__/
 node_modules/
 site/
 results/cohort/
-tasks/hidden/
+# Ignore the CONTENTS of tasks/hidden/ (sealed, human-held) but keep the dir so
+# the human-authoring instructions can be tracked (can't re-include a file whose
+# parent dir is fully excluded).
+tasks/hidden/*
+!tasks/hidden/README-FOR-HUMAN.md
+# Pilot subject repo is cloned here at runtime; never committed.
+tasks/pilot-realworld/.work/
 *.secret
 .env
 .DS_Store

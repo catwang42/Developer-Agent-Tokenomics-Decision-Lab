@@ -9,3 +9,15 @@ configurations:
   PRODUCT_B_ECON_TIER: {provider: TBD, product_surface: product_blackbox, selector_label: "verbatim label from product", model_id: null}
   PRODUCT_B_STRONG_TIER: {provider: TBD, product_surface: product_blackbox, selector_label: "verbatim label from product", model_id: null}
 notes: record selector labels verbatim; never infer unguaranteed backend model IDs (SPEC 6.3)
+
+# Pinned pilot task (Phase 2). Commit-mined per tasks/WORKLOAD-SELECTION.md 4:
+# the task is to re-implement the change introduced by canonical_fix_commit,
+# starting from pinned_commit (its parent). Concrete SHAs live here only.
+pilot_task:
+  task_id: pilot-realworld-missing-user-id
+  repo: https://github.com/gothinkster/node-express-realworld-example-app
+  pinned_commit: 88b258ce54aaf54ff52511ba26edd52e36df201e   # parent of the fix; bug present pre-modification
+  canonical_fix_commit: 30b68e1e881462b2f4164ea09ab4c4f5699c7b0b   # upstream "fix: missing user id" we commit-mine
+  license: MIT
+  contamination_tier: famous   # see tasks/pilot-realworld/README.md; SPEC 5.2 / WORKLOAD-SELECTION 2
+  baseline_test_scope: hermetic_db_free   # upstream auth suite needs a live DB (import-order bug); see README
