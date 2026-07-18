@@ -29,8 +29,8 @@ prune_find() {
        -o -path './site' \
        -o -path '*/__pycache__*' \
        -o -path './results/cohort' \
-       -o -path './tasks/hidden' \
-       -o -path './tasks/pilot-realworld/.work' \) -prune \
+       -o -path '*/hidden' \
+       -o -path '*/.work' \) -prune \
     -o -type f "$@" -print0
 }
 
