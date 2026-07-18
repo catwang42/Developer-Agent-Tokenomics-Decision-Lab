@@ -27,11 +27,19 @@ Driven by the shared harness (`harness/task-tools/`):
 
 - **`gate/check-public.sh`** — visible checks: `P1` public feature test · `P2`
   DB-free regression suites · `P3` typecheck · `P4` build · `P5` no-leakage ·
-  `P6` diff-scope (only the two allowed paths).
+  `P6` diff-scope (only the two allowed PRODUCT paths).
 - **`gate/check-hidden.sh`** — sealed, authoritative. Loads human-held tests from
   `tasks/pilot-realworld/hidden/` (gitignored), records their `sha256`
   version+hash, runs them, removes them. `AWAITING_HUMAN` until authored
   (`hidden/README-FOR-HUMAN.md`).
+
+**Test integrity.** The agent cannot pass by editing tests: `target_paths` is
+product-only so P6 fails on any test-file edit; the gate restores all test files to
+pristine before grading; the public test is re-injected fresh; hidden tests never
+enter the agent's tree. The one required-typed-field type-compat edit to the
+existing article suite lives in a **harness-owned** `gate/test-compat.patch`
+(`*.test.ts` only), applied by the gate after the restore — not part of the
+solution. See `harness/task-tools/README.md` §"Test integrity".
 
 ### Pre-modification failure for a feature (SPEC §2.8)
 

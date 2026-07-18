@@ -76,6 +76,40 @@ class TaskInvariants(unittest.TestCase):
             self.assertTrue((d / task["public_test"]).exists(),
                             f"{d.name}: missing public_test {task['public_test']}")
 
+    def test_canonical_patch_touches_no_test_files(self) -> None:
+        # Anti-gaming: the agent's canonical solution is product code only; test
+        # files are never part of the solution (they are restored/harness-owned).
+        for d, task in self._tasks():
+            patch = (d / task["canonical_patch"]).read_text(encoding="utf-8")
+            for line in patch.splitlines():
+                if line.startswith(("+++ ", "--- ", "diff --git")):
+                    self.assertNotIn(".test.ts", line,
+                                     f"{d.name}: canonical patch must not touch test files")
+                    self.assertNotIn(".spec.ts", line,
+                                     f"{d.name}: canonical patch must not touch test files")
+
+    def test_target_paths_are_not_test_files(self) -> None:
+        # Agent-allowed diff scope must not include any test file.
+        for d, task in self._tasks():
+            for t in task["target_paths"]:
+                self.assertNotIn(".test.ts", t, f"{d.name}: target_paths includes a test file")
+                self.assertNotIn(".spec.ts", t, f"{d.name}: target_paths includes a test file")
+
+    def test_compat_patch_touches_only_test_files(self) -> None:
+        # If a task ships a harness-owned type-compat shim, it may touch ONLY
+        # *.test.ts / *.spec.ts (the single documented exception, mechanically bounded).
+        for d, task in self._tasks():
+            rel = task.get("test_compat_patch")
+            if not rel:
+                continue
+            patch = (d / rel).read_text(encoding="utf-8")
+            for line in patch.splitlines():
+                if line.startswith("diff --git"):
+                    self.assertTrue(
+                        (".test.ts" in line) or (".spec.ts" in line),
+                        f"{d.name}: test_compat_patch touches a non-test file: {line}",
+                    )
+
     def test_hidden_dir_has_readme_but_no_committed_tests(self) -> None:
         for d, _ in self._tasks():
             hidden = d / "hidden"

@@ -14,7 +14,19 @@
 #   P3 type checking              : tsc --noEmit passes
 #   P4 build                      : the app compiles (nx build)
 #   P5 no leakage                 : no canonical patch / solution markers in tree
-#   P6 diff scope                 : only the allowed path(s) changed vs the pin
+#   P6 diff scope                 : only the allowed PRODUCT path(s) changed vs pin
+#
+# Anti-gaming (the agent cannot pass by editing tests):
+#   * target_paths lists PRODUCT files only; P6 fails on ANY test-file edit.
+#   * before grading, ALL test files are restored to their pinned version
+#     (tracked edits discarded, untracked test files removed), so agent edits to
+#     existing/baseline tests never reach P1/P2/P3/P4.
+#   * the public test is (re)injected fresh from the task definition.
+#   * an optional harness-owned test_compat_patch (type-compat only, NOT
+#     agent-authored) is applied AFTER the restore so the immutable baseline suite
+#     compiles against a schema change.
+#   * hidden tests live outside the subject repo and are injected only by
+#     check-hidden.sh, never present in the tree the agent sees.
 #
 # Exit 0 iff every check passes. With GATE_REPORT set, also writes a JSON array.
 set -uo pipefail
@@ -27,6 +39,8 @@ PUBLIC_TEST="$TASK_DIR/$(task_field public_test)"
 PUBLIC_DST="$SUBJECT_DIR/src/tests/services/$(basename "$PUBLIC_TEST")"
 BASELINE_PATTERN="$(task_field baseline_test_pattern)"
 mapfile -t TARGET_PATHS < <(task_list target_paths)
+# Optional harness-owned type-compat shim (empty if the task declares none).
+COMPAT_PATCH_REL="$(task_field test_compat_patch 2>/dev/null || true)"
 
 ids=(); statuses=(); details=()
 record() { ids+=("$1"); statuses+=("$2"); details+=("$3"); }
@@ -58,7 +72,21 @@ done <<< "$changed"
 if [ -z "${unexpected// /}" ]; then
   mark P6-diff-scope "only allowed path(s) changed vs pin" 0
 else
-  mark P6-diff-scope "unexpected changes:$unexpected" 1
+  mark P6-diff-scope "unexpected changes (incl. any test-file edit):$unexpected" 1
+fi
+
+# --- Restore tests to pristine, then apply harness-owned type-compat shim ------
+# Diff-scope has already judged the agent's tree; now neutralise any test-file
+# tampering before grading. Restore tracked test files to the pinned version and
+# remove untracked ones (e.g. an agent-added test), so P1/P2/P3/P4 run against
+# tests the agent cannot influence.
+git -C "$SUBJECT_DIR" checkout -q -- src/tests 2>/dev/null || true
+git -C "$SUBJECT_DIR" clean -fdq -- src/tests 2>/dev/null || true
+# Apply the type-compat shim (touches only *.test.ts) so the immutable baseline
+# suite compiles against a schema change. Not agent-authored, not agent-modifiable.
+if [ -n "$COMPAT_PATCH_REL" ] && [ -f "$TASK_DIR/$COMPAT_PATCH_REL" ]; then
+  git -C "$SUBJECT_DIR" apply "$TASK_DIR/$COMPAT_PATCH_REL" \
+    || echo "  WARN  test_compat_patch failed to apply" >&2
 fi
 
 # P5 no leakage: no planted answer markers, and no stray patch files, in the tree.

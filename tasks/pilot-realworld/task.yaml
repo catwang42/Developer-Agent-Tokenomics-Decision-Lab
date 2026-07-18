@@ -25,17 +25,21 @@ prompt: |
   with the existing Prisma/service patterns; no unrelated diffs.
 
 # Acceptance gate (SPEC 2.6 deterministic-first; hidden test is authoritative).
-canonical_patch: canonical/draft-articles.patch
+canonical_patch: canonical/draft-articles.patch   # PRODUCT code only (no test files)
 public_test: tests/draft-articles.public.test.ts
 public_test_desc: Draft articles feature spec (create persists draft; list excludes drafts)
 public_test_kind: feature   # pre-mod failure: field/behaviour absent on unmodified repo (SPEC 2.8)
+# Agent-allowed diff scope: PRODUCT files only. The gate restores all test files to
+# pristine before grading and forbids any agent edit to a test file (diff-scope),
+# so a solution cannot pass by weakening tests.
 target_paths:
   - src/app/routes/article/article.service.ts
   - src/prisma/schema.prisma
-  # The new `draft` field is required-typed in the generated Prisma client, so the
-  # existing article suite's result mocks must gain `draft` — as a real feature PR
-  # would. Allowed for this task; the sealed hidden tests remain authoritative.
-  - src/tests/services/article.service.test.ts
+# Harness-owned type-compat shim (NOT part of the agent's solution, NOT agent-
+# modifiable). The new `draft` field is required-typed in the generated Prisma
+# client, so the immutable baseline suite's result mocks need `draft` to compile.
+# The gate applies this AFTER restoring tests to pristine; it touches only *.test.ts.
+test_compat_patch: gate/test-compat.patch
 
 # Baseline scoped to hermetic DB-free suites (upstream auth suite needs a live DB;
 # see harness/task-tools/README.md and tasks/WORKLOAD-SELECTION.md).
