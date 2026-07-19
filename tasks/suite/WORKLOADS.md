@@ -12,14 +12,14 @@ this is a paper roster. Any live run requires **CP-SPEND**.
 
 | Task | Class | Gate type | Contamination tier | Pinning status |
 |---|---|---|---|---|
-| Pilot (RealWorld) | feature_implementation | Deterministic: hidden feature tests (schema + endpoint) | `famous` | Candidate; pins at 10-point validation (Phase 2, SPEC §2.8) |
-| F1 | feature_implementation | Feature gate (schema + endpoint checks) | `famous` | = pilot RealWorld task (reuse) |
-| F2 | complex_bugfix | Bugfix gate (failing repro → green, no unrelated diffs) | TBD-AT-PREREG | = W4 candidate (reuse); pin at CP-SCREEN-PREREG |
+| Pilot (RealWorld) | feature_implementation | Deterministic: hidden feature tests (Draft articles: schema + list filter) | `famous` | **Pinned** `30b68e1`; 10-point validated (Phase 2, SPEC §2.8) |
+| F1 | feature_implementation | Feature gate (schema + endpoint checks) | `famous` | = pilot RealWorld Draft-articles task (reuse) |
+| F2 | complex_bugfix | Bugfix gate (failing repro → green, no unrelated diffs) | `famous` | = W4 (reuse); **pinned** `88b258c`, commit-mined exemplar |
 | F3 | test_generation | Coverage-delta gate | TBD-AT-PREREG | = W1 candidate (reuse); pin at CP-SCREEN-PREREG |
 | W1 | test_generation | Coverage-delta gate (branch coverage ≥ target, existing tests green) | TBD-AT-PREREG | CHOOSE-AT-CP-SCREEN-PREREG |
 | W2 | scaffold_feature | Deterministic: hidden feature/integration tests | TBD-AT-PREREG | CHOOSE-AT-CP-SCREEN-PREREG |
 | W3 | migration | Behavior-parity: all tests green + lint clean, zero behavior change | TBD-AT-PREREG | CHOOSE-AT-CP-SCREEN-PREREG |
-| W4 | complex_bugfix | Bugfix gate (failing repro → green, no unrelated diffs) | TBD-AT-PREREG | CHOOSE-AT-CP-SCREEN-PREREG |
+| W4 | complex_bugfix | Bugfix gate (failing repro → green, no unrelated diffs) | `famous` (1st task) | **Pinned** `88b258c` (commit-mined exemplar); 2nd task obscure/post_cutoff at CP-SCREEN-PREREG |
 | W5 | small_edit | Deterministic small-change check (break-even control) | TBD-AT-PREREG | CHOOSE-AT-CP-SCREEN-PREREG |
 | W6 | code_review | Deterministic scoring vs sealed seeded-defect map (≥ k−1 found, 0 fabricated) | TBD-AT-PREREG | CHOOSE-AT-CP-SCREEN-PREREG |
 | W7 | greenfield_build | Deterministic: clean build + sealed PRD acceptance tests | TBD-AT-PREREG | CHOOSE-AT-CP-SCREEN-PREREG |

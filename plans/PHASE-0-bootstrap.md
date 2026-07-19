@@ -16,3 +16,11 @@
 - [ ] shellcheck clean; all JSON/YAML valid; mkdocs build --strict clean
 - [ ] PR opened with evidence pasted
 **Checkpoint:** none (hygiene only).
+
+## Backlog (deferred hygiene)
+- **Pin the shellcheck version between local and CI.** CI installs shellcheck via
+  `apt-get` (ubuntu-latest → 0.9.x), which introduced diagnostics absent from older
+  local versions (e.g. 0.7.1) — SC2317 "unreachable" on trap-only handlers, later
+  renamed SC2329 in 0.11.x. This surfaced as a Phase 2 CI failure not reproducible
+  locally. Fix: pin a fixed shellcheck version in ci.yml (and document/match it for
+  local dev), so `shellcheck` clean means the same thing in both places.

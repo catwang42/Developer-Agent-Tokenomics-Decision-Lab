@@ -24,12 +24,13 @@ PYTHON="$ROOT/.venv/bin/python"
 prune_find() {
   find . \
     \( -path './.git' \
-       -o -path './node_modules' \
+       -o -path '*/node_modules' \
        -o -path './.venv' \
        -o -path './site' \
        -o -path '*/__pycache__*' \
        -o -path './results/cohort' \
-       -o -path './tasks/hidden' \) -prune \
+       -o -path '*/hidden' \
+       -o -path '*/.work' \) -prune \
     -o -type f "$@" -print0
 }
 

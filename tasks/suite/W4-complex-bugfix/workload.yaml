@@ -1,14 +1,23 @@
 workload_id: W4
 class: complex_bugfix
-status: candidate
-repo: CHOOSE-AT-CP-SCREEN-PREREG   # candidate: seeded multi-file defect with failing repro test (expected STRONG favorite)
-pinned_commit: PIN-BEFORE-PREREG
-contamination_tier: TBD-AT-PREREG   # depends on repo chosen at CP-SCREEN-PREREG; see tasks/WORKLOAD-SELECTION.md §2
+status: pinned-candidate   # commit-mined exemplar pinned in Phase 2; screening reps run after CP-SCREEN-PREREG
+# Pinned now (Phase 2) as the first commit-mining exemplar and the F2 feasibility
+# bugfix. Full task definition + harness wiring: tasks/suite/W4-complex-bugfix/task.yaml.
+# Volatile pins are authoritative in manifest/delivery-manifest.yaml (w4_task).
+repo: https://github.com/gothinkster/node-express-realworld-example-app
+pinned_commit: 88b258ce54aaf54ff52511ba26edd52e36df201e
+canonical_fix_commit: 30b68e1e881462b2f4164ea09ab4c4f5699c7b0b
+contamination_tier: famous   # documented; see README.md and tasks/WORKLOAD-SELECTION.md §2-§3
 language: typescript
 prompt: |
-  DRAFT — finalize before pre-registration. Failing test <t> reproduces a defect; find root cause and fix; no unrelated diffs.
-gate: {public: gate/check-public.sh, hidden: recorded-by-hash-at-run, reset: reset.sh}
+  See task.yaml. getCurrentUser omits the user id in its Prisma select; fix the
+  root cause so the id flows to the response and token. No unrelated diffs.
+gate: {public: harness/task-tools/gate/check-public.sh, hidden: recorded-by-hash-at-run, reset: harness/task-tools/reset.sh}
 expected_wallclock_s: null
 configurations: [C1, C2, C3, C5]
 reps_screening: 3
+# Class-level W4 claims still require a SECOND, materially different task at tier
+# obscure or post_cutoff (SPEC §5.2 / WORKLOAD-SELECTION §3) — this famous task is
+# a screening signal only. Preferred sourcing: commit-mine a post-cutoff PR (§4).
+second_task_for_class_claim: REQUIRED-obscure-or-post_cutoff-CHOOSE-AT-CP-SCREEN-PREREG
 preregistration: TBD

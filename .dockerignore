@@ -1,0 +1,10 @@
+# Keep the task-validate build context small and hermetic.
+.git/
+.venv/
+site/
+node_modules/
+**/__pycache__/
+# Per-task subject-repo clones and sealed hidden tests never enter the image.
+**/.work/
+**/hidden/
+results/
