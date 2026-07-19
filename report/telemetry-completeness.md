@@ -26,17 +26,65 @@ Run commit `d3e1b99`+ (harness through `e1ce9e9`); task suite `17b9990`.
 - **Total realized spend: $5.23** (marginal, event-log-derived; global endpoint).
   Well under the $60 ceiling; the kill-switch never needed to fire.
 
+## 1.5 Batch-1 validity — ROOT CAUSE of 0/25 acceptance (post-CP-DATA-review)
+
+CP-DATA review flagged the 0/25 acceptance. Investigation (no spend) classifies
+**all 25 runs as NO_WRITE — a harness defect, not model failure or a real finding.**
+
+**Root cause:** both adapters invoked their CLI in headless mode **without tool
+auto-approval**. In headless mode there is no interactive approver, so the default
+permission mode allows read-only tools but **silently denies Edit/Write/Bash**. The
+agent reads the repo and reasons, but cannot apply edits → **empty diff** → the gate
+correctly reports the feature absent.
+- `claude_code` `build_command` passed no permission flag (fix: add
+  `--dangerously-skip-permissions`).
+- `agy` `build_command` used `--select` (not a valid flag in agy 1.1.4; model
+  selection is `--model`) **and** no auto-approve (fix: `--model <verbatim label>`
+  + `--dangerously-skip-permissions`).
+
+**Evidence (sample ≥6 across configs; full table classifies 25/25 = NO_WRITE):**
+
+| Run | Agent read repo? (cache_read) | Output | Gate P1 (feature) | Diff | Class |
+|---|---|---|---|---|---|
+| F1·P0·rep1 | yes — 298,865 | 2,364 | fail | empty* | NO_WRITE |
+| F1·C2·rep1 | yes — 147,132 | 3,775 | fail | empty* | NO_WRITE |
+| F1·P1·rep1 (2 legs) | yes — 518,534 | 4,956 | fail (both legs) | empty* | NO_WRITE |
+| F1·C1·rep1 (warm) | yes — 238,969 | 2,346 | fail | empty* | NO_WRITE |
+| F1·C5·rep1 (conductor) | yes — 412,791 | 2,985 | fail | empty* | NO_WRITE |
+| F1·C3·rep1 (Product B) | unavailable | unavailable | fail | empty* | NO_WRITE |
+
+`*` The gate records no changed files list, so "empty" is inferred from the joint
+signature: **P3-typecheck + P4-build + P2-regression PASS** (pristine tree compiles)
+while **P1-feature FAILs** and **P6-diff-scope passes trivially** (no unexpected
+paths) — i.e. an unmodified tree. Corroborated by the token profile (every Product A
+leg read 100K–1.3M cache tokens — read tools work — with no accepted solution) and
+by the structural defect (no auto-approve flag → edits *could not* be applied).
+**No run was WRONG_SOLUTION or GATE_ERROR** (no real diffs exist to show).
+
+**Diagnostic gap (also fixed):** the pre-fix `claude_code` adapter did not record
+`num_turns` / `permission_denials`, so per-run denial counts can't be shown from the
+stored artifacts. The fix now stamps `num_turns`, `permission_denials`, `is_error`,
+`subtype`, `result_chars`, and `product_reported_cost_usd` on `model_call_completed`,
+so revalidation runs are self-diagnosing (a NO_WRITE recurrence would show
+`permission_denials > 0` / `num_turns == 1`).
+
+**Consequence for the criteria below:** the telemetry *plumbing* criteria (1, 2, 4,
+7) were exercised correctly — they faithfully captured what happened — but they were
+exercised on **no-write runs**, and the agent-execution + acceptance path was never
+exercised on a real solution. **The instrument is NOT yet declared working; a
+revalidation batch (mini CP-SPEND, §6) is required.**
+
 ## 2. Pass/fail criteria (protocol §"Pass/fail criteria")
 
 | # | Criterion | Result | Verdict |
 |---|---|---|---|
-| 1 | Validator passes; zero zero-fills | **25/25** summaries + event logs valid; 0 zero-fills | ✅ PASS |
-| 2 | Cost reconstruction w/o self-report | **25/25** costed from token metadata only; C1/C2 every usage field authoritative; product unavailable fields enumerated | ✅ PASS |
-| 3 | Harness stability | **0 crashes**; reset determinism identical (F1: 1 hash/16 runs, F2: 1 hash/9); gate reproducibility from Phase 2 validation reports | ✅ PASS |
-| 4 | Escalation telemetry | **6/6** P1 runs record ITR + CR + both leg costs incl. failed attempt | ✅ PASS |
-| 5 | Metric computability | ECST, QA-ECST-by-class, HEAC, both cost views compute end-to-end (`harness/evaluator/metrics.py`) | ✅ PASS |
+| 1 | Validator passes; zero zero-fills | **25/25** summaries + event logs valid; 0 zero-fills | ✅ PASS (plumbing) |
+| 2 | Cost reconstruction w/o self-report | **25/25** costed from token metadata only; C1/C2 every usage field authoritative; product unavailable fields enumerated | ✅ PASS (plumbing) |
+| 3 | Harness stability | **0 crashes**; reset determinism identical (F1: 1 hash/16 runs, F2: 1 hash/9); gate reproducibility from Phase 2. BUT a harness *defect* (no-write, §1.5) invalidated the run outcomes | ⚠️ **DEFECT FOUND** (fixed; revalidation pending) |
+| 4 | Escalation telemetry | **6/6** P1 runs record ITR + CR + both leg costs incl. failed attempt (mechanics correct, though on no-write legs) | ✅ PASS (plumbing) |
+| 5 | Metric computability | pipeline computes end-to-end (`harness/evaluator/metrics.py`), but ECST/HEAC have **not been exercised on any accepted run** (0/25 accepted) | 🟡 **PARTIAL** (pending an accepted run in revalidation) |
 | 6 | Human effort | rubric timings for the 9-run subset | ⏳ **PENDING** (human reviewer time; not fabricated) |
-| 7 | Cache | warm-series shows cache_read capture + costing delta vs naive | ✅ PASS |
+| 7 | Cache | warm-series shows cache_read capture + costing delta vs naive | ✅ PASS (plumbing) |
 
 **Stop condition (self-report):** NOT triggered — every controlled run's cost is
 reconstructed from provider token metadata (`claude -p --output-format json`
@@ -131,22 +179,45 @@ and report medians with IQR, not means; re-assess after batch 2 adds F3.
 
 ## 6. Go / No-Go
 
-**GO for Phase 4 screening design — conditional**, on the measurement system:
-the instrument is proven on 25 runs across 2 gate types — validator 25/25, cost
-reconstructed without self-report, escalation + cache telemetry captured, metrics
-compute. Conditions before screening runs execute:
-1. **Batch 2 (F3 / W1 test-generation)** completes the 27 and the third gate type
-   (own mini CP-SPEND), before the full-suite go/no-go is final.
-2. **Criterion 6 (human-effort subset)** — human reviewers record the 9-run rubric
-   timings + inter-reviewer spread (no model spend). HEAC stays `unavailable` until
-   then.
+**NO-GO for Phase 4 pending revalidation.** The telemetry pipeline is sound
+(criteria 1,2,4,7 plumbing PASS; metrics compute), but batch 1's runs were all
+NO_WRITE (§1.5) — the agent-execution + acceptance path was never exercised. The
+adapter defects are **fixed with tests** (auto-approve tools + self-diagnosing
+telemetry), but the fix is **unproven on live runs**.
+
+**Proposed revalidation — mini CP-SPEND (Product A only):**
+
+| Cell | Runs | Purpose |
+|---|---|---|
+| F1 × P0 × 2 (cold) | 2 | strong single-model; expect non-empty diff, `num_turns`>1 |
+| F2 × C2 × 1 (cold) | 1 | economical, second task/gate type |
+| (optional) F1 × P1 × 1 | 1 | escalation path with real gate outcomes |
+
+Est. **~$3–6** (a-priori; per §5 dispersion), under a `--spend-cap-usd` guard.
+**Pass = ≥1 run produces a non-empty diff with `permission_denials == 0` and
+`num_turns > 1`, and at least one run is `accepted`** (so ECST/HEAC compute on a
+finite value, closing criterion 5). If runs still fail *with real diffs*, that is a
+genuine WRONG_SOLUTION finding, not a harness defect. A separate Product B mini-batch
+revalidates the `agy` fix (its tokens remain black-box regardless).
+
+**Once revalidation passes, remaining conditions before screening runs:**
+1. **Batch 2 (F3 / W1 test-generation)** completes the 27 and the third gate type.
+2. **Criterion 6 (human-effort subset)** — human reviewers record 9-run rubric
+   timings + inter-reviewer spread (no model spend). HEAC stays `unavailable` until.
 3. **Rep count** raised per §5 for high-variance cells.
-4. Product B remains in the **black-box/proxy tier** with §4 limitations; no metric
-   requiring its tokens is treated as authoritative.
+4. Product B remains in the **black-box/proxy tier** with §4 limitations.
+
+**Note on batch-1 spend:** the $5.23 already spent bought no valid task outcomes
+(all NO_WRITE), but did validate the telemetry pipeline and surface three harness
+defects (UUID session ids, no-write permissions, agy flags) before screening — a
+cheap, worthwhile failure.
 
 ## 7. What CP-DATA gates
 
-Acceptance of this report unblocks Phase 4 **screening design** (not screening
-runs, which need CP-SCREEN-PREREG). No number here appears in any docs/site/report
-until **CP-FINDINGS**. All figures are internal, NON-COMPARATIVE feasibility
-telemetry.
+This report does **not** yet clear CP-DATA for Phase 4: it documents a NO-GO with a
+root cause, an implemented fix, and a revalidation plan (§6). CP-DATA acceptance of
+*this amended report* authorizes the **mini revalidation CP-SPEND** (§6); the
+telemetry-completeness sign-off that unblocks Phase 4 **screening design** follows a
+passing revalidation (and is separate from CP-SCREEN-PREREG / screening runs). No
+number here appears in any docs/site/report until **CP-FINDINGS**. All figures are
+internal, NON-COMPARATIVE feasibility telemetry.

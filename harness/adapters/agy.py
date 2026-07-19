@@ -39,10 +39,15 @@ DEFAULT_TIMEOUT_S = 1800
 def build_command(prompt: str, selector_label: str) -> List[str]:
     """Build the headless ``agy`` command (pure; no execution).
 
-    ``selector_label`` is passed through verbatim; we never translate it to a
-    backend model id.
+    ``selector_label`` is passed through verbatim via ``--model`` (agy's model
+    selector IS the human label, e.g. "Gemini 3.5 Flash (High)", per ``agy
+    models``); we never translate it to a backend model id.
+    ``--dangerously-skip-permissions`` auto-approves tool use so the headless agent
+    can actually modify files (without it the agent cannot write — empty diff).
+    ``--print`` runs a single prompt non-interactively.
     """
-    return ["agy", "run", "--select", selector_label, "--prompt", prompt]
+    return ["agy", "run", "--dangerously-skip-permissions",
+            "--model", selector_label, "--print", prompt]
 
 
 def usage_from_agy_json(obj: Optional[Dict[str, Any]]) -> Dict[str, Any]:

@@ -58,6 +58,12 @@ def build_command(prompt: str, model_id: str, *, session_id: Optional[str] = Non
         "claude", "-p", prompt,
         "--model", model_id,
         "--output-format", "json",
+        # Headless mode has no interactive approver, so the DEFAULT permission mode
+        # silently denies Edit/Write/Bash — the agent can read+reason but cannot
+        # modify files (empty diff -> every task fails). Auto-approve tools so the
+        # agent has full agentic capability in the isolated, reset-per-run subject
+        # repo (SPEC 1.3 — workshop-owned; sandboxed, so bypass is appropriate).
+        "--dangerously-skip-permissions",
     ]
     if resume and session_id:
         cmd += ["--resume", session_id]
@@ -167,14 +173,21 @@ class ClaudeCodeAdapter(Adapter):
             return AttemptOutcome(identity=_identity(r))
 
         resolved = resolved_model_version(payload, requested=r.model_or_selector)
-        # Provenance in the immutable log: what we asked for vs what actually
-        # served (and the full set of metered model ids), stamped on the existing
-        # completed event (no new event type — CP-SCHEMA respected). unavailable,
-        # never zero/blank, if not exposed.
+        # Provenance + self-diagnosis in the immutable log: what we asked for vs what
+        # served, plus the agentic-execution signals that distinguish a real coding
+        # attempt from a no-write run (num_turns, permission_denials, is_error). All
+        # on the existing completed event (no new event type — CP-SCHEMA respected).
         emit("model_call_completed", usage=usage_from_claude_json(payload),
              requested_selector=r.model_or_selector,
              resolved_model_version=resolved or "unavailable",
-             model_usage_keys=_model_usage_keys(payload), **leg_meta)
+             model_usage_keys=_model_usage_keys(payload),
+             num_turns=payload.get("num_turns"),
+             permission_denials=len(payload.get("permission_denials") or []),
+             is_error=payload.get("is_error"),
+             subtype=payload.get("subtype"),
+             result_chars=len(payload.get("result") or ""),
+             product_reported_cost_usd=payload.get("total_cost_usd"),
+             **leg_meta)
         return AttemptOutcome(identity=_identity(r, resolved_version=resolved))
 
 

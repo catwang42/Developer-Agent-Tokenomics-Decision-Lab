@@ -85,6 +85,22 @@ class CommandConstruction(unittest.TestCase):
         self.assertIn("--resume", warm)
         self.assertNotIn("--session-id", warm)
 
+    def test_auto_approves_tools_so_agent_can_write(self) -> None:
+        # Without this flag the headless agent cannot Edit/Write (root cause of the
+        # batch-1 0/25 no-write failures).
+        self.assertIn("--dangerously-skip-permissions", cc.build_command("p", "m"))
+
+
+class AgyCommandConstruction(unittest.TestCase):
+    def test_model_is_verbatim_selector_and_tools_auto_approved(self) -> None:
+        from harness.adapters import agy
+        cmd = agy.build_command("do it", "Gemini 3.5 Flash (High)")
+        self.assertIn("--dangerously-skip-permissions", cmd)
+        # selector passed verbatim via --model (never a backend id), prompt via --print
+        i = cmd.index("--model")
+        self.assertEqual(cmd[i + 1], "Gemini 3.5 Flash (High)")
+        self.assertNotIn("--select", cmd)
+
 
 if __name__ == "__main__":
     unittest.main()
