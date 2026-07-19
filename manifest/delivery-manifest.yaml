@@ -1,14 +1,50 @@
 # Dated delivery manifest — the ONLY place volatile names/prices resolve (SPEC 1.4)
-delivery_date: YYYY-MM-DD
+# Resolved for the Phase 3 feasibility batch-1 delivery. Pending CP-SPEND approval.
+delivery_date: 2026-07-19
 cohort: pilot
-pricing_snapshot: pricing/prices-YYYY-MM-DD.json
-task_suite_commit: TBD
+pricing_snapshot: pricing/prices-2026-07-19.json
+task_suite_commit: TBD   # set to the batch-1 run commit at CP-SPEND
 configurations:
-  STRONG_MODEL_A:      {provider: TBD, product_surface: controlled_api, model_id: EXACT-VERSIONED-ID, region: TBD}
-  ECONOMICAL_MODEL_A:  {provider: TBD, product_surface: controlled_api, model_id: EXACT-VERSIONED-ID, region: TBD}
-  PRODUCT_B_ECON_TIER: {provider: TBD, product_surface: product_blackbox, selector_label: "verbatim label from product", model_id: null}
-  PRODUCT_B_STRONG_TIER: {provider: TBD, product_surface: product_blackbox, selector_label: "verbatim label from product", model_id: null}
-notes: record selector labels verbatim; never infer unguaranteed backend model IDs (SPEC 6.3)
+  # Controlled API (Product A = Claude Code) on Google Vertex, project
+  # vital-octagon-19612. model_id values are the EXACT Vertex publisher model IDs
+  # verified available & GA on 2026-07-19 (gcloud publisher-models list, us-central1).
+  # NOTE: claude-sonnet-4-6 exposes only the floating '@default' version alias (no
+  # dated snapshot) — a reproducibility caveat recorded per SPEC 6.3; the routed
+  # build behind @default is not guaranteed stable across the batch.
+  STRONG_MODEL_A:
+    provider: google_vertex
+    product_surface: controlled_api
+    model_id: claude-sonnet-4-6@default
+    region: us-central1
+    cost_basis: marginal_api_cost
+  ECONOMICAL_MODEL_A:
+    provider: google_vertex
+    product_surface: controlled_api
+    model_id: claude-haiku-4-5@20251001
+    region: us-central1
+    cost_basis: marginal_api_cost
+  # Product B (Antigravity CLI, `agy`) black-box. selector_label recorded VERBATIM;
+  # backend model_id NEVER inferred (SPEC 6.3). Marginal PAYG priced via the mapped
+  # Gemini published rates in the pricing snapshot, keyed by the verbatim label.
+  PRODUCT_B_ECON_TIER:
+    provider: google
+    product_surface: product_blackbox
+    selector_label: "Gemini 3.5 Flash (High)"
+    model_id: null
+    cost_basis: marginal_api_cost
+  PRODUCT_B_STRONG_TIER:
+    provider: google
+    product_surface: product_blackbox
+    selector_label: "Gemini 3.1 Pro (High)"
+    model_id: null
+    cost_basis: marginal_api_cost
+notes: >
+  record selector labels verbatim; never infer unguaranteed backend model IDs
+  (SPEC 6.3). Claude billed via Vertex (project vital-octagon-19612); prices in the
+  snapshot are global-endpoint list rates, with the us-central1 regional +10%
+  premium recorded as a per-model sensitivity. C5 executor uses PRODUCT_B_ECON_TIER.
+  Product B token telemetry is partial: unexposed usage -> unavailable (never 0),
+  so a C3/C5 leg may be cost_unavailable at runtime.
 
 # Pinned benchmark tasks (Phase 2). Concrete SHAs live here only; task dirs mirror
 # these and add gate wiring (tests/test_tasks.py enforces agreement).

@@ -12,3 +12,17 @@ expected_wallclock_s: null
 configurations: [C1, C2, C3, C5]
 reps_screening: 3
 preregistration: TBD
+
+# Feasibility-reuse disclosure (methodology/feasibility-protocol.md; SPEC §2.3).
+# W1 is reused as feasibility task F3. Under the CP-SPEND decision of 2026-07-19,
+# F3 is deferred to feasibility BATCH 2 (its own mini CP-SPEND) — batch 1 runs only
+# the ready F1(pilot)+F2(W4) controlled cells plus companions. F3/W1 runs after it
+# is pinned and 10-point validated with a human-authored sealed hidden test.
+# The feasibility dataset makes NO comparative claims, so double-use is permitted;
+# W1's CP-SCREEN-PREREG pre-registration MUST disclose this prior feasibility use.
+feasibility_reuse:
+  used_as: F3
+  batch: 2
+  status: pending_pin_and_validation
+  discloses_at: CP-SCREEN-PREREG
+  decided: 2026-07-19
