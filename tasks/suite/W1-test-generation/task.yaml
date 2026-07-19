@@ -23,7 +23,9 @@ prompt: |
 
   - Target files (do NOT modify them): src/app/routes/article/article.mapper.ts and
     src/app/routes/article/author.mapper.ts.
-  - Achieve 100% branch coverage of BOTH mappers. The branches include:
+  - Cover every REACHABLE branch of both mappers. article.mapper.ts reaches 100%
+    branch coverage; author.mapper.ts has one unreachable defensive branch, so its
+    reachable ceiling is 5/6 (see below). The branches to exercise:
       * authorMapper `following`: id present vs absent; and, when present, the user
         is vs is not in `followedBy`.
       * articleMapper `favorited`: the requesting id is vs is not in `favoritedBy`;
@@ -43,15 +45,26 @@ target_paths:                            # product files the agent must NOT chan
   - src/app/routes/article/article.mapper.ts
   - src/app/routes/article/author.mapper.ts
 agent_write_scope: src/tests/            # the agent may only ADD test files here
-canonical_patch: canonical/mapper-tests.patch   # reference tests (100% branch cov + catch mutants)
+canonical_patch: canonical/mapper-tests.patch   # reference tests (branch cov + catch mutants)
+# Coverage gate (T3), per-file honest ceilings (metric: branches). article.mapper.ts
+# has no branches -> 100% trivially. author.mapper.ts caps at 5/6 = 83.33%: its
+# `author?.followedBy` optional-chain nullish leg is UNREACHABLE (line 4 dereferences
+# `author` with no ?., so a nullish author throws before line 8). We gate on the
+# REACHABLE ceiling, NOT an impossible 100% — see report/w1-coverage-analysis.md.
+# The sealed mutation test is the AUTHORITATIVE meaningfulness check; T3 is a coarse
+# necessary-condition filter. Decided with the human 2026-07-19 ("keep branches,
+# honest ceiling"). The evaluator is harness/task-tools/gate/coverage_eval.py.
 coverage_target:
-  files: [src/app/routes/article/article.mapper.ts, src/app/routes/article/author.mapper.ts]
   metric: branches
-  min_pct: 100
+  files:
+    - path: src/app/routes/article/article.mapper.ts
+      min_pct: 100
+    - path: src/app/routes/article/author.mapper.ts
+      min_pct: 83.33     # reachable ceiling (5/6 legs); 1 leg unreachable-by-construction
 # Public checks (deterministic, no sealed data):
-#   T1 diff-scope  : ONLY new files under src/tests/ changed; NO product/config/test edits
-#   T2 suite-green : the full DB-free baseline suite passes WITH the agent's new tests
-#   T3 coverage    : branch coverage of the target mappers >= min_pct (jest --coverage)
+#   T1 diff-scope  : ONLY new files under agent_write_scope changed; NO product/config/test edits
+#   T2 suite-green : the DB-free baseline suite passes WITH the agent's new tests
+#   T3 coverage    : per-file branch coverage of the target mappers >= min_pct (jest --coverage)
 #   T4 tests-pass  : the agent's new tests pass against the correct (pinned) mappers
 public_checks: [T1-diff-scope, T2-suite-green, T3-coverage, T4-tests-pass]
 
@@ -63,7 +76,10 @@ public_checks: [T1-diff-scope, T2-suite-green, T3-coverage, T4-tests-pass]
 hidden_test: mutation-catch (sealed; hash recorded at run)
 
 baseline_test_scope: hermetic_db_free
-baseline_test_pattern: "article|profile|utils|tag|auth|mapper"
+# Hermetic DB-free set only. Excludes `auth` — auth.service.test needs a live DB
+# (DATABASE_URL), verified 2026-07-19. Includes `mapper` so the agent's new mapper
+# tests are part of the suite-green (T2) run.
+baseline_test_pattern: "article|profile|utils|tag|mapper"
 static_checks: [typecheck]
 
 expected_wallclock_s: null               # measured in batch 2; never fabricated

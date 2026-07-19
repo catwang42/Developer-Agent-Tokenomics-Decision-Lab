@@ -88,3 +88,22 @@ w4_task:
     version: sealed-w4-v2
     sha256: sha256:3d6f804981cb28f1823a91e349be923431e09a206ef9cdb8636e3bc3871886c2
     validated: 10/10
+
+# W1 test-generation / F3 feasibility (third gate type). Same RealWorld repo + pin as
+# the pilot (Draft feature irrelevant here; targets the untested article/author
+# mappers). Third gate type = test_generation (F1=feature, F2=bugfix). Runs only in
+# feasibility BATCH 2 after 10-point validation with the human-authored sealed
+# mutation test (manifest/cp-spend-batch2-plan.md §3.2).
+w1_task:
+  task_id: w1-realworld-mapper-tests
+  repo: https://github.com/gothinkster/node-express-realworld-example-app
+  pinned_commit: 30b68e1e881462b2f4164ea09ab4c4f5699c7b0b   # same pin as pilot
+  license: MIT
+  contamination_tier: famous   # same repo as pilot; disclose reuse at CP-SCREEN-PREREG
+  baseline_test_scope: hermetic_db_free   # auth suite excluded (needs a live DB)
+  gate_type: test_generation
+  sealed_hidden_test:   # AWAITING HUMAN — mutation-catch runner, human-authored/held
+    status: awaiting_human   # -> version + sha256 recorded here after authoring (README-FOR-HUMAN.md)
+    version: null
+    sha256: null
+    validated: null
