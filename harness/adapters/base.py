@@ -29,13 +29,28 @@ EmitFn = Callable[..., None]
 
 # Benchmark-subject sandbox posture, recorded authoritatively in
 # identity.permission_profile on EVERY real run (CP-SPEND mini-revalidation
-# condition, 2026-07-19). Subjects currently run with ALL tool permissions
-# bypassed (--dangerously-skip-permissions), confined ONLY by the throwaway
-# per-task .work/repo working directory on this dev VM — no container, no network
-# policy. Acceptable for feasibility/revalidation; a hardened isolation decision
-# (containerized subject runs, network policy) is a MANDATORY Phase-4 screening
-# CP-SPEND item. See harness/adapters/README.md.
-SUBJECT_PERMISSION_PROFILE = "skip-all-tools; cwd-confined-.work-repo; dev-vm; no-container; no-network-policy"
+# condition, 2026-07-19). Two declared postures — the runner selects one via
+# --subject-isolation and stamps it (plus the matching network_policy)
+# authoritatively into identity, overriding any adapter default (the runner, not
+# the adapter, knows the actual mode it launched). See harness/container/README.md
+# and manifest/delivery-manifest.yaml (subject_isolation).
+#
+#   HOST      — legacy weak posture: ALL tool permissions bypassed
+#               (--dangerously-skip-permissions), confined ONLY by the throwaway
+#               per-task .work/repo working directory on the bare dev VM. No
+#               container, no network policy. Used by batch-1/revalidation.
+#   CONTAINER — batch-2 posture (human decision 2026-07-19): the subject CLI execs
+#               inside the task-tools Docker container with the network DISABLED
+#               (--network=none), deps pre-baked into a per-task image, cwd-confined
+#               to /subject. The deterministic gate runs offline in the same
+#               posture. (The live agent leg's model-API egress allowlist is a
+#               CP-SPEND finalization item; see harness/container/README.md.)
+SUBJECT_PROFILE_HOST = "skip-all-tools; cwd-confined-.work-repo; dev-vm; no-container; no-network-policy"
+SUBJECT_PROFILE_CONTAINER = "skip-all-tools; container-isolated; network=none; cwd-confined-/subject"
+
+# Back-compat default for adapters that stamp a posture directly; the runner
+# overrides identity.permission_profile with the mode it actually launched.
+SUBJECT_PERMISSION_PROFILE = SUBJECT_PROFILE_HOST
 
 
 @dataclass
@@ -111,9 +126,17 @@ class AttemptOutcome:
 
 
 class Adapter:
-    """Protocol every adapter implements. Subclasses override :meth:`run_attempt`."""
+    """Protocol every adapter implements. Subclasses override :meth:`run_attempt`.
+
+    ``container`` (a ``harness.container.exec.ContainerLaunch`` or ``None``) is set
+    by the runner under ``--subject-isolation container`` so the subject CLI execs
+    inside its offline container instead of on the host. ``None`` = the legacy host
+    posture (dry-run, tests, batch-1). Adapters route their spawn through
+    ``resolve_spawn`` so this is the only difference between the two modes.
+    """
 
     name = "base"
+    container = None  # Optional[ContainerLaunch]; set by the runner in container mode.
 
     def run_attempt(
         self, spec: AttemptSpec, subject_dir: str, emit: EmitFn

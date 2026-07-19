@@ -28,6 +28,10 @@ class HybridC5Adapter(Adapter):
         self._executor = AgyAdapter()
 
     def run_attempt(self, spec: AttemptSpec, subject_dir: str, emit: EmitFn) -> AttemptOutcome:
+        # Propagate the runner-set container launch to both legs so a containerized
+        # C5 workflow execs each sub-adapter inside the offline container too.
+        self._conductor.container = self.container
+        self._executor.container = self.container
         # Route by the leg's product surface: controlled_api legs go to the
         # Product A adapter; product_blackbox legs to the Product B wrapper.
         if spec.resolved.product_surface == "controlled_api":

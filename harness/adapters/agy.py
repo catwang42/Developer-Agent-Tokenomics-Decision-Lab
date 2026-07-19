@@ -17,6 +17,7 @@ import os
 import subprocess
 from typing import Any, Dict, List, Optional
 
+from harness.container.exec import resolve_spawn
 from harness.telemetry.telemetry import tiered, unavailable
 
 from .base import (
@@ -86,10 +87,13 @@ class AgyAdapter(Adapter):
         emit("model_call_started", **leg_meta, **session_payload(spec))
 
         cmd = build_command(spec.prompt, r.model_or_selector)
+        # Host mode runs cmd in subject_dir; container mode wraps it in `docker run`
+        # (offline default; agent-leg egress is a CP-SPEND item). Only argv/cwd differ.
+        argv, cwd = resolve_spawn(self.container, cmd, subject_dir)
         payload: Optional[Dict[str, Any]] = None
         try:
             proc = subprocess.run(  # noqa: S603 - workshop-owned command
-                cmd, cwd=subject_dir, capture_output=True, text=True,
+                argv, cwd=cwd, capture_output=True, text=True,
                 check=False, timeout=DEFAULT_TIMEOUT_S,
             )
             try:

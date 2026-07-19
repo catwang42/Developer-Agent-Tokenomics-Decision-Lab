@@ -56,6 +56,20 @@ notes: >
   Product B token telemetry is partial: unexposed usage -> unavailable (never 0),
   so a C3/C5 leg may be cost_unavailable at runtime.
 
+# Subject sandbox posture (SPEC 1.3; human decision 2026-07-19, cp-spend-batch2-plan
+# §3.1). Recorded per run in identity.permission_profile + identity.network_policy
+# (authoritative; the runner stamps the mode it launched). Batch 1/revalidation used
+# the HOST posture; batch 2 uses CONTAINER. Implemented as a NO-SPEND harness change
+# (containerization before pre-mod validation, so validation runs under the SAME
+# posture as the batch it validates for — no posture delta).
+subject_isolation:
+  posture: container            # batch-2 authoritative posture (--subject-isolation container)
+  network_policy: none          # graded gate runs fully offline (docker run --network=none)
+  image: per-task baked         # harness/container/Dockerfile.subject; deps baked at BUILD time
+  gate_verified_offline: w1-2026-07-19   # W1 public gate ran offline in-container (pre-mod FAIL; canonical PASS)
+  agent_leg_egress: awaiting_cp_spend    # live model-API egress allowlist finalized + validated at CP-SPEND
+  batch1_posture: host          # skip-all-tools; cwd-confined; dev-vm; no-container (superseded)
+
 # Pinned benchmark tasks (Phase 2). Concrete SHAs live here only; task dirs mirror
 # these and add gate wiring (tests/test_tasks.py enforces agreement).
 

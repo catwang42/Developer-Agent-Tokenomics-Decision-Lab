@@ -35,13 +35,30 @@ from typing import Any, Dict, List, Optional, Tuple
 import yaml
 
 from harness.adapters import REAL_ADAPTERS, ResolvedModel, StubAdapter
-from harness.adapters.base import AttemptSpec
+from harness.adapters.base import (
+    SUBJECT_PROFILE_CONTAINER,
+    SUBJECT_PROFILE_HOST,
+    AttemptSpec,
+)
+from harness.container.exec import (
+    ContainerExecutor,
+    ContainerLaunch,
+    build_subject_image,
+    image_exists,
+    subject_image_tag,
+)
+from harness.results.record import build_result_record
 from harness.telemetry.costing import cost_for_legs, load_prices
 from harness.telemetry.telemetry import EventLog, derive_summary, tiered, unavailable, validate
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 COST_BASES = ("marginal_api_cost", "allocated_subscription_cost",
               "provider_reported_cost", "cost_unavailable")
+
+# Per-task offline subject image (batch-2 containerized posture; see
+# harness/container/README.md and manifest subject_isolation).
+SUBJECT_DOCKERFILE = os.path.join(REPO_ROOT, "harness", "container", "Dockerfile.subject")
+CONTAINER_LAB_ROOT = "/lab"
 
 # Values that mean "not resolved yet" — a live run must not proceed on these.
 _PLACEHOLDERS = {
@@ -188,6 +205,9 @@ class Task:
     prompt: str
     contamination_tier: Optional[str]
     hidden_test_hash: Optional[str]
+    gate_type: str = "solution"
+    pinned_commit: Optional[str] = None
+    task_dir_rel: Optional[str] = None  # repo-root-relative (for the container image)
 
 
 def load_task(task_arg: str, manifest: Dict[str, Any]) -> Task:
@@ -206,6 +226,9 @@ def load_task(task_arg: str, manifest: Dict[str, Any]) -> Task:
         prompt=ty.get("prompt", ""),
         contamination_tier=ty.get("contamination_tier"),
         hidden_test_hash=sealed.get("sha256"),
+        gate_type=ty.get("gate_type", "solution"),
+        pinned_commit=mentry.get("pinned_commit"),
+        task_dir_rel=os.path.relpath(task_dir, REPO_ROOT),
     )
 
 
@@ -224,13 +247,34 @@ def synthetic_gate(scenario: str, leg_id: str) -> Tuple[bool, str, Dict[str, Any
         {"synthetic_public_gate": "pass" if passed else "fail"}
 
 
-def real_gate(task_dir: str, run_dir: str) -> Tuple[bool, str, Dict[str, Any]]:
-    """Run the Phase 2 deterministic gate against the current subject tree.
+def _read_gate_reports(run_dir: str) -> Dict[str, Any]:
+    checks: Dict[str, Any] = {}
+    for key, name in (("public", "gate-public.json"), ("hidden", "gate-hidden.json")):
+        path = os.path.join(run_dir, name)
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as fh:
+                checks[key] = json.load(fh)
+    return checks
 
-    Hidden tests are authoritative (SPEC 2.6): accepted only if the public gate
-    passes AND hidden passes; rejected if either fails; ``error`` if hidden tests
-    are unavailable (cannot authoritatively accept).
+
+def _gate_verdict(pub_rc: int, hid_rc: int, checks: Dict[str, Any]
+                  ) -> Tuple[bool, str, Dict[str, Any]]:
+    """Combine public+hidden exit codes into a verdict (SPEC 2.6).
+
+    Hidden tests are authoritative: accepted only if public passes AND hidden
+    passes; rejected if either fails; ``error`` if hidden tests are unavailable
+    (cannot authoritatively accept — e.g. the sealed set is not present).
     """
+    public_pass = pub_rc == 0
+    if hid_rc == 2:
+        return False, "error", checks  # hidden unavailable — cannot authoritatively accept
+    if hid_rc == 1 or not public_pass:
+        return False, "rejected", checks
+    return True, "accepted", checks
+
+
+def real_gate(task_dir: str, run_dir: str) -> Tuple[bool, str, Dict[str, Any]]:
+    """Run the Phase 2 deterministic gate on the HOST against the subject tree."""
     gate_dir = os.path.join(REPO_ROOT, "harness", "task-tools", "gate")
     pub_report = os.path.join(run_dir, "gate-public.json")
     hid_report = os.path.join(run_dir, "gate-hidden.json")
@@ -243,19 +287,39 @@ def real_gate(task_dir: str, run_dir: str) -> Tuple[bool, str, Dict[str, Any]]:
     hid_rc = subprocess.run(  # noqa: S603
         ["bash", os.path.join(gate_dir, "check-hidden.sh")], env=env_h, check=False,
     ).returncode
+    return _gate_verdict(pub_rc, hid_rc, _read_gate_reports(run_dir))
 
-    checks: Dict[str, Any] = {}
-    for key, path in (("public", pub_report), ("hidden", hid_report)):
-        if os.path.exists(path):
-            with open(path, encoding="utf-8") as fh:
-                checks[key] = json.load(fh)
 
-    public_pass = pub_rc == 0
-    if hid_rc == 2:
-        return False, "error", checks  # hidden unavailable — cannot authoritatively accept
-    if hid_rc == 1 or not public_pass:
-        return False, "rejected", checks
-    return True, "accepted", checks
+def container_gate(launch: ContainerLaunch, task: "Task", run_dir: str
+                   ) -> Tuple[bool, str, Dict[str, Any]]:
+    """Run the deterministic gate OFFLINE inside the subject container (--network=none).
+
+    Grades the tree baked into the image at ``/lab/<task>/.work/repo`` (proven this
+    session: pre-mod FAILs, canonical PASSes with jest/coverage/build running
+    offline). ``run_dir`` is mounted at ``/out`` so the gate's JSON reports land on
+    the host. NOTE (CP-SPEND finalization): a LIVE run must co-locate the agent's
+    edits and this gate in the SAME container instance (the agent leg is deferred to
+    CP-SPEND); with no agent, this grades the pristine baked tree = the containerized
+    pre-modification gate.
+    """
+    ex = ContainerExecutor(launch.image)
+    task_c = f"{CONTAINER_LAB_ROOT}/{task.task_dir_rel}"
+    work_c = f"{task_c}/.work"
+    repo_c = f"{work_c}/repo"
+    mounts = [(run_dir, "/out", "rw")]
+    base_env = {"TASK_DIR": task_c, "TASK_WORKDIR": work_c}
+
+    pub = ex.run(
+        ["bash", f"{CONTAINER_LAB_ROOT}/harness/task-tools/gate/check-public.sh"],
+        mounts=mounts, network="none", workdir=repo_c,
+        env={**base_env, "GATE_REPORT": "/out/gate-public.json"},
+    )
+    hid = ex.run(
+        ["bash", f"{CONTAINER_LAB_ROOT}/harness/task-tools/gate/check-hidden.sh"],
+        mounts=mounts, network="none", workdir=repo_c,
+        env={**base_env, "HIDDEN_REPORT": "/out/gate-hidden.json"},
+    )
+    return _gate_verdict(pub.returncode, hid.returncode, _read_gate_reports(run_dir))
 
 
 # --------------------------------------------------------------------------- #
@@ -336,16 +400,20 @@ def cumulative_spend_usd(batch_dir: str) -> Tuple[float, int, int]:
 # --------------------------------------------------------------------------- #
 # Execution
 # --------------------------------------------------------------------------- #
-def _gate(dry_run: bool, scenario: str, leg_id: str, task_dir: str,
-          run_dir: str) -> Tuple[bool, str, Dict[str, Any]]:
+def _gate(dry_run: bool, scenario: str, leg_id: str, task: "Task",
+          run_dir: str, launch: Optional[ContainerLaunch]
+          ) -> Tuple[bool, str, Dict[str, Any]]:
     if dry_run:
         return synthetic_gate(scenario, leg_id)
-    return real_gate(task_dir, run_dir)
+    if launch is not None:  # containerized posture: grade offline in the container
+        return container_gate(launch, task, run_dir)
+    return real_gate(task.task_dir, run_dir)
 
 
 def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
             emit, *, dry_run: bool, scenario: str,
-            cache_state: str, base_session: str, resume: bool
+            cache_state: str, base_session: str, resume: bool,
+            launch: Optional[ContainerLaunch] = None
             ) -> Tuple[Dict[str, Any], Dict[str, Dict[str, Any]]]:
     """Run the plan's policy, emitting events. Returns (identity, leg_options_by_id)."""
     identity: Dict[str, Any] = {}
@@ -379,7 +447,7 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
         econ, strong = plan.legs
         itr = "economical"
         run_leg(econ, 0)
-        passed, result, checks = _gate(dry_run, scenario, econ.leg_id, task.task_dir, run_dir)
+        passed, result, checks = _gate(dry_run, scenario, econ.leg_id, task, run_dir, launch)
         if passed:
             cr = "economical"
         else:
@@ -389,12 +457,12 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
             emit("escalation", from_route="economical", to_route="strong",
                  reason="gate_fail", failed_leg=econ.leg_id)
             run_leg(strong, 1)
-            passed, result, checks = _gate(dry_run, scenario, strong.leg_id, task.task_dir, run_dir)
+            passed, result, checks = _gate(dry_run, scenario, strong.leg_id, task, run_dir, launch)
             cr = "strong"
     else:  # static | workflow
         for i, leg in enumerate(plan.legs):
             run_leg(leg, i)
-        passed, result, checks = _gate(dry_run, scenario, "main", task.task_dir, run_dir)
+        passed, result, checks = _gate(dry_run, scenario, "main", task, run_dir, launch)
 
     emit("acceptance", result=result, gate_checks=checks,
          intention_to_route=itr, completed_route=cr)
@@ -524,6 +592,31 @@ def _archive_agent_diff(subject_dir: str, run_dir: str) -> None:
         pass
 
 
+def _ensure_container_launch(task: Task, network: str) -> ContainerLaunch:
+    """Resolve the per-task offline image (building it if absent) and a launch spec.
+
+    Building bakes the subject repo + deps at build time (network at build only —
+    not model spend, CLAUDE.md rule 5). The returned launch runs the subject
+    ``--network=<network>`` (default ``none``). NOTE (CP-SPEND finalization): a live
+    agent run must co-locate the agent's edits and the gate in ONE container; the
+    agent leg is deferred to CP-SPEND, so this session exercises the container path
+    for the deterministic gate on the image's baked tree.
+    """
+    if not task.pinned_commit:
+        raise RunnerError(
+            f"container isolation needs task {task.task_id!r} pinned_commit in the "
+            f"manifest to tag/build the offline image"
+        )
+    tag = subject_image_tag(task.task_id, task.pinned_commit)
+    if not image_exists(tag):
+        print(f"runner: building offline subject image {tag} (build-time network; "
+              f"not model spend)", file=sys.stderr)
+        proc = build_subject_image(task.task_dir_rel, tag, REPO_ROOT, SUBJECT_DOCKERFILE)
+        if proc.returncode != 0:
+            raise RunnerError(f"docker build failed for {tag} (rc={proc.returncode})")
+    return ContainerLaunch(image=tag, network=network)
+
+
 def _setup_subject(task_dir: str, run_dir: str) -> str:
     tt = os.path.join(REPO_ROOT, "harness", "task-tools")
     env = {**os.environ, "TASK_DIR": task_dir}
@@ -567,6 +660,16 @@ def main(argv: Optional[List[str]] = None) -> int:
                          "sibling runs under the same output root is checked; at/over the "
                          "cap the runner halts (exit 3) without starting. Resumable: "
                          "re-invoke (optionally with a raised cap) to continue.")
+    ap.add_argument("--subject-isolation", choices=("host", "container"), default="host",
+                    help="subject sandbox posture (batch-2 = container). host: legacy "
+                         "skip-perms + cwd on the dev VM. container: exec the subject "
+                         "inside the offline per-task image and grade the gate there "
+                         "(--network=none). Recorded authoritatively in "
+                         "identity.permission_profile + identity.network_policy.")
+    ap.add_argument("--subject-network", default="none",
+                    help="docker --network for the subject container (default none = "
+                         "offline). The live agent leg's model-API egress network is a "
+                         "CP-SPEND item; whatever value is used is recorded verbatim.")
     ap.add_argument("--dry-run", action="store_true",
                     help="synthetic adapters + gate; no spend/clone/network")
     ap.add_argument("--out-root", default=None,
@@ -651,12 +754,20 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         os.makedirs(run_dir, exist_ok=True)
 
+        launch: Optional[ContainerLaunch] = None
+        subject_dir: Optional[str] = None
         if args.dry_run:
             adapter: Any = StubAdapter()
             subject_dir = os.path.join(run_dir, "SYNTHETIC-subject")  # unused by stub
         else:
             adapter = REAL_ADAPTERS[plan.adapter_name]()
-            subject_dir = _setup_subject(task.task_dir, run_dir)
+            if args.subject_isolation == "container":
+                # Subject lives inside the offline image; the agent leg (deferred to
+                # CP-SPEND) and the gate run in-container. No host clone.
+                launch = _ensure_container_launch(task, args.subject_network)
+                adapter.container = launch
+            else:
+                subject_dir = _setup_subject(task.task_dir, run_dir)
 
         log = EventLog(os.path.join(run_dir, "events.jsonl"))
 
@@ -664,11 +775,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             log.append(event_type, ts=_now_iso(), **payload)
 
         identity, leg_options = execute(
-            plan, task, adapter, subject_dir, run_dir, emit,
+            plan, task, adapter, subject_dir or "", run_dir, emit,
             dry_run=args.dry_run, scenario=args.stub_scenario,
             cache_state=args.cache_state, base_session=base_session, resume=args.resume,
+            launch=launch,
         )
-        if not args.dry_run:  # preserve the agent's solution diff before any reset
+        if not args.dry_run and subject_dir:  # host-mode: archive the diff before reset
             _archive_agent_diff(subject_dir, run_dir)
         # Cache state is a runner-controlled experimental variable — stamped
         # authoritatively here (overriding any adapter default) and proven against
@@ -676,6 +788,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         identity["cache_state"] = tiered(args.cache_state, "authoritative")
         identity["session_state"] = tiered(
             "resumed" if args.resume else "fresh", "authoritative")
+        # Subject isolation posture — the runner authoritatively knows the mode it
+        # launched, so it stamps permission_profile + network_policy here, overriding
+        # any adapter default (SPEC 1.3; batch-2 decision, manifest subject_isolation).
+        if args.subject_isolation == "container":
+            identity["permission_profile"] = tiered(SUBJECT_PROFILE_CONTAINER, "authoritative")
+            identity["network_policy"] = tiered(args.subject_network, "authoritative")
+        else:
+            identity["permission_profile"] = tiered(SUBJECT_PROFILE_HOST, "authoritative")
+            identity["network_policy"] = tiered("no-network-policy", "authoritative")
 
         events = log.read()
         cache_reasons = assert_cache_contract(events, args.cache_state)
@@ -688,6 +809,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         ok = ok and not cache_reasons
         reasons = list(reasons) + cache_reasons
+
+        # Emit the compact per-run result record (a pure projection of the validated
+        # summary — summary.json stays authoritative). Regeneratable; never fabricates.
+        summary_path = os.path.join(run_dir, "summary.json")
+        if os.path.exists(summary_path):
+            with open(summary_path, encoding="utf-8") as fh:
+                summary_doc = json.load(fh)
+            with open(os.path.join(run_dir, "result.json"), "w", encoding="utf-8") as fh:
+                json.dump(build_result_record(summary_doc), fh, indent=2, sort_keys=True)
     except RunnerError as exc:
         print(f"runner: {exc}", file=sys.stderr)
         return 2

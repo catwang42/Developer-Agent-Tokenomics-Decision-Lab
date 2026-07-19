@@ -1,0 +1,46 @@
+# Per-task OFFLINE subject image for containerized, network-disabled runs.
+#
+# Bakes ONE task's subject repo + node_modules + generated Prisma client into the
+# image at BUILD time (network is available during `docker build`; that is tooling
+# setup, NOT model spend — CLAUDE.md rule 5). The graded run is then fully offline:
+#   docker run --rm --network=none <tag> bash /lab/harness/task-tools/gate/check-public.sh
+#
+# Baking (vs mounting the host's node_modules) is deliberate: the host toolchain is
+# node v22 while this image is node v20, and Prisma/esbuild ship platform-specific
+# native binaries — installing INSIDE the image guarantees the deps match the
+# container platform. Build from the repository root so the context includes the
+# manifest, task dirs, and harness:
+#   docker build -f harness/container/Dockerfile.subject \
+#     --build-arg BAKE_TASK_DIR=tasks/suite/W1-test-generation \
+#     -t lab-subject/<task>:<pin12> .
+#
+# .dockerignore already excludes .work/, node_modules/, hidden/ (sealed, human-held)
+# and results/, so none of those enter the image.
+FROM node:20-bookworm-slim
+
+RUN apt-get update -qq \
+    && apt-get install -y --no-install-recommends git ca-certificates python3 python3-yaml \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /lab
+
+COPY manifest/ /lab/manifest/
+COPY tasks/ /lab/tasks/
+COPY harness/task-tools/ /lab/harness/task-tools/
+
+# Which task's deps to bake. Passed at build time; used only in RUN (Docker COPY
+# cannot take an ARG source path, so we copy all task dirs — they are tiny yaml +
+# patches — and select the one to install here).
+ARG BAKE_TASK_DIR=tasks/pilot-realworld
+
+ENV NX_DAEMON=false NX_CLOUD_ACCESS_TOKEN='' CI=true TASK_IN_CONTAINER=1
+# Bake the subject repo (clone at pin, npm ci from lockfile, prisma generate) so the
+# runtime needs no network. setup.sh clones into $TASK_DIR/.work/repo.
+RUN TASK_DIR="/lab/${BAKE_TASK_DIR}" bash /lab/harness/task-tools/setup.sh
+
+# Record which task this image was baked for (introspection; not used at runtime).
+ENV TASK_DIR="/lab/${BAKE_TASK_DIR}"
+
+# No ENTRYPOINT: the runner/offline-gate append the exact command to run
+# (check-public.sh, validate.sh, or the agent CLI) via `docker run <tag> <cmd...>`.
+CMD ["bash", "-lc", "echo 'subject image ready; pass a command to docker run'"]

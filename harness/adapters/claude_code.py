@@ -19,6 +19,7 @@ import os
 import subprocess
 from typing import Any, Dict, List, Optional
 
+from harness.container.exec import resolve_spawn
 from harness.telemetry.telemetry import tiered, unavailable
 
 from .base import (
@@ -143,9 +144,14 @@ class ClaudeCodeAdapter(Adapter):
 
         cmd = build_command(spec.prompt, r.model_id or r.model_or_selector,
                             session_id=spec.session_id, resume=spec.resume)
+        # Host mode runs cmd in subject_dir; container mode wraps it in `docker run`
+        # (offline by default). Only the argv/cwd differ — timeout, JSON parsing and
+        # telemetry emission below are identical (the container leg's model-API
+        # egress network is a CP-SPEND item; see harness/container/README.md).
+        argv, cwd = resolve_spawn(self.container, cmd, subject_dir)
         try:
             proc = subprocess.run(  # noqa: S603 - workshop-owned command
-                cmd, cwd=subject_dir, capture_output=True, text=True, check=False,
+                argv, cwd=cwd, capture_output=True, text=True, check=False,
                 timeout=DEFAULT_TIMEOUT_S,
             )
         except subprocess.TimeoutExpired:

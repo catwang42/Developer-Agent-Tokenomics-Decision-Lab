@@ -30,7 +30,8 @@ TASK = "tasks/pilot-realworld"
 def _run(config: str, *, scenario: str = "accept", manifest: str = SYNTH_MANIFEST,
          out_root: str | None = None, allow_spend: bool = False,
          cache_state: str = "cold", session_id: str | None = None, resume: bool = False,
-         spend_cap: float | None = None):
+         spend_cap: float | None = None, subject_isolation: str | None = None,
+         subject_network: str | None = None):
     """Invoke the runner; return (rc, run_dir_or_None, summary_or_None).
 
     ``run_dir`` is the newest run directory under ``out_root`` (so a second call
@@ -45,6 +46,10 @@ def _run(config: str, *, scenario: str = "accept", manifest: str = SYNTH_MANIFES
         argv += ["--resume"]
     if spend_cap is not None:
         argv += ["--spend-cap-usd", str(spend_cap)]
+    if subject_isolation is not None:
+        argv += ["--subject-isolation", subject_isolation]
+    if subject_network is not None:
+        argv += ["--subject-network", subject_network]
     if not allow_spend:
         os.environ.pop("LAB_ALLOW_SPEND", None)
     rc = runner.main(argv)
@@ -314,6 +319,62 @@ class SpendCapKillSwitch(unittest.TestCase):
         self.assertEqual(n_runs, 1)
         rc2, _, _ = _run("P0", out_root=batch, spend_cap=spent / 2)
         self.assertEqual(rc2, 3)
+
+
+class SubjectIsolationPosture(unittest.TestCase):
+    """The runner authoritatively stamps the subject-isolation posture (batch-2)."""
+
+    def test_host_default_records_host_posture(self) -> None:
+        _, run_dir, summary = _run("P0")  # default --subject-isolation host
+        ident = summary["identity"]
+        self.assertEqual(ident["permission_profile"]["confidence"], "authoritative")
+        self.assertIn("no-container", ident["permission_profile"]["value"])
+        self.assertEqual(ident["network_policy"]["value"], "no-network-policy")
+        self.assertEqual(ident["network_policy"]["confidence"], "authoritative")
+        ok, reasons = validate(run_dir)
+        self.assertTrue(ok, reasons)
+
+    def test_container_records_container_posture_and_network(self) -> None:
+        _, run_dir, summary = _run("P0", subject_isolation="container")
+        ident = summary["identity"]
+        self.assertIn("container-isolated", ident["permission_profile"]["value"])
+        self.assertEqual(ident["permission_profile"]["confidence"], "authoritative")
+        self.assertEqual(ident["network_policy"]["value"], "none")
+        self.assertEqual(ident["network_policy"]["confidence"], "authoritative")
+        ok, reasons = validate(run_dir)
+        self.assertTrue(ok, reasons)
+
+    def test_network_value_recorded_verbatim(self) -> None:
+        # Whatever --subject-network is used is recorded authoritatively (a CP-SPEND
+        # egress network name would flow through unchanged).
+        _, _, summary = _run("P0", subject_isolation="container",
+                             subject_network="lab-egress-model-only")
+        self.assertEqual(summary["identity"]["network_policy"]["value"],
+                         "lab-egress-model-only")
+
+
+class ResultRecordEmission(unittest.TestCase):
+    def test_result_json_emitted_and_matches_summary(self) -> None:
+        _, run_dir, summary = _run("P1", scenario="escalate")
+        result_path = os.path.join(run_dir, "result.json")
+        self.assertTrue(os.path.exists(result_path))
+        with open(result_path, encoding="utf-8") as fh:
+            record = json.load(fh)
+        self.assertEqual(record["run_id"], summary["run_id"])
+        self.assertEqual(record["task_id"], summary["task_id"])
+        self.assertEqual(record["acceptance"]["result"], summary["acceptance"]["result"])
+        self.assertEqual(record["acceptance"]["completed_route"], "strong")
+        # Per-leg costs match the summary (pure projection, no new numbers).
+        self.assertEqual([leg["leg_id"] for leg in record["legs"]],
+                         [leg["leg_id"] for leg in summary["legs"]])
+
+    def test_result_json_preserves_unavailable(self) -> None:
+        _, run_dir, _ = _run("C3")  # black-box product: tokens unavailable
+        with open(os.path.join(run_dir, "result.json"), encoding="utf-8") as fh:
+            record = json.load(fh)
+        it = record["usage"]["input_tokens"]
+        self.assertIsNone(it["value"])
+        self.assertEqual(it["confidence"], "unavailable")
 
 
 class AgentDiffArchive(unittest.TestCase):

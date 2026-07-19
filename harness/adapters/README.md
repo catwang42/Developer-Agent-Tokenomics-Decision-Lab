@@ -12,13 +12,18 @@ Benchmark subjects run agentic, so the real CLIs are invoked with
 (Edit/Write/Bash) is **auto-approved**. Without this the headless agent can read but
 cannot modify files — the root cause of the batch-1 0/25 no-write failures.
 
-**Isolation is currently WEAK:** the only confinement is the throwaway per-task
-`.work/repo` working directory (`cwd`) on this dev VM — **no container, no network
-policy**. This is acceptable for feasibility/revalidation only. The posture is
-recorded authoritatively on every run in `identity.permission_profile`
-(`SUBJECT_PERMISSION_PROFILE` in `base.py`).
+Two declared postures (`base.py`: `SUBJECT_PROFILE_HOST` / `SUBJECT_PROFILE_CONTAINER`),
+selected by the runner via `--subject-isolation` and stamped **authoritatively** into
+`identity.permission_profile` + `identity.network_policy` (the runner knows the mode it
+launched, so it overrides any adapter default — the adapters carry `SUBJECT_PROFILE_HOST`
+only as a back-compat default):
 
-⚠️ **MANDATORY Phase-4 screening CP-SPEND item:** a subject-isolation decision
-(containerized subject runs, network policy) must be made and recorded before
-screening runs execute. Skipping permissions outside a real sandbox does not scale
-to a larger, longer screening batch.
+- **HOST** (batch-1 / revalidation, superseded) — only confinement is the throwaway
+  per-task `.work/repo` cwd on the dev VM: no container, no network policy.
+- **CONTAINER** (batch-2, human decision 2026-07-19) — the subject execs inside the
+  offline per-task image with `--network=none`; the deterministic gate runs offline in
+  the same posture (`harness/container/`, `manifest` `subject_isolation`). Adapters
+  route their spawn through `harness.container.exec.resolve_spawn` (host mode = run in
+  `cwd`; container mode = wrap in `docker run`). The live agent leg's model-API egress
+  allowlist is a **CP-SPEND finalization item** (it needs model spend to validate); the
+  offline gate is fully verified this session. See `harness/container/README.md`.
