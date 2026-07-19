@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional
 from harness.telemetry.telemetry import tiered, unavailable
 
 from .base import (
+    SUBJECT_PERMISSION_PROFILE,
     Adapter,
     AttemptOutcome,
     AttemptSpec,
@@ -205,6 +206,7 @@ def _identity(r, resolved_version: Optional[str] = None) -> Dict[str, Any]:
         "provider": tiered(r.provider, "authoritative"),
         "model_or_selector": model_or_selector,
         "auth_billing_path": tiered("controlled_api", "authoritative"),
+        "permission_profile": tiered(SUBJECT_PERMISSION_PROFILE, "authoritative"),
     }
     if r.region:
         ident["region"] = tiered(r.region, "proxy_observed")

@@ -27,6 +27,16 @@ from harness.telemetry.telemetry import tiered, unavailable
 # emit(event_type: str, **payload) -> None. The runner supplies the timestamp.
 EmitFn = Callable[..., None]
 
+# Benchmark-subject sandbox posture, recorded authoritatively in
+# identity.permission_profile on EVERY real run (CP-SPEND mini-revalidation
+# condition, 2026-07-19). Subjects currently run with ALL tool permissions
+# bypassed (--dangerously-skip-permissions), confined ONLY by the throwaway
+# per-task .work/repo working directory on this dev VM — no container, no network
+# policy. Acceptable for feasibility/revalidation; a hardened isolation decision
+# (containerized subject runs, network policy) is a MANDATORY Phase-4 screening
+# CP-SPEND item. See harness/adapters/README.md.
+SUBJECT_PERMISSION_PROFILE = "skip-all-tools; cwd-confined-.work-repo; dev-vm; no-container; no-network-policy"
+
 
 @dataclass
 class ResolvedModel:

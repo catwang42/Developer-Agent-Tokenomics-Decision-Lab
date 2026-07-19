@@ -61,6 +61,15 @@ leg read 100K–1.3M cache tokens — read tools work — with no accepted solut
 by the structural defect (no auto-approve flag → edits *could not* be applied).
 **No run was WRONG_SOLUTION or GATE_ERROR** (no real diffs exist to show).
 
+**Sandbox posture (recorded per CP-SPEND revalidation condition).** The fix runs
+subjects with `--dangerously-skip-permissions` (tools auto-approved). Isolation is
+currently **weak — confined only by the throwaway per-task `.work/repo` cwd on this
+dev VM (no container, no network policy)**; acceptable for revalidation only. The
+posture is stamped authoritatively on every run in `identity.permission_profile`
+(`SUBJECT_PERMISSION_PROFILE`, `harness/adapters/base.py`; see the adapter README).
+**A subject-isolation decision (containerized subject runs, network policy) is a
+MANDATORY Phase-4 screening CP-SPEND item** (§6).
+
 **Diagnostic gap (also fixed):** the pre-fix `claude_code` adapter did not record
 `num_turns` / `permission_denials`, so per-run denial counts can't be shown from the
 stored artifacts. The fix now stamps `num_turns`, `permission_denials`, `is_error`,
@@ -201,11 +210,15 @@ genuine WRONG_SOLUTION finding, not a harness defect. A separate Product B mini-
 revalidates the `agy` fix (its tokens remain black-box regardless).
 
 **Once revalidation passes, remaining conditions before screening runs:**
-1. **Batch 2 (F3 / W1 test-generation)** completes the 27 and the third gate type.
-2. **Criterion 6 (human-effort subset)** — human reviewers record 9-run rubric
+1. **Subject-isolation decision (MANDATORY at Phase-4 screening CP-SPEND)** —
+   containerized subject runs and/or network policy, replacing the current
+   skip-permissions-in-cwd posture (§1.5). Screening's larger/longer batch must not
+   run subjects with bypassed permissions outside a real sandbox.
+2. **Batch 2 (F3 / W1 test-generation)** completes the 27 and the third gate type.
+3. **Criterion 6 (human-effort subset)** — human reviewers record 9-run rubric
    timings + inter-reviewer spread (no model spend). HEAC stays `unavailable` until.
-3. **Rep count** raised per §5 for high-variance cells.
-4. Product B remains in the **black-box/proxy tier** with §4 limitations.
+4. **Rep count** raised per §5 for high-variance cells.
+5. Product B remains in the **black-box/proxy tier** with §4 limitations.
 
 **Note on batch-1 spend:** the $5.23 already spent bought no valid task outcomes
 (all NO_WRITE), but did validate the telemetry pipeline and surface three harness

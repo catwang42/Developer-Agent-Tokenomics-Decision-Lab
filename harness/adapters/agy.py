@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional
 from harness.telemetry.telemetry import tiered, unavailable
 
 from .base import (
+    SUBJECT_PERMISSION_PROFILE,
     Adapter,
     AttemptOutcome,
     AttemptSpec,
@@ -112,5 +113,6 @@ class AgyAdapter(Adapter):
             # Verbatim selector label; backend id NOT inferred (SPEC 6.3).
             "model_or_selector": tiered(r.model_or_selector, "proxy_observed"),
             "auth_billing_path": tiered("product_blackbox", "authoritative"),
+            "permission_profile": tiered(SUBJECT_PERMISSION_PROFILE, "authoritative"),
         }
         return AttemptOutcome(identity=identity, leg_options=leg_options)

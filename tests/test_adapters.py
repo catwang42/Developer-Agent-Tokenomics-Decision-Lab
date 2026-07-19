@@ -66,6 +66,12 @@ class IdentityFloatingAliasMitigation(unittest.TestCase):
         # Tier is the requested selector's declared confidence, not fabricated.
         self.assertEqual(ident["model_or_selector"]["confidence"], "proxy_observed")
 
+    def test_permission_profile_recorded_authoritatively(self) -> None:
+        # Sandbox posture must be on every run at authoritative tier (CP-SPEND cond.)
+        ident = cc._identity(_resolved())
+        self.assertEqual(ident["permission_profile"]["confidence"], "authoritative")
+        self.assertIn("skip-all-tools", ident["permission_profile"]["value"])
+
 
 class UsageMapping(unittest.TestCase):
     def test_missing_classes_unavailable_never_zero(self) -> None:
