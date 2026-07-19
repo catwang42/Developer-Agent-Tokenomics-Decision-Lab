@@ -8,8 +8,12 @@ configurations:
   # Controlled API (Product A = Claude Code) on Google Vertex, project
   # vital-octagon-19612. model_id values are the EXACT Vertex publisher model IDs
   # verified available & GA on 2026-07-19 via the Vertex REST publisher-models
-  # endpoint (GET publishers/anthropic/models/<id>, us-central1: 200 + launchStage
-  # GA; a bogus id returns 404, so the 200 is meaningful).
+  # endpoint (GET publishers/anthropic/models/<id>): 200 + launchStage GA on BOTH
+  # the global and us-central1 endpoints; a bogus id returns 404, so the 200 is
+  # meaningful. region = global to match the runtime endpoint (the Claude Code CLI
+  # here runs with CLOUD_ML_REGION=global), which is exactly the global-endpoint
+  # list-rate basis in the approved pricing snapshot (the us-central1 +10% premium
+  # stays a per-model sensitivity note, not the billed rate).
   # NOTE: claude-sonnet-4-6 exposes only the floating '@default' version alias (no
   # dated snapshot) — a reproducibility caveat recorded per SPEC 6.3; the routed
   # build behind @default is not guaranteed stable across the batch. MITIGATION:
@@ -20,13 +24,13 @@ configurations:
     provider: google_vertex
     product_surface: controlled_api
     model_id: claude-sonnet-4-6@default
-    region: us-central1
+    region: global
     cost_basis: marginal_api_cost
   ECONOMICAL_MODEL_A:
     provider: google_vertex
     product_surface: controlled_api
     model_id: claude-haiku-4-5@20251001
-    region: us-central1
+    region: global
     cost_basis: marginal_api_cost
   # Product B (Antigravity CLI, `agy`) black-box. selector_label recorded VERBATIM;
   # backend model_id NEVER inferred (SPEC 6.3). Marginal PAYG priced via the mapped
