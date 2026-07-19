@@ -1,0 +1,75 @@
+# W1 / F3 task definition — TEST-GENERATION gate type (SPEC 2.6/2.8).
+# Third feasibility gate type (F1=feature, F2=bugfix, F3=test-generation): chosen
+# for GATE-TYPE diversity (protocol §"Feasibility tasks"). Reuses the RealWorld repo
+# already proven by F1/F2 (same setup/harness); the NOVELTY is the gate, not the repo.
+# Driven by the shared harness:
+#   TASK_DIR=tasks/suite/W1-test-generation bash harness/task-tools/validate.sh
+task_id: w1-realworld-mapper-tests
+manifest_key: w1_task
+task_suite_version: w1-v1-draft          # -> w1-v1 when 10-point validated w/ sealed test
+class: test_generation
+
+# Source. Same RealWorld/Conduit repo + pin as F1 (Draft feature absent there is
+# irrelevant here; we target the untested mappers). MIT.
+repo: https://github.com/gothinkster/node-express-realworld-example-app
+pinned_commit: 30b68e1e881462b2f4164ea09ab4c4f5699c7b0b
+license: MIT
+contamination_tier: famous               # same repo as F1; disclose reuse at CP-SCREEN-PREREG
+
+# Participant-visible prompt. Test-GENERATION: the agent writes TESTS, not product.
+prompt: |
+  The article and author mappers have no unit tests. Add a Jest test file that
+  covers them with meaningful assertions:
+
+  - Target files (do NOT modify them): src/app/routes/article/article.mapper.ts and
+    src/app/routes/article/author.mapper.ts.
+  - Achieve 100% branch coverage of BOTH mappers. The branches include:
+      * authorMapper `following`: id present vs absent; and, when present, the user
+        is vs is not in `followedBy`.
+      * articleMapper `favorited`: the requesting id is vs is not in `favoritedBy`;
+        `favoritesCount`; `tagList` mapping (empty and non-empty).
+  - Assertions must be meaningful: assert the actual mapped output values (shape and
+    field values), not just that the function ran. A test that passes against a
+    broken mapper does not count.
+  - All existing tests must stay green.
+
+  Add ONLY a new test file under src/tests/ (e.g. src/tests/mappers/*.test.ts). Do
+  not modify product code, config, or existing tests.
+
+# Acceptance gate (test-generation variant; SPEC 2.6 deterministic-first).
+# The AGENT authors tests; the gate grades the tests, not a feature.
+gate_type: test_generation
+target_paths:                            # product files the agent must NOT change
+  - src/app/routes/article/article.mapper.ts
+  - src/app/routes/article/author.mapper.ts
+agent_write_scope: src/tests/            # the agent may only ADD test files here
+canonical_patch: canonical/mapper-tests.patch   # reference tests (100% branch cov + catch mutants)
+coverage_target:
+  files: [src/app/routes/article/article.mapper.ts, src/app/routes/article/author.mapper.ts]
+  metric: branches
+  min_pct: 100
+# Public checks (deterministic, no sealed data):
+#   T1 diff-scope  : ONLY new files under src/tests/ changed; NO product/config/test edits
+#   T2 suite-green : the full DB-free baseline suite passes WITH the agent's new tests
+#   T3 coverage    : branch coverage of the target mappers >= min_pct (jest --coverage)
+#   T4 tests-pass  : the agent's new tests pass against the correct (pinned) mappers
+public_checks: [T1-diff-scope, T2-suite-green, T3-coverage, T4-tests-pass]
+
+# HIDDEN (sealed, human-authored, human-held) — the MEANINGFULNESS check (SPEC 2.6
+# authoritative). Mutation-based: seeded mutant mappers are dropped in and the
+# agent's tests must FAIL (catch) each mutant. A high-coverage-but-vacuous test
+# suite passes T1-T4 yet fails here. Human authors the mutants + runner; see
+# hidden/README-FOR-HUMAN.md. Recorded by hash at run time (never committed).
+hidden_test: mutation-catch (sealed; hash recorded at run)
+
+baseline_test_scope: hermetic_db_free
+baseline_test_pattern: "article|profile|utils|tag|auth|mapper"
+static_checks: [typecheck]
+
+expected_wallclock_s: null               # measured in batch 2; never fabricated
+configurations: [P0, C2, P1]             # feasibility controlled set (F3)
+reps_feasibility: 3
+
+# Feasibility-reuse: this task is F3; screening reuse disclosed at CP-SCREEN-PREREG
+# (see workload.yaml feasibility_reuse). Runs only after 10-point validation with the
+# human-authored sealed mutation test.

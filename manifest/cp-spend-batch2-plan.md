@@ -40,12 +40,12 @@ in-runner `--spend-cap-usd` kill-switch. Actual is expected well under.
 
 ## 3. Prerequisites — human stops before any run
 
-### 3.1 Subject-isolation decision — MANDATORY (from CP-DATA §6)
-Batch 1/revalidation ran subjects with `--dangerously-skip-permissions` confined
-only by the `.work/repo` cwd on this dev VM (no container/network policy;
-`identity.permission_profile` records this). A larger/longer batch-2 must not.
-**Human decides + records:** containerized subject runs? network policy (offline /
-allowlist)? The chosen posture updates `SUBJECT_PERMISSION_PROFILE` and this plan.
+### 3.1 Subject-isolation decision — ✅ DECIDED 2026-07-19: containerized, no network
+Subjects run inside the task-tools Docker container with **network disabled**
+(offline), still cwd-scoped. The runner execs the subject CLI inside the container;
+`SUBJECT_PERMISSION_PROFILE` updates to record the containerized+offline posture
+authoritatively. (Batch 1/revalidation used skip-perms + cwd on the bare dev VM.)
+Implementation is a no-spend harness change, done before the batch-2 CP-SPEND.
 
 ### 3.2 F3 / W1 pinning — needs human sealed-test authoring (STOP)
 No-spend work I can do now: pin the W1 repo+commit, author the public feature/test
