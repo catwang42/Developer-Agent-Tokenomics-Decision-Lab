@@ -83,15 +83,46 @@ exercised on **no-write runs**, and the agent-execution + acceptance path was ne
 exercised on a real solution. **The instrument is NOT yet declared working; a
 revalidation batch (mini CP-SPEND, §6) is required.**
 
+## 1.6 Revalidation results (post-fix) — resolves §1.5
+
+Mini CP-SPEND revalidation ran 4 runs (`results/revalidation/`, cold, $15 cap;
+**actual $1.38**) on the fixed adapters. The fix is confirmed and §1.5 is resolved:
+
+| Run | num_turns | permission_denials | diff | acceptance | Class |
+|---|---|---|---|---|---|
+| F2·C2·rep1 | 13 | 0 | non-empty | **accepted** (gate pass) | CORRECT |
+| F1·P0·rep1 | 20 | 0 | non-empty (P6 diff-scope fail) | rejected | WRONG_SOLUTION |
+| F1·P0·rep2 | 19 | 0 | non-empty | rejected | WRONG_SOLUTION |
+| F1·P1·rep1 | 17 (econ) → 8 (strong) | 0 | non-empty (both legs) | rejected | WRONG_SOLUTION |
+
+- **No-write is gone:** every leg ran 8–20 agentic turns with **0 permission
+  denials** (was the silent-denial defect). Non-empty diffs confirmed directly —
+  F1·P0·rep1 even **fails P6-diff-scope** (only possible if files changed).
+- **An accepted run exists:** F2·C2 solved the bugfix → **ECST computes finite**
+  (`w4-...|C2` ECST_marginal = **$0.1155**, n_accepted=1). Criterion 5 closes.
+- **F1 failures are legitimate WRONG_SOLUTION**, not defects (real agentic work,
+  wrong/out-of-scope result). Per the CP-SPEND condition, these are treated as
+  findings; the harness is **not** iterated to make models pass.
+- **Pass criteria (§6) MET:** ≥1 run with non-empty diff + `permission_denials==0`
+  + `num_turns>1` (all 4), AND ≥1 accepted (F2·C2).
+- **Provenance note (not a blocker):** the agent's diff is reset between runs and
+  not archived, so WRONG_SOLUTION diffs aren't inspectable after the fact — a
+  provenance improvement to consider for screening (archive the pre-reset diff),
+  distinct from any change that would affect pass/fail.
+
+**Batch-1 (§2–§5) status:** its 25 runs remain NO_WRITE and are **not** valid task
+outcomes; they are retained only as telemetry-pipeline evidence. The 27-run study
+dataset must be **re-collected** on the fixed harness (folds into batch 2 planning).
+
 ## 2. Pass/fail criteria (protocol §"Pass/fail criteria")
 
 | # | Criterion | Result | Verdict |
 |---|---|---|---|
 | 1 | Validator passes; zero zero-fills | **25/25** summaries + event logs valid; 0 zero-fills | ✅ PASS (plumbing) |
 | 2 | Cost reconstruction w/o self-report | **25/25** costed from token metadata only; C1/C2 every usage field authoritative; product unavailable fields enumerated | ✅ PASS (plumbing) |
-| 3 | Harness stability | **0 crashes**; reset determinism identical (F1: 1 hash/16 runs, F2: 1 hash/9); gate reproducibility from Phase 2. BUT a harness *defect* (no-write, §1.5) invalidated the run outcomes | ⚠️ **DEFECT FOUND** (fixed; revalidation pending) |
-| 4 | Escalation telemetry | **6/6** P1 runs record ITR + CR + both leg costs incl. failed attempt (mechanics correct, though on no-write legs) | ✅ PASS (plumbing) |
-| 5 | Metric computability | pipeline computes end-to-end (`harness/evaluator/metrics.py`), but ECST/HEAC have **not been exercised on any accepted run** (0/25 accepted) | 🟡 **PARTIAL** (pending an accepted run in revalidation) |
+| 3 | Harness stability | **0 crashes**; reset determinism identical (F1: 1 hash/16 runs, F2: 1 hash/9); gate reproducibility from Phase 2. No-write defect (§1.5) **fixed and revalidated** (§1.6: 8–20 agentic turns, 0 denials) | ✅ PASS (defect fixed + revalidated) |
+| 4 | Escalation telemetry | **6/6** batch-1 P1 runs record ITR + CR + both leg costs; revalidation P1 escalated on a real gate failure | ✅ PASS |
+| 5 | Metric computability | pipeline computes end-to-end (`harness/evaluator/metrics.py`); **ECST now exercised on an accepted run** (revalidation F2·C2 = $0.1155). HEAC still needs the human subset (criterion 6) | ✅ PASS (finite ECST on an accepted run) |
 | 6 | Human effort | rubric timings for the 9-run subset | ⏳ **PENDING** (human reviewer time; not fabricated) |
 | 7 | Cache | warm-series shows cache_read capture + costing delta vs naive | ✅ PASS (plumbing) |
 
@@ -188,28 +219,17 @@ and report medians with IQR, not means; re-assess after batch 2 adds F3.
 
 ## 6. Go / No-Go
 
-**NO-GO for Phase 4 pending revalidation.** The telemetry pipeline is sound
-(criteria 1,2,4,7 plumbing PASS; metrics compute), but batch 1's runs were all
-NO_WRITE (§1.5) — the agent-execution + acceptance path was never exercised. The
-adapter defects are **fixed with tests** (auto-approve tools + self-diagnosing
-telemetry), but the fix is **unproven on live runs**.
+**Instrument VALIDATED (revalidation passed, §1.6).** The no-write defect is fixed
+and confirmed on live runs (8–20 agentic turns, 0 permission denials, non-empty
+diffs, one accepted run), and every telemetry criterion is now PASS except the
+human-effort subset (6, pending). **Conditional GO for Phase 4 screening _design_**;
+screening _runs_ remain gated on the conditions below (and CP-SCREEN-PREREG).
 
-**Proposed revalidation — mini CP-SPEND (Product A only):**
+Revalidation summary: 4 runs, $1.38; 1 accepted (F2·C2), 3 WRONG_SOLUTION (real
+diffs) — the latter are findings, not defects. Product B (`agy`) got the same flag
+fix; it revalidates in a separate mini-batch (its tokens remain black-box regardless).
 
-| Cell | Runs | Purpose |
-|---|---|---|
-| F1 × P0 × 2 (cold) | 2 | strong single-model; expect non-empty diff, `num_turns`>1 |
-| F2 × C2 × 1 (cold) | 1 | economical, second task/gate type |
-| (optional) F1 × P1 × 1 | 1 | escalation path with real gate outcomes |
-
-Est. **~$3–6** (a-priori; per §5 dispersion), under a `--spend-cap-usd` guard.
-**Pass = ≥1 run produces a non-empty diff with `permission_denials == 0` and
-`num_turns > 1`, and at least one run is `accepted`** (so ECST/HEAC compute on a
-finite value, closing criterion 5). If runs still fail *with real diffs*, that is a
-genuine WRONG_SOLUTION finding, not a harness defect. A separate Product B mini-batch
-revalidates the `agy` fix (its tokens remain black-box regardless).
-
-**Once revalidation passes, remaining conditions before screening runs:**
+**Conditions before screening runs execute:**
 1. **Subject-isolation decision (MANDATORY at Phase-4 screening CP-SPEND)** —
    containerized subject runs and/or network policy, replacing the current
    skip-permissions-in-cwd posture (§1.5). Screening's larger/longer batch must not
@@ -227,10 +247,12 @@ cheap, worthwhile failure.
 
 ## 7. What CP-DATA gates
 
-This report does **not** yet clear CP-DATA for Phase 4: it documents a NO-GO with a
-root cause, an implemented fix, and a revalidation plan (§6). CP-DATA acceptance of
-*this amended report* authorizes the **mini revalidation CP-SPEND** (§6); the
-telemetry-completeness sign-off that unblocks Phase 4 **screening design** follows a
-passing revalidation (and is separate from CP-SCREEN-PREREG / screening runs). No
-number here appears in any docs/site/report until **CP-FINDINGS**. All figures are
-internal, NON-COMPARATIVE feasibility telemetry.
+The measurement system is validated (root cause found, fixed, and revalidated on
+live runs — §1.6). CP-DATA acceptance of this report clears the
+**telemetry-completeness** requirement and unblocks Phase 4 **screening design**,
+subject to the §6 conditions (subject-isolation decision, batch 2 / F3, human-effort
+subset, rep count) — which are gated at CP-SCREEN-PREREG and the screening CP-SPEND,
+not here. The batch-1 25-run study data is superseded (NO_WRITE) and must be
+re-collected on the fixed harness. No number here appears in any docs/site/report
+until **CP-FINDINGS**. All figures are internal, NON-COMPARATIVE feasibility
+telemetry.
