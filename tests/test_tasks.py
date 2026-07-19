@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import subprocess
 import unittest
 
 import yaml
@@ -115,7 +116,17 @@ class TaskInvariants(unittest.TestCase):
             hidden = d / "hidden"
             self.assertTrue((hidden / "README-FOR-HUMAN.md").exists(),
                             f"{d.name}: missing hidden/README-FOR-HUMAN.md")
-            committed = list(hidden.glob("*.test.ts")) + list(hidden.glob("*.spec.ts"))
+            # Sealed tests are human-held and gitignored: they MAY exist locally
+            # (that is the CP-TASK deliverable, authored in the gate's default
+            # HIDDEN_TESTS_DIR=$TASK_DIR/hidden), but must never be *committed*.
+            # Check git tracking, not filesystem presence — otherwise this test
+            # goes red on the very machine where the human authored the tests
+            # while passing in a clean checkout (SPEC §2.6).
+            tracked = subprocess.run(
+                ["git", "ls-files", "-z", str(hidden)],
+                cwd=ROOT, capture_output=True, text=True, check=True,
+            ).stdout.split("\0")
+            committed = [p for p in tracked if p.endswith((".test.ts", ".spec.ts"))]
             self.assertEqual(committed, [], f"{d.name}: sealed tests must not be committed")
 
     def test_public_test_kind_is_known(self) -> None:
