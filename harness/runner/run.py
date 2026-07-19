@@ -351,11 +351,17 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
     identity: Dict[str, Any] = {}
     leg_options: Dict[str, Dict[str, Any]] = {}
 
-    def run_leg(leg: LegPlan) -> None:
-        # Cold: each leg is an independent fresh session (distinct id, no resume).
-        # Warm-series: the (single) leg resumes the caller-supplied session id so
-        # the provider prompt-cache carries over.
-        leg_session = base_session if resume else f"{base_session}-{leg.leg_id}"
+    def run_leg(leg: LegPlan, leg_index: int) -> None:
+        # Session ids MUST be valid UUIDs — the claude CLI's --session-id rejects
+        # anything else (and then prints a non-JSON error, losing all usage
+        # telemetry). Warm-series and the first cold leg use base_session (a valid
+        # UUID, operator-supplied for a resumable warm series or freshly minted);
+        # any further cold leg (e.g. P1's strong attempt) gets its own fresh UUID
+        # so each cold leg is an independent, provably-fresh session.
+        if resume or leg_index == 0:
+            leg_session = base_session
+        else:
+            leg_session = str(uuid.uuid4())
         spec = AttemptSpec(leg.leg_id, leg.role, leg.resolved, task.prompt,
                            cache_state=cache_state, session_id=leg_session, resume=resume)
         outcome = adapter.run_attempt(spec, subject_dir, emit)
@@ -372,7 +378,7 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
     if plan.policy == "cheap_first":
         econ, strong = plan.legs
         itr = "economical"
-        run_leg(econ)
+        run_leg(econ, 0)
         passed, result, checks = _gate(dry_run, scenario, econ.leg_id, task.task_dir, run_dir)
         if passed:
             cr = "economical"
@@ -382,12 +388,12 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
             emit("retry", leg=econ.leg_id, reason="gate_fail")
             emit("escalation", from_route="economical", to_route="strong",
                  reason="gate_fail", failed_leg=econ.leg_id)
-            run_leg(strong)
+            run_leg(strong, 1)
             passed, result, checks = _gate(dry_run, scenario, strong.leg_id, task.task_dir, run_dir)
             cr = "strong"
     else:  # static | workflow
-        for leg in plan.legs:
-            run_leg(leg)
+        for i, leg in enumerate(plan.legs):
+            run_leg(leg, i)
         passed, result, checks = _gate(dry_run, scenario, "main", task.task_dir, run_dir)
 
     emit("acceptance", result=result, gate_checks=checks,
@@ -555,7 +561,18 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "warm-series continues the cold run's session; pass --session-id <id> "
                 "--resume (cache-protocol rule 2). Run 1 of the series uses --cache-state cold"
             )
-        base_session = args.session_id or f"lab-{uuid.uuid4()}"
+        # Session ids must be valid UUIDs (the claude CLI rejects anything else on
+        # --session-id/--resume). Operator-supplied ids are validated here so the
+        # failure is a clear runner error, not a downstream non-JSON adapter crash.
+        if args.session_id is not None:
+            try:
+                uuid.UUID(str(args.session_id))
+            except ValueError:
+                raise RunnerError(
+                    f"--session-id must be a valid UUID (got {args.session_id!r}); "
+                    f"the product CLI rejects non-UUID session ids"
+                )
+        base_session = args.session_id or str(uuid.uuid4())
 
         manifest = _load_yaml(args.manifest)
         if not args.dry_run and os.environ.get("LAB_ALLOW_SPEND") != "1":

@@ -114,7 +114,13 @@ class ClaudeCodeAdapter(Adapter):
         try:
             payload = json.loads(proc.stdout)
         except json.JSONDecodeError:
-            emit("failure", leg=spec.leg_id, category="adapter_json_parse")
+            # Capture a bounded diagnostic so a non-JSON product response (e.g. a
+            # CLI usage/validation error printed to stderr) is debuggable from the
+            # event log instead of vanishing into all-unavailable usage.
+            emit("failure", leg=spec.leg_id, category="adapter_json_parse",
+                 returncode=proc.returncode,
+                 stderr_snippet=(proc.stderr or "")[:500],
+                 stdout_snippet=(proc.stdout or "")[:200])
             usage = {c: unavailable("product JSON unparseable") for c in _USAGE_MAP.values()}
             usage.update({c: unavailable("product JSON unparseable")
                           for c in ("reasoning_tokens", "tool_result_tokens")})

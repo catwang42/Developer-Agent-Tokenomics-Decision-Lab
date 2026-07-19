@@ -194,12 +194,35 @@ class CacheStateContract(unittest.TestCase):
 
     def test_warm_series_resumes_session(self) -> None:
         rc, run_dir, summary = _run("C1", cache_state="warm-series",
-                                    session_id="lab-warm-1", resume=True)
+                                    session_id="11111111-1111-4111-8111-111111111111",
+                                    resume=True)
         self.assertEqual(rc, 0)
         ok, reasons = validate(run_dir)
         self.assertTrue(ok, reasons)
         self.assertEqual(summary["identity"]["cache_state"]["value"], "warm-series")
         self.assertEqual(summary["identity"]["session_state"]["value"], "resumed")
+
+    def test_non_uuid_session_id_rejected(self) -> None:
+        # A non-UUID --session-id is a clear runner error (the product CLI rejects
+        # it and would otherwise emit a non-JSON error, losing usage telemetry).
+        rc, run_dir, _ = _run("C1", cache_state="warm-series",
+                              session_id="lab-warm-1", resume=True)
+        self.assertEqual(rc, 2)
+        self.assertIsNone(run_dir)
+
+    def test_cold_leg_session_ids_are_valid_uuids(self) -> None:
+        # Every leg's session id in the event log must parse as a UUID (P1 has two
+        # cold legs, each an independent fresh session).
+        import uuid as _uuid
+        _, run_dir, _ = _run("P1", scenario="escalate", cache_state="cold")
+        with open(os.path.join(run_dir, "events.jsonl"), encoding="utf-8") as fh:
+            starts = [json.loads(l) for l in fh if '"model_call_started"' in l]
+        self.assertGreaterEqual(len(starts), 2)
+        seen = set()
+        for e in starts:
+            _uuid.UUID(e["session_id"])       # raises if not a valid UUID
+            seen.add(e["session_id"])
+        self.assertEqual(len(seen), len(starts))   # distinct fresh session per cold leg
 
     def test_cache_state_is_required(self) -> None:
         # Omitting --cache-state is an argparse error (SystemExit), not a run.
