@@ -30,6 +30,11 @@ from .base import (
     session_payload,
 )
 
+# Workshop-owned timeout (SPEC 1.3): our timeout bounds a hung agentic run so one
+# leg cannot stall a batch. Generous — an agentic coding turn can legitimately run
+# for minutes. On timeout usage is unavailable (never zero), like any lost telemetry.
+DEFAULT_TIMEOUT_S = 1800
+
 # claude -p JSON usage keys -> our token classes. Anything absent -> unavailable.
 _USAGE_MAP = {
     "input_tokens": "input_tokens",
@@ -131,9 +136,20 @@ class ClaudeCodeAdapter(Adapter):
 
         cmd = build_command(spec.prompt, r.model_id or r.model_or_selector,
                             session_id=spec.session_id, resume=spec.resume)
-        proc = subprocess.run(  # noqa: S603 - workshop-owned command
-            cmd, cwd=subject_dir, capture_output=True, text=True, check=False,
-        )
+        try:
+            proc = subprocess.run(  # noqa: S603 - workshop-owned command
+                cmd, cwd=subject_dir, capture_output=True, text=True, check=False,
+                timeout=DEFAULT_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired:
+            emit("failure", leg=spec.leg_id, category="claude_timeout",
+                 timeout_s=DEFAULT_TIMEOUT_S)
+            usage = {c: unavailable("run timed out before product JSON returned")
+                     for c in _USAGE_MAP.values()}
+            usage.update({c: unavailable("run timed out before product JSON returned")
+                          for c in ("reasoning_tokens", "tool_result_tokens")})
+            emit("model_call_completed", usage=usage, **leg_meta)
+            return AttemptOutcome(identity=_identity(r))
         try:
             payload = json.loads(proc.stdout)
         except json.JSONDecodeError:
