@@ -22,6 +22,10 @@ pilot_task:
   license: MIT
   contamination_tier: famous   # see tasks/pilot-realworld/README.md; SPEC 5.2 / WORKLOAD-SELECTION 2
   baseline_test_scope: hermetic_db_free   # upstream auth suite needs a live DB (import-order bug)
+  sealed_hidden_test:   # human-authored, human-held (gitignored); CP-TASK approved 2026-07-19
+    version: sealed-pilot-v1
+    sha256: sha256:105c24189877b52fe57b1e453f53f73366ad3c7fa1a611a8a2a63042b667abe2
+    validated: 10/10   # host run with sealed test present; clean container = 9 pass + 1 awaiting
 
 # W4 complex-bugfix / F2 feasibility bugfix. Commit-mined per WORKLOAD-SELECTION 4:
 # re-implement the change in canonical_fix_commit starting from pinned_commit (its
@@ -34,3 +38,7 @@ w4_task:
   license: MIT
   contamination_tier: famous   # see tasks/suite/W4-complex-bugfix/README.md
   baseline_test_scope: hermetic_db_free
+  sealed_hidden_test:   # human-authored, human-held (gitignored); CP-TASK approved 2026-07-19
+    version: sealed-w4-v2
+    sha256: sha256:3d6f804981cb28f1823a91e349be923431e09a206ef9cdb8636e3bc3871886c2
+    validated: 10/10
