@@ -1,0 +1,46 @@
+# SYNTHETIC delivery manifest — for --dry-run and unit tests ONLY. Not a real
+# delivery. Invented placeholder providers/models that resolve to the invented
+# prices in prices-SYNTHETIC.json. Never use outside tests/; never place under results/.
+_fixture: "SYNTHETIC — invented resolution for unit tests ONLY. Not real delivery data."
+
+delivery_date: SYNTHETIC-0000-00-00
+cohort: SYNTHETIC
+pricing_snapshot: tests/fixtures/prices-SYNTHETIC.json
+task_suite_commit: SYNTHETIC
+
+configurations:
+  # Controlled_api models resolve to a priced (provider, model_id) pair whose keys
+  # match prices-SYNTHETIC.json.
+  STRONG_MODEL_A:
+    provider: provider_a
+    product_surface: controlled_api
+    model_id: STRONG_MODEL_A
+    region: SYNTHETIC-region
+    cost_basis: marginal_api_cost
+  ECONOMICAL_MODEL_A:
+    provider: provider_b
+    product_surface: controlled_api
+    model_id: ECON_MODEL_B
+    region: SYNTHETIC-region
+    cost_basis: marginal_api_cost
+  # Product black-box tier: verbatim selector label, backend model_id never inferred
+  # (SPEC 6.3); costed only via a product-reported figure.
+  PRODUCT_B_ECON_TIER:
+    provider: provider_b
+    product_surface: product_blackbox
+    selector_label: "SYNTHETIC-antigravity: fast"
+    model_id: null
+    cost_basis: provider_reported_cost
+  PRODUCT_B_STRONG_TIER:
+    provider: provider_b
+    product_surface: product_blackbox
+    selector_label: "SYNTHETIC-antigravity: pro"
+    model_id: null
+    cost_basis: provider_reported_cost
+
+# Task entries mirrored so the runner can attach a recorded hidden-test hash.
+pilot_task:
+  task_id: pilot-realworld-draft-articles
+  sealed_hidden_test:
+    version: SYNTHETIC-sealed-v0
+    sha256: "sha256:SYNTHETIC0000000000000000000000000000000000000000000000000000feed"
