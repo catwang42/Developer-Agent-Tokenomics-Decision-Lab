@@ -1,0 +1,21 @@
+{
+  "_SYNTHETIC": "Hand-written jest coverage-summary for gate unit tests (coverage_eval). NOT a real run; carries no telemetry.",
+  "total": {
+    "lines": {"total": 6, "covered": 6, "skipped": 0, "pct": 100},
+    "statements": {"total": 6, "covered": 6, "skipped": 0, "pct": 100},
+    "functions": {"total": 3, "covered": 3, "skipped": 0, "pct": 100},
+    "branches": {"total": 6, "covered": 5, "skipped": 0, "pct": 83.33}
+  },
+  "/synthetic/repo/src/app/routes/article/article.mapper.ts": {
+    "lines": {"total": 3, "covered": 3, "skipped": 0, "pct": 100},
+    "statements": {"total": 3, "covered": 3, "skipped": 0, "pct": 100},
+    "functions": {"total": 1, "covered": 1, "skipped": 0, "pct": 100},
+    "branches": {"total": 0, "covered": 0, "skipped": 0, "pct": 100}
+  },
+  "/synthetic/repo/src/app/routes/article/author.mapper.ts": {
+    "lines": {"total": 3, "covered": 3, "skipped": 0, "pct": 100},
+    "statements": {"total": 3, "covered": 3, "skipped": 0, "pct": 100},
+    "functions": {"total": 2, "covered": 2, "skipped": 0, "pct": 100},
+    "branches": {"total": 6, "covered": 5, "skipped": 0, "pct": 83.33}
+  }
+}

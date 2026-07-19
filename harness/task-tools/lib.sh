@@ -79,6 +79,19 @@ print(val)
 PY
 }
 
+# Print coverage_target.files[].path, one per line (test-generation gate T3). Empty
+# output if the task declares no coverage_target (non-test-generation tasks).
+coverage_files() {
+  pilot_python - "$TASK_YAML" <<'PY'
+import sys
+import yaml
+with open(sys.argv[1], encoding="utf-8") as fh:
+    data = yaml.safe_load(fh) or {}
+for f in ((data.get("coverage_target") or {}).get("files") or []):
+    print(f["path"])
+PY
+}
+
 # jest via the subject repo's own toolchain, hermetic (no nx daemon / cloud).
 run_jest() {
   ( cd "$SUBJECT_DIR" \

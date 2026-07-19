@@ -31,6 +31,18 @@ TASK_ID="$(task_field task_id)"
 CANONICAL_PATCH="$TASK_DIR/$(task_field canonical_patch)"
 BASELINE_PATTERN="$(task_field baseline_test_pattern)"
 mapfile -t TARGET_PATHS < <(task_list target_paths)
+GATE_TYPE="$(task_field gate_type 2>/dev/null || echo solution)"
+# The public check that must FAIL pre-modification, per gate type: the solution
+# gate's public test, or the test-generation gate's coverage check (no agent tests
+# yet -> 0% coverage). The tests dir that must exist (check 3): the agent's write
+# scope for test-generation, else the conventional services dir.
+if [ "$GATE_TYPE" = "test_generation" ]; then
+  PREMOD_CHECK_ID="T3-coverage"
+  TESTS_DIR="$(task_field agent_write_scope)"
+else
+  PREMOD_CHECK_ID="P1-public-test"
+  TESTS_DIR="src/tests/services"
+fi
 
 nums=(); ids=(); specs=(); statuses=(); details=()
 HIDDEN_HASH="null"; HIDDEN_VERSION="null"
@@ -73,7 +85,7 @@ fi
 # 3. paths exist (each declared target path + test dir + jest config)
 paths_ok=1
 for t in "${TARGET_PATHS[@]}"; do [ -e "$SUBJECT_DIR/$t" ] || paths_ok=0; done
-[ -d "$SUBJECT_DIR/src/tests/services" ] && [ -f "$SUBJECT_DIR/jest.config.ts" ] || paths_ok=0
+[ -d "$SUBJECT_DIR/${TESTS_DIR%/}" ] && [ -f "$SUBJECT_DIR/jest.config.ts" ] || paths_ok=0
 if [ "$paths_ok" -eq 1 ]; then
   mark 3 paths-exist "SPEC-2.8" 0 "target path(s), src/tests/services/, jest.config.ts"
 else
@@ -121,14 +133,15 @@ reset_tree
 premod_report="$WORKDIR/gate-premod.json"
 GATE_REPORT="$premod_report" bash "$SCRIPT_DIR/gate/check-public.sh" >/dev/null 2>&1
 premod_gate_rc=$?
-public_status="$(pilot_python - "$premod_report" <<'PY' 2>/dev/null || true
-import json, sys
+public_status="$(PREMOD_CHECK_ID="$PREMOD_CHECK_ID" pilot_python - "$premod_report" <<'PY' 2>/dev/null || true
+import json, os, sys
 d = json.load(open(sys.argv[1]))
-print(next((c["status"] for c in d["checks"] if c["id"] == "P1-public-test"), "missing"))
+cid = os.environ["PREMOD_CHECK_ID"]
+print(next((c["status"] for c in d["checks"] if c["id"] == cid), "missing"))
 PY
 )"
 if [ "$premod_gate_rc" -ne 0 ] && [ "$public_status" = "fail" ]; then
-  mark 6 premod-failure "SPEC-2.8" 0 "public gate fails pre-modification (public test fails)"
+  mark 6 premod-failure "SPEC-2.8" 0 "public gate fails pre-modification ($PREMOD_CHECK_ID fails)"
 else
   mark 6 premod-failure "SPEC-2.8" 1 "gate did not fail pre-modification as required"
 fi
