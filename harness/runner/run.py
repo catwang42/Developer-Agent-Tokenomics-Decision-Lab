@@ -496,6 +496,34 @@ def assemble_and_validate(events: List[Dict[str, Any]], *, run_id: str, task: Ta
 # --------------------------------------------------------------------------- #
 # Subject repo setup (live runs only)
 # --------------------------------------------------------------------------- #
+def _archive_agent_diff(subject_dir: str, run_dir: str) -> None:
+    """Preserve the agent's solution diff for provenance (gate-fairness audits).
+
+    Subject repos are reset between runs, so without this the agent's actual edits
+    are lost — you cannot later classify a rejection as feature-broken vs
+    shape-mismatch. Writes the tracked-file diff (product solution survives the
+    gate's test-restore) plus the untracked-file list to ``agent-solution.diff``.
+    Best-effort: a git failure never fails the run.
+    """
+    try:
+        diff = subprocess.run(  # noqa: S603
+            ["git", "-C", subject_dir, "diff", "--", ":!node_modules"],
+            capture_output=True, text=True, check=False,
+        ).stdout
+        untracked = subprocess.run(  # noqa: S603
+            ["git", "-C", subject_dir, "ls-files", "--others", "--exclude-standard",
+             "--", ":!node_modules"],
+            capture_output=True, text=True, check=False,
+        ).stdout
+        with open(os.path.join(run_dir, "agent-solution.diff"), "w", encoding="utf-8") as fh:
+            fh.write(diff)
+            if untracked.strip():
+                fh.write("\n# untracked files (agent-created):\n")
+                fh.write("".join(f"# {p}\n" for p in untracked.splitlines()))
+    except OSError:
+        pass
+
+
 def _setup_subject(task_dir: str, run_dir: str) -> str:
     tt = os.path.join(REPO_ROOT, "harness", "task-tools")
     env = {**os.environ, "TASK_DIR": task_dir}
@@ -640,6 +668,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             dry_run=args.dry_run, scenario=args.stub_scenario,
             cache_state=args.cache_state, base_session=base_session, resume=args.resume,
         )
+        if not args.dry_run:  # preserve the agent's solution diff before any reset
+            _archive_agent_diff(subject_dir, run_dir)
         # Cache state is a runner-controlled experimental variable — stamped
         # authoritatively here (overriding any adapter default) and proven against
         # the event log below.

@@ -102,7 +102,14 @@ Mini CP-SPEND revalidation ran 4 runs (`results/revalidation/`, cold, $15 cap;
   (`w4-...|C2` ECST_marginal = **$0.1155**, n_accepted=1). Criterion 5 closes.
 - **F1 failures are legitimate WRONG_SOLUTION**, not defects (real agentic work,
   wrong/out-of-scope result). Per the CP-SPEND condition, these are treated as
-  findings; the harness is **not** iterated to make models pass.
+  findings; the harness is **not** iterated to make models pass. A **gate-fairness
+  audit** (`report/gate-fairness-audit.md`) found F1·P1·rep1 was a *shape mismatch*
+  (case ii): a Prisma-equivalent `{ draft: { equals: false } }` failing the DB-free
+  test's `objectContaining({ draft: false })`. Remedy (task, not gate): the pilot
+  prompt now pins the query-contract shape + edit scope (**pilot-v2**); the
+  sealed-test hash is **unchanged** (gate not loosened); 10-point validation re-run
+  10/10. The two P0 diffs weren't archived (fixed: `agent-solution.diff` per run)
+  and are re-classified in the batch-2 re-collection.
 - **Pass criteria (§6) MET:** ≥1 run with non-empty diff + `permission_denials==0`
   + `num_turns>1` (all 4), AND ≥1 accepted (F2·C2).
 - **Provenance note (not a blocker):** the agent's diff is reset between runs and

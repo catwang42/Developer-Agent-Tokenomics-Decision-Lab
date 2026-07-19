@@ -316,5 +316,40 @@ class SpendCapKillSwitch(unittest.TestCase):
         self.assertEqual(rc2, 3)
 
 
+class AgentDiffArchive(unittest.TestCase):
+    """Provenance: the agent's solution diff is preserved before any reset."""
+
+    def _git(self, repo, *args):
+        import subprocess
+        subprocess.run(["git", "-C", repo, *args], check=True,
+                       capture_output=True, text=True)
+
+    def test_archives_tracked_diff_and_untracked_list(self) -> None:
+        import subprocess
+        repo = tempfile.mkdtemp(prefix="lab-subj-")
+        self._git(repo, "init", "-q")
+        self._git(repo, "config", "user.email", "t@t")
+        self._git(repo, "config", "user.name", "t")
+        with open(os.path.join(repo, "svc.ts"), "w") as fh:
+            fh.write("const x = 1;\n")
+        self._git(repo, "add", "-A")
+        self._git(repo, "commit", "-qm", "base")
+        # Agent edits a tracked file and creates an untracked one.
+        with open(os.path.join(repo, "svc.ts"), "w") as fh:
+            fh.write("const x = 2;  // draft: false\n")
+        with open(os.path.join(repo, "new.ts"), "w") as fh:
+            fh.write("extra\n")
+        run_dir = tempfile.mkdtemp(prefix="lab-run-")
+        runner._archive_agent_diff(repo, run_dir)
+        text = open(os.path.join(run_dir, "agent-solution.diff"), encoding="utf-8").read()
+        self.assertIn("draft: false", text)      # tracked edit captured
+        self.assertIn("svc.ts", text)
+        self.assertIn("new.ts", text)            # untracked file listed
+
+    def test_never_raises_on_non_repo(self) -> None:
+        run_dir = tempfile.mkdtemp(prefix="lab-run-")
+        runner._archive_agent_diff(tempfile.mkdtemp(), run_dir)  # not a git repo -> no raise
+
+
 if __name__ == "__main__":
     unittest.main()
