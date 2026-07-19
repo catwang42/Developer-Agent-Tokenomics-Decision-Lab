@@ -52,6 +52,11 @@ echo "  hash:    $HIDDEN_HASH"
 prisma_generate
 
 injected=()
+# Invoked only via `trap cleanup EXIT`, so shellcheck sees it as unreachable.
+# SC2317 (shellcheck 0.9.x, what CI ships) and SC2329 (0.11.x, its successor)
+# are the same false positive under different codes; disable both so this stays
+# clean across runner shellcheck bumps.
+# shellcheck disable=SC2317,SC2329
 cleanup() { for f in "${injected[@]}"; do rm -f "$f"; done; }
 trap cleanup EXIT
 
