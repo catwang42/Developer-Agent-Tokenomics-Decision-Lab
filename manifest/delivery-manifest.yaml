@@ -17,9 +17,10 @@ configurations:
   # NOTE: claude-sonnet-4-6 exposes only the floating '@default' version alias (no
   # dated snapshot) — a reproducibility caveat recorded per SPEC 6.3; the routed
   # build behind @default is not guaranteed stable across the batch. MITIGATION:
-  # every run records the concrete resolved model version from the product's JSON
-  # `model` field into identity.model_or_selector (authoritative), pinning per-run
-  # reproducibility despite the floating alias (claude_code.resolved_model_version).
+  # every run records the concrete resolved model version from the product JSON
+  # `modelUsage` keys (the concrete metered model ids) into
+  # identity.model_or_selector (authoritative), pinning per-run reproducibility
+  # despite the floating alias (claude_code.resolved_model_version).
   STRONG_MODEL_A:
     provider: google_vertex
     product_surface: controlled_api

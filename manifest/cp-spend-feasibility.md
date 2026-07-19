@@ -175,8 +175,8 @@ placeholder: `task_suite_commit: TBD` (set to the batch-1 run commit at approval
 Model IDs verified GA on Vertex via the REST publisher-models endpoint
 (`GET publishers/anthropic/models/<id>` → 200 + `launchStage: GA`; bogus id → 404),
 not guessed. The `@default` floating-alias caveat is mitigated per-run: each run
-records the product's concrete resolved `model` version into
-`identity.model_or_selector` (authoritative).
+records the concrete resolved model version from the product JSON `modelUsage`
+keys into `identity.model_or_selector` (authoritative).
 
 ### 4.2 Pricing snapshot (`pricing/prices-2026-07-19.json`) — ✅ PINNED
 Four token classes for every provider/model used; source URLs + retrieval timestamps

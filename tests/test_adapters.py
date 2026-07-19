@@ -26,17 +26,31 @@ def _resolved(selector: str = "claude-sonnet-4-6@default", confidence: str = "au
 
 
 class ResolvedModelVersion(unittest.TestCase):
-    def test_extracts_top_level_model_field(self) -> None:
+    def test_modelusage_single_key_is_concrete_version(self) -> None:
+        obj = {"modelUsage": {"claude-haiku-4-5@20251001": {"inputTokens": 10}}}
+        self.assertEqual(cc.resolved_model_version(obj), "claude-haiku-4-5@20251001")
+
+    def test_floating_alias_pinned_to_matching_family(self) -> None:
+        # Requested the floating '@default'; modelUsage meters the concrete version
+        # plus an auxiliary haiku. The primary (same base name) pins the alias.
+        obj = {"modelUsage": {
+            "claude-sonnet-4-6@20260130": {"inputTokens": 5000},
+            "claude-haiku-4-5@20251001": {"inputTokens": 20},
+        }}
         self.assertEqual(
-            cc.resolved_model_version({"model": "claude-sonnet-4-6-20260130"}),
-            "claude-sonnet-4-6-20260130",
+            cc.resolved_model_version(obj, requested="claude-sonnet-4-6@default"),
+            "claude-sonnet-4-6@20260130",
         )
 
-    def test_absent_or_blank_model_is_none(self) -> None:
+    def test_multiple_keys_without_match_joined(self) -> None:
+        obj = {"modelUsage": {"a@1": {}, "b@2": {}}}
+        self.assertEqual(cc.resolved_model_version(obj, requested="c@9"), "a@1,b@2")
+
+    def test_falls_back_to_model_field_then_none(self) -> None:
+        self.assertEqual(cc.resolved_model_version({"model": "x-1"}), "x-1")
         # None -> caller keeps the requested selector; never invents a version.
         self.assertIsNone(cc.resolved_model_version({}))
         self.assertIsNone(cc.resolved_model_version({"model": ""}))
-        self.assertIsNone(cc.resolved_model_version({"model": None}))
         self.assertIsNone(cc.resolved_model_version(None))
 
 

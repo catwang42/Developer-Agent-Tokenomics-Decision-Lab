@@ -61,15 +61,38 @@ def build_command(prompt: str, model_id: str, *, session_id: Optional[str] = Non
     return cmd
 
 
-def resolved_model_version(obj: Dict[str, Any]) -> Optional[str]:
+def _model_usage_keys(obj: Dict[str, Any]) -> List[str]:
+    """Concrete model ids the product metered for this turn (``modelUsage`` keys).
+
+    ``claude -p --output-format json`` reports a ``modelUsage`` object keyed by the
+    concrete model ids that actually served the request (e.g.
+    ``claude-sonnet-4-6@<concrete>``, plus any auxiliary model the harness used).
+    """
+    mu = (obj or {}).get("modelUsage")
+    if not isinstance(mu, dict):
+        return []
+    return sorted(k for k in mu if isinstance(k, str) and k)
+
+
+def resolved_model_version(obj: Dict[str, Any], requested: Optional[str] = None) -> Optional[str]:
     """Concrete model version the product reports actually served the request.
 
-    ``claude -p --output-format json`` echoes the resolved model in the top-level
-    ``model`` field (e.g. a dated ``claude-sonnet-4-6-YYYYMMDD``) — distinct from
-    the alias we requested via ``--model`` (which may float, e.g. ``@default``).
-    Returns that string, or ``None`` if the product exposes no concrete version
-    (caller then keeps the requested selector — a resolved id is never invented).
+    Source of truth is ``modelUsage`` (keyed by concrete ids), with the top-level
+    ``model`` string as a fallback. When ``requested`` is given and exactly one
+    metered id shares its base name (the part before ``@``), that id is returned —
+    the primary model, which pins a floating alias like ``@default`` to a concrete
+    version. Otherwise all metered ids are returned (comma-joined), else the
+    ``model`` fallback, else ``None`` (caller keeps the requested selector — a
+    resolved id is never invented).
     """
+    keys = _model_usage_keys(obj)
+    if keys:
+        if requested:
+            base = requested.split("@", 1)[0]
+            primary = [k for k in keys if k.split("@", 1)[0] == base]
+            if len(primary) == 1:
+                return primary[0]
+        return keys[0] if len(keys) == 1 else ",".join(keys)
     model = (obj or {}).get("model")
     return model if isinstance(model, str) and model else None
 
@@ -127,13 +150,15 @@ class ClaudeCodeAdapter(Adapter):
             emit("model_call_completed", usage=usage, **leg_meta)
             return AttemptOutcome(identity=_identity(r))
 
-        resolved = resolved_model_version(payload)
+        resolved = resolved_model_version(payload, requested=r.model_or_selector)
         # Provenance in the immutable log: what we asked for vs what actually
-        # served, stamped on the existing completed event (no new event type —
-        # CP-SCHEMA respected). unavailable, never zero/blank, if not exposed.
+        # served (and the full set of metered model ids), stamped on the existing
+        # completed event (no new event type — CP-SCHEMA respected). unavailable,
+        # never zero/blank, if not exposed.
         emit("model_call_completed", usage=usage_from_claude_json(payload),
              requested_selector=r.model_or_selector,
-             resolved_model_version=resolved or "unavailable", **leg_meta)
+             resolved_model_version=resolved or "unavailable",
+             model_usage_keys=_model_usage_keys(payload), **leg_meta)
         return AttemptOutcome(identity=_identity(r, resolved_version=resolved))
 
 
