@@ -8,6 +8,8 @@
 #     --manifest tests/fixtures/manifest-SYNTHETIC.yaml --out-root /tmp/dry
 #
 # --cache-state {cold|warm-series} is REQUIRED (cache-protocol.md rule 4).
+# --spend-cap-usd N caps cumulative batch spend (default 60; halts with exit 3
+#   before starting a run once completed sibling runs' realized cost reaches N).
 set -euo pipefail
 
 RUNNER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

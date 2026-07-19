@@ -61,6 +61,19 @@ def build_command(prompt: str, model_id: str, *, session_id: Optional[str] = Non
     return cmd
 
 
+def resolved_model_version(obj: Dict[str, Any]) -> Optional[str]:
+    """Concrete model version the product reports actually served the request.
+
+    ``claude -p --output-format json`` echoes the resolved model in the top-level
+    ``model`` field (e.g. a dated ``claude-sonnet-4-6-YYYYMMDD``) — distinct from
+    the alias we requested via ``--model`` (which may float, e.g. ``@default``).
+    Returns that string, or ``None`` if the product exposes no concrete version
+    (caller then keeps the requested selector — a resolved id is never invented).
+    """
+    model = (obj or {}).get("model")
+    return model if isinstance(model, str) and model else None
+
+
 def usage_from_claude_json(obj: Dict[str, Any]) -> Dict[str, Any]:
     """Map ``claude -p --output-format json`` usage metadata to tiered usage.
 
@@ -108,15 +121,29 @@ class ClaudeCodeAdapter(Adapter):
             emit("model_call_completed", usage=usage, **leg_meta)
             return AttemptOutcome(identity=_identity(r))
 
-        emit("model_call_completed", usage=usage_from_claude_json(payload), **leg_meta)
-        return AttemptOutcome(identity=_identity(r))
+        resolved = resolved_model_version(payload)
+        # Provenance in the immutable log: what we asked for vs what actually
+        # served, stamped on the existing completed event (no new event type —
+        # CP-SCHEMA respected). unavailable, never zero/blank, if not exposed.
+        emit("model_call_completed", usage=usage_from_claude_json(payload),
+             requested_selector=r.model_or_selector,
+             resolved_model_version=resolved or "unavailable", **leg_meta)
+        return AttemptOutcome(identity=_identity(r, resolved_version=resolved))
 
 
-def _identity(r) -> Dict[str, Any]:
+def _identity(r, resolved_version: Optional[str] = None) -> Dict[str, Any]:
+    # model_or_selector records the CONCRETE resolved model version the product
+    # reported (authoritative) in preference to the requested selector/alias — this
+    # pins per-run reproducibility even when the manifest holds a floating alias
+    # like '@default' (CP-SPEND floating-alias mitigation, 2026-07-19). If the
+    # product exposes no concrete version, the requested selector is kept at its
+    # declared tier; a resolved id is never invented (SPEC 6.3, CLAUDE.md rule 1).
+    model_or_selector = tiered(resolved_version, "authoritative") if resolved_version \
+        else tiered(r.model_or_selector, r.model_confidence)
     ident = {
         "product": tiered(r.product, "authoritative"),
         "provider": tiered(r.provider, "authoritative"),
-        "model_or_selector": tiered(r.model_or_selector, r.model_confidence),
+        "model_or_selector": model_or_selector,
         "auth_billing_path": tiered("controlled_api", "authoritative"),
     }
     if r.region:

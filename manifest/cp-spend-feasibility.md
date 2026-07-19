@@ -9,21 +9,30 @@ verified in `--dry-run` (no spend):
 - **Manifest resolved** — `manifest/delivery-manifest.yaml`: STRONG_MODEL_A =
   `claude-sonnet-4-6@default`, ECONOMICAL_MODEL_A = `claude-haiku-4-5@20251001`
   (both GA on Vertex, project `vital-octagon-19612`, region `us-central1`, verified
-  from the live publisher-model list — not guessed); Product B tiers = verbatim
+  live via the Vertex REST publisher-models endpoint — `GET
+  publishers/anthropic/models/<id>` returned 200 + `launchStage: GA` with the
+  exact version aliases, and a bogus id returned 404, so the 200s are meaningful;
+  not guessed); Product B tiers = verbatim
   Gemini selector labels; `cost_basis: marginal_api_cost` on all legs.
 - **Pricing pinned** — `pricing/prices-2026-07-19.json`, published rates with source
   URLs + retrieval timestamps inside the file.
 - **`--cache-state` contract implemented** (was §4.4) — required flag, cold-freshness
   proven from the event log, warm-series session resume; 6 new tests green.
+- **Spend kill-switch implemented** (§3, option a) — `--spend-cap-usd` (default $60)
+  halts the batch before a run once cumulative event-log-derived spend hits the cap;
+  resumable; 6 new tests green.
+- **Floating-alias mitigation implemented** (§4.1) — each run records the product's
+  concrete resolved `model` version into `identity.model_or_selector`; tests green.
 - **F3 = option (b)** — batch 1 excludes F3; it becomes batch 2 (own mini CP-SPEND).
 
 All token/cost figures below are **a-priori planning estimates, NOT telemetry** —
 the feasibility runs produce the first authoritative token data (CLAUDE.md 1–3).
 
-> ⚠️ **Ceiling flag:** the HIGH end of the batch-1 envelope (§3) is **~$64.5**
-> (global) / **~$70.4** (regional), which **exceeds the $60 not-to-exceed ceiling**.
-> EXPECTED is ~$30 and LOW ~$11. Per the batch-1 instruction, this is surfaced for a
-> decision **before anything runs** — see §3 for options.
+> ✅ **Ceiling resolved (2026-07-19):** the conservative HIGH envelope (§3) was
+> **~$64.5** (global) / **~$70.4** (regional) — above the $60 ceiling — while
+> EXPECTED is ~$30 and LOW ~$11. Decision: **option (a)**, keep $60 and enforce it
+> with the in-runner cumulative kill-switch (now implemented, §3). Actual spend is
+> bounded at the cap regardless of the token tail.
 
 ---
 
@@ -134,18 +143,20 @@ pinned snapshot):
 **Against the $60 ceiling:** LOW and EXPECTED are well under; the **HIGH band
 exceeds $60** on both bases. The HIGH band is a deliberately conservative
 worst-case (max tokens × all-P1-escalate × Product-B-tokens-exposed) — the expected
-outcome (~$30) is half the ceiling. Options for the human:
+outcome (~$30) is half the ceiling.
 
-- **(a)** Keep $60 and add a **cumulative-spend kill-switch** to the runner (no-spend
-  build work): halt the batch when summed `marginal_operating_usd` crosses a cap.
-  This bounds actual spend to ≤$60 regardless of the token tail. *(Recommended.)*
-- **(b)** Raise the ceiling to **$75** (covers the regional HIGH tail).
-- **(c)** Trim batch 1 (e.g. drop C5 companion, or 2 reps on the priciest P1 cells)
-  to pull the HIGH band under $60.
-
-There is currently **no automatic in-runner spend cap** — each run validates
-independently but nothing halts the batch at a cumulative dollar figure. Absent
-option (a), the ceiling is honoured by monitoring, not enforcement.
+**DECISION (2026-07-19): option (a) — keep the $60 ceiling and enforce it in the
+runner.** A **cumulative-spend kill-switch** is now implemented (`--spend-cap-usd`,
+default `60.0`): before each run the runner sums the realized, event-log-derived
+`marginal_operating_usd` of completed sibling runs under the batch output root and
+**halts (exit 3) before starting** any run once known spend reaches the cap. It is
+resumable — re-invoke (optionally with a raised cap) and prior results are
+untouched. Per-leg summation captures mixed-basis C5 runs; an `unavailable`-cost
+leg is counted (never zero-imputed, CLAUDE.md rule 3), so the enforced figure is
+the KNOWN-spend floor and the halt message flags any unavailable legs. Enforcement
+is *between* runs, so at most one in-flight run can cross the boundary (expected
+per-run cost ~$1–2). Tests: `tests/test_runner.py::SpendCapKillSwitch` (6 cases,
+no spend).
 
 **Guards already in place:** runner refuses live runs without `LAB_ALLOW_SPEND=1`;
 refuses any unresolved manifest field or missing pricing; cost is reconstructed from
@@ -161,7 +172,11 @@ All configurations filled and verified in `--dry-run` (resolution + costing pass
 P0/C2/P1/C3/C5). `cost_basis: marginal_api_cost` on all legs; `delivery_date:
 2026-07-19`; `pricing_snapshot: pricing/prices-2026-07-19.json`. Remaining
 placeholder: `task_suite_commit: TBD` (set to the batch-1 run commit at approval).
-Model IDs verified GA on Vertex from the live publisher list (not guessed).
+Model IDs verified GA on Vertex via the REST publisher-models endpoint
+(`GET publishers/anthropic/models/<id>` → 200 + `launchStage: GA`; bogus id → 404),
+not guessed. The `@default` floating-alias caveat is mitigated per-run: each run
+records the product's concrete resolved `model` version into
+`identity.model_or_selector` (authoritative).
 
 ### 4.2 Pricing snapshot (`pricing/prices-2026-07-19.json`) — ✅ PINNED
 Four token classes for every provider/model used; source URLs + retrieval timestamps
@@ -186,11 +201,15 @@ freshness from the event log (`assert_cache_contract`) and stamps
 (CP-SCHEMA respected — no new event type). Product B session control is not exposed,
 so its cold freshness is best-effort and reported as such.
 
-### 4.5 Open for the human at approval
-- **The $60 ceiling vs the HIGH envelope tail** — pick option (a)/(b)/(c) in §3.
-- **Product B / `agy` availability** — C3/C5 require a working Antigravity CLI +
-  Gemini access on this account; confirm before the companion runs.
-- `task_suite_commit` pin (§4.1).
+### 4.5 Resolved at approval (2026-07-19 — CHECKPOINT APPROVED: CP-SPEND)
+- **$60 ceiling** — option (a): kept, enforced by the in-runner kill-switch (§3).
+- **Pricing + endpoint** — approved as pinned: global-endpoint rates; the regional
+  +10% stays a per-model sensitivity note; Gemini `cache_write` stays documented as
+  derived (base input, no published write premium).
+- **Floating alias** — accepted with the per-run concrete-version mitigation (§4.1).
+- **Product B / `agy`** — confirmed installed + authenticated on this account; the
+  six selector labels are current. C3/C5 companion runs proceed.
+- `task_suite_commit` — pinned to the batch-1 run commit at execution and recorded.
 
 ### 4.6 Minor: F2 config-list mismatch (non-blocking)
 `tasks/suite/W4-complex-bugfix/task.yaml` declares `configurations: [C1,C2,C3,C5]`

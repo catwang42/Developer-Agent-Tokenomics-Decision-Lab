@@ -295,6 +295,45 @@ def assert_cache_contract(events: List[Dict[str, Any]], cache_state: str) -> Lis
 
 
 # --------------------------------------------------------------------------- #
+# Cumulative-spend kill-switch (CP-SPEND option a — batch cost ceiling)
+# --------------------------------------------------------------------------- #
+def cumulative_spend_usd(batch_dir: str) -> Tuple[float, int, int]:
+    """Sum realized marginal operating USD across completed runs in ``batch_dir``.
+
+    Reads every sibling ``summary.json`` (the event-log-derived cost artifact) and
+    sums each leg's numeric ``marginal_operating_usd`` value. This is per-leg — so
+    it captures both single-basis runs and mixed-basis workflows (C5), whose
+    top-level cost is intentionally ``unavailable``. A leg whose cost is
+    ``unavailable`` (e.g. Product B not exposing tokens) is COUNTED, never
+    zero-imputed (CLAUDE.md rule 3): the returned total is therefore the
+    KNOWN-spend floor, and the unavailable-leg count flags that real spend may be
+    higher. Returns ``(total_usd, n_runs, n_unavailable_legs)``.
+    """
+    total = 0.0
+    n_runs = 0
+    n_unavailable = 0
+    if not os.path.isdir(batch_dir):
+        return 0.0, 0, 0
+    for name in sorted(os.listdir(batch_dir)):
+        summary_path = os.path.join(batch_dir, name, "summary.json")
+        if not os.path.isfile(summary_path):
+            continue
+        try:
+            with open(summary_path, encoding="utf-8") as fh:
+                summary = json.load(fh)
+        except (OSError, json.JSONDecodeError):
+            continue  # a half-written or corrupt sibling never inflates/masks spend
+        n_runs += 1
+        for leg in summary.get("legs", []):
+            value = (leg.get("marginal_operating_usd") or {}).get("value")
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                total += float(value)
+            else:
+                n_unavailable += 1
+    return round(total, 6), n_runs, n_unavailable
+
+
+# --------------------------------------------------------------------------- #
 # Execution
 # --------------------------------------------------------------------------- #
 def _gate(dry_run: bool, scenario: str, leg_id: str, task_dir: str,
@@ -488,6 +527,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                     help="explicit session id (required to --resume a warm-series run)")
     ap.add_argument("--resume", action="store_true",
                     help="continue --session-id (warm-series runs 2..n)")
+    ap.add_argument("--spend-cap-usd", type=float, default=60.0,
+                    help="cumulative batch spend ceiling (CP-SPEND option a). Before "
+                         "starting a run, the summed realized marginal cost of completed "
+                         "sibling runs under the same output root is checked; at/over the "
+                         "cap the runner halts (exit 3) without starting. Resumable: "
+                         "re-invoke (optionally with a raised cap) to continue.")
     ap.add_argument("--dry-run", action="store_true",
                     help="synthetic adapters + gate; no spend/clone/network")
     ap.add_argument("--out-root", default=None,
@@ -537,10 +582,28 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         run_id = _make_run_id(task, args.config, args.rep)
         if args.dry_run:
-            out_root = args.out_root or tempfile.mkdtemp(prefix="lab-dryrun-")
-            run_dir = os.path.join(out_root, run_id)
+            batch_dir = args.out_root or tempfile.mkdtemp(prefix="lab-dryrun-")
         else:
-            run_dir = os.path.join(REPO_ROOT, "results", args.phase, run_id)
+            batch_dir = os.path.join(REPO_ROOT, "results", args.phase)
+        run_dir = os.path.join(batch_dir, run_id)
+
+        # Cumulative-spend kill-switch (CP-SPEND option a). Enforced from the
+        # realized, event-log-derived cost of runs already completed in this batch
+        # directory — checked BEFORE this run starts, so once known spend reaches
+        # the cap no further run begins. A stopped batch resumes by re-invoking
+        # (optionally with a raised --spend-cap-usd); prior results are untouched.
+        spent, n_prior, n_unavail = cumulative_spend_usd(batch_dir)
+        if spent >= args.spend_cap_usd:
+            floor_note = (f" (plus {n_unavail} prior leg(s) with unavailable cost — "
+                          f"actual spend may exceed this known floor)") if n_unavail else ""
+            print(
+                f"runner: SPEND CAP REACHED — ${spent:.2f} known spend across {n_prior} "
+                f"completed run(s){floor_note} >= ${args.spend_cap_usd:.2f} cap; halting "
+                f"before this run starts. Raise --spend-cap-usd to resume the batch.",
+                file=sys.stderr,
+            )
+            return 3
+
         os.makedirs(run_dir, exist_ok=True)
 
         if args.dry_run:

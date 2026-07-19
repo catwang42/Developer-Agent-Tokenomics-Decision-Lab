@@ -29,8 +29,13 @@ TASK = "tasks/pilot-realworld"
 
 def _run(config: str, *, scenario: str = "accept", manifest: str = SYNTH_MANIFEST,
          out_root: str | None = None, allow_spend: bool = False,
-         cache_state: str = "cold", session_id: str | None = None, resume: bool = False):
-    """Invoke the runner; return (rc, run_dir_or_None, summary_or_None)."""
+         cache_state: str = "cold", session_id: str | None = None, resume: bool = False,
+         spend_cap: float | None = None):
+    """Invoke the runner; return (rc, run_dir_or_None, summary_or_None).
+
+    ``run_dir`` is the newest run directory under ``out_root`` (so a second call
+    sharing an ``out_root`` reports the run it just produced, not an earlier one).
+    """
     out_root = out_root or tempfile.mkdtemp(prefix="lab-test-")
     argv = ["--task", TASK, "--config", config, "--dry-run", "--cache-state", cache_state,
             "--stub-scenario", scenario, "--manifest", manifest, "--out-root", out_root]
@@ -38,6 +43,8 @@ def _run(config: str, *, scenario: str = "accept", manifest: str = SYNTH_MANIFES
         argv += ["--session-id", session_id]
     if resume:
         argv += ["--resume"]
+    if spend_cap is not None:
+        argv += ["--spend-cap-usd", str(spend_cap)]
     if not allow_spend:
         os.environ.pop("LAB_ALLOW_SPEND", None)
     rc = runner.main(argv)
@@ -45,7 +52,7 @@ def _run(config: str, *, scenario: str = "accept", manifest: str = SYNTH_MANIFES
                 if os.path.isdir(os.path.join(out_root, d))]
     if not run_dirs:
         return rc, None, None
-    run_dir = run_dirs[0]
+    run_dir = max(run_dirs, key=os.path.getmtime)
     summary_path = os.path.join(run_dir, "summary.json")
     summary = json.load(open(summary_path, encoding="utf-8")) if os.path.exists(summary_path) else None
     return rc, run_dir, summary
@@ -210,6 +217,80 @@ class CacheStateContract(unittest.TestCase):
         rc, run_dir, _ = _run("C1", cache_state="cold", session_id="x", resume=True)
         self.assertEqual(rc, 2)
         self.assertIsNone(run_dir)
+
+
+class SpendCapKillSwitch(unittest.TestCase):
+    """CP-SPEND option (a): cumulative batch spend ceiling, no spend to test."""
+
+    def _seed_summary(self, batch_dir: str, name: str, leg_costs) -> None:
+        """Write a minimal sibling summary.json with the given per-leg costs.
+
+        ``leg_costs`` entries are either a float (a derived cost) or ``None`` (an
+        unavailable-cost leg) — matching the shape cumulative_spend_usd reads.
+        """
+        run_dir = os.path.join(batch_dir, name)
+        os.makedirs(run_dir, exist_ok=True)
+        legs = []
+        for i, c in enumerate(leg_costs):
+            if c is None:
+                mov = {"value": None, "confidence": "unavailable", "reason": "test"}
+            else:
+                mov = {"value": c, "confidence": "derived"}
+            legs.append({"leg_id": f"leg{i}", "marginal_operating_usd": mov})
+        with open(os.path.join(run_dir, "summary.json"), "w", encoding="utf-8") as fh:
+            json.dump({"legs": legs}, fh)
+
+    def test_cumulative_spend_sums_per_leg_and_counts_unavailable(self) -> None:
+        batch = tempfile.mkdtemp(prefix="lab-cap-")
+        self._seed_summary(batch, "runA", [10.0, 15.0])       # single-basis, $25
+        self._seed_summary(batch, "runB", [5.0, None])        # mixed: $5 + unavailable
+        total, n_runs, n_unavail = runner.cumulative_spend_usd(batch)
+        self.assertAlmostEqual(total, 30.0)
+        self.assertEqual(n_runs, 2)
+        self.assertEqual(n_unavail, 1)   # unavailable leg counted, never zero-imputed
+
+    def test_empty_or_missing_batch_dir_is_zero(self) -> None:
+        self.assertEqual(runner.cumulative_spend_usd("/nonexistent/batch"), (0.0, 0, 0))
+        self.assertEqual(runner.cumulative_spend_usd(tempfile.mkdtemp()), (0.0, 0, 0))
+
+    def test_halts_before_run_when_prior_spend_at_cap(self) -> None:
+        batch = tempfile.mkdtemp(prefix="lab-cap-")
+        self._seed_summary(batch, "prior", [61.0])            # already over a $60 cap
+        before = set(os.listdir(batch))
+        rc, _, _ = _run("P0", out_root=batch, spend_cap=60.0)
+        self.assertEqual(rc, 3)                                # dedicated halt code
+        # No new run directory was created — the run never started.
+        self.assertEqual(set(os.listdir(batch)), before)
+
+    def test_under_cap_run_proceeds(self) -> None:
+        batch = tempfile.mkdtemp(prefix="lab-cap-")
+        self._seed_summary(batch, "prior", [1.0])             # well under cap
+        rc, run_dir, summary = _run("P0", out_root=batch, spend_cap=60.0)
+        self.assertEqual(rc, 0)
+        self.assertIsNotNone(summary)
+
+    def test_halt_is_resumable_by_raising_cap(self) -> None:
+        batch = tempfile.mkdtemp(prefix="lab-cap-")
+        self._seed_summary(batch, "prior", [50.0])
+        # $50 prior >= $40 cap -> halt; prior results untouched.
+        rc_halt, _, _ = _run("P0", out_root=batch, spend_cap=40.0)
+        self.assertEqual(rc_halt, 3)
+        # Raise the cap above prior spend -> the same batch resumes and runs.
+        rc_resume, run_dir, summary = _run("P0", out_root=batch, spend_cap=100.0)
+        self.assertEqual(rc_resume, 0)
+        self.assertIsNotNone(summary)
+
+    def test_cap_counts_real_completed_run(self) -> None:
+        # A first real (stub) run accrues a small cost; a second run under a cap
+        # below that accrued cost halts — the cap reads live event-log-derived cost.
+        batch = tempfile.mkdtemp(prefix="lab-cap-")
+        rc1, run_dir1, _ = _run("P0", out_root=batch)         # default cap, proceeds
+        self.assertEqual(rc1, 0)
+        spent, n_runs, _ = runner.cumulative_spend_usd(batch)
+        self.assertGreater(spent, 0.0)
+        self.assertEqual(n_runs, 1)
+        rc2, _, _ = _run("P0", out_root=batch, spend_cap=spent / 2)
+        self.assertEqual(rc2, 3)
 
 
 if __name__ == "__main__":
