@@ -23,16 +23,21 @@ from harness.telemetry.telemetry import validate  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SYNTH_MANIFEST = str(ROOT / "tests" / "fixtures" / "manifest-SYNTHETIC.yaml")
-REAL_MANIFEST = str(ROOT / "manifest" / "delivery-manifest.yaml")
+UNRESOLVED_MANIFEST = str(ROOT / "tests" / "fixtures" / "manifest-UNRESOLVED-SYNTHETIC.yaml")
 TASK = "tasks/pilot-realworld"
 
 
 def _run(config: str, *, scenario: str = "accept", manifest: str = SYNTH_MANIFEST,
-         out_root: str | None = None, allow_spend: bool = False):
+         out_root: str | None = None, allow_spend: bool = False,
+         cache_state: str = "cold", session_id: str | None = None, resume: bool = False):
     """Invoke the runner; return (rc, run_dir_or_None, summary_or_None)."""
     out_root = out_root or tempfile.mkdtemp(prefix="lab-test-")
-    argv = ["--task", TASK, "--config", config, "--dry-run",
+    argv = ["--task", TASK, "--config", config, "--dry-run", "--cache-state", cache_state,
             "--stub-scenario", scenario, "--manifest", manifest, "--out-root", out_root]
+    if session_id:
+        argv += ["--session-id", session_id]
+    if resume:
+        argv += ["--resume"]
     if not allow_spend:
         os.environ.pop("LAB_ALLOW_SPEND", None)
     rc = runner.main(argv)
@@ -143,16 +148,68 @@ class ProductBlackboxUnavailable(unittest.TestCase):
 
 class StartupGuards(unittest.TestCase):
     def test_refuses_unresolved_manifest(self) -> None:
-        # The real manifest is all placeholders -> resolution must refuse (exit 2),
-        # even in --dry-run, and write no run directory.
-        rc, run_dir, _ = _run("P0", manifest=REAL_MANIFEST)
+        # An unresolved manifest (all placeholders) -> resolution must refuse (exit
+        # 2), even in --dry-run, and write no run directory. Uses a dedicated
+        # fixture so the guard is tested independently of whether the real delivery
+        # manifest has been filled at CP-SPEND.
+        rc, run_dir, _ = _run("P0", manifest=UNRESOLVED_MANIFEST)
         self.assertEqual(rc, 2)
         self.assertIsNone(run_dir)
 
     def test_live_run_requires_spend_approval(self) -> None:
         os.environ.pop("LAB_ALLOW_SPEND", None)
-        rc = runner.main(["--task", TASK, "--config", "P0", "--manifest", SYNTH_MANIFEST])
+        rc = runner.main(["--task", TASK, "--config", "P0", "--cache-state", "cold",
+                          "--manifest", SYNTH_MANIFEST])
         self.assertEqual(rc, 2)
+
+
+class CacheStateContract(unittest.TestCase):
+    def test_cold_run_records_authoritative_cold_state(self) -> None:
+        rc, run_dir, summary = _run("C1", cache_state="cold")
+        self.assertEqual(rc, 0)
+        ok, reasons = validate(run_dir)
+        self.assertTrue(ok, reasons)
+        cs = summary["identity"]["cache_state"]
+        self.assertEqual(cs["value"], "cold")
+        self.assertEqual(cs["confidence"], "authoritative")
+        self.assertEqual(summary["identity"]["session_state"]["value"], "fresh")
+
+    def test_cold_freshness_provable_from_event_log(self) -> None:
+        # A session id is stamped on model_call_started so freshness is provable
+        # from the immutable log (cache-protocol rule 4), and no leg resumed.
+        _, run_dir, _ = _run("P0", cache_state="cold")
+        with open(os.path.join(run_dir, "events.jsonl"), encoding="utf-8") as fh:
+            starts = [json.loads(l) for l in fh if '"model_call_started"' in l]
+        self.assertTrue(starts)
+        for e in starts:
+            self.assertTrue(e.get("session_id"))
+            self.assertFalse(e.get("resumed"))
+
+    def test_warm_series_resumes_session(self) -> None:
+        rc, run_dir, summary = _run("C1", cache_state="warm-series",
+                                    session_id="lab-warm-1", resume=True)
+        self.assertEqual(rc, 0)
+        ok, reasons = validate(run_dir)
+        self.assertTrue(ok, reasons)
+        self.assertEqual(summary["identity"]["cache_state"]["value"], "warm-series")
+        self.assertEqual(summary["identity"]["session_state"]["value"], "resumed")
+
+    def test_cache_state_is_required(self) -> None:
+        # Omitting --cache-state is an argparse error (SystemExit), not a run.
+        out_root = tempfile.mkdtemp(prefix="lab-test-")
+        with self.assertRaises(SystemExit):
+            runner.main(["--task", TASK, "--config", "C1", "--dry-run",
+                         "--manifest", SYNTH_MANIFEST, "--out-root", out_root])
+
+    def test_warm_series_without_resume_refused(self) -> None:
+        rc, run_dir, _ = _run("C1", cache_state="warm-series")
+        self.assertEqual(rc, 2)
+        self.assertIsNone(run_dir)
+
+    def test_cold_with_resume_refused(self) -> None:
+        rc, run_dir, _ = _run("C1", cache_state="cold", session_id="x", resume=True)
+        self.assertEqual(rc, 2)
+        self.assertIsNone(run_dir)
 
 
 if __name__ == "__main__":

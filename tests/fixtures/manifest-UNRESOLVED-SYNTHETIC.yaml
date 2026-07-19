@@ -1,0 +1,23 @@
+# SYNTHETIC UNRESOLVED delivery manifest — for unit tests ONLY. Mirrors the shape
+# of an un-filled manifest/delivery-manifest.yaml (all volatile fields still
+# placeholders) so the runner's startup guard (resolve_model refuses placeholders)
+# can be tested even after the real manifest is filled at CP-SPEND. Never real
+# delivery data; never place under results/.
+_fixture: "SYNTHETIC — deliberately UNRESOLVED placeholders for the startup-guard test."
+
+delivery_date: YYYY-MM-DD
+cohort: SYNTHETIC
+pricing_snapshot: pricing/prices-YYYY-MM-DD.json
+task_suite_commit: TBD
+
+configurations:
+  STRONG_MODEL_A:      {provider: TBD, product_surface: controlled_api, model_id: EXACT-VERSIONED-ID, cost_basis: DECLARE_AT_DELIVERY}
+  ECONOMICAL_MODEL_A:  {provider: TBD, product_surface: controlled_api, model_id: EXACT-VERSIONED-ID, cost_basis: DECLARE_AT_DELIVERY}
+  PRODUCT_B_ECON_TIER: {provider: TBD, product_surface: product_blackbox, selector_label: "verbatim label from product", model_id: null, cost_basis: DECLARE_AT_DELIVERY}
+  PRODUCT_B_STRONG_TIER: {provider: TBD, product_surface: product_blackbox, selector_label: "verbatim label from product", model_id: null, cost_basis: DECLARE_AT_DELIVERY}
+
+pilot_task:
+  task_id: pilot-realworld-draft-articles
+  sealed_hidden_test:
+    version: SYNTHETIC-sealed-v0
+    sha256: "sha256:SYNTHETIC0000000000000000000000000000000000000000000000000000feed"

@@ -29,6 +29,7 @@ from .base import (
     AttemptSpec,
     EmitFn,
     leg_identity_payload,
+    session_payload,
     usage_field,
 )
 
@@ -56,7 +57,7 @@ class StubAdapter(Adapter):
         r = spec.resolved
         leg_meta = {"leg": spec.leg_id, "role": spec.role, **leg_identity_payload(r)}
 
-        emit("model_call_started", **leg_meta)
+        emit("model_call_started", **leg_meta, **session_payload(spec))
         # A couple of representative behaviour events so the summary has content.
         emit("tool_invoked", leg=spec.leg_id, tool="Read")
         emit("file_read", leg=spec.leg_id, path="SYNTHETIC/src/example.ts", bytes=2048)
@@ -84,8 +85,8 @@ class StubAdapter(Adapter):
             "provider": tiered(r.provider, "authoritative"),
             "model_or_selector": tiered(r.model_or_selector, r.model_confidence),
             "auth_billing_path": tiered("SYNTHETIC-dry-run", "authoritative"),
-            "session_state": tiered("fresh", "authoritative"),
-            "cache_state": tiered("cold", "authoritative"),
+            "session_state": tiered("resumed" if spec.resume else "fresh", "authoritative"),
+            "cache_state": tiered(spec.cache_state, "authoritative"),
             "network_policy": tiered("offline", "authoritative"),
         }
         if r.region:

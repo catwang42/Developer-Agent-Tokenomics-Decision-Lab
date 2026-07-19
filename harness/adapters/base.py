@@ -54,12 +54,34 @@ class ResolvedModel:
 
 @dataclass
 class AttemptSpec:
-    """One execution attempt = one billing leg."""
+    """One execution attempt = one billing leg.
+
+    ``cache_state``/``session_id``/``resume`` carry the runner's cache-protocol
+    contract (methodology/cache-protocol.md rule 4) down to the adapter: a
+    ``cold`` attempt runs in a fresh session (``resume=False``) and must prove it
+    by emitting its ``session_id`` into the event log; a ``warm-series`` attempt
+    continues an existing session (``resume=True``) so the provider prompt-cache
+    carries over. The runner owns these values; the adapter only honours them.
+    """
 
     leg_id: str
     role: str
     resolved: ResolvedModel
     prompt: str
+    cache_state: str = "cold"
+    session_id: Optional[str] = None
+    resume: bool = False
+
+
+def session_payload(spec: "AttemptSpec") -> Dict[str, Any]:
+    """Session/cache fields an adapter stamps onto its ``model_call_started`` event.
+
+    Carried in the existing event's payload (not a new event type — the event
+    vocabulary is frozen, CP-SCHEMA) so the cold-freshness assertion can read the
+    session id and resume flag straight from the immutable log.
+    """
+    return {"session_id": spec.session_id, "resumed": spec.resume,
+            "cache_state": spec.cache_state}
 
 
 @dataclass

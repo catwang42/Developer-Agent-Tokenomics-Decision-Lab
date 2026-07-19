@@ -19,7 +19,14 @@ from typing import Any, Dict, List, Optional
 
 from harness.telemetry.telemetry import tiered, unavailable
 
-from .base import Adapter, AttemptOutcome, AttemptSpec, EmitFn, leg_identity_payload
+from .base import (
+    Adapter,
+    AttemptOutcome,
+    AttemptSpec,
+    EmitFn,
+    leg_identity_payload,
+    session_payload,
+)
 
 # Workshop-owned exit codes (SPEC 1.3 — ours, not the product's).
 EXIT_OK = 0
@@ -65,7 +72,12 @@ class AgyAdapter(Adapter):
             )
         r = spec.resolved
         leg_meta = {"leg": spec.leg_id, "role": spec.role, **leg_identity_payload(r)}
-        emit("model_call_started", **leg_meta)
+        # Product B does not expose session/cache control, so we do NOT inject a
+        # session flag into its command (never invent product flags). We DO record
+        # the runner's cache-state intent + session id for traceability; freshness
+        # for a black-box product is best-effort (a fresh process, no resume asked),
+        # recorded and reported as such — never claimed as authoritative.
+        emit("model_call_started", **leg_meta, **session_payload(spec))
 
         cmd = build_command(spec.prompt, r.model_or_selector)
         payload: Optional[Dict[str, Any]] = None

@@ -27,6 +27,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -258,6 +259,42 @@ def real_gate(task_dir: str, run_dir: str) -> Tuple[bool, str, Dict[str, Any]]:
 
 
 # --------------------------------------------------------------------------- #
+# Cache-protocol contract (methodology/cache-protocol.md rule 4)
+# --------------------------------------------------------------------------- #
+def assert_cache_contract(events: List[Dict[str, Any]], cache_state: str) -> List[str]:
+    """Verify the emitted event log honours the declared cache state.
+
+    Freshness is proven from the immutable log, not asserted by the runner: every
+    ``model_call_started`` event carries the ``session_id`` the adapter actually
+    used and whether it ``resumed``. For ``cold`` every leg must be a fresh,
+    identified session (a new id, ``resumed=False``); for ``warm-series`` every
+    leg must resume an identified session. Returns a list of violations (empty =
+    contract satisfied).
+    """
+    starts = [e for e in events if e.get("event_type") == "model_call_started"]
+    reasons: List[str] = []
+    if not starts:
+        return ["cache-contract: no model_call_started event to prove session freshness"]
+    for e in starts:
+        leg = e.get("leg", "?")
+        sid = e.get("session_id")
+        resumed = e.get("resumed")
+        if not sid:
+            reasons.append(f"cache-contract: leg {leg!r} model_call_started has no session_id")
+        if cache_state == "cold" and resumed:
+            reasons.append(
+                f"cache-contract: leg {leg!r} resumed a session under cold cache-state "
+                f"(cold requires a fresh session — cache-protocol rule 1)"
+            )
+        if cache_state == "warm-series" and not resumed:
+            reasons.append(
+                f"cache-contract: leg {leg!r} did not resume a session under warm-series "
+                f"(warm runs continue the cold run's session — cache-protocol rule 2)"
+            )
+    return reasons
+
+
+# --------------------------------------------------------------------------- #
 # Execution
 # --------------------------------------------------------------------------- #
 def _gate(dry_run: bool, scenario: str, leg_id: str, task_dir: str,
@@ -268,14 +305,20 @@ def _gate(dry_run: bool, scenario: str, leg_id: str, task_dir: str,
 
 
 def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
-            emit, *, dry_run: bool, scenario: str
+            emit, *, dry_run: bool, scenario: str,
+            cache_state: str, base_session: str, resume: bool
             ) -> Tuple[Dict[str, Any], Dict[str, Dict[str, Any]]]:
     """Run the plan's policy, emitting events. Returns (identity, leg_options_by_id)."""
     identity: Dict[str, Any] = {}
     leg_options: Dict[str, Dict[str, Any]] = {}
 
     def run_leg(leg: LegPlan) -> None:
-        spec = AttemptSpec(leg.leg_id, leg.role, leg.resolved, task.prompt)
+        # Cold: each leg is an independent fresh session (distinct id, no resume).
+        # Warm-series: the (single) leg resumes the caller-supplied session id so
+        # the provider prompt-cache carries over.
+        leg_session = base_session if resume else f"{base_session}-{leg.leg_id}"
+        spec = AttemptSpec(leg.leg_id, leg.role, leg.resolved, task.prompt,
+                           cache_state=cache_state, session_id=leg_session, resume=resume)
         outcome = adapter.run_attempt(spec, subject_dir, emit)
         if not identity:  # top-level identity from the primary leg; legs[] hold per-leg detail
             identity.update(outcome.identity)
@@ -437,6 +480,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--manifest", default=os.path.join(REPO_ROOT, "manifest", "delivery-manifest.yaml"))
     ap.add_argument("--phase", default="feasibility", help="results/<phase>/ for live runs")
     ap.add_argument("--rep", type=int, default=1)
+    ap.add_argument("--cache-state", required=True, choices=("cold", "warm-series"),
+                    help="cache-protocol contract (methodology/cache-protocol.md rule 4): "
+                         "cold = fresh session, no carried cache; warm-series = resume a "
+                         "prior session so provider prompt-cache carries over")
+    ap.add_argument("--session-id", default=None,
+                    help="explicit session id (required to --resume a warm-series run)")
+    ap.add_argument("--resume", action="store_true",
+                    help="continue --session-id (warm-series runs 2..n)")
     ap.add_argument("--dry-run", action="store_true",
                     help="synthetic adapters + gate; no spend/clone/network")
     ap.add_argument("--out-root", default=None,
@@ -446,6 +497,21 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = ap.parse_args(argv)
 
     try:
+        # Cache-protocol contract (methodology/cache-protocol.md rule 4).
+        if args.resume and not args.session_id:
+            raise RunnerError("--resume requires --session-id (the session to continue)")
+        if args.cache_state == "cold" and args.resume:
+            raise RunnerError(
+                "cold cache-state cannot --resume a session (cold = fresh session, "
+                "cache-protocol rule 1); drop --resume or use --cache-state warm-series"
+            )
+        if args.cache_state == "warm-series" and not args.resume:
+            raise RunnerError(
+                "warm-series continues the cold run's session; pass --session-id <id> "
+                "--resume (cache-protocol rule 2). Run 1 of the series uses --cache-state cold"
+            )
+        base_session = args.session_id or f"lab-{uuid.uuid4()}"
+
         manifest = _load_yaml(args.manifest)
         if not args.dry_run and os.environ.get("LAB_ALLOW_SPEND") != "1":
             raise RunnerError(
@@ -492,14 +558,26 @@ def main(argv: Optional[List[str]] = None) -> int:
         identity, leg_options = execute(
             plan, task, adapter, subject_dir, run_dir, emit,
             dry_run=args.dry_run, scenario=args.stub_scenario,
+            cache_state=args.cache_state, base_session=base_session, resume=args.resume,
         )
+        # Cache state is a runner-controlled experimental variable — stamped
+        # authoritatively here (overriding any adapter default) and proven against
+        # the event log below.
+        identity["cache_state"] = tiered(args.cache_state, "authoritative")
+        identity["session_state"] = tiered(
+            "resumed" if args.resume else "fresh", "authoritative")
+
+        events = log.read()
+        cache_reasons = assert_cache_contract(events, args.cache_state)
 
         ok, reasons = assemble_and_validate(
-            log.read(), run_id=run_id, task=task, config_id=args.config,
+            events, run_id=run_id, task=task, config_id=args.config,
             manifest_ref=os.path.relpath(args.manifest, REPO_ROOT), identity=identity,
             plan=plan, prices=prices, leg_options=leg_options,
             pricing_snapshot=pricing_snapshot or "unavailable", run_dir=run_dir,
         )
+        ok = ok and not cache_reasons
+        reasons = list(reasons) + cache_reasons
     except RunnerError as exc:
         print(f"runner: {exc}", file=sys.stderr)
         return 2

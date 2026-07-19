@@ -4,7 +4,10 @@
 # python3 in containers without .venv). All arguments pass through to run.py.
 #
 #   bash harness/runner/run.sh --task tasks/pilot-realworld --config P0 --dry-run \
+#     --cache-state cold \
 #     --manifest tests/fixtures/manifest-SYNTHETIC.yaml --out-root /tmp/dry
+#
+# --cache-state {cold|warm-series} is REQUIRED (cache-protocol.md rule 4).
 set -euo pipefail
 
 RUNNER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

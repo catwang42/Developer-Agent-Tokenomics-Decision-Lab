@@ -17,11 +17,18 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from harness.telemetry.telemetry import tiered, unavailable
 
-from .base import Adapter, AttemptOutcome, AttemptSpec, EmitFn, leg_identity_payload
+from .base import (
+    Adapter,
+    AttemptOutcome,
+    AttemptSpec,
+    EmitFn,
+    leg_identity_payload,
+    session_payload,
+)
 
 # claude -p JSON usage keys -> our token classes. Anything absent -> unavailable.
 _USAGE_MAP = {
@@ -32,13 +39,26 @@ _USAGE_MAP = {
 }
 
 
-def build_command(prompt: str, model_id: str) -> List[str]:
-    """Build the headless ``claude -p`` command (pure; no execution)."""
-    return [
+def build_command(prompt: str, model_id: str, *, session_id: Optional[str] = None,
+                  resume: bool = False) -> List[str]:
+    """Build the headless ``claude -p`` command (pure; no execution).
+
+    Session flags implement the cache-protocol contract: a warm-series attempt
+    resumes an existing session (``--resume <id>``) so the provider prompt-cache
+    carries over; a cold attempt starts a fresh, explicitly-identified session
+    (``--session-id <id>``) so freshness is provable from the id in the log. A
+    resume without an id is a caller error (the runner guards this upstream).
+    """
+    cmd = [
         "claude", "-p", prompt,
         "--model", model_id,
         "--output-format", "json",
     ]
+    if resume and session_id:
+        cmd += ["--resume", session_id]
+    elif session_id:
+        cmd += ["--session-id", session_id]
+    return cmd
 
 
 def usage_from_claude_json(obj: Dict[str, Any]) -> Dict[str, Any]:
@@ -71,9 +91,10 @@ class ClaudeCodeAdapter(Adapter):
             )
         r = spec.resolved
         leg_meta = {"leg": spec.leg_id, "role": spec.role, **leg_identity_payload(r)}
-        emit("model_call_started", **leg_meta)
+        emit("model_call_started", **leg_meta, **session_payload(spec))
 
-        cmd = build_command(spec.prompt, r.model_id or r.model_or_selector)
+        cmd = build_command(spec.prompt, r.model_id or r.model_or_selector,
+                            session_id=spec.session_id, resume=spec.resume)
         proc = subprocess.run(  # noqa: S603 - workshop-owned command
             cmd, cwd=subject_dir, capture_output=True, text=True, check=False,
         )
