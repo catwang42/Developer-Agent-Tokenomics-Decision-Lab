@@ -3,7 +3,7 @@
 delivery_date: 2026-07-19
 cohort: pilot
 pricing_snapshot: pricing/prices-2026-07-19.json
-task_suite_commit: TBD   # set to the batch-1 run commit at CP-SPEND
+task_suite_commit: 17b9990106f3379e1d3df78137b2adb8ef10e798   # batch-1 run commit (pinned at CP-SPEND execution 2026-07-19)
 configurations:
   # Controlled API (Product A = Claude Code) on Google Vertex, project
   # vital-octagon-19612. model_id values are the EXACT Vertex publisher model IDs
