@@ -1,0 +1,368 @@
+{
+  "acceptance": {
+    "completed_route": "strong",
+    "gate_checks": {
+      "hidden": {
+        "gate": "hidden",
+        "hash": "sha256:3d6f804981cb28f1823a91e349be923431e09a206ef9cdb8636e3bc3871886c2",
+        "status": "fail",
+        "version": "sealed-w4-v2 2026-07-19"
+      },
+      "public": {
+        "checks": [
+          {
+            "detail": "only allowed path(s) changed vs pin",
+            "id": "P6-diff-scope",
+            "status": "pass"
+          },
+          {
+            "detail": "no canonical patch / solution markers in tree",
+            "id": "P5-no-leakage",
+            "status": "pass"
+          },
+          {
+            "detail": "tsc -p tsconfig.app.json --noEmit",
+            "id": "P3-typecheck",
+            "status": "pass"
+          },
+          {
+            "detail": "nx build (app compiles)",
+            "id": "P4-build",
+            "status": "pass"
+          },
+          {
+            "detail": "getCurrentUser repro (selects user id)",
+            "id": "P1-public-test",
+            "status": "fail"
+          },
+          {
+            "detail": "DB-free unit suites (article|profile|utils)",
+            "id": "P2-regression",
+            "status": "pass"
+          }
+        ],
+        "gate": "public"
+      }
+    },
+    "intention_to_route": "economical",
+    "result": "rejected"
+  },
+  "behavior": {
+    "escalations": {
+      "confidence": "derived",
+      "value": 1
+    },
+    "failures_by_category": {
+      "confidence": "derived",
+      "value": {}
+    },
+    "file_read_bytes": {
+      "confidence": "unavailable",
+      "reason": "byte counts not measured",
+      "value": null
+    },
+    "file_reads": {
+      "confidence": "unavailable",
+      "reason": "no file_read events",
+      "value": null
+    },
+    "files_modified": {
+      "confidence": "unavailable",
+      "reason": "file modifications not tracked in event log",
+      "value": null
+    },
+    "retries": {
+      "confidence": "derived",
+      "value": 1
+    },
+    "subagent_calls": {
+      "confidence": "derived",
+      "value": 0
+    },
+    "tool_calls_by_type": {
+      "confidence": "unavailable",
+      "reason": "no tool_invoked events",
+      "value": null
+    },
+    "turns": {
+      "confidence": "derived",
+      "value": 2
+    },
+    "verifier_calls": {
+      "confidence": "derived",
+      "value": 0
+    }
+  },
+  "configuration_id": "P1",
+  "economics": {
+    "cost_basis": "marginal_api_cost",
+    "fully_allocated_usd": {
+      "confidence": "derived",
+      "value": 0.3504622
+    },
+    "machine_cost_usd": {
+      "confidence": "unavailable",
+      "reason": "not supplied to deriver",
+      "value": null
+    },
+    "marginal_operating_usd": {
+      "confidence": "derived",
+      "value": 0.3504622
+    },
+    "pricing_snapshot": "prices-2026-07-19.json",
+    "provider_cost_usd": {
+      "confidence": "unavailable",
+      "reason": "not supplied to deriver",
+      "value": null
+    },
+    "subscription_allocation_basis": {
+      "confidence": "unavailable",
+      "reason": "not supplied to deriver",
+      "value": null
+    },
+    "total_cost_usd": {
+      "confidence": "derived",
+      "value": 0.3504622
+    }
+  },
+  "hidden_test_hash": "sha256:3d6f804981cb28f1823a91e349be923431e09a206ef9cdb8636e3bc3871886c2",
+  "human_effort": {
+    "active_minutes": {
+      "confidence": "unavailable",
+      "reason": "not recorded",
+      "value": null
+    },
+    "blocked_minutes": {
+      "confidence": "unavailable",
+      "reason": "not recorded",
+      "value": null
+    },
+    "correction_minutes": {
+      "confidence": "unavailable",
+      "reason": "not recorded",
+      "value": null
+    },
+    "review_minutes": {
+      "confidence": "unavailable",
+      "reason": "not recorded",
+      "value": null
+    }
+  },
+  "identity": {
+    "auth_billing_path": {
+      "confidence": "authoritative",
+      "value": "controlled_api"
+    },
+    "cache_state": {
+      "confidence": "authoritative",
+      "value": "cold"
+    },
+    "contamination_tier": "famous",
+    "model_or_selector": {
+      "confidence": "authoritative",
+      "value": "claude-haiku-4-5@20251001"
+    },
+    "network_policy": {
+      "confidence": "unavailable",
+      "reason": "not supplied to deriver",
+      "value": null
+    },
+    "permission_profile": {
+      "confidence": "unavailable",
+      "reason": "not supplied to deriver",
+      "value": null
+    },
+    "product": {
+      "confidence": "authoritative",
+      "value": "Product A"
+    },
+    "product_version": {
+      "confidence": "unavailable",
+      "reason": "not supplied to deriver",
+      "value": null
+    },
+    "provider": {
+      "confidence": "authoritative",
+      "value": "google_vertex"
+    },
+    "reasoning_config": {
+      "confidence": "unavailable",
+      "reason": "not supplied to deriver",
+      "value": null
+    },
+    "region": {
+      "confidence": "proxy_observed",
+      "value": "global"
+    },
+    "session_state": {
+      "confidence": "authoritative",
+      "value": "fresh"
+    }
+  },
+  "legs": [
+    {
+      "cost_basis": "marginal_api_cost",
+      "fully_allocated_usd": {
+        "confidence": "derived",
+        "value": 0.0392095
+      },
+      "leg_id": "economical_attempt",
+      "marginal_operating_usd": {
+        "basis": "marginal_api_cost",
+        "components": {
+          "cache_creation_tokens": 0.009245,
+          "cache_read_tokens": 0.0236575,
+          "input_tokens": 4.7e-05,
+          "output_tokens": 0.00626
+        },
+        "confidence": "derived",
+        "value": 0.0392095
+      },
+      "model_or_selector": {
+        "confidence": "authoritative",
+        "value": "claude-haiku-4-5@20251001"
+      },
+      "provider": {
+        "confidence": "authoritative",
+        "value": "google_vertex"
+      },
+      "role": "economical",
+      "usage": {
+        "cache_creation_tokens": {
+          "confidence": "authoritative",
+          "value": 7396
+        },
+        "cache_read_tokens": {
+          "confidence": "authoritative",
+          "value": 236575
+        },
+        "input_tokens": {
+          "confidence": "authoritative",
+          "value": 47
+        },
+        "output_tokens": {
+          "confidence": "authoritative",
+          "value": 1252
+        },
+        "reasoning_tokens": {
+          "confidence": "unavailable",
+          "reason": "no event reported this token class",
+          "value": null
+        },
+        "tool_result_tokens": {
+          "confidence": "unavailable",
+          "reason": "no event reported this token class",
+          "value": null
+        }
+      }
+    },
+    {
+      "cost_basis": "marginal_api_cost",
+      "fully_allocated_usd": {
+        "confidence": "derived",
+        "value": 0.3112527
+      },
+      "leg_id": "strong_attempt",
+      "marginal_operating_usd": {
+        "basis": "marginal_api_cost",
+        "components": {
+          "cache_creation_tokens": 0.26007,
+          "cache_read_tokens": 0.0321297,
+          "input_tokens": 1.8e-05,
+          "output_tokens": 0.019035
+        },
+        "confidence": "derived",
+        "value": 0.3112527
+      },
+      "model_or_selector": {
+        "confidence": "authoritative",
+        "value": "claude-sonnet-4-6@default"
+      },
+      "provider": {
+        "confidence": "authoritative",
+        "value": "google_vertex"
+      },
+      "role": "strong",
+      "usage": {
+        "cache_creation_tokens": {
+          "confidence": "authoritative",
+          "value": 69352
+        },
+        "cache_read_tokens": {
+          "confidence": "authoritative",
+          "value": 107099
+        },
+        "input_tokens": {
+          "confidence": "authoritative",
+          "value": 6
+        },
+        "output_tokens": {
+          "confidence": "authoritative",
+          "value": 1269
+        },
+        "reasoning_tokens": {
+          "confidence": "unavailable",
+          "reason": "no event reported this token class",
+          "value": null
+        },
+        "tool_result_tokens": {
+          "confidence": "unavailable",
+          "reason": "no event reported this token class",
+          "value": null
+        }
+      }
+    }
+  ],
+  "manifest_ref": "manifest/delivery-manifest.yaml",
+  "run_id": "w4-realworld-missing-user-id__P1__rep1__20260719T114333",
+  "task_id": "w4-realworld-missing-user-id",
+  "task_suite_version": "pilot-v1",
+  "usage": {
+    "cache_creation_tokens": {
+      "confidence": "authoritative",
+      "value": 76748
+    },
+    "cache_read_tokens": {
+      "confidence": "authoritative",
+      "value": 343674
+    },
+    "code_exec_charges_usd": {
+      "confidence": "unavailable",
+      "reason": "not exposed by this configuration",
+      "value": null
+    },
+    "code_exec_usage": {
+      "confidence": "unavailable",
+      "reason": "not exposed by this configuration",
+      "value": null
+    },
+    "input_tokens": {
+      "confidence": "authoritative",
+      "value": 53
+    },
+    "output_tokens": {
+      "confidence": "authoritative",
+      "value": 2521
+    },
+    "reasoning_tokens": {
+      "confidence": "unavailable",
+      "reason": "no event reported this token class",
+      "value": null
+    },
+    "search_charges_usd": {
+      "confidence": "unavailable",
+      "reason": "not exposed by this configuration",
+      "value": null
+    },
+    "search_ops": {
+      "confidence": "unavailable",
+      "reason": "not exposed by this configuration",
+      "value": null
+    },
+    "tool_result_tokens": {
+      "confidence": "unavailable",
+      "reason": "no event reported this token class",
+      "value": null
+    }
+  }
+}
