@@ -1,0 +1,120 @@
+{
+  "acceptance": {
+    "completed_route": "economical",
+    "intention_to_route": "economical",
+    "public_gate": "pass",
+    "result": "accepted"
+  },
+  "behavior": {
+    "escalations": {
+      "confidence": "derived",
+      "value": 0
+    },
+    "retries": {
+      "confidence": "derived",
+      "value": 0
+    },
+    "subagent_calls": {
+      "confidence": "derived",
+      "value": 0
+    },
+    "turns": {
+      "confidence": "derived",
+      "value": 1
+    },
+    "verifier_calls": {
+      "confidence": "derived",
+      "value": 0
+    }
+  },
+  "configuration_id": "P1",
+  "economics": {
+    "cost_basis": "marginal_api_cost",
+    "fully_allocated_usd": {
+      "confidence": "derived",
+      "value": 0.1176652
+    },
+    "marginal_operating_usd": {
+      "confidence": "derived",
+      "value": 0.1176652
+    },
+    "pricing_snapshot": "prices-2026-07-19.json"
+  },
+  "hidden_test_hash": "sha256:37f3acd685fd03e0624a98f328e38edffe8faef5179263e502035c707c51f4e9",
+  "identity": {
+    "contamination_tier": "famous",
+    "model_or_selector": {
+      "confidence": "authoritative",
+      "value": "claude-haiku-4-5@20251001"
+    },
+    "product": {
+      "confidence": "authoritative",
+      "value": "Product A"
+    },
+    "provider": {
+      "confidence": "authoritative",
+      "value": "google_vertex"
+    }
+  },
+  "isolation": {
+    "cache_state": {
+      "confidence": "authoritative",
+      "value": "cold"
+    },
+    "network_policy": {
+      "confidence": "authoritative",
+      "value": "no-network-policy"
+    },
+    "permission_profile": {
+      "confidence": "authoritative",
+      "value": "skip-all-tools; cwd-confined-.work-repo; dev-vm; no-container; no-network-policy"
+    },
+    "session_state": {
+      "confidence": "authoritative",
+      "value": "fresh"
+    }
+  },
+  "legs": [
+    {
+      "cost_basis": "marginal_api_cost",
+      "leg_id": "economical_attempt",
+      "marginal_operating_usd": {
+        "confidence": "derived",
+        "value": 0.1176652
+      },
+      "model_or_selector": {
+        "confidence": "authoritative",
+        "value": "claude-haiku-4-5@20251001"
+      },
+      "role": "economical"
+    }
+  ],
+  "manifest_ref": "manifest/delivery-manifest.yaml",
+  "result_schema": "result-v1",
+  "run_id": "w1-realworld-mapper-tests__P1__rep1__20260720T041142",
+  "task_id": "w1-realworld-mapper-tests",
+  "task_suite_version": "w1-v1",
+  "usage": {
+    "cache_creation_tokens": {
+      "confidence": "authoritative",
+      "value": 16100
+    },
+    "cache_read_tokens": {
+      "confidence": "authoritative",
+      "value": 592952
+    },
+    "input_tokens": {
+      "confidence": "authoritative",
+      "value": 90
+    },
+    "output_tokens": {
+      "confidence": "authoritative",
+      "value": 7631
+    },
+    "reasoning_tokens": {
+      "confidence": "unavailable",
+      "reason": "no event reported this token class",
+      "value": null
+    }
+  }
+}

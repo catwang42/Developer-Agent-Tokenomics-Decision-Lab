@@ -1,0 +1,12 @@
+diff --git a/src/app/routes/auth/auth.service.ts b/src/app/routes/auth/auth.service.ts
+index 14edacf..d09a28d 100644
+--- a/src/app/routes/auth/auth.service.ts
++++ b/src/app/routes/auth/auth.service.ts
+@@ -134,6 +134,7 @@ export const getCurrentUser = async (id: number) => {
+       id,
+     },
+     select: {
++      id: true,
+       email: true,
+       username: true,
+       bio: true,
