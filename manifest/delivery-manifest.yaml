@@ -116,8 +116,7 @@ w1_task:
   contamination_tier: famous   # same repo as pilot; disclose reuse at CP-SCREEN-PREREG
   baseline_test_scope: hermetic_db_free   # auth suite excluded (needs a live DB)
   gate_type: test_generation
-  sealed_hidden_test:   # AWAITING HUMAN — mutation-catch runner, human-authored/held
-    status: awaiting_human   # -> version + sha256 recorded here after authoring (README-FOR-HUMAN.md)
-    version: null
-    sha256: null
-    validated: null
+  sealed_hidden_test:   # human-authored, human-held (gitignored); mutation-catch runner (hidden/check.sh)
+    version: "sealed-w1-v1 2026-07-20 6-mutants"
+    sha256: sha256:37f3acd685fd03e0624a98f328e38edffe8faef5179263e502035c707c51f4e9
+    validated: 10/10   # all six seeded mutants caught; canonical accepted, pre-mod fails (test_generation gate)

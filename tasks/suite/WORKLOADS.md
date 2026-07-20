@@ -34,6 +34,9 @@ this is a paper roster. Any live run requires **CP-SPEND**.
   checks → regression), per SPEC §2.6. W6's gate scores against a known seeded-defect
   ground truth, so it is deterministic despite being a "review" task; model-based
   review is never the authoritative gate.
+- **Hidden tests & grading integrity.** Why the sealed sets exist, who holds them, what
+  the per-result hidden-test hash proves, the rotation/release lifecycle, and how a fork
+  operator authors their own set: [`docs/sealed-evaluation.md`](../../docs/sealed-evaluation.md).
 - **Class-level claims.** One task per class is a screening signal only. Promoting a
   signal to a workload-class claim requires a second, materially different task at tier
   `obscure` or `post_cutoff` (`tasks/WORKLOAD-SELECTION.md` §3, extending SPEC §5.2),

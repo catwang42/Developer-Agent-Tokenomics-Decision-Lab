@@ -6,7 +6,7 @@
 #   TASK_DIR=tasks/suite/W1-test-generation bash harness/task-tools/validate.sh
 task_id: w1-realworld-mapper-tests
 manifest_key: w1_task
-task_suite_version: w1-v1-draft          # -> w1-v1 when 10-point validated w/ sealed test
+task_suite_version: w1-v1                 # 10-point validated 2026-07-20 w/ sealed test (10/10)
 class: test_generation
 
 # Source. Same RealWorld/Conduit repo + pin as F1 (Draft feature absent there is
