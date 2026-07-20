@@ -71,8 +71,24 @@ Subjects run inside the task-tools Docker container with **network disabled**
   allowlist (needs model spend to validate). Mechanism wired + unit-tested; the gate
   is hermetic offline now.
 
+**CP-SPEND RESOLUTION (2026-07-20) — batch 2 runs the HOST agent leg.** On approval,
+inspection showed the containerized *live-agent* leg is unimplemented: `Dockerfile.subject`
+(node:20-slim) bakes no `claude`/`agy` CLI, and `resolve_spawn` passes the agent-leg
+container no credentials and no egress (network defaults to `none`). Making it run — bake
+the agent CLIs, mount gcloud ADC + Vertex env, wire an egress network for the agent leg
+while the gate stays `--network=none` — is **new engineering**, so **both** branches of
+decision (4) are unrunnable as written. Per the human (2026-07-20), batch 2 runs
+**`--subject-isolation host`** (the proven path; `claude -p` authenticates via the ambient
+Vertex env). Every run stamps `identity.permission_profile = host` and
+`identity.network_policy = no-network-policy` **verbatim** (authoritative). **Containerized-
+subject isolation AND endpoint-allowlist egress become HARD REQUIREMENTS for the Phase-4
+screening CP-SPEND** (accept-small / mandate-later, extended from egress to the whole
+containerized agent leg). The deterministic gate remains containerized + `--network=none`.
+Batch-2 outputs land in `results/feasibility-batch2/` (batch-1 preserved untouched; clean
+spend-cap + aggregation).
+
 **Reordering (this session):** containerization was done **before** the W1 pre-mod
-validation (below), so the 10-point ran under the SAME containerized posture batch 2
+validation (below), so the 10-point ran under the SAME containerized *gate* posture batch 2
 will use — no posture delta between validation and the batch it validates for.
 
 ### 3.2 F3 / W1 pinning — needs human sealed-test authoring (STOP)

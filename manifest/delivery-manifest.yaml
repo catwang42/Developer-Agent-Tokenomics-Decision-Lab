@@ -63,11 +63,21 @@ notes: >
 # (containerization before pre-mod validation, so validation runs under the SAME
 # posture as the batch it validates for — no posture delta).
 subject_isolation:
-  posture: container            # batch-2 authoritative posture (--subject-isolation container)
+  # Batch-2 posture is SPLIT and recorded verbatim per run in identity.permission_profile
+  # + identity.network_policy (CP-SPEND 2026-07-20, decision 4 + containerization-gap
+  # finding). The deterministic GATE is containerized + offline (verified); the live
+  # AGENT leg runs HOST because the containerized agent leg is unimplemented (no
+  # claude/agy/creds in Dockerfile.subject; resolve_spawn passes no egress/creds) —
+  # that is new engineering, so it is DEFERRED. Full containerized-subject isolation
+  # AND endpoint-allowlist egress are HARD REQUIREMENTS for the Phase-4 screening
+  # CP-SPEND (same accept-small / mandate-later pattern as the permissions posture).
+  gate_posture: container       # deterministic gate: docker run --network=none (offline)
+  agent_leg_posture: host       # batch-2 live agent leg: --subject-isolation host
+  batch2_network_policy: no-network-policy   # host agent leg; recorded verbatim per run
   network_policy: none          # graded gate runs fully offline (docker run --network=none)
   image: per-task baked         # harness/container/Dockerfile.subject; deps baked at BUILD time
   gate_verified_offline: w1-2026-07-19   # W1 public gate ran offline in-container (pre-mod FAIL; canonical PASS)
-  agent_leg_egress: awaiting_cp_spend    # live model-API egress allowlist finalized + validated at CP-SPEND
+  agent_leg_egress: deferred_to_phase4   # containerized agent leg + Vertex/Google endpoint allowlist = Phase-4 hard req
   batch1_posture: host          # skip-all-tools; cwd-confined; dev-vm; no-container (superseded)
 
 # Pinned benchmark tasks (Phase 2). Concrete SHAs live here only; task dirs mirror
