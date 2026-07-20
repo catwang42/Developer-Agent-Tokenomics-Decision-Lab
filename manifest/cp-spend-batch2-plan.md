@@ -1,10 +1,24 @@
-# Batch-2 plan — full 27-run re-collection + F3 + human-effort (CP-SPEND draft)
+# Batch-2 package — full 27-run re-collection + F3 + human-effort (CP-SPEND)
 
-Planning doc for the **single batch-2 CP-SPEND** (CLAUDE.md; SPEC §2.3; protocol
+CP-SPEND package for the **single batch-2 run** (CLAUDE.md; SPEC §2.3; protocol
 `methodology/feasibility-protocol.md`). Batch 1's 25 runs are superseded (NO_WRITE);
 this re-collects the full 27 on the **fixed** harness (auto-approve tools; valid-UUID
-sessions; modelUsage version capture; diff archiving; pilot-v2 contract). **This
-draft does not authorize spend** and has blocking human prerequisites (§3).
+sessions; modelUsage version capture; diff archiving; pilot-v2 contract). The
+blocking human prerequisites (§3) are now **RESOLVED** — subject isolation
+implemented + verified offline, and W1/F3 promoted to `w1-v1` on a human-authored
+sealed test (10/10). **Approving this checkpoint authorizes the spend in §2 under
+the §2 kill-switch; nothing runs before `CHECKPOINT APPROVED: CP-SPEND`.**
+
+**Package contents (CLAUDE.md CP-SPEND gate = budget + configs + manifest):**
+- Budget & kill-switch: §2 (ceiling $30, `--spend-cap-usd 30`).
+- Run matrix: §1 (all three gate types; F1 feature, F2 bugfix, F3 test-generation).
+- Configs: `harness/configurations/{C1..C5}.yaml`; policies
+  `harness/policies/{p0-baseline,p1-cheap-first}.yaml`.
+- Manifest: `manifest/delivery-manifest.yaml` (pins + all three sealed-test hashes);
+  per-run pre-registration via `manifest/RUN_TEMPLATE.md`.
+- Isolation posture: containerized, network-disabled subjects
+  (`report/subject-isolation-verification.md`).
+- CP-DATA condition 1 (gate-fairness) status: §3.4.
 
 ## 1. Run matrix (all on the fixed harness)
 
@@ -12,8 +26,8 @@ draft does not authorize spend** and has blocking human prerequisites (§3).
 | Task | Status |
 |---|---|
 | F1 = pilot-realworld (**pilot-v2**, contract pinned) | ready |
-| F2 = w4-realworld-missing-user-id | ready |
-| F3 = W1 test-generation | ⛔ **BLOCKED** — no-spend scaffold DONE; awaits human sealed test + 10-point validation (§3.2) |
+| F2 = w4-realworld-missing-user-id (**sealed-w4-v2**) | ready |
+| F3 = W1 test-generation (**w1-v1**, sealed test recorded, 10/10) | ready |
 
 ### Companions (re-collected; batch-1's were NO_WRITE / invalid)
 - Product telemetry: F1 × {C3, C5} × 2 reps (Product B `agy` fix now applied).
@@ -81,31 +95,53 @@ awaiting-human, 0 failed**: pre-mod FAILs, canonical accepted offline, clean-bui
 deterministic reset offline; check 7 (canonical-hidden) is `awaiting_human` because
 the sealed test is human-held. Evidence: `report/subject-isolation-verification.md`.
 
-**STOP — remaining before F3 enters batch 2 (not done here):**
-1. **(human)** author the sealed mutation-catch hidden test + runner
-   (`tasks/suite/W1-test-generation/hidden/README-FOR-HUMAN.md`); human-authored,
-   human-held. Then record its version + SHA in `manifest` (`w1_task.sealed_hidden_test`,
-   currently `awaiting_human`).
-2. **(me, no spend)** re-run the containerized 10-point WITH the sealed test present →
-   on **10/10**, bump `task_suite_version: w1-v1-draft → w1-v1`. (The sealed test must
-   be baked/injected for the in-container hidden gate — a small `Dockerfile.subject` /
-   mount follow-up, since `.dockerignore` excludes `hidden/`.) W1's CP-SCREEN-PREREG
-   must disclose this feasibility reuse.
+**RESOLVED — F3 is ready (2026-07-20):**
+1. **(human)** ✅ authored the sealed mutation-catch runner
+   (`tasks/suite/W1-test-generation/hidden/check.sh` + `VERSION`, human-held,
+   gitignored), six seeded mutants per `README-FOR-HUMAN.md`.
+2. **(me, no spend)** ✅ wired the `test_generation` hidden gate: `check-hidden.sh`
+   now discovers the executable sealed runner, invokes it with `SUBJECT_DIR`
+   exported, honors 0/1/2, and records version + a sha256 over the whole sealed set
+   (never reading its contents); unit-tested with a SYNTHETIC runner
+   (`tests/test_hidden_gate.py`). 10-point validation **10/10** (all six mutants
+   caught; canonical accepted; pre-mod fails; deterministic reset).
+   `task_suite_version: w1-v1`; manifest `w1_task.sealed_hidden_test` =
+   `sealed-w1-v1 2026-07-20 6-mutants`, `sha256:37f3acd6…c51f4e9` (harness-computed
+   hidden_test_hash from the validation report; not hand-entered). W1's
+   CP-SCREEN-PREREG must disclose this feasibility reuse.
 
 ### 3.3 Human-effort subset schedule
 Human reviewers apply the timed rubric to the 9-run subset (one rep per cell), ≥2
 reviewers on ≥3 runs. Produces criterion-6 timings + inter-reviewer spread; feeds
 HEAC. **No model spend** — schedule is a calendar/assignment decision.
 
+### 3.4 Gate-fairness audit — CP-DATA condition 1 status (carried into this package)
+The earlier CP-DATA review imposed condition 1: classify every F1 rejection as
+(i) feature genuinely absent/broken vs (ii) functionally plausible but failing on
+implementation *shape*. Status (`report/gate-fairness-audit.md`):
+- **F1·P1·rep1** — classified **(ii) shape mismatch** with archived diff evidence
+  (near-canonical impl; failed only because it emitted `{draft:{equals:false}}` vs
+  the matcher's `{draft:false}` — functionally identical in Prisma). Remedy was
+  applied to the **task, not the gate**: the pilot prompt now pins the contract shape
+  (`pilot-v1 → pilot-v2`); the **sealed hidden hash is unchanged** (`sha256:105c2418…`)
+  and the gate was **not** loosened. 10-point re-validation: 10/10.
+- **F1·P0·rep1 / rep2** — **undetermined**: their diffs were reset-overwritten before
+  archiving (the provenance gap). The fix (`run.py::_archive_agent_diff`, writes
+  `agent-solution.diff` per run pre-reset) is now in place, so batch-2 re-collection
+  will produce inspectable diffs and these two are **re-classified from batch-2 data**,
+  not backfilled or fabricated.
+- **Bearing on this checkpoint:** condition 1 is substantially discharged; the only
+  residual (2 undetermined runs) is *itself a reason to run batch 2* under the now-fixed
+  provenance path. No result enters docs/site before CP-FINDINGS regardless.
+
 ## 4. Sequence & checkpoints
 1. **(human)** subject-isolation decision (§3.1) ✅ → **(me, no spend)** implement it
    ✅ DONE 2026-07-19 (container harness + offline gate verified).
-2. **(me, no spend)** W1 pinning scaffold ✅ DONE (canonical + gate + validate
-   support; §3.2); containerized pre-mod 10-point ✅ DONE (9 pass/1 awaiting, §3.2)
-   → **STOP: human sealed-test authoring** → re-run containerized 10-point WITH sealed
-   test → 10/10 → `w1-v1` bump.
-3. **(me, no spend)** finalize this doc with W1 in the matrix + isolation posture →
-   **CP-SPEND (batch 2)** approval.
+2. **(me, no spend)** W1 pinning scaffold ✅ DONE; `test_generation` hidden gate
+   wired + unit-tested ✅ DONE; human sealed test authored ✅; 10-point **10/10**
+   ✅ → `w1-v1` bump + sealed hash recorded (§3.2).
+3. **(me, no spend)** finalize this doc with W1 in the matrix + isolation posture +
+   gate-fairness status ✅ DONE → **CP-SPEND (batch 2)** ⬅ **awaiting approval now**.
 4. **(me)** run batch 2 under the kill-switch → validate all → update
    `report/telemetry-completeness.md` (full 27, three gate types) + human-effort →
    **CP-DATA (final)**.
