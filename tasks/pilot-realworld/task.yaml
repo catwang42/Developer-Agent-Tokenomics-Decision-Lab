@@ -62,5 +62,17 @@ baseline_test_pattern: "article|profile|utils"
 static_checks: [typecheck, build]
 
 expected_wallclock_s: null       # measured in Phase 3; never fabricated
-configurations: [C1, C2, P0, P1]
+
+# Config declarations (SPEC §2.3; ENFORCED by tests/test_tasks.py
+# ConfigurationDeclarations). A configuration run against this task MUST appear in one
+# of the two lists below, or the enforcement test fails. This is how batch-2's
+# out-of-plan F1·C3 / F1·C5 companion runs are now caught: they are dropped from the
+# re-collection and intentionally NOT declared.
+#   configurations           = controlled feasibility cells (SPEC §2.3 "27"): P0/C2/P1.
+#   companion_configurations = SPEC §2.3 companion feasibility runs against THIS task
+#                              (warm-series C1; product C3/C4; hybrid C5) — NOT controlled.
+# (Pilot is the feasibility pilot, not a Phase-4 screening workload, so it has no
+#  workload.yaml / screening set.)
+configurations: [P0, C2, P1]
+companion_configurations: [C1]   # cache warm-series companion; C3/C5 dropped from re-collection
 reps_feasibility: 3

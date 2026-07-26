@@ -83,7 +83,16 @@ baseline_test_pattern: "article|profile|utils|tag|mapper"
 static_checks: [typecheck]
 
 expected_wallclock_s: null               # measured in batch 2; never fabricated
-configurations: [P0, C2, P1]             # feasibility controlled set (F3)
+
+# Config declarations (SPEC §2.3; ENFORCED by tests/test_tasks.py
+# ConfigurationDeclarations). task.yaml carries the FEASIBILITY framing (this task is
+# feasibility F3). The Phase-4 SCREENING set for W1 lives in workload.yaml
+# ([C1,C2,C3,C5], reps_screening) — declared at CP-SCREEN-PREREG, NOT run here. A
+# configuration run against this task in feasibility MUST appear in one of the lists.
+#   configurations           = controlled feasibility cells (SPEC §2.3 "27"): P0/C2/P1.
+#   companion_configurations = SPEC §2.3 companion feasibility runs (none for F3).
+configurations: [P0, C2, P1]             # feasibility controlled set (F3); batch-2 ran exactly these
+companion_configurations: []             # F3 had no companion runs in batch 2
 reps_feasibility: 3
 
 # Feasibility-reuse: this task is F3; screening reuse disclosed at CP-SCREEN-PREREG

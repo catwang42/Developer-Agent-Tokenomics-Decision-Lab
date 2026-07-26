@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import re
 import subprocess
 import unittest
 
@@ -36,6 +37,41 @@ def _yaml(path: pathlib.Path) -> dict:
 def _gate_type(task: dict) -> str:
     # Default (feature/bugfix) tasks omit gate_type; test-generation declares it.
     return task.get("gate_type", "solution")
+
+
+# --- Configuration-declaration enforcement (SPEC §2.3; FIX 4) ---------------- #
+VALID_CONFIGS = {"C1", "C2", "C3", "C4", "C5", "P0", "P1"}
+# Run dir convention: <task_id>__<CONFIG>__rep<N>__<UTCstamp>
+_RUN_DIR_RE = re.compile(r"^(?P<tid>[a-z0-9-]+)__(?P<cfg>[A-Z0-9]+)__rep\d+__")
+
+
+def _declared_configs_by_task() -> dict:
+    """task_id -> set(configurations ∪ companion_configurations) from each task.yaml."""
+    out: dict = {}
+    for d in TASK_DIRS:
+        t = _yaml(d / "task.yaml")
+        out[t["task_id"]] = (set(t.get("configurations") or [])
+                             | set(t.get("companion_configurations") or []))
+    return out
+
+
+def _runs_by_task(results_root: pathlib.Path):
+    """Yield (task_id, config) for each run directory under ``results_root``."""
+    if not results_root.is_dir():
+        return
+    for child in sorted(results_root.iterdir()):
+        if not child.is_dir():
+            continue
+        m = _RUN_DIR_RE.match(child.name)
+        if m and m.group("cfg") in VALID_CONFIGS:
+            yield m.group("tid"), m.group("cfg")
+
+
+def undeclared_runs(results_root: pathlib.Path) -> set:
+    """Configs run against a task that are NOT declared for it (SPEC §2.3 breach)."""
+    declared = _declared_configs_by_task()
+    return {(tid, cfg) for tid, cfg in _runs_by_task(results_root)
+            if cfg not in declared.get(tid, set())}
 
 
 class TaskInvariants(unittest.TestCase):
@@ -206,6 +242,48 @@ class TaskInvariants(unittest.TestCase):
             self.assertTrue(fixture.is_dir(), f"missing fixture {name}")
             for f in fixture.glob("*.ts"):
                 self.assertIn("SYNTHETIC", f.name)
+
+
+class ConfigurationDeclarations(unittest.TestCase):
+    """SPEC §2.3 (FIX 4): every configuration run against a task must be declared in
+    that task's configurations or companion_configurations list."""
+
+    BATCH2 = ROOT / "results" / "feasibility-batch2"
+
+    def test_declared_fields_are_valid(self) -> None:
+        for d in TASK_DIRS:
+            t = _yaml(d / "task.yaml")
+            self.assertIn("configurations", t, f"{d.name}: task.yaml lacks configurations")
+            comp = t.get("companion_configurations", [])
+            self.assertIsInstance(comp, list,
+                                  f"{d.name}: companion_configurations must be a list")
+            for c in list(t["configurations"]) + list(comp):
+                self.assertIn(c, VALID_CONFIGS, f"{d.name}: unknown config id {c!r}")
+
+    def test_configurations_is_the_controlled_feasibility_set(self) -> None:
+        # Convention: task.yaml `configurations` is the SPEC §2.3 controlled set
+        # (P0/C2/P1); companions go in companion_configurations; screening lives in
+        # workload.yaml. Guards against the old F2 screening-framing regression.
+        for d in TASK_DIRS:
+            t = _yaml(d / "task.yaml")
+            self.assertEqual(
+                set(t["configurations"]), {"P0", "C2", "P1"},
+                f"{d.name}: configurations must be the controlled feasibility set "
+                f"P0/C2/P1 (screening configs belong in workload.yaml)",
+            )
+
+    def test_batch2_undeclared_runs_are_exactly_dropped_f1_companions(self) -> None:
+        """The check flags batch-2's out-of-plan runs and ONLY those: F1·C3 and F1·C5
+        (product/hybrid companions dropped from the re-collection). That F2/F3 (and
+        F1's C1/C2/P0/P1) raise no violation also confirms their declarations match
+        what batch 2 actually ran — i.e. what the re-collection will run."""
+        if not self.BATCH2.is_dir():
+            self.skipTest("batch-2 dataset not present")
+        self.assertEqual(
+            undeclared_runs(self.BATCH2),
+            {("pilot-realworld-draft-articles", "C3"),
+             ("pilot-realworld-draft-articles", "C5")},
+        )
 
 
 if __name__ == "__main__":
