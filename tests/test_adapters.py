@@ -139,5 +139,31 @@ class AgyCommandConstruction(unittest.TestCase):
                           msg=f"adapter emits {flag!r} but it is absent from `agy --help`")
 
 
+class AgentEnvScrub(unittest.TestCase):
+    """FIX B: the agent subprocess must not be handed pointers to lab/task material."""
+
+    def test_scrubs_harness_pointer_env_keeps_the_rest(self) -> None:
+        from harness.adapters import base
+        saved = {k: os.environ.get(k) for k in
+                 ("TASK_DIR", "TASK_WORKDIR", "HIDDEN_TESTS_DIR", "GATE_REPORT",
+                  "UNRELATED_VAR")}
+        os.environ["TASK_DIR"] = "/lab/tasks/pilot-realworld"
+        os.environ["TASK_WORKDIR"] = "/lab/tasks/pilot-realworld/.work"
+        os.environ["HIDDEN_TESTS_DIR"] = "/lab/tasks/pilot-realworld/hidden"
+        os.environ["GATE_REPORT"] = "/lab/results/x/gate-public.json"
+        os.environ["UNRELATED_VAR"] = "keep-me"
+        try:
+            env = base.agent_env()
+            for k in ("TASK_DIR", "TASK_WORKDIR", "HIDDEN_TESTS_DIR", "GATE_REPORT"):
+                self.assertNotIn(k, env, f"{k} must be scrubbed from the agent env")
+            self.assertEqual(env.get("UNRELATED_VAR"), "keep-me")  # non-harness kept
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -19,6 +19,7 @@ legs. Each leg is priced under its own model/selector and cost basis.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional
@@ -172,6 +173,29 @@ def usage_field(value: Optional[int], confidence: str, reason: str = "") -> Dict
     if value is None:
         return unavailable(reason or "not exposed by this configuration")
     return tiered(value, confidence)
+
+
+# Harness-internal env vars that point at lab/task material (the task dir, sealed
+# hidden tests, gate report paths). Scrubbed from the agent subprocess environment so
+# the agent is never handed a pointer to canonical/, hidden/ or the task dir
+# (subject-isolation FIX B). Everything else (provider auth, PATH, HOME, …) is kept.
+_HARNESS_ENV_KEYS = frozenset({
+    "TASK_DIR", "TASK_WORKDIR", "TASK_YAML", "MANIFEST",
+    "GATE_REPORT", "HIDDEN_REPORT", "HIDDEN_TESTS_DIR",
+})
+
+
+def agent_env() -> Dict[str, str]:
+    """Environment for the agent subprocess: ``os.environ`` minus harness-internal keys.
+
+    The agent must not receive any pointer to lab/task material (task dir, sealed
+    hidden tests, gate report paths). Defensive: the runner does not export these
+    today, but an outer shell or future code might — this guarantees the agent's
+    view is clean regardless (subject-isolation FIX B). Paired with FIX A (cwd staged
+    outside the lab repo), the agent has neither a relative path nor an env pointer to
+    the answer/test material.
+    """
+    return {k: v for k, v in os.environ.items() if k not in _HARNESS_ENV_KEYS}
 
 
 def cli_version(binary: str) -> str:

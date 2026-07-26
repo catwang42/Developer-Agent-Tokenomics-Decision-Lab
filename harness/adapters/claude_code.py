@@ -28,6 +28,7 @@ from .base import (
     AttemptOutcome,
     AttemptSpec,
     EmitFn,
+    agent_env,
     cli_version,
     leg_identity_payload,
     session_payload,
@@ -161,7 +162,7 @@ class ClaudeCodeAdapter(Adapter):
         try:
             proc = subprocess.run(  # noqa: S603 - workshop-owned command
                 argv, cwd=cwd, capture_output=True, text=True, check=False,
-                timeout=DEFAULT_TIMEOUT_S,
+                timeout=DEFAULT_TIMEOUT_S, env=agent_env(),  # scrub task pointers (FIX B)
             )
         except subprocess.TimeoutExpired as exc:
             # Record the CLI's exit/output (partial, if any) for invocation.txt — a

@@ -26,6 +26,7 @@ from .base import (
     AttemptOutcome,
     AttemptSpec,
     EmitFn,
+    agent_env,
     cli_version,
     leg_identity_payload,
     session_payload,
@@ -113,7 +114,7 @@ class AgyAdapter(Adapter):
         try:
             proc = subprocess.run(  # noqa: S603 - workshop-owned command
                 argv, cwd=cwd, capture_output=True, text=True,
-                check=False, timeout=DEFAULT_TIMEOUT_S,
+                check=False, timeout=DEFAULT_TIMEOUT_S, env=agent_env(),  # FIX B
             )
             # Record the product's exit/output for invocation.txt (redacted by the
             # runner). For a black-box product this raw stdout is the only place its
