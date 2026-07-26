@@ -496,7 +496,7 @@ class ArchiveOrdering(unittest.TestCase):
                     fh.write("// AGENT_MARKER\n")
                 return AttemptOutcome(identity={}, leg_options={}, invocation={})
 
-        def fake_gate(dry_run, scenario, leg_id, task, run_dir, launch):
+        def fake_gate(dry_run, scenario, leg_id, task, run_dir, launch, subject_dir_arg):
             with open(os.path.join(subject_dir, "harness_patch.ts"), "w") as fh:
                 fh.write("// HARNESS_MARKER injected by the gate\n")
             return True, "accepted", {}

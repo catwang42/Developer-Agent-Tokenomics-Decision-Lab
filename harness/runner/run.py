@@ -25,6 +25,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -274,17 +275,29 @@ def _gate_verdict(pub_rc: int, hid_rc: int, checks: Dict[str, Any]
     return True, "accepted", checks
 
 
-def real_gate(task_dir: str, run_dir: str) -> Tuple[bool, str, Dict[str, Any]]:
-    """Run the Phase 2 deterministic gate on the HOST against the subject tree."""
+def real_gate(task_dir: str, run_dir: str, subject_dir: str
+              ) -> Tuple[bool, str, Dict[str, Any]]:
+    """Run the Phase 2 deterministic gate on the HOST against the subject tree.
+
+    The subject tree is staged OUTSIDE the lab repo (FIX A, ``_setup_subject``), so
+    the gate is pointed at it via ``TASK_WORKDIR`` (lib.sh: ``SUBJECT_DIR =
+    TASK_WORKDIR/repo``). ``subject_dir`` is ``<staged>/repo``, so its parent is the
+    workdir. ``TASK_DIR`` still points at the in-repo task dir — the gate is trusted
+    harness code and legitimately reads ``gate/``, ``tests/``, ``hidden/`` from
+    there; only the *agent* is denied a relative path to them.
+    """
     gate_dir = os.path.join(REPO_ROOT, "harness", "task-tools", "gate")
     pub_report = os.path.join(run_dir, "gate-public.json")
     hid_report = os.path.join(run_dir, "gate-hidden.json")
+    workdir = os.path.dirname(os.path.abspath(subject_dir))
 
-    env = {**os.environ, "TASK_DIR": task_dir, "GATE_REPORT": pub_report}
+    env = {**os.environ, "TASK_DIR": task_dir, "TASK_WORKDIR": workdir,
+           "GATE_REPORT": pub_report}
     pub_rc = subprocess.run(  # noqa: S603
         ["bash", os.path.join(gate_dir, "check-public.sh")], env=env, check=False,
     ).returncode
-    env_h = {**os.environ, "TASK_DIR": task_dir, "HIDDEN_REPORT": hid_report}
+    env_h = {**os.environ, "TASK_DIR": task_dir, "TASK_WORKDIR": workdir,
+             "HIDDEN_REPORT": hid_report}
     hid_rc = subprocess.run(  # noqa: S603
         ["bash", os.path.join(gate_dir, "check-hidden.sh")], env=env_h, check=False,
     ).returncode
@@ -402,13 +415,13 @@ def cumulative_spend_usd(batch_dir: str) -> Tuple[float, int, int]:
 # Execution
 # --------------------------------------------------------------------------- #
 def _gate(dry_run: bool, scenario: str, leg_id: str, task: "Task",
-          run_dir: str, launch: Optional[ContainerLaunch]
+          run_dir: str, launch: Optional[ContainerLaunch], subject_dir: str
           ) -> Tuple[bool, str, Dict[str, Any]]:
     if dry_run:
         return synthetic_gate(scenario, leg_id)
     if launch is not None:  # containerized posture: grade offline in the container
         return container_gate(launch, task, run_dir)
-    return real_gate(task.task_dir, run_dir)
+    return real_gate(task.task_dir, run_dir, subject_dir)
 
 
 def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
@@ -473,7 +486,8 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
         # reflects the pre-gate economical attempt; the final tree (incl. the strong
         # leg) is preserved in post-gate.diff below. No escalation fired in batch 2.
         archive_pre_gate()
-        passed, result, checks = _gate(dry_run, scenario, econ.leg_id, task, run_dir, launch)
+        passed, result, checks = _gate(dry_run, scenario, econ.leg_id, task, run_dir,
+                                       launch, subject_dir)
         if passed:
             cr = "economical"
         else:
@@ -483,13 +497,15 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
             emit("escalation", from_route="economical", to_route="strong",
                  reason="gate_fail", failed_leg=econ.leg_id)
             run_leg(strong, 1)
-            passed, result, checks = _gate(dry_run, scenario, strong.leg_id, task, run_dir, launch)
+            passed, result, checks = _gate(dry_run, scenario, strong.leg_id, task, run_dir,
+                                           launch, subject_dir)
             cr = "strong"
     else:  # static | workflow
         for i, leg in enumerate(plan.legs):
             run_leg(leg, i)
         archive_pre_gate()  # all agent legs done; archive before the gate mutates the tree
-        passed, result, checks = _gate(dry_run, scenario, "main", task, run_dir, launch)
+        passed, result, checks = _gate(dry_run, scenario, "main", task, run_dir,
+                                       launch, subject_dir)
 
     # Optional post-gate snapshot for provenance — the tree AFTER the gate's own
     # edits (test_compat_patch, restores). Written to a SEPARATE file, never merged
@@ -782,6 +798,40 @@ def _ensure_container_launch(task: Task, network: str) -> ContainerLaunch:
     return ContainerLaunch(image=tag, network=network)
 
 
+def _stage_subject_outside_repo(source_repo: str) -> str:
+    """Stage the prepared subject repo into a temp dir OUTSIDE the lab repo (FIX A).
+
+    Root cause of the subject-isolation leak: with the agent's cwd at
+    ``<TASK_DIR>/.work/repo`` inside the lab repo, ``../../canonical``,
+    ``../../hidden`` and ``../../task.yaml`` were reachable by relative traversal.
+    Copying ONLY the subject repo to a temp dir whose ancestors contain none of the
+    lab's task material closes that path: from ``<staged>/repo`` no ``../`` chain
+    reaches canonical/, hidden/, or task.yaml (they are not staged at all).
+
+    We copy the already-prepared tree (clone-at-pin + deps + prisma client) rather
+    than re-cloning, and preserve symlinks (node_modules ``.bin`` uses relative
+    ones). Refuses if the temp dir resolves inside the lab repo (e.g. a TMPDIR set
+    under the repo) — that would re-open the leak. Returns ``<staged>/repo``.
+
+    NOTE (honest scope, see SUBJECT_PROFILE_HOST): this blocks *relative-path*
+    traversal only. The agent still runs same-uid with no container/fs-namespace, so
+    absolute paths into the lab repo remain possible; full confinement is the
+    Phase-4 containerized agent leg.
+    """
+    staged_root = tempfile.mkdtemp(prefix="lab-subject-")
+    staged_abs = os.path.abspath(staged_root)
+    if staged_abs == REPO_ROOT or staged_abs.startswith(REPO_ROOT + os.sep):
+        shutil.rmtree(staged_root, ignore_errors=True)
+        raise RunnerError(
+            f"staged subject dir {staged_abs!r} is inside the lab repo {REPO_ROOT!r}; "
+            f"set TMPDIR to a location outside the repo so canonical/, hidden/ and "
+            f"task.yaml are not reachable by relative traversal from the agent cwd"
+        )
+    staged_repo = os.path.join(staged_abs, "repo")
+    shutil.copytree(source_repo, staged_repo, symlinks=True)
+    return staged_repo
+
+
 def _setup_subject(task_dir: str, run_dir: str) -> str:
     tt = os.path.join(REPO_ROOT, "harness", "task-tools")
     env = {**os.environ, "TASK_DIR": task_dir}
@@ -792,7 +842,10 @@ def _setup_subject(task_dir: str, run_dir: str) -> str:
     )
     with open(os.path.join(run_dir, "reset.txt"), "w", encoding="utf-8") as fh:
         fh.write(reset.stdout)  # records the reset tree hash (determinism check input)
-    return os.path.join(task_dir, ".work", "repo")
+    # FIX A: hand the agent a subject tree staged OUTSIDE the lab repo, so canonical/,
+    # hidden/ and task.yaml cannot be reached by relative traversal from its cwd.
+    source_repo = os.path.join(task_dir, ".work", "repo")
+    return _stage_subject_outside_repo(source_repo)
 
 
 # --------------------------------------------------------------------------- #
@@ -921,6 +974,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         launch: Optional[ContainerLaunch] = None
         subject_dir: Optional[str] = None
+        staged_root: Optional[str] = None  # temp staging dir to clean up (FIX A)
         if args.dry_run:
             adapter: Any = StubAdapter()
             subject_dir = os.path.join(run_dir, "SYNTHETIC-subject")  # unused by stub
@@ -933,6 +987,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 adapter.container = launch
             else:
                 subject_dir = _setup_subject(task.task_dir, run_dir)
+                staged_root = os.path.dirname(subject_dir)  # <staged>/repo -> <staged>
 
         log = EventLog(os.path.join(run_dir, "events.jsonl"))
 
@@ -987,6 +1042,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                 summary_doc = json.load(fh)
             with open(os.path.join(run_dir, "result.json"), "w", encoding="utf-8") as fh:
                 json.dump(build_result_record(summary_doc), fh, indent=2, sort_keys=True)
+
+        # The staged subject tree (FIX A) is transient scratch outside the lab repo;
+        # all provenance (diffs, summary, gate reports) already lives under run_dir.
+        # Best-effort cleanup so batches don't accumulate temp trees.
+        if staged_root:
+            shutil.rmtree(staged_root, ignore_errors=True)
     except RunnerError as exc:
         print(f"runner: {exc}", file=sys.stderr)
         return 2
