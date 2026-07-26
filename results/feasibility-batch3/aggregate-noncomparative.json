@@ -1,0 +1,247 @@
+{
+  "cells": [
+    {
+      "acceptance": {
+        "accepted": 1,
+        "error": 0,
+        "other": 0,
+        "rejected": 2
+      },
+      "configuration_id": "C1",
+      "cost_known_runs": 1,
+      "cost_unavailable_legs": 2,
+      "marginal_operating_usd": {
+        "max": 0.321873,
+        "median": 0.321873,
+        "min": 0.321873
+      },
+      "n_runs": 3,
+      "network_policies": {
+        "no-network-policy": 3
+      },
+      "permission_profiles": {
+        "skip-all-tools; subject-staged-in-temp-outside-lab-repo; no-relative-path-to-canonical|hidden|task.yaml; harness-env-pointers-scrubbed; same-uid; no-container; no-fs-namespace; absolute-path-fs-access-NOT-confined; no-network-policy": 3
+      },
+      "task_id": "pilot-realworld-draft-articles"
+    },
+    {
+      "acceptance": {
+        "accepted": 3,
+        "error": 0,
+        "other": 0,
+        "rejected": 0
+      },
+      "configuration_id": "C2",
+      "cost_known_runs": 3,
+      "cost_unavailable_legs": 0,
+      "marginal_operating_usd": {
+        "max": 0.068227,
+        "median": 0.068124,
+        "min": 0.041727
+      },
+      "n_runs": 3,
+      "network_policies": {
+        "no-network-policy": 3
+      },
+      "permission_profiles": {
+        "skip-all-tools; subject-staged-in-temp-outside-lab-repo; no-relative-path-to-canonical|hidden|task.yaml; harness-env-pointers-scrubbed; same-uid; no-container; no-fs-namespace; absolute-path-fs-access-NOT-confined; no-network-policy": 3
+      },
+      "task_id": "pilot-realworld-draft-articles"
+    },
+    {
+      "acceptance": {
+        "accepted": 3,
+        "error": 0,
+        "other": 0,
+        "rejected": 0
+      },
+      "configuration_id": "P0",
+      "cost_known_runs": 3,
+      "cost_unavailable_legs": 0,
+      "marginal_operating_usd": {
+        "max": 0.244187,
+        "median": 0.236006,
+        "min": 0.205963
+      },
+      "n_runs": 3,
+      "network_policies": {
+        "no-network-policy": 3
+      },
+      "permission_profiles": {
+        "skip-all-tools; subject-staged-in-temp-outside-lab-repo; no-relative-path-to-canonical|hidden|task.yaml; harness-env-pointers-scrubbed; same-uid; no-container; no-fs-namespace; absolute-path-fs-access-NOT-confined; no-network-policy": 3
+      },
+      "task_id": "pilot-realworld-draft-articles"
+    },
+    {
+      "acceptance": {
+        "accepted": 3,
+        "error": 0,
+        "other": 0,
+        "rejected": 0
+      },
+      "configuration_id": "P1",
+      "cost_known_runs": 3,
+      "cost_unavailable_legs": 0,
+      "marginal_operating_usd": {
+        "max": 0.043659,
+        "median": 0.041759,
+        "min": 0.041733
+      },
+      "n_runs": 3,
+      "network_policies": {
+        "no-network-policy": 3
+      },
+      "permission_profiles": {
+        "skip-all-tools; subject-staged-in-temp-outside-lab-repo; no-relative-path-to-canonical|hidden|task.yaml; harness-env-pointers-scrubbed; same-uid; no-container; no-fs-namespace; absolute-path-fs-access-NOT-confined; no-network-policy": 3
+      },
+      "task_id": "pilot-realworld-draft-articles"
+    },
+    {
+      "acceptance": {
+        "accepted": 3,
+        "error": 0,
+        "other": 0,
+        "rejected": 0
+      },
+      "configuration_id": "C2",
+      "cost_known_runs": 3,
+      "cost_unavailable_legs": 0,
+      "marginal_operating_usd": {
+        "max": 0.147835,
+        "median": 0.093192,
+        "min": 0.092264
+      },
+      "n_runs": 3,
+      "network_policies": {
+        "no-network-policy": 3
+      },
+      "permission_profiles": {
+        "skip-all-tools; subject-staged-in-temp-outside-lab-repo; no-relative-path-to-canonical|hidden|task.yaml; harness-env-pointers-scrubbed; same-uid; no-container; no-fs-namespace; absolute-path-fs-access-NOT-confined; no-network-policy": 3
+      },
+      "task_id": "w1-realworld-mapper-tests"
+    },
+    {
+      "acceptance": {
+        "accepted": 3,
+        "error": 0,
+        "other": 0,
+        "rejected": 0
+      },
+      "configuration_id": "P0",
+      "cost_known_runs": 3,
+      "cost_unavailable_legs": 0,
+      "marginal_operating_usd": {
+        "max": 0.625235,
+        "median": 0.430553,
+        "min": 0.358053
+      },
+      "n_runs": 3,
+      "network_policies": {
+        "no-network-policy": 3
+      },
+      "permission_profiles": {
+        "skip-all-tools; subject-staged-in-temp-outside-lab-repo; no-relative-path-to-canonical|hidden|task.yaml; harness-env-pointers-scrubbed; same-uid; no-container; no-fs-namespace; absolute-path-fs-access-NOT-confined; no-network-policy": 3
+      },
+      "task_id": "w1-realworld-mapper-tests"
+    },
+    {
+      "acceptance": {
+        "accepted": 3,
+        "error": 0,
+        "other": 0,
+        "rejected": 0
+      },
+      "configuration_id": "P1",
+      "cost_known_runs": 3,
+      "cost_unavailable_legs": 0,
+      "marginal_operating_usd": {
+        "max": 0.264743,
+        "median": 0.196612,
+        "min": 0.132123
+      },
+      "n_runs": 3,
+      "network_policies": {
+        "no-network-policy": 3
+      },
+      "permission_profiles": {
+        "skip-all-tools; subject-staged-in-temp-outside-lab-repo; no-relative-path-to-canonical|hidden|task.yaml; harness-env-pointers-scrubbed; same-uid; no-container; no-fs-namespace; absolute-path-fs-access-NOT-confined; no-network-policy": 3
+      },
+      "task_id": "w1-realworld-mapper-tests"
+    },
+    {
+      "acceptance": {
+        "accepted": 3,
+        "error": 0,
+        "other": 0,
+        "rejected": 0
+      },
+      "configuration_id": "C2",
+      "cost_known_runs": 3,
+      "cost_unavailable_legs": 0,
+      "marginal_operating_usd": {
+        "max": 0.107481,
+        "median": 0.072204,
+        "min": 0.036472
+      },
+      "n_runs": 3,
+      "network_policies": {
+        "no-network-policy": 3
+      },
+      "permission_profiles": {
+        "skip-all-tools; subject-staged-in-temp-outside-lab-repo; no-relative-path-to-canonical|hidden|task.yaml; harness-env-pointers-scrubbed; same-uid; no-container; no-fs-namespace; absolute-path-fs-access-NOT-confined; no-network-policy": 3
+      },
+      "task_id": "w4-realworld-missing-user-id"
+    },
+    {
+      "acceptance": {
+        "accepted": 3,
+        "error": 0,
+        "other": 0,
+        "rejected": 0
+      },
+      "configuration_id": "P0",
+      "cost_known_runs": 3,
+      "cost_unavailable_legs": 0,
+      "marginal_operating_usd": {
+        "max": 0.498896,
+        "median": 0.24136,
+        "min": 0.235919
+      },
+      "n_runs": 3,
+      "network_policies": {
+        "no-network-policy": 3
+      },
+      "permission_profiles": {
+        "skip-all-tools; subject-staged-in-temp-outside-lab-repo; no-relative-path-to-canonical|hidden|task.yaml; harness-env-pointers-scrubbed; same-uid; no-container; no-fs-namespace; absolute-path-fs-access-NOT-confined; no-network-policy": 3
+      },
+      "task_id": "w4-realworld-missing-user-id"
+    },
+    {
+      "acceptance": {
+        "accepted": 3,
+        "error": 0,
+        "other": 0,
+        "rejected": 0
+      },
+      "configuration_id": "P1",
+      "cost_known_runs": 3,
+      "cost_unavailable_legs": 0,
+      "marginal_operating_usd": {
+        "max": 0.062285,
+        "median": 0.046108,
+        "min": 0.011581
+      },
+      "n_runs": 3,
+      "network_policies": {
+        "no-network-policy": 3
+      },
+      "permission_profiles": {
+        "skip-all-tools; subject-staged-in-temp-outside-lab-repo; no-relative-path-to-canonical|hidden|task.yaml; harness-env-pointers-scrubbed; same-uid; no-container; no-fs-namespace; absolute-path-fs-access-NOT-confined; no-network-policy": 3
+      },
+      "task_id": "w4-realworld-missing-user-id"
+    }
+  ],
+  "n_cells": 10,
+  "n_records": 30,
+  "note": "NON-COMPARATIVE / INTERNAL \u2014 descriptive per-cell stats only; no cross-product or cross-config ranking, no vendor claim (CLAUDE.md 1.2/rule 4)."
+}

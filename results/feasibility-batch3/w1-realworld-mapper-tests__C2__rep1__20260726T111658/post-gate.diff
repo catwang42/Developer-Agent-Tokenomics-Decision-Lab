@@ -1,0 +1,506 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/src/tests/mappers/article.mapper.test.ts b/src/tests/mappers/article.mapper.test.ts
+new file mode 100644
+index 0000000..28b9602
+--- /dev/null
++++ b/src/tests/mappers/article.mapper.test.ts
+@@ -0,0 +1,242 @@
++import articleMapper from '../../app/routes/article/article.mapper';
++import authorMapper from '../../app/routes/article/author.mapper';
++
++// Mock the author mapper
++jest.mock('../../app/routes/article/author.mapper');
++
++describe('ArticleMapper', () => {
++  beforeEach(() => {
++    jest.clearAllMocks();
++    // Mock the authorMapper to return a consistent shape
++    (authorMapper as jest.Mock).mockReturnValue({
++      username: 'testauthor',
++      bio: 'Test bio',
++      image: 'https://example.com/image.jpg',
++      following: false,
++    });
++  });
++
++  describe('tagList mapping', () => {
++    test('should map empty tagList', () => {
++      // Given
++      const article = {
++        slug: 'test-article',
++        title: 'Test Article',
++        description: 'Test description',
++        body: 'Test body',
++        tagList: [],
++        createdAt: '2023-01-01T00:00:00Z',
++        updatedAt: '2023-01-02T00:00:00Z',
++        favoritedBy: [],
++        author: { username: 'testauthor' },
++      };
++      const userId = 1;
++
++      // When
++      const result = articleMapper(article, userId);
++
++      // Then
++      expect(result.tagList).toEqual([]);
++    });
++
++    test('should map non-empty tagList', () => {
++      // Given
++      const article = {
++        slug: 'test-article',
++        title: 'Test Article',
++        description: 'Test description',
++        body: 'Test body',
++        tagList: [
++          { name: 'javascript' },
++          { name: 'testing' },
++          { name: 'jest' },
++        ],
++        createdAt: '2023-01-01T00:00:00Z',
++        updatedAt: '2023-01-02T00:00:00Z',
++        favoritedBy: [],
++        author: { username: 'testauthor' },
++      };
++      const userId = 1;
++
++      // When
++      const result = articleMapper(article, userId);
++
++      // Then
++      expect(result.tagList).toEqual(['javascript', 'testing', 'jest']);
++    });
++  });
++
++  describe('favorited mapping', () => {
++    test('should set favorited to true when requesting user is in favoritedBy', () => {
++      // Given
++      const article = {
++        slug: 'test-article',
++        title: 'Test Article',
++        description: 'Test description',
++        body: 'Test body',
++        tagList: [],
++        createdAt: '2023-01-01T00:00:00Z',
++        updatedAt: '2023-01-02T00:00:00Z',
++        favoritedBy: [{ id: 5 }, { id: 10 }],
++        author: { username: 'testauthor' },
++      };
++      const userId = 5;
++
++      // When
++      const result = articleMapper(article, userId);
++
++      // Then
++      expect(result.favorited).toBe(true);
++    });
++
++    test('should set favorited to false when requesting user is not in favoritedBy', () => {
++      // Given
++      const article = {
++        slug: 'test-article',
++        title: 'Test Article',
++        description: 'Test description',
++        body: 'Test body',
++        tagList: [],
++        createdAt: '2023-01-01T00:00:00Z',
++        updatedAt: '2023-01-02T00:00:00Z',
++        favoritedBy: [{ id: 5 }, { id: 10 }],
++        author: { username: 'testauthor' },
++      };
++      const userId = 99;
++
++      // When
++      const result = articleMapper(article, userId);
++
++      // Then
++      expect(result.favorited).toBe(false);
++    });
++
++    test('should set favorited to false when favoritedBy is empty', () => {
++      // Given
++      const article = {
++        slug: 'test-article',
++        title: 'Test Article',
++        description: 'Test description',
++        body: 'Test body',
++        tagList: [],
++        createdAt: '2023-01-01T00:00:00Z',
++        updatedAt: '2023-01-02T00:00:00Z',
++        favoritedBy: [],
++        author: { username: 'testauthor' },
++      };
++      const userId = 1;
++
++      // When
++      const result = articleMapper(article, userId);
++
++      // Then
++      expect(result.favorited).toBe(false);
++    });
++  });
++
++  describe('favoritesCount mapping', () => {
++    test('should return correct count for empty favoritedBy', () => {
++      // Given
++      const article = {
++        slug: 'test-article',
++        title: 'Test Article',
++        description: 'Test description',
++        body: 'Test body',
++        tagList: [],
++        createdAt: '2023-01-01T00:00:00Z',
++        updatedAt: '2023-01-02T00:00:00Z',
++        favoritedBy: [],
++        author: { username: 'testauthor' },
++      };
++      const userId = 1;
++
++      // When
++      const result = articleMapper(article, userId);
++
++      // Then
++      expect(result.favoritesCount).toBe(0);
++    });
++
++    test('should return correct count for non-empty favoritedBy', () => {
++      // Given
++      const article = {
++        slug: 'test-article',
++        title: 'Test Article',
++        description: 'Test description',
++        body: 'Test body',
++        tagList: [],
++        createdAt: '2023-01-01T00:00:00Z',
++        updatedAt: '2023-01-02T00:00:00Z',
++        favoritedBy: [{ id: 1 }, { id: 2 }, { id: 3 }],
++        author: { username: 'testauthor' },
++      };
++      const userId = 1;
++
++      // When
++      const result = articleMapper(article, userId);
++
++      // Then
++      expect(result.favoritesCount).toBe(3);
++    });
++  });
++
++  describe('complete article mapping', () => {
++    test('should map all fields correctly', () => {
++      // Given
++      const article = {
++        slug: 'how-to-train-your-dragon',
++        title: 'How to train your dragon',
++        description: 'Ever wonder how?',
++        body: 'It takes a Jacobian',
++        tagList: [{ name: 'dragons' }, { name: 'training' }],
++        createdAt: '2023-01-01T00:00:00Z',
++        updatedAt: '2023-01-02T00:00:00Z',
++        favoritedBy: [{ id: 1 }, { id: 2 }],
++        author: { username: 'jake', bio: 'I work at statefarm' },
++      };
++      const userId = 1;
++
++      // When
++      const result = articleMapper(article, userId);
++
++      // Then
++      expect(result).toMatchObject({
++        slug: 'how-to-train-your-dragon',
++        title: 'How to train your dragon',
++        description: 'Ever wonder how?',
++        body: 'It takes a Jacobian',
++        tagList: ['dragons', 'training'],
++        createdAt: '2023-01-01T00:00:00Z',
++        updatedAt: '2023-01-02T00:00:00Z',
++        favorited: true,
++        favoritesCount: 2,
++      });
++      expect(result.author).toBeDefined();
++      expect(authorMapper).toHaveBeenCalledWith(article.author, userId);
++    });
++
++    test('should call authorMapper with article author and user id', () => {
++      // Given
++      const authorData = { username: 'jake', bio: 'I work at statefarm' };
++      const article = {
++        slug: 'test-article',
++        title: 'Test Article',
++        description: 'Test description',
++        body: 'Test body',
++        tagList: [],
++        createdAt: '2023-01-01T00:00:00Z',
++        updatedAt: '2023-01-02T00:00:00Z',
++        favoritedBy: [],
++        author: authorData,
++      };
++      const userId = 42;
++
++      // When
++      articleMapper(article, userId);
++
++      // Then
++      expect(authorMapper).toHaveBeenCalledWith(authorData, userId);
++      expect(authorMapper).toHaveBeenCalledTimes(1);
++    });
++  });
++});
+diff --git a/src/tests/mappers/author.mapper.test.ts b/src/tests/mappers/author.mapper.test.ts
+new file mode 100644
+index 0000000..ed09b16
+--- /dev/null
++++ b/src/tests/mappers/author.mapper.test.ts
+@@ -0,0 +1,250 @@
++import authorMapper from '../../app/routes/article/author.mapper';
++import { User } from '../../app/routes/auth/user.model';
++
++describe('AuthorMapper', () => {
++  describe('following with id present', () => {
++    test('should set following to true when user id is in followedBy', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [
++          { id: 1 },
++          { id: 5 },
++          { id: 10 },
++        ] as Partial<User>[],
++      };
++      const userId = 5;
++
++      // When
++      const result = authorMapper(author, userId);
++
++      // Then
++      expect(result.following).toBe(true);
++    });
++
++    test('should set following to false when user id is not in followedBy', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [
++          { id: 1 },
++          { id: 5 },
++        ] as Partial<User>[],
++      };
++      const userId = 99;
++
++      // When
++      const result = authorMapper(author, userId);
++
++      // Then
++      expect(result.following).toBe(false);
++    });
++
++    test('should set following to false when followedBy is empty but id is present', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [] as Partial<User>[],
++      };
++      const userId = 5;
++
++      // When
++      const result = authorMapper(author, userId);
++
++      // Then
++      expect(result.following).toBe(false);
++    });
++  });
++
++  describe('following with id absent', () => {
++    test('should set following to false when id is undefined', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [
++          { id: 1 },
++          { id: 5 },
++        ] as Partial<User>[],
++      };
++
++      // When
++      const result = authorMapper(author, undefined);
++
++      // Then
++      expect(result.following).toBe(false);
++    });
++
++    test('should set following to false when id is null', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [
++          { id: 1 },
++          { id: 5 },
++        ] as Partial<User>[],
++      };
++
++      // When
++      const result = authorMapper(author, null as any);
++
++      // Then
++      expect(result.following).toBe(false);
++    });
++
++    test('should set following to false when id is 0', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [
++          { id: 1 },
++          { id: 5 },
++        ] as Partial<User>[],
++      };
++      const userId = 0;
++
++      // When
++      const result = authorMapper(author, userId);
++
++      // Then
++      expect(result.following).toBe(false);
++    });
++  });
++
++  describe('basic author fields', () => {
++    test('should map username correctly', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [] as Partial<User>[],
++      };
++
++      // When
++      const result = authorMapper(author, 1);
++
++      // Then
++      expect(result.username).toBe('jake');
++    });
++
++    test('should map bio correctly', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [] as Partial<User>[],
++      };
++
++      // When
++      const result = authorMapper(author, 1);
++
++      // Then
++      expect(result.bio).toBe('I work at statefarm');
++    });
++
++    test('should map bio when null', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: null,
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [] as Partial<User>[],
++      };
++
++      // When
++      const result = authorMapper(author, 1);
++
++      // Then
++      expect(result.bio).toBeNull();
++    });
++
++    test('should map image correctly', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [] as Partial<User>[],
++      };
++
++      // When
++      const result = authorMapper(author, 1);
++
++      // Then
++      expect(result.image).toBe('https://i.stack.imgur.com/xHWG8.jpg');
++    });
++
++    test('should map image when null', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: null,
++        followedBy: [] as Partial<User>[],
++      };
++
++      // When
++      const result = authorMapper(author, 1);
++
++      // Then
++      expect(result.image).toBeNull();
++    });
++  });
++
++  describe('complete author mapping', () => {
++    test('should map complete author object', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [{ id: 10 }] as Partial<User>[],
++      };
++      const userId = 10;
++
++      // When
++      const result = authorMapper(author, userId);
++
++      // Then
++      expect(result).toEqual({
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        following: true,
++      });
++    });
++
++    test('should have exactly 4 properties in result', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [] as Partial<User>[],
++      };
++
++      // When
++      const result = authorMapper(author, 1);
++
++      // Then
++      expect(Object.keys(result)).toHaveLength(4);
++      expect(result).toHaveProperty('username');
++      expect(result).toHaveProperty('bio');
++      expect(result).toHaveProperty('image');
++      expect(result).toHaveProperty('following');
++    });
++  });
++});
