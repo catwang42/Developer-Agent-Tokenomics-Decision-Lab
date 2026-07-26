@@ -1,4 +1,5 @@
 # CP-SPEND package — Phase 3 feasibility dataset (batch 1)
+## "SUPERSEDED — this authorised batch 1, whose runs were invalidated by the no-write defect. Retained as the approval record." 
 
 Prepared for the **CP-SPEND** checkpoint (CLAUDE.md; SPEC §2.3; binding protocol
 `methodology/feasibility-protocol.md`). This document is the material the human
