@@ -11,8 +11,10 @@ controlled Product-A runs (plus the warm-series) on the harness *as fixed after 
 archiving, per-leg `invocation.txt`, task-config enforcement, and the staged-subject
 posture). A re-collection was required because the harness changed **materially**, so
 batch-2 numbers are no longer collected under the same harness version. Batch 2, batch 1,
-and the mini revalidation are retained as **provenance only** in the Appendix; the
-batch-2 warm-series is carried forward there as the standing warm-cache evidence (§4.4).
+and the mini revalidation are retained as **provenance only** in the Appendix. The
+standing warm-cache evidence is the **2026-07-26 warm-series revalidation**
+(`results/feasibility-warm-series/`) on the redesigned driver — the batch-2 warm-series
+it replaces is now provenance (§4.4).
 
 ## 1. Scope of this dataset
 
@@ -88,7 +90,7 @@ Appendix as provenance.
 | 4 | Escalation telemetry | **9/9** P1 runs record ITR + CR (both `economical`). No escalation *fired* — the economical tier (haiku-4-5) passed every task — so the failed-attempt-cost path carries **no live data this batch**. See §4.3 | ⚠️ PASS (routing recorded; escalation-cost path **not exercised**, §4.3) |
 | 5 | Metric computability | ECST / QA-ECST-by-class compute **finite on every accepted controlled cell** (27/27 accepted, all three gate types); both cost views compute per leg/cell. HEAC pending criterion 6 | ✅ PASS |
 | 6 | Human effort | rubric timings for the 9-run subset | ⏳ **PENDING** (human reviewers; not fabricated; rubric `report/human-effort-rubric-batch2.md`) |
-| 7 | Cache | cold `cache_read` capture proven 27/27 + warm-series **costing delta** | ⚠️ **PARTIAL** — cold capture ✅; **warm-series delta NOT captured this batch** (regression, §4.4). Batch-2 warm delta is the standing evidence |
+| 7 | Cache | cold `cache_read` capture proven 27/27 + warm-series **costing delta** | ✅ PASS — cold capture 27/27 ✅; warm-series **delta demonstrated** on the redesigned driver (2026-07-26 revalidation, `results/feasibility-warm-series/`, authoritative warm cache tiers, marginal $ collapses on resume — §4.4). Batch-3 fresh-per-rep regression superseded |
 
 **Stop condition (self-report):** NOT triggered — every controlled run's cost is
 reconstructed from provider token metadata (`claude -p --output-format json` `usage` /
@@ -156,12 +158,13 @@ task is already complete, so both resumed reps returned **empty stdout, exit 1, 
 empty diff** → the gate correctly failed P1 (feature absent) and the usage/cost fields
 are `unavailable` (not zeroed). Observed identically for C1 rep2 and rep3.
 
-Consequence: the warm-cache **costing delta** is not demonstrated by batch 3. The
-batch-2 warm-series (captured cleanly on the pre-FIX harness) remains the standing
-warm-cache evidence and is carried forward here (marginal $ collapses on resume as
-`cache_creation` carries over):
+Consequence: the warm-cache **costing delta** was not demonstrated by batch 3 itself.
+The batch-2 warm-series (captured cleanly on the pre-FIX harness) served as the
+**interim** standing evidence — now **superseded** by the 2026-07-26 revalidation on the
+redesigned driver (see Remediation status below). Batch-2 table retained as provenance
+(marginal $ collapses on resume as `cache_creation` carries over):
 
-| batch-2 rep | cache_state | cache_creation | cache_read | marginal $ |
+| batch-2 rep (provenance) | cache_state | cache_creation | cache_read | marginal $ |
 |---|---|---|---|---|
 | 1 | cold | 7,537 | 221,969 | 0.1145 |
 | 2 | warm (resumed) | 3,479 | 250,463 | 0.0817 |
@@ -188,6 +191,28 @@ methodology finding (session resume and tree reset are incompatible), criterion 
 Phase 4 — **no second attempt, no prompt modification to force success**. Until that
 attempt runs, criterion 7 remains PARTIAL and **no warm-cache costing delta is claimed
 under the batch-3 posture**.
+
+**Outcome (2026-07-26, `results/feasibility-warm-series/`) — GRADABLE WORK; criterion 7
+→ PASS.** The single approved 3-run series (F1 × C1, cap $3; realized **$0.5450**) ran on
+the redesigned driver (product `2.1.220`, host-staged FIX-A posture). Reps 2–3 resumed
+the same session on the same persisted staged path (reset to the identical tree hash
+`b76a4619…` every rep) and produced **non-empty, gate-graded, accepted** diffs (all three
+`agent-solution.diff` byte-identical, md5 `9beaf1bb…`) — **not** the batch-3 no-op. Warm
+`cache_read` / `cache_creation` are authoritative and the warm **costing delta** is
+demonstrated (marginal $ collapses on resume as `cache_creation` carries over):
+
+| warm-series rep (authoritative) | cache_state | cache_creation | cache_read | marginal $ |
+|---|---|---|---|---|
+| 1 | cold | 69,557 | 113,041 | 0.3128 |
+| 2 | warm (resumed) | 3,988 | 243,706 | 0.1084 |
+| 3 | warm (resumed) | 2,995 | 308,011 | 0.1239 |
+
+This series is the **standing warm-cache evidence**, collected as its own dataset (NOT
+pooled with the batch-3 controlled 27). The reset-based warm protocol is confirmed
+compatible with the FIX-A posture; §6 condition 2 is cleared. (Per the pre-registered
+stopping rule this is the single attempt — no re-run. The Phase-4 SPEC-amendment open
+question in §9 of the CP-SPEND package — same-task/reset-tree vs. real multi-task warm
+sessions — is unaffected by this result.)
 
 ### 4.5 Acceptance (instrument data, NON-COMPARATIVE)
 **27/27 controlled Product-A runs accepted** (P0/C2/P1 × F1/F2/F3, 3/3 each) — the
@@ -236,7 +261,7 @@ spread. Full stats in `results/feasibility-batch3/aggregate-noncomparative.json`
 | F1·P0 | 0.2360 | 0.206–0.244 | 3/3 | 0.2287 |
 | F1·C2 | 0.0681 | 0.042–0.068 | 3/3 | 0.0594 |
 | F1·P1 | 0.0418 | 0.042–0.044 | 3/3 | 0.0424 |
-| F1·C1 (warm-series) | 0.3219 (rep1 only) | rep2–3 unavailable | 1/3 | 0.3219 |
+| F1·C1 (warm-series) | 0.3219 (rep1 only) | rep2–3 unavailable (batch-3 regression; revalidated separately — §4.4) | 1/3 | 0.3219 |
 | F2·P0 | 0.2414 | 0.236–0.499 | 3/3 | 0.3254 |
 | F2·C2 | 0.0722 | 0.037–0.108 | 3/3 | 0.0721 |
 | F2·P1 | 0.0461 | 0.012–0.062 | 3/3 | 0.0400 |
@@ -264,12 +289,12 @@ gated on the conditions below and at CP-SCREEN-PREREG / the screening CP-SPEND.
    Phase-4 screening CP-SPEND).** Batch 3 ran host-staged (§1.1); screening must run
    subjects in a real sandbox with restricted egress (bake `claude`/`agy` + mount ADC +
    Vertex env + egress allowlist for the agent leg; gate stays `--network=none`).
-2. **Warm-series protocol redesign (§4.4)** — the resume-based warm measurement is
-   incompatible with fresh-per-rep staging. Redesign **implemented** (persisted staged
-   tree, `harness/runner/warm_series.py`); its single-attempt live validation is gated
-   at the warm-series CP-SPEND (`manifest/cp-spend-warm-series-plan.md`) with a
-   pre-recorded one-attempt stopping rule. Criterion 7 stays **PARTIAL** and no
-   warm-cache costing is claimed until that attempt yields gradable warm work.
+2. **Warm-series protocol redesign (§4.4) — CLEARED (2026-07-26).** The resume-based
+   warm measurement was incompatible with fresh-per-rep staging; the persisted-staged-tree
+   redesign (`harness/runner/warm_series.py`) was validated in the single approved 3-run
+   series (`results/feasibility-warm-series/`, $0.5450): reps 2–3 produced gate-accepted
+   diffs with authoritative warm cache tiers and a costed delta. Criterion 7 → PASS.
+   (Not a screening precondition anymore.)
 3. **Criterion 6 (human-effort subset)** — reviewers record the 9-run rubric timings +
    inter-reviewer spread (no model spend). HEAC stays `unavailable` until then.
 4. **Escalation-cost coverage (§4.3)** — include ≥1 screening task the economical tier
@@ -285,10 +310,10 @@ validator-passing 30-run dataset (27 controlled accepted).
 
 The measurement system is validated on the authoritative batch-3 dataset (full 27
 controlled, three gate types, validator-passing telemetry, honest
-unavailable-not-zero handling, honest isolation labelling). Two criteria are explicitly
-**not** cleared here and are carried as screening conditions: the **warm-series delta**
-(criterion 7, regressed — §4.4) and the **human-effort subset** (criterion 6, pending).
-CP-DATA acceptance clears the **telemetry-completeness** requirement for the controlled
+unavailable-not-zero handling, honest isolation labelling). The **warm-series delta**
+(criterion 7) is now cleared by the 2026-07-26 revalidation (§4.4). One criterion remains
+open and is carried as a screening condition: the **human-effort subset** (criterion 6,
+pending — reviewers in progress). CP-DATA acceptance clears the **telemetry-completeness** requirement for the controlled
 instrument and unblocks Phase 4 **screening design**, subject to the §6 conditions
 (gated at CP-SCREEN-PREREG and the screening CP-SPEND, not here). **No number in this
 report appears in any docs / site / public report until CP-FINDINGS.** All figures are
