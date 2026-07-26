@@ -37,17 +37,31 @@ EmitFn = Callable[..., None]
 # the adapter, knows the actual mode it launched). See harness/container/README.md
 # and manifest/delivery-manifest.yaml (subject_isolation).
 #
-#   HOST      — legacy weak posture: ALL tool permissions bypassed
-#               (--dangerously-skip-permissions), confined ONLY by the throwaway
-#               per-task .work/repo working directory on the bare dev VM. No
-#               container, no network policy. Used by batch-1/revalidation.
-#   CONTAINER — batch-2 posture (human decision 2026-07-19): the subject CLI execs
-#               inside the task-tools Docker container with the network DISABLED
-#               (--network=none), deps pre-baked into a per-task image, cwd-confined
-#               to /subject. The deterministic gate runs offline in the same
-#               posture. (The live agent leg's model-API egress allowlist is a
-#               CP-SPEND finalization item; see harness/container/README.md.)
-SUBJECT_PROFILE_HOST = "skip-all-tools; cwd-confined-.work-repo; dev-vm; no-container; no-network-policy"
+#   HOST      — weak posture. ALL tool permissions are bypassed
+#               (--dangerously-skip-permissions). What IS enforced (FIX A/B,
+#               2026-07-26): the subject tree is staged in a temp dir OUTSIDE the lab
+#               repo, so canonical/, hidden/ and task.yaml cannot be reached by
+#               relative traversal from the agent's cwd, and harness path-pointer env
+#               vars are scrubbed from the agent's environment. What is NOT enforced:
+#               the agent runs same-uid on the bare dev VM with no container and no
+#               filesystem namespace, so ABSOLUTE-path access to the wider filesystem
+#               (including the lab repo) is still possible; there is no network
+#               policy. Earlier material wrongly labelled this "cwd-confined-.work-repo"
+#               — the batch-1/2 host runs had no such confinement (see
+#               report/subject-isolation-leak-2026-07-26.md).
+#   CONTAINER — the subject CLI execs inside the task-tools Docker container with the
+#               network DISABLED (--network=none), deps pre-baked into a per-task
+#               image, cwd-confined to /subject. The deterministic gate runs offline
+#               in the same posture. This is the real isolation boundary; the live
+#               agent leg is unimplemented (deferred to Phase 4). See
+#               harness/container/README.md and .dockerignore (canonical/ + hidden/
+#               excluded from the image).
+SUBJECT_PROFILE_HOST = (
+    "skip-all-tools; subject-staged-in-temp-outside-lab-repo; "
+    "no-relative-path-to-canonical|hidden|task.yaml; harness-env-pointers-scrubbed; "
+    "same-uid; no-container; no-fs-namespace; absolute-path-fs-access-NOT-confined; "
+    "no-network-policy"
+)
 SUBJECT_PROFILE_CONTAINER = "skip-all-tools; container-isolated; network=none; cwd-confined-/subject"
 
 # Back-compat default for adapters that stamp a posture directly; the runner
