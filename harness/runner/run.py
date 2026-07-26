@@ -414,10 +414,16 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
             emit, *, dry_run: bool, scenario: str,
             cache_state: str, base_session: str, resume: bool,
             launch: Optional[ContainerLaunch] = None
-            ) -> Tuple[Dict[str, Any], Dict[str, Dict[str, Any]]]:
-    """Run the plan's policy, emitting events. Returns (identity, leg_options_by_id)."""
+            ) -> Tuple[Dict[str, Any], Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+    """Run the plan's policy, emitting events.
+
+    Returns ``(identity, leg_options_by_id, invocations)`` — ``invocations`` is the
+    ordered list of exact CLI commands each leg executed (for the invocation.txt
+    run artifact; provenance, not telemetry).
+    """
     identity: Dict[str, Any] = {}
     leg_options: Dict[str, Dict[str, Any]] = {}
+    invocations: List[Dict[str, Any]] = []
 
     def run_leg(leg: LegPlan, leg_index: int) -> None:
         # Session ids MUST be valid UUIDs — the claude CLI's --session-id rejects
@@ -439,6 +445,8 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
         if leg.resolved.seat_allocation_usd is not None:
             opts.setdefault("seat_allocation_usd", leg.resolved.seat_allocation_usd)
         leg_options[leg.leg_id] = opts
+        if outcome.invocation:
+            invocations.append(outcome.invocation)
 
     itr: Optional[str] = None
     cr: Optional[str] = None
@@ -466,7 +474,7 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
 
     emit("acceptance", result=result, gate_checks=checks,
          intention_to_route=itr, completed_route=cr)
-    return identity, leg_options
+    return identity, leg_options, invocations
 
 
 # --------------------------------------------------------------------------- #
@@ -607,6 +615,68 @@ def _archive_agent_diff(subject_dir: str, run_dir: str) -> None:
             if untracked_diffs:
                 fh.write("\n# untracked files (agent-created), full content below:\n")
                 fh.write("".join(untracked_diffs))
+    except OSError:
+        pass
+
+
+# Env-var names whose VALUES may carry a credential — redacted in invocation.txt.
+# Matched as case-insensitive substrings of the key, so ANTHROPIC_API_KEY,
+# CLAUDE_CODE_OAUTH_TOKEN, AWS_SECRET_ACCESS_KEY, *_CREDENTIALS, etc. all mask.
+# Non-credential env (PATH, project id, region, model overrides) stays verbatim.
+_CREDENTIAL_ENV_PATTERNS = ("KEY", "TOKEN", "SECRET", "PASSWORD", "PASSWD",
+                            "CREDENTIAL", "AUTH", "SESSION", "COOKIE", "PRIVATE")
+_REDACTED = "<redacted>"
+
+
+def _redact_env(env: Dict[str, str]) -> Dict[str, str]:
+    """Return ``env`` with credential-bearing VALUES masked (keys preserved).
+
+    Redaction is by key name (case-insensitive substring match). The key stays
+    visible so a diagnostician still sees which credentials were set, but the secret
+    value never lands in the (committed) artifact. Errs toward over-redaction — better
+    to mask a benign var than to write a secret.
+    """
+    out: Dict[str, str] = {}
+    for key in sorted(env):
+        ku = key.upper()
+        out[key] = _REDACTED if any(p in ku for p in _CREDENTIAL_ENV_PATTERNS) else env[key]
+    return out
+
+
+def _write_invocation_file(run_dir: str, invocations: List[Dict[str, Any]],
+                           env: Dict[str, str]) -> None:
+    """Record the exact agent-CLI command(s) executed, for retroactive diagnosis.
+
+    A per-run artifact (``invocation.txt``, beside ``agent-solution.diff``) — NOT
+    telemetry: never emitted to the event log, never added to summary.json, and no
+    schema field is defined for it (CP-SCHEMA frozen). Records, per billing leg, the
+    full argv and the adapter's product version, plus a process-environment snapshot
+    with credential-bearing values redacted (:func:`_redact_env`). Best-effort: a
+    write failure never fails the run.
+    """
+    if not invocations:
+        return
+    try:
+        lines: List[str] = [
+            "# Per-run agent-CLI invocation(s) — run artifact, NOT telemetry.",
+            "# Full argv + product version per billing leg; credential-bearing",
+            "# environment values are redacted. Provenance for retroactive diagnosis.",
+            "",
+        ]
+        for inv in invocations:
+            lines.append(f"## leg: {inv.get('leg', '?')} (role: {inv.get('role', '?')})")
+            lines.append(f"product_version: {inv.get('product_version', 'unavailable')}")
+            cwd = inv.get("cwd")
+            lines.append(f"cwd: {cwd if cwd is not None else '(container: image workdir)'}")
+            lines.append("argv:")
+            lines.append(json.dumps(inv.get("argv") or [], ensure_ascii=False))
+            lines.append("")
+        lines.append("## environment (credential-bearing values redacted)")
+        for key, val in _redact_env(env).items():
+            lines.append(f"{key}={val}")
+        lines.append("")
+        with open(os.path.join(run_dir, "invocation.txt"), "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines))
     except OSError:
         pass
 
@@ -793,7 +863,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         def emit(event_type: str, **payload: Any) -> None:
             log.append(event_type, ts=_now_iso(), **payload)
 
-        identity, leg_options = execute(
+        identity, leg_options, invocations = execute(
             plan, task, adapter, subject_dir or "", run_dir, emit,
             dry_run=args.dry_run, scenario=args.stub_scenario,
             cache_state=args.cache_state, base_session=base_session, resume=args.resume,
@@ -801,6 +871,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         if not args.dry_run and subject_dir:  # host-mode: archive the diff before reset
             _archive_agent_diff(subject_dir, run_dir)
+        # Record the exact CLI command(s) executed (run artifact, not telemetry) so a
+        # run can be diagnosed retroactively; credential-bearing env is redacted.
+        _write_invocation_file(run_dir, invocations, dict(os.environ))
         # Cache state is a runner-controlled experimental variable — stamped
         # authoritatively here (overriding any adapter default) and proven against
         # the event log below.

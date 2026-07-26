@@ -462,5 +462,60 @@ class AgentDiffArchive(unittest.TestCase):
         runner._archive_agent_diff(tempfile.mkdtemp(), run_dir)  # not a git repo -> no raise
 
 
+class InvocationRecord(unittest.TestCase):
+    """invocation.txt records the exact CLI command(s) + version; redacts creds."""
+
+    def test_writes_argv_version_and_redacts_credentials(self) -> None:
+        run_dir = tempfile.mkdtemp(prefix="lab-run-")
+        invocations = [{
+            "leg": "main", "role": "solver",
+            "product_version": "claude 9.9.9 (Claude Code)",
+            "argv": ["claude", "-p", "implement the draft flag", "--model",
+                     "strong@default", "--output-format", "json",
+                     "--dangerously-skip-permissions"],
+            "cwd": "/tmp/subject/.work/repo",
+        }]
+        env = {
+            "PATH": "/usr/bin",
+            "ANTHROPIC_API_KEY": "sk-secret-value-xyz",
+            "CLAUDE_CODE_OAUTH_TOKEN": "oauth-secret-abc",
+            "GOOGLE_APPLICATION_CREDENTIALS": "/home/u/adc.json",
+            "ANTHROPIC_VERTEX_PROJECT_ID": "vital-octagon-19612",
+            "CLOUD_ML_REGION": "us-central1",
+        }
+        runner._write_invocation_file(run_dir, invocations, env)
+        path = os.path.join(run_dir, "invocation.txt")
+        self.assertTrue(os.path.exists(path))
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+        # Full argv + product version + leg recorded.
+        self.assertIn("--dangerously-skip-permissions", text)
+        self.assertIn("implement the draft flag", text)
+        self.assertIn("claude 9.9.9 (Claude Code)", text)
+        self.assertIn("leg: main", text)
+        # Non-credential env kept for diagnosis.
+        self.assertIn("us-central1", text)
+        self.assertIn("vital-octagon-19612", text)
+        # Credential-bearing values redacted (key stays, secret gone).
+        self.assertIn("ANTHROPIC_API_KEY=<redacted>", text)
+        self.assertIn("CLAUDE_CODE_OAUTH_TOKEN=<redacted>", text)
+        self.assertNotIn("sk-secret-value-xyz", text)
+        self.assertNotIn("oauth-secret-abc", text)
+
+    def test_no_file_when_no_invocations(self) -> None:
+        run_dir = tempfile.mkdtemp(prefix="lab-run-")
+        runner._write_invocation_file(run_dir, [], {"ANY": "1"})
+        self.assertFalse(os.path.exists(os.path.join(run_dir, "invocation.txt")))
+
+    def test_dry_run_produces_invocation_file(self) -> None:
+        """End-to-end: a stub dry-run writes invocation.txt beside the summary."""
+        rc, run_dir, _ = _run("P0")
+        self.assertEqual(rc, 0)
+        path = os.path.join(run_dir, "invocation.txt")
+        self.assertTrue(os.path.exists(path))
+        with open(path, encoding="utf-8") as fh:
+            self.assertIn("argv:", fh.read())
+
+
 if __name__ == "__main__":
     unittest.main()

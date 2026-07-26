@@ -91,4 +91,13 @@ class StubAdapter(Adapter):
         }
         if r.region:
             identity["region"] = tiered(r.region, "proxy_observed")
-        return AttemptOutcome(identity=identity, leg_options=leg_options)
+        # SYNTHETIC invocation so the dry-run pipeline exercises the invocation.txt
+        # wiring without a real CLI or spend (clearly labelled — no command runs).
+        invocation = {
+            "leg": spec.leg_id, "role": spec.role,
+            "product_version": "SYNTHETIC (dry-run; no CLI executed)",
+            "argv": ["SYNTHETIC-no-op", "--leg", spec.leg_id],
+            "cwd": subject_dir,
+        }
+        return AttemptOutcome(identity=identity, leg_options=leg_options,
+                              invocation=invocation)

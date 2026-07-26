@@ -19,6 +19,7 @@ legs. Each leg is priced under its own model/selector and cost basis.
 
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional
 
@@ -118,11 +119,16 @@ class AttemptOutcome:
     with task-derived identity (e.g. contamination_tier). ``leg_options`` holds
     per-leg costing kwargs the adapter measured — ``provider_reported_usd`` (for a
     product-reported basis) and/or ``machine_cost_usd`` — passed verbatim to the
-    costing layer. Both default empty; nothing here is fabricated.
+    costing layer. ``invocation`` holds the exact CLI command the adapter executed
+    for this leg (``leg``/``role``/``product_version``/``argv``/``cwd``) so the
+    runner can record it in the per-run ``invocation.txt`` artifact — this is
+    diagnostic provenance, NOT telemetry (never emitted to the event log or the
+    schema-validated summary). All three default empty; nothing here is fabricated.
     """
 
     identity: Dict[str, Any] = field(default_factory=dict)
     leg_options: Dict[str, Any] = field(default_factory=dict)
+    invocation: Dict[str, Any] = field(default_factory=dict)
 
 
 class Adapter:
@@ -166,3 +172,25 @@ def usage_field(value: Optional[int], confidence: str, reason: str = "") -> Dict
     if value is None:
         return unavailable(reason or "not exposed by this configuration")
     return tiered(value, confidence)
+
+
+def cli_version(binary: str) -> str:
+    """Best-effort product/CLI version string for the invocation.txt artifact.
+
+    Runs ``<binary> --version`` (which incurs NO model spend) and returns its first
+    output line, or ``"unavailable"`` if the binary is absent, errors, or times out
+    — never fabricated. This is run-provenance for retroactive diagnosis, not
+    telemetry. In container mode this reports the host CLI version (the batch-2
+    agent leg is host-mode; the containerized agent leg is unimplemented).
+    """
+    try:
+        proc = subprocess.run(  # noqa: S603 - fixed argv, no shell
+            [binary, "--version"], capture_output=True, text=True,
+            check=False, timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unavailable"
+    for line in (proc.stdout or proc.stderr or "").splitlines():
+        if line.strip():
+            return line.strip()
+    return "unavailable"

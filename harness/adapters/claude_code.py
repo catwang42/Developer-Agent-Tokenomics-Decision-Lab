@@ -28,6 +28,7 @@ from .base import (
     AttemptOutcome,
     AttemptSpec,
     EmitFn,
+    cli_version,
     leg_identity_payload,
     session_payload,
 )
@@ -149,6 +150,14 @@ class ClaudeCodeAdapter(Adapter):
         # telemetry emission below are identical (the container leg's model-API
         # egress network is a CP-SPEND item; see harness/container/README.md).
         argv, cwd = resolve_spawn(self.container, cmd, subject_dir)
+        # Exact command executed, for the per-run invocation.txt artifact (run
+        # provenance, not telemetry). Full argv is recorded; the runner redacts any
+        # credential-bearing environment values when it writes the file.
+        invocation = {
+            "leg": spec.leg_id, "role": spec.role,
+            "product_version": cli_version("claude"),
+            "argv": list(argv), "cwd": cwd,
+        }
         try:
             proc = subprocess.run(  # noqa: S603 - workshop-owned command
                 argv, cwd=cwd, capture_output=True, text=True, check=False,
@@ -162,7 +171,7 @@ class ClaudeCodeAdapter(Adapter):
             usage.update({c: unavailable("run timed out before product JSON returned")
                           for c in ("reasoning_tokens", "tool_result_tokens")})
             emit("model_call_completed", usage=usage, **leg_meta)
-            return AttemptOutcome(identity=_identity(r))
+            return AttemptOutcome(identity=_identity(r), invocation=invocation)
         try:
             payload = json.loads(proc.stdout)
         except json.JSONDecodeError:
@@ -177,7 +186,7 @@ class ClaudeCodeAdapter(Adapter):
             usage.update({c: unavailable("product JSON unparseable")
                           for c in ("reasoning_tokens", "tool_result_tokens")})
             emit("model_call_completed", usage=usage, **leg_meta)
-            return AttemptOutcome(identity=_identity(r))
+            return AttemptOutcome(identity=_identity(r), invocation=invocation)
 
         resolved = resolved_model_version(payload, requested=r.model_or_selector)
         # Provenance + self-diagnosis in the immutable log: what we asked for vs what
@@ -195,7 +204,8 @@ class ClaudeCodeAdapter(Adapter):
              result_chars=len(payload.get("result") or ""),
              product_reported_cost_usd=payload.get("total_cost_usd"),
              **leg_meta)
-        return AttemptOutcome(identity=_identity(r, resolved_version=resolved))
+        return AttemptOutcome(identity=_identity(r, resolved_version=resolved),
+                              invocation=invocation)
 
 
 def _identity(r, resolved_version: Optional[str] = None) -> Dict[str, Any]:

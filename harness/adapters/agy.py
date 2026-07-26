@@ -26,6 +26,7 @@ from .base import (
     AttemptOutcome,
     AttemptSpec,
     EmitFn,
+    cli_version,
     leg_identity_payload,
     session_payload,
 )
@@ -90,6 +91,13 @@ class AgyAdapter(Adapter):
         # Host mode runs cmd in subject_dir; container mode wraps it in `docker run`
         # (offline default; agent-leg egress is a CP-SPEND item). Only argv/cwd differ.
         argv, cwd = resolve_spawn(self.container, cmd, subject_dir)
+        # Exact command executed, for the per-run invocation.txt artifact (run
+        # provenance, not telemetry; the runner redacts credential-bearing env).
+        invocation = {
+            "leg": spec.leg_id, "role": spec.role,
+            "product_version": cli_version("agy"),
+            "argv": list(argv), "cwd": cwd,
+        }
         payload: Optional[Dict[str, Any]] = None
         try:
             proc = subprocess.run(  # noqa: S603 - workshop-owned command
@@ -119,4 +127,5 @@ class AgyAdapter(Adapter):
             "auth_billing_path": tiered("product_blackbox", "authoritative"),
             "permission_profile": tiered(SUBJECT_PERMISSION_PROFILE, "authoritative"),
         }
-        return AttemptOutcome(identity=identity, leg_options=leg_options)
+        return AttemptOutcome(identity=identity, leg_options=leg_options,
+                              invocation=invocation)
