@@ -507,6 +507,46 @@ class InvocationRecord(unittest.TestCase):
         runner._write_invocation_file(run_dir, [], {"ANY": "1"})
         self.assertFalse(os.path.exists(os.path.join(run_dir, "invocation.txt")))
 
+    def test_records_exit_stdout_stderr_and_redacts_output_secrets(self) -> None:
+        """Fix 2 extension: capture exit/stdout/stderr; a command that produced no
+        output is itself the diagnosis. Secrets echoed into output are redacted."""
+        run_dir = tempfile.mkdtemp(prefix="lab-run-")
+        invocations = [{
+            "leg": "main", "role": "solver", "product_version": "agy 1.1.4",
+            "argv": ["agy", "--print", "do it"], "cwd": "/tmp/subject",
+            "exit_code": 0,
+            # Raw product JSON (usage block must survive for diagnosis) with a leaked
+            # api key and a leaked env-sourced secret value mixed in.
+            "stdout": '{"usage": {"input_tokens": 5}, "leaked": '
+                      '"sk-secretkeyabcdefghijklmnop", "v": "TOPSECRETVALUE123"}',
+            "stderr": "authenticated with Bearer ya29.fake-oauth-token-value",
+        }]
+        env = {"ANTHROPIC_API_KEY": "TOPSECRETVALUE123"}
+        runner._write_invocation_file(run_dir, invocations, env)
+        with open(os.path.join(run_dir, "invocation.txt"), encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertIn("exit_code: 0", text)
+        self.assertIn('"usage"', text)            # raw JSON body retained
+        self.assertIn("input_tokens", text)
+        self.assertNotIn("sk-secretkeyabcdefghijklmnop", text)  # pattern-redacted
+        self.assertNotIn("TOPSECRETVALUE123", text)             # env-value-redacted
+        self.assertNotIn("ya29.fake-oauth-token-value", text)   # oauth-redacted
+        self.assertIn("Bearer <redacted>", text)                # prefix preserved
+
+    def test_empty_output_is_recorded_as_diagnosis(self) -> None:
+        """An invocation with empty stdout still writes the file with exit_code."""
+        run_dir = tempfile.mkdtemp(prefix="lab-run-")
+        invocations = [{
+            "leg": "main", "role": "solver", "product_version": "agy 1.1.4",
+            "argv": ["agy", "--print", "x"], "cwd": "/t",
+            "exit_code": 0, "stdout": "", "stderr": "",
+        }]
+        runner._write_invocation_file(run_dir, invocations, {})
+        with open(os.path.join(run_dir, "invocation.txt"), encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertIn("exit_code: 0", text)
+        self.assertIn("stdout:", text)
+
     def test_dry_run_produces_invocation_file(self) -> None:
         """End-to-end: a stub dry-run writes invocation.txt beside the summary."""
         rc, run_dir, _ = _run("P0")

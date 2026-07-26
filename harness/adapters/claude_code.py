@@ -163,7 +163,12 @@ class ClaudeCodeAdapter(Adapter):
                 argv, cwd=cwd, capture_output=True, text=True, check=False,
                 timeout=DEFAULT_TIMEOUT_S,
             )
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as exc:
+            # Record the CLI's exit/output (partial, if any) for invocation.txt — a
+            # command that produced no output is itself the diagnosis (the runner
+            # redacts credentials when writing the file).
+            invocation.update(exit_code="timeout",
+                              stdout=exc.stdout or "", stderr=exc.stderr or "")
             emit("failure", leg=spec.leg_id, category="claude_timeout",
                  timeout_s=DEFAULT_TIMEOUT_S)
             usage = {c: unavailable("run timed out before product JSON returned")
@@ -172,6 +177,7 @@ class ClaudeCodeAdapter(Adapter):
                           for c in ("reasoning_tokens", "tool_result_tokens")})
             emit("model_call_completed", usage=usage, **leg_meta)
             return AttemptOutcome(identity=_identity(r), invocation=invocation)
+        invocation.update(exit_code=proc.returncode, stdout=proc.stdout, stderr=proc.stderr)
         try:
             payload = json.loads(proc.stdout)
         except json.JSONDecodeError:

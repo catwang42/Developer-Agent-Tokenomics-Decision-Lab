@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -627,6 +628,19 @@ _CREDENTIAL_ENV_PATTERNS = ("KEY", "TOKEN", "SECRET", "PASSWORD", "PASSWD",
                             "CREDENTIAL", "AUTH", "SESSION", "COOKIE", "PRIVATE")
 _REDACTED = "<redacted>"
 
+# Secret-shaped tokens to mask in free-text CLI stdout/stderr (bearer handled
+# separately so its "Bearer " prefix survives). Best-effort: catches common
+# provider key/token formats not sourced from the environment.
+_SECRET_TEXT_PATTERNS = (
+    re.compile(r"sk-[A-Za-z0-9_-]{16,}"),                                  # Anthropic/OpenAI-style
+    re.compile(r"AIza[0-9A-Za-z_\-]{35}"),                                 # Google API key
+    re.compile(r"ya29\.[0-9A-Za-z_\-]+"),                                  # Google OAuth token
+    re.compile(r"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+"),  # JWT
+)
+# Cap stdout/stderr in the artifact so a pathological run cannot write an enormous
+# file; generous enough to retain a smoke run's full raw JSON usage block.
+_INVOCATION_IO_CAP = 20000
+
 
 def _redact_env(env: Dict[str, str]) -> Dict[str, str]:
     """Return ``env`` with credential-bearing VALUES masked (keys preserved).
@@ -643,24 +657,54 @@ def _redact_env(env: Dict[str, str]) -> Dict[str, str]:
     return out
 
 
+def _redact_text(text: str, env: Dict[str, str]) -> str:
+    """Mask credential-bearing values in free-text CLI output (stdout/stderr).
+
+    Two passes: (1) replace, verbatim, the VALUE of every credential-bearing env var
+    (so a known secret echoed into output cannot leak); (2) mask common secret token
+    formats (:data:`_SECRET_TEXT_PATTERNS` + bearer tokens). Non-secret content — e.g.
+    a product's JSON usage block — is preserved for diagnosis. Best-effort, not a
+    guarantee; erring toward over-redaction.
+    """
+    if not text:
+        return text
+    red = text
+    for key, val in sorted(env.items()):
+        if val and len(val) >= 6 and any(p in key.upper() for p in _CREDENTIAL_ENV_PATTERNS):
+            red = red.replace(val, f"<redacted:{key}>")
+    red = re.sub(r"(?i)\b(bearer)\s+[A-Za-z0-9._\-]+", r"\1 <redacted>", red)
+    for pat in _SECRET_TEXT_PATTERNS:
+        red = pat.sub(_REDACTED, red)
+    return red
+
+
+def _cap_io(text: str) -> str:
+    """Bound an stdout/stderr blob for the artifact, marking any truncation."""
+    if len(text) <= _INVOCATION_IO_CAP:
+        return text
+    return text[:_INVOCATION_IO_CAP] + f"\n...[truncated {len(text) - _INVOCATION_IO_CAP} chars]"
+
+
 def _write_invocation_file(run_dir: str, invocations: List[Dict[str, Any]],
                            env: Dict[str, str]) -> None:
-    """Record the exact agent-CLI command(s) executed, for retroactive diagnosis.
+    """Record the exact agent-CLI command(s) executed + their result, for diagnosis.
 
     A per-run artifact (``invocation.txt``, beside ``agent-solution.diff``) — NOT
     telemetry: never emitted to the event log, never added to summary.json, and no
     schema field is defined for it (CP-SCHEMA frozen). Records, per billing leg, the
-    full argv and the adapter's product version, plus a process-environment snapshot
-    with credential-bearing values redacted (:func:`_redact_env`). Best-effort: a
-    write failure never fails the run.
+    full argv, the adapter's product version, and the CLI's exit code + stdout +
+    stderr (a command that produced no output is itself the diagnosis — cf. the C3
+    no-output finding). Credential-bearing values are redacted: env values by key
+    (:func:`_redact_env`) and any secret echoed into output (:func:`_redact_text`).
+    Best-effort: a write failure never fails the run.
     """
     if not invocations:
         return
     try:
         lines: List[str] = [
             "# Per-run agent-CLI invocation(s) — run artifact, NOT telemetry.",
-            "# Full argv + product version per billing leg; credential-bearing",
-            "# environment values are redacted. Provenance for retroactive diagnosis.",
+            "# Full argv + product version + exit/stdout/stderr per billing leg;",
+            "# credential-bearing values are redacted. Provenance for diagnosis.",
             "",
         ]
         for inv in invocations:
@@ -668,8 +712,13 @@ def _write_invocation_file(run_dir: str, invocations: List[Dict[str, Any]],
             lines.append(f"product_version: {inv.get('product_version', 'unavailable')}")
             cwd = inv.get("cwd")
             lines.append(f"cwd: {cwd if cwd is not None else '(container: image workdir)'}")
+            lines.append(f"exit_code: {inv.get('exit_code', 'unavailable')}")
             lines.append("argv:")
             lines.append(json.dumps(inv.get("argv") or [], ensure_ascii=False))
+            lines.append("stdout:")
+            lines.append(_cap_io(_redact_text(inv.get("stdout") or "", env)))
+            lines.append("stderr:")
+            lines.append(_cap_io(_redact_text(inv.get("stderr") or "", env)))
             lines.append("")
         lines.append("## environment (credential-bearing values redacted)")
         for key, val in _redact_env(env).items():

@@ -98,6 +98,9 @@ class StubAdapter(Adapter):
             "product_version": "SYNTHETIC (dry-run; no CLI executed)",
             "argv": ["SYNTHETIC-no-op", "--leg", spec.leg_id],
             "cwd": subject_dir,
+            "exit_code": 0,
+            "stdout": '{"SYNTHETIC": true}',
+            "stderr": "",
         }
         return AttemptOutcome(identity=identity, leg_options=leg_options,
                               invocation=invocation)

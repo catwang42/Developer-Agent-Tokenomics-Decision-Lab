@@ -104,11 +104,19 @@ class AgyAdapter(Adapter):
                 argv, cwd=cwd, capture_output=True, text=True,
                 check=False, timeout=DEFAULT_TIMEOUT_S,
             )
+            # Record the product's exit/output for invocation.txt (redacted by the
+            # runner). For a black-box product this raw stdout is the only place its
+            # usage block — if any — can be inspected; an empty stdout IS the
+            # diagnosis (see the C3 no-output finding).
+            invocation.update(exit_code=proc.returncode, stdout=proc.stdout,
+                              stderr=proc.stderr)
             try:
                 payload = json.loads(proc.stdout)
             except json.JSONDecodeError:
                 payload = None
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as exc:
+            invocation.update(exit_code="timeout", stdout=exc.stdout or "",
+                              stderr=exc.stderr or "")
             emit("failure", leg=spec.leg_id, category="agy_timeout", exit_code=EXIT_TIMEOUT)
 
         usage = usage_from_agy_json(payload)
