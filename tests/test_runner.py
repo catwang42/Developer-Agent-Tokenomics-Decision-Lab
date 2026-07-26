@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import shutil
 import sys
 import tempfile
 import unittest
@@ -460,6 +461,75 @@ class AgentDiffArchive(unittest.TestCase):
     def test_never_raises_on_non_repo(self) -> None:
         run_dir = tempfile.mkdtemp(prefix="lab-run-")
         runner._archive_agent_diff(tempfile.mkdtemp(), run_dir)  # not a git repo -> no raise
+
+
+class SubjectStagingIsolation(unittest.TestCase):
+    """FIX A: from the staged subject root, relative traversal must not reach
+    canonical/, hidden/, or task.yaml (the documented subject-isolation leak)."""
+
+    # The exact relative paths that WERE reachable when cwd was <TASK_DIR>/.work/repo.
+    _SENSITIVE_RELS = (
+        "../../canonical", "../../hidden", "../../task.yaml",
+        "../canonical", "../hidden", "../task.yaml",
+        "../../../tasks",
+    )
+
+    def test_staged_subject_blocks_relative_traversal_to_answers(self) -> None:
+        repo_root = runner.REPO_ROOT
+        # The leak was real: under the old in-repo layout the answer sat at ../../.
+        self.assertTrue(
+            os.path.isdir(os.path.join(repo_root, "tasks", "pilot-realworld", "canonical")),
+            "precondition: pilot canonical/ exists in-repo (the material that leaked)",
+        )
+
+        # Synthetic prepared subject repo (no clone; offline).
+        src = tempfile.mkdtemp(prefix="fake-src-repo-")
+        with open(os.path.join(src, "package.json"), "w", encoding="utf-8") as fh:
+            fh.write("{}\n")
+        os.makedirs(os.path.join(src, "src"))
+        with open(os.path.join(src, "src", "app.ts"), "w", encoding="utf-8") as fh:
+            fh.write("export const x = 1;\n")
+
+        staged_repo = runner._stage_subject_outside_repo(src)
+        try:
+            # 1) staged outside the lab repo.
+            self.assertFalse(
+                os.path.abspath(staged_repo) == repo_root
+                or os.path.abspath(staged_repo).startswith(repo_root + os.sep),
+                f"staged repo must be outside the lab repo: {staged_repo}",
+            )
+            # 2) subject content actually copied.
+            self.assertTrue(os.path.exists(os.path.join(staged_repo, "package.json")))
+            self.assertTrue(os.path.exists(os.path.join(staged_repo, "src", "app.ts")))
+            # 3) the exact relative paths that used to leak now (a) do not exist and
+            #    (b) do not resolve into the lab repo.
+            for rel in self._SENSITIVE_RELS:
+                p = os.path.join(staged_repo, rel)
+                self.assertFalse(os.path.exists(p),
+                                 f"sensitive path reachable via {rel}: {p}")
+                target = os.path.realpath(p)
+                self.assertFalse(
+                    target == repo_root or target.startswith(repo_root + os.sep),
+                    f"{rel} escapes into the lab repo: {target}",
+                )
+        finally:
+            shutil.rmtree(os.path.dirname(staged_repo), ignore_errors=True)
+            shutil.rmtree(src, ignore_errors=True)
+
+    def test_refuses_staging_inside_lab_repo(self) -> None:
+        """If TMPDIR would place the staged tree inside the repo, refuse (would
+        re-open the leak) rather than silently staging in-repo."""
+        src = tempfile.mkdtemp(prefix="fake-src-repo-")
+        inside = tempfile.mkdtemp(prefix="staged-", dir=runner.REPO_ROOT)
+        orig_mkdtemp = tempfile.mkdtemp
+        tempfile.mkdtemp = lambda *a, **k: inside  # force an in-repo staging dir
+        try:
+            with self.assertRaises(runner.RunnerError):
+                runner._stage_subject_outside_repo(src)
+        finally:
+            tempfile.mkdtemp = orig_mkdtemp
+            shutil.rmtree(inside, ignore_errors=True)
+            shutil.rmtree(src, ignore_errors=True)
 
 
 class ArchiveOrdering(unittest.TestCase):
