@@ -42,14 +42,25 @@ DEFAULT_TIMEOUT_S = 1800
 def build_command(prompt: str, selector_label: str) -> List[str]:
     """Build the headless ``agy`` command (pure; no execution).
 
-    ``selector_label`` is passed through verbatim via ``--model`` (agy's model
-    selector IS the human label, e.g. "Gemini 3.5 Flash (High)", per ``agy
-    models``); we never translate it to a backend model id.
-    ``--dangerously-skip-permissions`` auto-approves tool use so the headless agent
-    can actually modify files (without it the agent cannot write — empty diff).
-    ``--print`` runs a single prompt non-interactively.
+    Verified against ``agy --help`` / ``agy models`` (agy 1.1.4):
+      * There is **no ``run`` subcommand** — ``agy help run`` errors
+        "unknown subcommand: run", and the prompt-running mode is a top-level flag.
+        The prior ``["agy", "run", ...]`` prepended a bogus positional; it is
+        removed. Prompt-running flags are global, invoked as ``agy [flags]``.
+      * ``selector_label`` is passed verbatim via ``--model`` (agy's selector IS the
+        human label, e.g. "Gemini 3.5 Flash (High)", present verbatim in ``agy
+        models``); we never translate it to a backend model id.
+      * ``--dangerously-skip-permissions`` auto-approves tool use so the headless
+        agent can modify files (without it: empty diff).
+      * ``--print`` runs a single prompt non-interactively. Whether ``--print``
+        takes the prompt as its VALUE or is a boolean switch (prompt then positional)
+        is **NOT yet resolved from ``--help`` alone**, and cannot be settled by
+        inference — the two batch-2 C3 diffs were byte-identical to the harness
+        test-compat patch (Antigravity produced zero changes), so we have no verified
+        invocation. The pinned CP-SPEND smoke run settles it. The current ordering
+        (``--print`` immediately before the prompt) is correct under either reading.
     """
-    return ["agy", "run", "--dangerously-skip-permissions",
+    return ["agy", "--dangerously-skip-permissions",
             "--model", selector_label, "--print", prompt]
 
 

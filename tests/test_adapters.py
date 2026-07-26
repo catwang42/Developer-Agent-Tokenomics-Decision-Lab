@@ -8,6 +8,8 @@ tested here without ever invoking ``claude -p`` (which would bill a real account
 from __future__ import annotations
 
 import os
+import shutil
+import subprocess
 import sys
 import unittest
 
@@ -106,6 +108,35 @@ class AgyCommandConstruction(unittest.TestCase):
         i = cmd.index("--model")
         self.assertEqual(cmd[i + 1], "Gemini 3.5 Flash (High)")
         self.assertNotIn("--select", cmd)
+
+    def test_no_positional_before_first_flag(self) -> None:
+        """The bogus `run` token was a positional before the first flag; agy has no
+        `run` subcommand (agy --help). Guard: cmd[0] is the program, and the first
+        argument after it must be a flag — never a positional/subcommand."""
+        from harness.adapters import agy
+        cmd = agy.build_command("do it", "Gemini 3.5 Flash (High)")
+        self.assertEqual(cmd[0], "agy")
+        self.assertNotIn("run", cmd)
+        self.assertTrue(
+            cmd[1].startswith("-"),
+            msg=f"positional argument before the first flag: {cmd[1]!r}",
+        )
+
+    @unittest.skipUnless(shutil.which("agy"), "agy CLI not installed")
+    def test_emitted_flags_exist_in_agy_help(self) -> None:
+        """Every --flag the adapter emits must appear in `agy --help` (the fuller
+        flag set). Guards against emitting a flag agy does not accept."""
+        from harness.adapters import agy
+        help_proc = subprocess.run(  # --help never spends
+            ["agy", "--help"], capture_output=True, text=True, check=False, timeout=30,
+        )
+        help_text = (help_proc.stdout or "") + (help_proc.stderr or "")
+        cmd = agy.build_command("do it", "Gemini 3.5 Flash (High)")
+        emitted_flags = [t for t in cmd if t.startswith("--")]
+        self.assertTrue(emitted_flags, "adapter emitted no flags to check")
+        for flag in emitted_flags:
+            self.assertIn(flag, help_text,
+                          msg=f"adapter emits {flag!r} but it is absent from `agy --help`")
 
 
 if __name__ == "__main__":
