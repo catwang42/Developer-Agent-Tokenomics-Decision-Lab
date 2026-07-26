@@ -173,12 +173,51 @@ resuming within a persisted staged tree — before warm-cache costing can be cla
 the current isolation posture. This is a **narrow** methodology gap, not a stop
 condition: cost reconstruction without self-report holds for every cold run.
 
+**Remediation status (2026-07-26):** the persisted-staged-tree redesign is
+**implemented as a no-spend change** — `harness/runner/warm_series.py` stages the
+subject tree ONCE per series, reuses that path across all reps, resets the tree in
+place between reps (deterministic; `node_modules` preserved), keeps the prompt
+byte-identical, and cleans up once. It preserves the FIX-A isolation guarantee (staged
+outside the lab repo; no relative traversal to canonical/hidden) and is covered by
+stub/dry-run tests. Its **live validation is a single 3-run attempt gated at the
+warm-series CP-SPEND** (`manifest/cp-spend-warm-series-plan.md`, cap $3), with a
+**one-attempt stopping rule recorded before the run**: if reset+resume yields gradable
+work, criterion 7 returns to full pass; if it no-ops again, that is recorded as a
+methodology finding (session resume and tree reset are incompatible), criterion 7 stays
+**PARTIAL** with the limitation documented, and warm-cache measurement design moves to
+Phase 4 — **no second attempt, no prompt modification to force success**. Until that
+attempt runs, criterion 7 remains PARTIAL and **no warm-cache costing delta is claimed
+under the batch-3 posture**.
+
 ### 4.5 Acceptance (instrument data, NON-COMPARATIVE)
 **27/27 controlled Product-A runs accepted** (P0/C2/P1 × F1/F2/F3, 3/3 each) — the
 pilot-v2 contract + w1-v1 sealed gate grade real solutions cleanly. The only rejections
 are the 2 warm-resume reps (empty diff, §4.4), which are a warm-protocol artifact, not a
 solution-quality or harness result. This is an *instrument* result, not a skill
 comparison.
+
+**W4 (F2) note — byte-identity is uninformative as a leak test here.** All nine F2
+(`w4-realworld-missing-user-id`) runs (P0/C2/P1 × 3 reps) produced an
+`agent-solution.diff` **byte-identical to the canonical patch** (md5 `9f66c261…`,
+verified across all nine and against
+`tasks/suite/W4-complex-bugfix/canonical/fix-missing-user-id.patch`). This is expected,
+not suspicious: the correct minimal fix is a **single line** (add `id: true` to the
+`select` in `getCurrentUser`), so there is essentially one correct minimal form for it to
+converge on. **P5-no-leakage passed on all nine** (no canonical patch / solution markers
+in the participant tree). For a one-line fix in a `famous`-tier repo (§4.1 / SPEC §6.3;
+`tasks/WORKLOAD-SELECTION.md`), **byte-identity to canonical carries no signal about
+leakage** — a legitimately-solved one-liner and a memorized one look the same at the byte
+level. We therefore rely on P5's tree-marker check (which passed) and on the famous-tier
+memorization caveat — a class-level claim still requires the second, materially different
+`obscure`/`post_cutoff` companion task — **not** on diff-identity, for this cell.
+
+**Consequence for human effort (criterion 6, §6 condition 3).** Because the W4 diff is
+identical across all nine runs, the **three W4 review cells (F2·P0, F2·C2, F2·P1) present
+reviewers with the same patch**. Per-cell human-effort (HEAC) timings for those three
+cells therefore carry an **order effect**: a reviewer who has already read the identical
+diff in one cell reviews it faster in the next. When the criterion-6 subset is collected,
+**record review order for the W4 cells** and interpret any cross-cell HEAC difference among
+F2·P0/F2·C2/F2·P1 as confounded by that order effect, not as a cell-level effort signal.
 
 ## 5. Metric computability & per-cell dispersion
 
@@ -226,8 +265,11 @@ gated on the conditions below and at CP-SCREEN-PREREG / the screening CP-SPEND.
    subjects in a real sandbox with restricted egress (bake `claude`/`agy` + mount ADC +
    Vertex env + egress allowlist for the agent leg; gate stays `--network=none`).
 2. **Warm-series protocol redesign (§4.4)** — the resume-based warm measurement is
-   incompatible with fresh-per-rep staging; redesign (two-turn single-session, or
-   persisted staged tree) before any warm-cache costing claim.
+   incompatible with fresh-per-rep staging. Redesign **implemented** (persisted staged
+   tree, `harness/runner/warm_series.py`); its single-attempt live validation is gated
+   at the warm-series CP-SPEND (`manifest/cp-spend-warm-series-plan.md`) with a
+   pre-recorded one-attempt stopping rule. Criterion 7 stays **PARTIAL** and no
+   warm-cache costing is claimed until that attempt yields gradable warm work.
 3. **Criterion 6 (human-effort subset)** — reviewers record the 9-run rubric timings +
    inter-reviewer spread (no model spend). HEAC stays `unavailable` until then.
 4. **Escalation-cost coverage (§4.3)** — include ≥1 screening task the economical tier

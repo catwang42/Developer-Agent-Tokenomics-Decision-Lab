@@ -856,6 +856,102 @@ def _make_run_id(task: Task, config_id: str, rep: int) -> str:
     return f"{task.task_id}__{config_id}__rep{rep}__{stamp}"
 
 
+def resolve_pricing(manifest: Dict[str, Any], plan: RunPlan) -> Tuple[Dict[str, Any], str]:
+    """Load the pinned pricing snapshot for a plan (SPEC 1.4 / cache-protocol rule 3).
+
+    Returns ``(prices, pricing_snapshot)``. Refuses (RunnerError) if a leg needs
+    token-based pricing but the snapshot is missing/unresolved — this is what keeps
+    a live run from starting on an unpriced manifest. Shared by the single-run
+    ``main`` and the warm-series driver so both resolve pricing identically.
+    """
+    pricing_snapshot = manifest.get("pricing_snapshot") or ""
+    prices: Dict[str, Any] = {}
+    if not _is_placeholder(pricing_snapshot):
+        price_path = pricing_snapshot if os.path.isabs(pricing_snapshot) \
+            else os.path.join(REPO_ROOT, pricing_snapshot)
+        if os.path.exists(price_path):
+            prices = load_prices(price_path)
+    if not prices and any(leg.resolved.cost_basis in ("marginal_api_cost",
+                          "allocated_subscription_cost") for leg in plan.legs):
+        raise RunnerError(
+            f"pricing snapshot {pricing_snapshot!r} missing/unresolved but a leg "
+            f"needs token-based pricing; fill pricing at CP-SPEND or use --dry-run"
+        )
+    return prices, pricing_snapshot
+
+
+def execute_and_validate_run(
+    *, run_dir: str, task: Task, plan: RunPlan, adapter: Any,
+    subject_dir: Optional[str], launch: Optional[ContainerLaunch],
+    cache_state: str, base_session: str, resume: bool,
+    subject_isolation: str, subject_network: str, manifest_rel: str,
+    prices: Dict[str, Any], pricing_snapshot: str, config_id: str,
+    dry_run: bool, scenario: str,
+) -> Tuple[bool, List[str]]:
+    """Run one attempt-set into ``run_dir`` and validate its telemetry.
+
+    Encapsulates the per-run core shared by the single-run ``main`` and the
+    warm-series driver: event log -> ``execute`` (which archives the agent diff
+    before the gate mutates the tree) -> authoritative identity stamps -> cache
+    contract -> audit-grade summary + result.json. It does NOT stage or clean up
+    the subject tree (the caller owns that lifecycle — critical for the warm-series
+    driver, which stages ONCE and resets between reps). Returns ``(ok, reasons)``.
+    """
+    log = EventLog(os.path.join(run_dir, "events.jsonl"))
+
+    def emit(event_type: str, **payload: Any) -> None:
+        log.append(event_type, ts=_now_iso(), **payload)
+
+    # execute() archives the agent's diff internally, BEFORE the gate mutates the
+    # subject tree (Fix 5), and writes an optional post-gate.diff after — so the
+    # harness's own edits are never attributed to the agent.
+    identity, leg_options, invocations = execute(
+        plan, task, adapter, subject_dir or "", run_dir, emit,
+        dry_run=dry_run, scenario=scenario,
+        cache_state=cache_state, base_session=base_session, resume=resume,
+        launch=launch,
+    )
+    # Record the exact CLI command(s) executed (run artifact, not telemetry) so a
+    # run can be diagnosed retroactively; credential-bearing env is redacted.
+    _write_invocation_file(run_dir, invocations, dict(os.environ))
+    # Cache state is a runner-controlled experimental variable — stamped
+    # authoritatively here (overriding any adapter default) and proven against
+    # the event log below.
+    identity["cache_state"] = tiered(cache_state, "authoritative")
+    identity["session_state"] = tiered("resumed" if resume else "fresh", "authoritative")
+    # Subject isolation posture — the runner authoritatively knows the mode it
+    # launched, so it stamps permission_profile + network_policy here, overriding
+    # any adapter default (SPEC 1.3; batch-2 decision, manifest subject_isolation).
+    if subject_isolation == "container":
+        identity["permission_profile"] = tiered(SUBJECT_PROFILE_CONTAINER, "authoritative")
+        identity["network_policy"] = tiered(subject_network, "authoritative")
+    else:
+        identity["permission_profile"] = tiered(SUBJECT_PROFILE_HOST, "authoritative")
+        identity["network_policy"] = tiered("no-network-policy", "authoritative")
+
+    events = log.read()
+    cache_reasons = assert_cache_contract(events, cache_state)
+
+    ok, reasons = assemble_and_validate(
+        events, run_id=os.path.basename(run_dir), task=task, config_id=config_id,
+        manifest_ref=manifest_rel, identity=identity,
+        plan=plan, prices=prices, leg_options=leg_options,
+        pricing_snapshot=pricing_snapshot or "unavailable", run_dir=run_dir,
+    )
+    ok = ok and not cache_reasons
+    reasons = list(reasons) + cache_reasons
+
+    # Emit the compact per-run result record (a pure projection of the validated
+    # summary — summary.json stays authoritative). Regeneratable; never fabricates.
+    summary_path = os.path.join(run_dir, "summary.json")
+    if os.path.exists(summary_path):
+        with open(summary_path, encoding="utf-8") as fh:
+            summary_doc = json.load(fh)
+        with open(os.path.join(run_dir, "result.json"), "w", encoding="utf-8") as fh:
+            json.dump(build_result_record(summary_doc), fh, indent=2, sort_keys=True)
+    return ok, reasons
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description="Controlled harness runner (SPEC 2.1–2.3, 2.7)")
     ap.add_argument("--task", required=True, help="task dir (e.g. tasks/pilot-realworld)")
@@ -932,19 +1028,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         task = load_task(args.task, manifest)
         plan = build_plan(args.config, manifest)
 
-        pricing_snapshot = manifest.get("pricing_snapshot") or ""
-        prices: Dict[str, Any] = {}
-        if not _is_placeholder(pricing_snapshot):
-            price_path = pricing_snapshot if os.path.isabs(pricing_snapshot) \
-                else os.path.join(REPO_ROOT, pricing_snapshot)
-            if os.path.exists(price_path):
-                prices = load_prices(price_path)
-        if not prices and any(leg.resolved.cost_basis in ("marginal_api_cost",
-                              "allocated_subscription_cost") for leg in plan.legs):
-            raise RunnerError(
-                f"pricing snapshot {pricing_snapshot!r} missing/unresolved but a leg "
-                f"needs token-based pricing; fill pricing at CP-SPEND or use --dry-run"
-            )
+        prices, pricing_snapshot = resolve_pricing(manifest, plan)
 
         run_id = _make_run_id(task, args.config, args.rep)
         if args.dry_run:
@@ -989,59 +1073,15 @@ def main(argv: Optional[List[str]] = None) -> int:
                 subject_dir = _setup_subject(task.task_dir, run_dir)
                 staged_root = os.path.dirname(subject_dir)  # <staged>/repo -> <staged>
 
-        log = EventLog(os.path.join(run_dir, "events.jsonl"))
-
-        def emit(event_type: str, **payload: Any) -> None:
-            log.append(event_type, ts=_now_iso(), **payload)
-
-        # execute() archives the agent's diff internally, BEFORE the gate mutates the
-        # subject tree (Fix 5), and writes an optional post-gate.diff after — so the
-        # harness's own edits are never attributed to the agent.
-        identity, leg_options, invocations = execute(
-            plan, task, adapter, subject_dir or "", run_dir, emit,
-            dry_run=args.dry_run, scenario=args.stub_scenario,
+        ok, reasons = execute_and_validate_run(
+            run_dir=run_dir, task=task, plan=plan, adapter=adapter,
+            subject_dir=subject_dir, launch=launch,
             cache_state=args.cache_state, base_session=base_session, resume=args.resume,
-            launch=launch,
+            subject_isolation=args.subject_isolation, subject_network=args.subject_network,
+            manifest_rel=os.path.relpath(args.manifest, REPO_ROOT),
+            prices=prices, pricing_snapshot=pricing_snapshot, config_id=args.config,
+            dry_run=args.dry_run, scenario=args.stub_scenario,
         )
-        # Record the exact CLI command(s) executed (run artifact, not telemetry) so a
-        # run can be diagnosed retroactively; credential-bearing env is redacted.
-        _write_invocation_file(run_dir, invocations, dict(os.environ))
-        # Cache state is a runner-controlled experimental variable — stamped
-        # authoritatively here (overriding any adapter default) and proven against
-        # the event log below.
-        identity["cache_state"] = tiered(args.cache_state, "authoritative")
-        identity["session_state"] = tiered(
-            "resumed" if args.resume else "fresh", "authoritative")
-        # Subject isolation posture — the runner authoritatively knows the mode it
-        # launched, so it stamps permission_profile + network_policy here, overriding
-        # any adapter default (SPEC 1.3; batch-2 decision, manifest subject_isolation).
-        if args.subject_isolation == "container":
-            identity["permission_profile"] = tiered(SUBJECT_PROFILE_CONTAINER, "authoritative")
-            identity["network_policy"] = tiered(args.subject_network, "authoritative")
-        else:
-            identity["permission_profile"] = tiered(SUBJECT_PROFILE_HOST, "authoritative")
-            identity["network_policy"] = tiered("no-network-policy", "authoritative")
-
-        events = log.read()
-        cache_reasons = assert_cache_contract(events, args.cache_state)
-
-        ok, reasons = assemble_and_validate(
-            events, run_id=run_id, task=task, config_id=args.config,
-            manifest_ref=os.path.relpath(args.manifest, REPO_ROOT), identity=identity,
-            plan=plan, prices=prices, leg_options=leg_options,
-            pricing_snapshot=pricing_snapshot or "unavailable", run_dir=run_dir,
-        )
-        ok = ok and not cache_reasons
-        reasons = list(reasons) + cache_reasons
-
-        # Emit the compact per-run result record (a pure projection of the validated
-        # summary — summary.json stays authoritative). Regeneratable; never fabricates.
-        summary_path = os.path.join(run_dir, "summary.json")
-        if os.path.exists(summary_path):
-            with open(summary_path, encoding="utf-8") as fh:
-                summary_doc = json.load(fh)
-            with open(os.path.join(run_dir, "result.json"), "w", encoding="utf-8") as fh:
-                json.dump(build_result_record(summary_doc), fh, indent=2, sort_keys=True)
 
         # The staged subject tree (FIX A) is transient scratch outside the lab repo;
         # all provenance (diffs, summary, gate reports) already lives under run_dir.
