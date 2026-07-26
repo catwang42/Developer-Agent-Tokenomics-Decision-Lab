@@ -462,6 +462,81 @@ class AgentDiffArchive(unittest.TestCase):
         runner._archive_agent_diff(tempfile.mkdtemp(), run_dir)  # not a git repo -> no raise
 
 
+class ArchiveOrdering(unittest.TestCase):
+    """Fix 5: agent-solution.diff must be captured BEFORE the gate mutates the tree,
+    so the harness's own edits (test_compat_patch, test restores) are never
+    attributed to the agent. Root cause of the C3 identical-diff / P0 phantom-file
+    findings."""
+
+    def _git(self, repo, *args):
+        import subprocess
+        subprocess.run(["git", "-C", repo, *args], check=True,
+                       capture_output=True, text=True)
+
+    def test_harness_patch_absent_from_agent_diff(self) -> None:
+        import uuid
+        from harness.adapters.base import AttemptOutcome, ResolvedModel
+
+        subject_dir = tempfile.mkdtemp(prefix="lab-subj-")
+        self._git(subject_dir, "init", "-q")
+        self._git(subject_dir, "config", "user.email", "t@t")
+        self._git(subject_dir, "config", "user.name", "t")
+        with open(os.path.join(subject_dir, "base.ts"), "w") as fh:
+            fh.write("base\n")
+        self._git(subject_dir, "add", "-A")
+        self._git(subject_dir, "commit", "-qm", "base")
+
+        # Agent writes its solution; the gate later mutates the tree (as the real
+        # gate does when it applies test_compat_patch and restores tests).
+        class _TreeWritingAdapter:
+            container = None
+
+            def run_attempt(self, spec, sdir, emit):
+                with open(os.path.join(sdir, "agent_solution.ts"), "w") as fh:
+                    fh.write("// AGENT_MARKER\n")
+                return AttemptOutcome(identity={}, leg_options={}, invocation={})
+
+        def fake_gate(dry_run, scenario, leg_id, task, run_dir, launch):
+            with open(os.path.join(subject_dir, "harness_patch.ts"), "w") as fh:
+                fh.write("// HARNESS_MARKER injected by the gate\n")
+            return True, "accepted", {}
+
+        resolved = ResolvedModel(
+            product="Product A", product_surface="controlled_api",
+            provider="google_vertex", model_or_selector="m", model_id="m",
+            cost_basis="marginal_api_cost",
+        )
+        plan = runner.RunPlan("fake", [runner.LegPlan("main", "solver", resolved)], "static")
+        task = runner.Task(task_dir=subject_dir, task_id="t", task_suite_version="v",
+                           prompt="do it", contamination_tier=None, hidden_test_hash=None)
+        run_dir = tempfile.mkdtemp(prefix="lab-run-")
+
+        orig_gate = runner._gate
+        runner._gate = fake_gate
+        try:
+            runner.execute(
+                plan, task, _TreeWritingAdapter(), subject_dir, run_dir,
+                lambda *a, **k: None, dry_run=False, scenario="accept",
+                cache_state="cold", base_session=str(uuid.uuid4()), resume=False,
+            )
+        finally:
+            runner._gate = orig_gate
+
+        with open(os.path.join(run_dir, "agent-solution.diff"), encoding="utf-8") as fh:
+            agent_diff = fh.read()
+        self.assertIn("AGENT_MARKER", agent_diff)           # agent's work captured
+        self.assertNotIn("HARNESS_MARKER", agent_diff)      # harness patch NOT attributed
+        self.assertNotIn("harness_patch.ts", agent_diff)
+
+        # The post-gate snapshot is separate and DOES include the harness edit.
+        post_gate_path = os.path.join(run_dir, "post-gate.diff")
+        self.assertTrue(os.path.exists(post_gate_path))
+        with open(post_gate_path, encoding="utf-8") as fh:
+            post_diff = fh.read()
+        self.assertIn("HARNESS_MARKER", post_diff)
+        self.assertIn("AGENT_MARKER", post_diff)
+
+
 class InvocationRecord(unittest.TestCase):
     """invocation.txt records the exact CLI command(s) + version; redacts creds."""
 

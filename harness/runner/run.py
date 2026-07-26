@@ -449,6 +449,17 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
         if outcome.invocation:
             invocations.append(outcome.invocation)
 
+    # Fix 5: archive the agent's diff the instant its work is complete and BEFORE
+    # any gate step mutates the tree (the gate restores src/tests and applies
+    # test_compat_patch, which otherwise gets attributed to the agent). Host-mode
+    # real runs only; idempotent so the P1 branch cannot double-write.
+    archived = {"done": False}
+
+    def archive_pre_gate() -> None:
+        if not dry_run and subject_dir and not archived["done"]:
+            _archive_agent_diff(subject_dir, run_dir)  # agent-solution.diff (pre-gate)
+            archived["done"] = True
+
     itr: Optional[str] = None
     cr: Optional[str] = None
 
@@ -456,6 +467,12 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
         econ, strong = plan.legs
         itr = "economical"
         run_leg(econ, 0)
+        # The economical attempt has exited; capture it before the gate touches the
+        # tree. NOTE: if this run escalates, the strong leg necessarily runs AFTER
+        # this gate (the cheap-first design is interleaved), so agent-solution.diff
+        # reflects the pre-gate economical attempt; the final tree (incl. the strong
+        # leg) is preserved in post-gate.diff below. No escalation fired in batch 2.
+        archive_pre_gate()
         passed, result, checks = _gate(dry_run, scenario, econ.leg_id, task, run_dir, launch)
         if passed:
             cr = "economical"
@@ -471,7 +488,14 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
     else:  # static | workflow
         for i, leg in enumerate(plan.legs):
             run_leg(leg, i)
+        archive_pre_gate()  # all agent legs done; archive before the gate mutates the tree
         passed, result, checks = _gate(dry_run, scenario, "main", task, run_dir, launch)
+
+    # Optional post-gate snapshot for provenance — the tree AFTER the gate's own
+    # edits (test_compat_patch, restores). Written to a SEPARATE file, never merged
+    # into agent-solution.diff (Fix 5). Host-mode real runs only.
+    if not dry_run and subject_dir:
+        _archive_agent_diff(subject_dir, run_dir, filename="post-gate.diff")
 
     emit("acceptance", result=result, gate_checks=checks,
          intention_to_route=itr, completed_route=cr)
@@ -573,19 +597,22 @@ def assemble_and_validate(events: List[Dict[str, Any]], *, run_id: str, task: Ta
 # --------------------------------------------------------------------------- #
 # Subject repo setup (live runs only)
 # --------------------------------------------------------------------------- #
-def _archive_agent_diff(subject_dir: str, run_dir: str) -> None:
-    """Preserve the agent's solution diff for provenance (gate-fairness audits).
+def _archive_agent_diff(subject_dir: str, run_dir: str,
+                        filename: str = "agent-solution.diff") -> None:
+    """Snapshot the subject working tree's diff for provenance (gate-fairness audits).
 
-    Subject repos are reset between runs, so without this the agent's actual edits
-    are lost — you cannot later classify a rejection as feature-broken vs
-    shape-mismatch. Writes the tracked-file diff (product solution survives the
-    gate's test-restore) plus the FULL CONTENT of every untracked, agent-created
-    file to ``agent-solution.diff``. Capturing untracked *content* (not just names)
-    is essential for test-generation tasks, where the agent's entire output is new
-    files — a name-only list would discard the solution the reset then deletes.
-    ``node_modules`` is excluded; ``--no-index`` reads the working tree without
-    touching the index, so the subsequent reset is unaffected. Best-effort: a git
-    failure never fails the run.
+    Captures the tracked-file diff plus the FULL CONTENT of every untracked file.
+    Capturing untracked *content* (not just names) is essential for test-generation
+    tasks, where the agent's entire output is new files — a name-only list would
+    discard the solution the reset then deletes. ``node_modules`` is excluded;
+    ``--no-index`` reads the working tree without touching the index, so the
+    subsequent reset is unaffected. Best-effort: a git failure never fails the run.
+
+    WHEN this is called matters (Fix 5): for ``agent-solution.diff`` the runner calls
+    it immediately after the agent leg(s) exit and BEFORE any gate step touches the
+    tree, so the harness's own edits (e.g. ``test_compat_patch``, test restores) can
+    never be attributed to the agent. A post-gate snapshot, if wanted, is written
+    separately as ``post-gate.diff`` — never merged into ``agent-solution.diff``.
     """
     try:
         diff = subprocess.run(  # noqa: S603
@@ -611,7 +638,7 @@ def _archive_agent_diff(subject_dir: str, run_dir: str) -> None:
             ).stdout
             if content_diff:
                 untracked_diffs.append(content_diff)
-        with open(os.path.join(run_dir, "agent-solution.diff"), "w", encoding="utf-8") as fh:
+        with open(os.path.join(run_dir, filename), "w", encoding="utf-8") as fh:
             fh.write(diff)
             if untracked_diffs:
                 fh.write("\n# untracked files (agent-created), full content below:\n")
@@ -912,14 +939,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         def emit(event_type: str, **payload: Any) -> None:
             log.append(event_type, ts=_now_iso(), **payload)
 
+        # execute() archives the agent's diff internally, BEFORE the gate mutates the
+        # subject tree (Fix 5), and writes an optional post-gate.diff after — so the
+        # harness's own edits are never attributed to the agent.
         identity, leg_options, invocations = execute(
             plan, task, adapter, subject_dir or "", run_dir, emit,
             dry_run=args.dry_run, scenario=args.stub_scenario,
             cache_state=args.cache_state, base_session=base_session, resume=args.resume,
             launch=launch,
         )
-        if not args.dry_run and subject_dir:  # host-mode: archive the diff before reset
-            _archive_agent_diff(subject_dir, run_dir)
         # Record the exact CLI command(s) executed (run artifact, not telemetry) so a
         # run can be diagnosed retroactively; credential-bearing env is redacted.
         _write_invocation_file(run_dir, invocations, dict(os.environ))
