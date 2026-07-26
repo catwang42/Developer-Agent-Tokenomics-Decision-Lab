@@ -1,3 +1,8 @@
+> **STATUS: AUTHORITATIVE** — 2026-07-26. The current authoritative
+> telemetry-completeness report (batch 3). Supersedes
+> [`report/batch2/telemetry-completeness.md`](../batch2/telemetry-completeness.md)
+> and [`report/batch1/telemetry-completeness.md`](../batch1/telemetry-completeness.md).
+
 # Telemetry-completeness report — Phase 3 feasibility (batch 3, AUTHORITATIVE)
 
 Prepared for **CP-DATA (final)** (CLAUDE.md; SPEC §2.3; binding protocol

@@ -117,7 +117,7 @@ C3 (Product B solo) and C5 (Product A conductor + Product B executor, dual-bill)
    parseable token counts, so its marginal cost can only ever be recorded
    `unavailable` from the product side. This is now an **observed** result, superseding
    the earlier "not yet observed on a verified invocation" wording in
-   `report/telemetry-completeness.md` §4 finding 3.
+   `report/batch3/telemetry-completeness.md` §4 finding 3.
 2. **`--print` timeout confounded the smoke run.** The smoke run exited non-zero with
    `Error: timeout waiting for response`; the product's print/timeout behaviour is not
    yet a controlled variable. Including C3/C5 now would inject an uncontrolled failure
@@ -162,7 +162,7 @@ single-harness-version dataset.
 2. **(me)** on approval, run the 30 runs under `--spend-cap-usd 30` → validate every
    `events.jsonl` + `summary.json` → aggregate into
    `results/feasibility-batch3/aggregate-noncomparative.json`.
-3. **(me, no spend)** update `report/telemetry-completeness.md` (30 Product-A runs,
+3. **(me, no spend)** update `report/batch3/telemetry-completeness.md` (30 Product-A runs,
    three gate types, single harness version) + re-classify the two previously
    undetermined F1·P0 runs from batch-3 diffs (Fix 5) → **CP-DATA (final)**.
 4. No result enters docs/site/report before **CP-FINDINGS**.

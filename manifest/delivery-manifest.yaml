@@ -3,6 +3,15 @@
 delivery_date: 2026-07-19
 cohort: pilot
 pricing_snapshot: pricing/prices-2026-07-19.json
+# Loaded engineer cost per minute — HEAC input for the human-effort rubric
+# (report/batch3/human-effort-rubric.md; metrics.md HEAC). This is a DECLARED org
+# input, NOT a measurement, and is never converted to headcount/FTE (SPEC 1.2).
+loaded_rate_per_minute:
+  value: 1.50            # your loaded engineer rate ÷ 60
+  currency: USD
+  basis: "declared input, not a measurement — org loaded cost per engineer-minute"
+  source: "<where this number came from>"
+  date: 2026-07-26
 task_suite_commit: 17b9990106f3379e1d3df78137b2adb8ef10e798   # batch-1 run commit (pinned at CP-SPEND execution 2026-07-19)
 configurations:
   # Controlled API (Product A = Claude Code) on Google Vertex, project

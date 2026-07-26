@@ -1,3 +1,9 @@
+> **STATUS: SUPERSEDED** — never completed. Batch 2 was superseded (harness changed
+> materially — Fixes 1–5 + isolation FIX A–E) *before* these timings were collected, so
+> this rubric was never filled in. Retained as a historical record. The active
+> criterion-6 instrument is
+> [`report/batch3/human-effort-rubric.md`](../batch3/human-effort-rubric.md).
+
 # Timed human-effort rubric — batch-2 feasibility subset (criterion 6)
 
 Purpose: record the **human review/correction effort** to judge an agent's output, so

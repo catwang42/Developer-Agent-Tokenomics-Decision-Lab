@@ -20,7 +20,7 @@ A **single** live Antigravity (Product B, config **C3**) run on the pilot task, 
 2. **Inspect agy's raw JSON for a usage block.** The run's `invocation.txt` now
    captures the product's raw stdout/stderr (credentials redacted). Read it to
    determine whether Product B exposes any token counts — the question
-   `report/telemetry-completeness.md` §4 finding 3 can no longer answer from batch 2.
+   `report/batch3/telemetry-completeness.md` §4 finding 3 can no longer answer from batch 2.
 3. **Settle `--print` value-vs-boolean.** Whether `--print` takes the prompt as its
    value or is a boolean switch is unresolved from `--help` alone; a verified
    invocation settles it. (The current ordering is correct under either reading.)

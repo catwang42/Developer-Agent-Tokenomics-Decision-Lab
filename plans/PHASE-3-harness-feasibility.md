@@ -22,7 +22,7 @@ feasibility dataset and a telemetry-completeness report.
 5. **CP-SPEND** with per-batch cost estimate. After approval: run the feasibility set —
    3 tasks x 3 controlled configurations x 3 reps = 27 runs (SPEC §2.3) -> results/feasibility/.
    Separate small product/workflow telemetry feasibility runs for C3/C4/C5.
-6. Generate report/telemetry-completeness.md: per configuration, which fields are
+6. Generate report/batch3/telemetry-completeness.md: per configuration, which fields are
    authoritative/derived/unavailable; harness stability notes. NO vendor rankings.
 
 ## Acceptance checklist

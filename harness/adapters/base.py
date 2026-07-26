@@ -48,7 +48,7 @@ EmitFn = Callable[..., None]
 #               (including the lab repo) is still possible; there is no network
 #               policy. Earlier material wrongly labelled this "cwd-confined-.work-repo"
 #               — the batch-1/2 host runs had no such confinement (see
-#               report/subject-isolation-leak-2026-07-26.md).
+#               report/findings/subject-isolation-leak.md).
 #   CONTAINER — the subject CLI execs inside the task-tools Docker container with the
 #               network DISABLED (--network=none), deps pre-baked into a per-task
 #               image, cwd-confined to /subject. The deterministic gate runs offline

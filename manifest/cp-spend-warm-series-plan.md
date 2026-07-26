@@ -3,7 +3,7 @@
 CP-SPEND package for a **single 3-run warm-series** on the redesigned driver
 (CLAUDE.md rule 5; SPEC §2.3; `methodology/cache-protocol.md` rule 2). Batch 3's
 warm-series regressed (empty warm reps) because fresh-per-rep staging is incompatible
-with `--resume` (`report/telemetry-completeness.md` §4.4). The redesign — stage ONCE
+with `--resume` (`report/batch3/telemetry-completeness.md` §4.4). The redesign — stage ONCE
 per series, reset the persisted tree between reps, path preserved, byte-identical
 prompt — is **implemented as a no-spend change** (`harness/runner/warm_series.py`) and
 covered by stub/dry-run tests. This package authorizes the **one live attempt** that
@@ -134,7 +134,7 @@ overwritten or aggregated into it.
    ⬅ **awaiting approval now**.
 2. **(me)** on approval, run the single 3-run series under `--spend-cap-usd 3` →
    validate each `events.jsonl` + `summary.json` → apply the §4 stopping rule.
-3. **(me, no spend)** record the outcome in `report/telemetry-completeness.md`
+3. **(me, no spend)** record the outcome in `report/batch3/telemetry-completeness.md`
    (criterion 7 → PASS or documented PARTIAL) as part of the **CP-DATA (final)** review
    the human runs at full strength.
 4. No result enters docs/site/report before **CP-FINDINGS**.

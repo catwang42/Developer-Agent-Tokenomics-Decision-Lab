@@ -7,7 +7,7 @@ task_id: pilot-realworld-draft-articles
 manifest_key: pilot_task
 task_suite_version: pilot-v2   # v2 (2026-07-19): prompt pins the query-contract
 # shape + edit scope after a gate-fairness audit found a functionally-plausible
-# solution failing the shape-based DB-free test (see report/gate-fairness-audit.md).
+# solution failing the shape-based DB-free test (see report/findings/gate-fairness-audit.md).
 # Tests/gate/sealed-hidden-test UNCHANGED (hash sealed-pilot-v1 stands) — the gate
 # was NOT loosened; only the prompt was made unambiguous.
 class: feature_implementation

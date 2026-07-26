@@ -17,7 +17,7 @@ the §2 kill-switch; nothing runs before `CHECKPOINT APPROVED: CP-SPEND`.**
 - Manifest: `manifest/delivery-manifest.yaml` (pins + all three sealed-test hashes);
   per-run pre-registration via `manifest/RUN_TEMPLATE.md`.
 - Isolation posture: containerized, network-disabled subjects
-  (`report/subject-isolation-verification.md`).
+  (`report/findings/subject-isolation-verification.md`).
 - CP-DATA condition 1 (gate-fairness) status: §3.4.
 
 ## 1. Run matrix (all on the fixed harness)
@@ -65,7 +65,7 @@ Subjects run inside the task-tools Docker container with **network disabled**
   their spawn through `resolve_spawn` (host cwd vs `docker run`).
 - Deterministic gate verified **fully offline** (`--network=none`): W1 pre-mod FAIL,
   canonical PASS (jest/coverage/nx build ran with no network). Evidence:
-  `report/subject-isolation-verification.md`; posture recorded in
+  `report/findings/subject-isolation-verification.md`; posture recorded in
   `manifest` `subject_isolation`.
 - **Deferred to CP-SPEND (user decision):** the live agent leg's model-API egress
   allowlist (needs model spend to validate). Mechanism wired + unit-tested; the gate
@@ -98,7 +98,7 @@ No-spend work **DONE** (2026-07-19):
   article.mapper, reachable ceiling (5/6 = 83.33%) on author.mapper, all six planned
   mutants caught, applies cleanly, baseline suite green. `author.mapper` cannot reach
   100% branch (one unreachable defensive `?.` leg) — human decision 2026-07-19
-  "keep branches, honest ceiling"; evidence in `report/w1-coverage-analysis.md`.
+  "keep branches, honest ceiling"; evidence in `report/findings/w1-coverage-analysis.md`.
 - Test-generation gate wired: `check-public.sh` gate_type dispatch (T1 diff-scope,
   T2 suite-green, T3 per-file coverage, T4 tests-pass) + `validate.sh` gate_type
   support; gate logic split into offline-testable `scope_eval.py` / `coverage_eval.py`
@@ -109,7 +109,7 @@ No-spend work **DONE** (2026-07-19):
 10-point `validate.sh` ran INSIDE the container (`--network=none`) → **9 pass, 1
 awaiting-human, 0 failed**: pre-mod FAILs, canonical accepted offline, clean-build +
 deterministic reset offline; check 7 (canonical-hidden) is `awaiting_human` because
-the sealed test is human-held. Evidence: `report/subject-isolation-verification.md`.
+the sealed test is human-held. Evidence: `report/findings/subject-isolation-verification.md`.
 
 **RESOLVED — F3 is ready (2026-07-20):**
 1. **(human)** ✅ authored the sealed mutation-catch runner
@@ -134,7 +134,7 @@ HEAC. **No model spend** — schedule is a calendar/assignment decision.
 ### 3.4 Gate-fairness audit — CP-DATA condition 1 status (carried into this package)
 The earlier CP-DATA review imposed condition 1: classify every F1 rejection as
 (i) feature genuinely absent/broken vs (ii) functionally plausible but failing on
-implementation *shape*. Status (`report/gate-fairness-audit.md`):
+implementation *shape*. Status (`report/findings/gate-fairness-audit.md`):
 - **F1·P1·rep1** — classified **(ii) shape mismatch** with archived diff evidence
   (near-canonical impl; failed only because it emitted `{draft:{equals:false}}` vs
   the matcher's `{draft:false}` — functionally identical in Prisma). Remedy was
@@ -159,7 +159,7 @@ implementation *shape*. Status (`report/gate-fairness-audit.md`):
 3. **(me, no spend)** finalize this doc with W1 in the matrix + isolation posture +
    gate-fairness status ✅ DONE → **CP-SPEND (batch 2)** ⬅ **awaiting approval now**.
 4. **(me)** run batch 2 under the kill-switch → validate all → update
-   `report/telemetry-completeness.md` (full 27, three gate types) + human-effort →
+   `report/batch2/telemetry-completeness.md` (full 27, three gate types) + human-effort →
    **CP-DATA (final)**.
 5. No result in docs/site until **CP-FINDINGS**.
 

@@ -8,7 +8,7 @@ Reads a task's `coverage_target` (metric + per-file min_pct) and a jest
 `coverage-summary.json`, and requires EACH declared file to meet its per-file
 minimum for the chosen metric (default: branches). Per-file thresholds let a task
 gate on an honest reachable ceiling (e.g. author.mapper 83.33%) rather than an
-impossible flat 100% — see report/w1-coverage-analysis.md.
+impossible flat 100% — see report/findings/w1-coverage-analysis.md.
 
 CLI:  coverage_eval.py <coverage-summary.json> <task.yaml>
   stdout: one-line human detail; exit 0 = all files meet minimum, 1 = shortfall,

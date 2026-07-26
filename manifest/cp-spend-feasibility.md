@@ -221,6 +221,6 @@ task's config list, so feasibility {P0,C2,P1} still runs; noted for consistency.
 
 ## 5. What CP-SPEND approval covers vs. gates downstream
 - **Covers:** the specific batches, configs, tasks, and cost ceiling approved here.
-- **Gates:** the feasibility dataset → `report/telemetry-completeness.md` → **CP-DATA**
+- **Gates:** the feasibility dataset → `report/batch1/telemetry-completeness.md` → **CP-DATA**
   (protocol pass/fail criteria 1–7 + go/no-go). No result appears in docs/site until
   **CP-FINDINGS**. This package makes **no vendor-comparative claims**.

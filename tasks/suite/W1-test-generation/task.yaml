@@ -50,7 +50,7 @@ canonical_patch: canonical/mapper-tests.patch   # reference tests (branch cov + 
 # has no branches -> 100% trivially. author.mapper.ts caps at 5/6 = 83.33%: its
 # `author?.followedBy` optional-chain nullish leg is UNREACHABLE (line 4 dereferences
 # `author` with no ?., so a nullish author throws before line 8). We gate on the
-# REACHABLE ceiling, NOT an impossible 100% — see report/w1-coverage-analysis.md.
+# REACHABLE ceiling, NOT an impossible 100% — see report/findings/w1-coverage-analysis.md.
 # The sealed mutation test is the AUTHORITATIVE meaningfulness check; T3 is a coarse
 # necessary-condition filter. Decided with the human 2026-07-19 ("keep branches,
 # honest ceiling"). The evaluator is harness/task-tools/gate/coverage_eval.py.
