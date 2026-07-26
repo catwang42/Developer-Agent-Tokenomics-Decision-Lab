@@ -96,10 +96,22 @@ or `unavailable`, never self-reported.
    `modelUsage`. Top-level `usage` is priced at the leg's model rate; per-`modelUsage`
    cost splitting is a possible future refinement (aux share small). Flagged, not
    silently absorbed.
-3. **Product B telemetry is partial (as expected).** C3 and the C5 executor expose **no
-   token counts** → cost `unavailable` (missing classes enumerated, never zeroed). The
-   verbatim selector label **`"Gemini 3.5 Flash (High)"`** is recorded at
-   `proxy_observed`; the backend model id is never inferred.
+3. **Product B token exposure — NOT YET OBSERVED on a verified invocation.**
+   *(Corrected 2026-07-26.)* The earlier wording ("Product B exposes no token counts")
+   is **withdrawn**: it was inferred from C3 / C5-executor legs that produced **no
+   parseable product output at all**, which is now traced to a harness invocation
+   defect, not a product limitation. Both F1·C3 `agent-solution.diff` files are
+   byte-identical (same sha256) to the harness `tasks/pilot-realworld/gate/test-compat.patch`
+   — i.e. Antigravity made **zero changes** — because the adapter prepended a bogus
+   `run` token (agy 1.1.4 has no `run` subcommand; fixed in `harness/adapters/agy.py`).
+   Until a corrected invocation is observed, Product-B usage/cost stay **`unavailable`**
+   here for a reason known to be **instrumentation, not the product** — recorded, never
+   zeroed. The verbatim selector label **`"Gemini 3.5 Flash (High)"`** (present verbatim
+   in `agy models`; matches the pricing snapshot exactly) is recorded at `proxy_observed`;
+   the backend model id is never inferred. **A single corrected-invocation smoke run
+   (pinned CP-SPEND, `manifest/cp-spend-agy-smoke.md`) will settle whether agy's raw JSON
+   exposes a usage block** — its raw stdout is now captured in the per-run `invocation.txt`
+   artifact for exactly this inspection.
 4. **Escalation observed as "no escalation".** All 9 P1 (cheap-first) runs recorded
    `intention_to_route = economical` and `completed_route = economical`: the economical
    tier (haiku-4-5) **passed the gate on all three tasks**, so the strong tier was never
