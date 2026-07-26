@@ -406,6 +406,56 @@ class AgentDiffArchive(unittest.TestCase):
         self.assertIn("draft: false", text)      # tracked edit captured
         self.assertIn("svc.ts", text)
         self.assertIn("new.ts", text)            # untracked file listed
+        self.assertIn("extra", text)             # ...with its content, not just its name
+
+    def test_untracked_file_content_is_captured(self) -> None:
+        """Test-generation tasks emit only new files; their CONTENT must survive.
+
+        Regression for the batch-2 defect where the archive recorded untracked
+        filenames only (79-byte agent-solution.diff), so the whole generated test
+        suite was lost at reset.
+        """
+        repo = tempfile.mkdtemp(prefix="lab-subj-")
+        self._git(repo, "init", "-q")
+        self._git(repo, "config", "user.email", "t@t")
+        self._git(repo, "config", "user.name", "t")
+        with open(os.path.join(repo, "README.md"), "w") as fh:
+            fh.write("base\n")
+        self._git(repo, "add", "-A")
+        self._git(repo, "commit", "-qm", "base")
+        # Agent's entire output is a brand-new (untracked) test file — no tracked edits.
+        test_dir = os.path.join(repo, "src", "tests", "mappers")
+        os.makedirs(test_dir)
+        marker = "describe('article.mapper', () => { it('maps', () => expect(1).toBe(1)); });"
+        rel_path = os.path.join("src", "tests", "mappers", "article.mapper.test.ts")
+        with open(os.path.join(repo, rel_path), "w") as fh:
+            fh.write(marker + "\n")
+        run_dir = tempfile.mkdtemp(prefix="lab-run-")
+        runner._archive_agent_diff(repo, run_dir)
+        text = open(os.path.join(run_dir, "agent-solution.diff"), encoding="utf-8").read()
+        self.assertIn(rel_path, text)   # path recorded
+        self.assertIn(marker, text)     # ...and the full file content, not just the name
+
+    def test_excludes_node_modules_untracked(self) -> None:
+        """node_modules content is still excluded when capturing untracked files."""
+        repo = tempfile.mkdtemp(prefix="lab-subj-")
+        self._git(repo, "init", "-q")
+        self._git(repo, "config", "user.email", "t@t")
+        self._git(repo, "config", "user.name", "t")
+        with open(os.path.join(repo, "README.md"), "w") as fh:
+            fh.write("base\n")
+        self._git(repo, "add", "-A")
+        self._git(repo, "commit", "-qm", "base")
+        os.makedirs(os.path.join(repo, "node_modules", "left-pad"))
+        with open(os.path.join(repo, "node_modules", "left-pad", "index.js"), "w") as fh:
+            fh.write("NODE_MODULES_LEAK_MARKER\n")
+        with open(os.path.join(repo, "solution.ts"), "w") as fh:
+            fh.write("REAL_SOLUTION_MARKER\n")
+        run_dir = tempfile.mkdtemp(prefix="lab-run-")
+        runner._archive_agent_diff(repo, run_dir)
+        text = open(os.path.join(run_dir, "agent-solution.diff"), encoding="utf-8").read()
+        self.assertIn("REAL_SOLUTION_MARKER", text)
+        self.assertNotIn("NODE_MODULES_LEAK_MARKER", text)
 
     def test_never_raises_on_non_repo(self) -> None:
         run_dir = tempfile.mkdtemp(prefix="lab-run-")

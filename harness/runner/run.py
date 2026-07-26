@@ -570,8 +570,13 @@ def _archive_agent_diff(subject_dir: str, run_dir: str) -> None:
     Subject repos are reset between runs, so without this the agent's actual edits
     are lost — you cannot later classify a rejection as feature-broken vs
     shape-mismatch. Writes the tracked-file diff (product solution survives the
-    gate's test-restore) plus the untracked-file list to ``agent-solution.diff``.
-    Best-effort: a git failure never fails the run.
+    gate's test-restore) plus the FULL CONTENT of every untracked, agent-created
+    file to ``agent-solution.diff``. Capturing untracked *content* (not just names)
+    is essential for test-generation tasks, where the agent's entire output is new
+    files — a name-only list would discard the solution the reset then deletes.
+    ``node_modules`` is excluded; ``--no-index`` reads the working tree without
+    touching the index, so the subsequent reset is unaffected. Best-effort: a git
+    failure never fails the run.
     """
     try:
         diff = subprocess.run(  # noqa: S603
@@ -583,11 +588,25 @@ def _archive_agent_diff(subject_dir: str, run_dir: str) -> None:
              "--", ":!node_modules"],
             capture_output=True, text=True, check=False,
         ).stdout
+        # Diff each untracked file against /dev/null so its full content is archived
+        # as a proper new-file diff. --no-index never mutates the index or working
+        # tree (reset stays deterministic); exit 1 = "differences found", expected.
+        untracked_diffs: List[str] = []
+        for path in untracked.splitlines():
+            if not path.strip():
+                continue
+            content_diff = subprocess.run(  # noqa: S603
+                ["git", "-C", subject_dir, "diff", "--no-index", "--",
+                 os.devnull, path],
+                capture_output=True, text=True, check=False,
+            ).stdout
+            if content_diff:
+                untracked_diffs.append(content_diff)
         with open(os.path.join(run_dir, "agent-solution.diff"), "w", encoding="utf-8") as fh:
             fh.write(diff)
-            if untracked.strip():
-                fh.write("\n# untracked files (agent-created):\n")
-                fh.write("".join(f"# {p}\n" for p in untracked.splitlines()))
+            if untracked_diffs:
+                fh.write("\n# untracked files (agent-created), full content below:\n")
+                fh.write("".join(untracked_diffs))
     except OSError:
         pass
 
