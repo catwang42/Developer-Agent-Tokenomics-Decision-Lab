@@ -7,7 +7,7 @@ pricing_snapshot: pricing/prices-2026-07-19.json
 # (report/batch3/human-effort-rubric.md; metrics.md HEAC). This is a DECLARED org
 # input, NOT a measurement, and is never converted to headcount/FTE (SPEC 1.2).
 loaded_rate_per_minute:
-  value: 1.60            # your loaded engineer rate ÷ 60
+  value: 1.60            # sample loaded engineer rate ÷ 60
   currency: USD
   basis: "declared input, not a measurement — org loaded cost per engineer-minute"
   source: "average salary for engineers"
