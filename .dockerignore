@@ -4,7 +4,11 @@
 site/
 node_modules/
 **/__pycache__/
-# Per-task subject-repo clones and sealed hidden tests never enter the image.
+# Per-task subject-repo clones, sealed hidden tests, and reference solutions never
+# enter the image. canonical/ holds the answer patch — excluded so the containerized
+# agent leg (Phase 4) cannot read it from the baked tree (subject-isolation FIX D).
+# The runtime gate needs only gate/ + tests/ (+ mounted hidden/), never canonical/.
 **/.work/
 **/hidden/
+**/canonical/
 results/
