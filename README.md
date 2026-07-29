@@ -5,8 +5,16 @@ economics: what AI coding agents cost per **accepted engineering outcome**, and 
 model-routing policies are economically defensible.
 
 - **Source of truth:** [`SPEC.md`](SPEC.md) (frozen v2.1.1 — do not edit)
-- **Built by:** Claude Code, phase by phase, per [`CLAUDE.md`](CLAUDE.md) and [`plans/`](plans/)
-- **Human role:** approve checkpoints only (see `CLAUDE.md` → Human checkpoints)
+
+**Three roles.** *Run or fork it (no AI assistant required):*
+[`docs/OPERATOR.md`](docs/OPERATOR.md) is the front door — validation, batches, telemetry
+checks, aggregation, reports and the site all run on plain shell + Python + Node. The
+**benchmark subjects** are the AI coding agents under measurement, driven through declared
+adapters ([`harness/adapters/`](harness/adapters/README.md)). The **build agent** was
+Claude Code, which constructed this repo phase by phase — that is provenance only
+([`CLAUDE.md`](CLAUDE.md), [`GETTING_STARTED.md`](GETTING_STARTED.md),
+[`plans/`](plans/)); it appears nowhere in the runtime path.
+
 - **Front end:** MkDocs Material site on GitHub Pages (auto-deployed from `docs/`)
 - **Grading integrity:** [`docs/sealed-evaluation.md`](docs/sealed-evaluation.md) — why hidden tests exist, who holds them, and what the per-result hash proves
 
@@ -17,9 +25,10 @@ model-routing policies are economically defensible.
 
 ## Repository map
 ```
-CLAUDE.md              Claude Code operating manual (rules, checkpoints, workflow)
+CLAUDE.md              Build-agent operating manual (rules, checkpoints, workflow) — provenance
 SPEC.md                Frozen specification v2.1.1 — single source of truth
-GETTING_STARTED.md     Human step-by-step guide to run the build with Claude Code
+GETTING_STARTED.md     Historical build runbook (how this repo was built) — provenance
+docs/OPERATOR.md       Operator guide — run or fork the lab (no AI assistant required)
 plans/                 Phase-by-phase build plans with acceptance criteria
 methodology/           Layer 1: metrics, benchmark rules, evaluation protocol
 manifest/              Delivery manifest template + run pre-registration template
