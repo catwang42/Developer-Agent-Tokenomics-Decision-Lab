@@ -77,14 +77,14 @@ agent's diff. Record **minutes** (decimals ok, e.g. 3.5) in four buckets:
 | # | Cell | reviewer | review_min | correction_min | active_min | blocked_min | notes |
 |---|---|---|---|---|---|---|---|
 | 1 | F1·P0 | Catherine | 3.5 | 0 | 0 | 0 | Order 1. Merge. Correct schema field, create persistence and public-list exclusion. |
-| 2 | F1·C2 | | | | | | |
-| 3 | F1·P1 | | | | | | |
-| 4 | F2·P0 | | | | | | |
-| 5 | F2·C2 | | | | | | |
-| 6 | F2·P1 | | | | | | |
-| 7 | F3·P0 | | | | | | |
-| 8 | F3·C2 | | | | | | |
-| 9 | F3·P1 | | | | | | |
+| 2 | F1·C2 | Catherine | 3.0 | 0 | 0 | 0 | accepte, Merge. minimal and contract-compliant. |
+| 3 | F1·P1 | Catherine | 1.5 | 0 | 0 | 0 | accepted, Merge. identical result as run 2. |
+| 4 | F2·P0 | Catherine | 2.0 | 0 | 0 | 0 | accepted, Merge. Adds omitted id to Prisma selection; directly fixes response and JWT input. |
+| 5 | F2·C2 | Catherine | 1.0 | 0 | 0 | 0 | accepted, Merge, identical result at #4 |
+| 6 | F2·P1 | Catherine | 1.0 | 0 | 0 | 0 | accepted, Merge, identical result at #4 |
+| 7 | F3·P0 | Catherine | | | | | |
+| 8 | F3·C2 | Catherine | | | | | |
+| 9 | F3·P1 | Catherine | | | | | |
 | … | (2nd reviewer, ≥3 rows) | | | | | | |
 
 When complete, hand this back: I'll ingest the minutes (no model spend) into each run's
