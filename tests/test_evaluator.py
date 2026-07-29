@@ -71,6 +71,30 @@ class HeacAndDispersion(unittest.TestCase):
         h = metrics.heac(e, runs, loaded_rate_usd_per_min=2.0)
         self.assertEqual(h["status"], "unavailable")     # no minutes recorded
 
+    def test_heac_derived_with_minutes_and_rate(self) -> None:
+        run = _summary("t", "P0", "accepted", [0.4])
+        run["human_effort"] = {
+            "review_minutes": {"value": 3.0, "confidence": "authoritative"},
+            "correction_minutes": {"value": 2.0, "confidence": "authoritative"},
+            "active_minutes": {"value": 0.0, "confidence": "authoritative"},
+        }
+        e = metrics.ecst([run], "marginal")
+        h = metrics.heac(e, [run], loaded_rate_usd_per_min=1.60)
+        self.assertEqual(h["status"], "derived")
+        self.assertEqual(h["human_minutes"], 5.0)
+        self.assertAlmostEqual(h["value"], 0.4 + 5.0 * 1.60)   # ECST + minutes×rate
+
+    def test_compute_threads_loaded_rate_into_heac(self) -> None:
+        d = tempfile.mkdtemp(prefix="lab-eval-rate-")
+        s = _summary("t", "P0", "accepted", [0.4])
+        s["human_effort"] = {"review_minutes": {"value": 3.0, "confidence": "authoritative"}}
+        _write(d, "t__P0__rep1__x", s)
+        # No rate -> human term unavailable; with rate -> derived.
+        self.assertEqual(metrics.compute(d)["cells"]["t|P0"]["heac_marginal"]["status"],
+                         "unavailable")
+        self.assertEqual(metrics.compute(d, 1.60)["cells"]["t|P0"]["heac_marginal"]["status"],
+                         "derived")
+
     def test_dispersion(self) -> None:
         d = metrics.dispersion([1.0, 2.0, 3.0, 4.0])
         self.assertEqual(d["n"], 4)

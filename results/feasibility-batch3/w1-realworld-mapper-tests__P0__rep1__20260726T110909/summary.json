@@ -118,24 +118,26 @@
   "hidden_test_hash": "sha256:37f3acd685fd03e0624a98f328e38edffe8faef5179263e502035c707c51f4e9",
   "human_effort": {
     "active_minutes": {
-      "confidence": "unavailable",
-      "reason": "not recorded",
-      "value": null
+      "confidence": "authoritative",
+      "value": 0.0
     },
     "blocked_minutes": {
-      "confidence": "unavailable",
-      "reason": "not recorded",
-      "value": null
+      "confidence": "authoritative",
+      "value": 0.0
     },
     "correction_minutes": {
-      "confidence": "unavailable",
-      "reason": "not recorded",
-      "value": null
+      "confidence": "authoritative",
+      "value": 0.0
     },
     "review_minutes": {
-      "confidence": "unavailable",
-      "reason": "not recorded",
-      "value": null
+      "confidence": "authoritative",
+      "value": 7.0
+    },
+    "reviewer": "reviewer-1",
+    "reviewer_verdict": {
+      "confidence": "authoritative",
+      "reason": "reviewer verdict on the diff; gate result = accepted (this is a REVIEWER judgment, NOT a gate outcome)",
+      "value": "would_merge"
     }
   },
   "identity": {

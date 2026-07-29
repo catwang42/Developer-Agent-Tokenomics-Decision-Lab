@@ -118,6 +118,23 @@ def heac(ecst_result: Dict[str, Any], runs: List[Dict[str, Any]],
             "status": "derived", "human_minutes": mins}
 
 
+def loaded_rate_from_manifest(manifest_path: str) -> Optional[float]:
+    """Read ``loaded_rate_per_minute.value`` from the delivery manifest (HEAC input).
+
+    The rate is a DECLARED org input (SPEC §1.2), not a measurement. Returns None if
+    absent/unresolved — HEAC then reports its model component only, never a fabricated
+    human term.
+    """
+    import yaml
+    try:
+        with open(manifest_path, encoding="utf-8") as fh:
+            doc = yaml.safe_load(fh) or {}
+    except OSError:
+        return None
+    lr = (doc.get("loaded_rate_per_minute") or {}).get("value")
+    return float(lr) if isinstance(lr, (int, float)) and not isinstance(lr, bool) else None
+
+
 def dispersion(values: List[float]) -> Dict[str, Any]:
     xs = sorted(v for v in values if isinstance(v, (int, float)) and not isinstance(v, bool))
     if not xs:
@@ -127,10 +144,17 @@ def dispersion(values: List[float]) -> Dict[str, Any]:
             "iqr": round(q[2] - q[0], 6), "min": round(xs[0], 6), "max": round(xs[-1], 6)}
 
 
-def compute(feasibility_dir: str) -> Dict[str, Any]:
-    """Full NON-COMPARATIVE, internal-only metric bundle for the feasibility set."""
+def compute(feasibility_dir: str,
+            loaded_rate_usd_per_min: Optional[float] = None) -> Dict[str, Any]:
+    """Full NON-COMPARATIVE, internal-only metric bundle for the feasibility set.
+
+    ``loaded_rate_usd_per_min`` (the manifest's declared HEAC input) enables the HEAC
+    human term; without it HEAC reports its model component only (unavailable human
+    term). It is echoed into the bundle so the figure is reproducible from the file.
+    """
     cells = load_cells(feasibility_dir)
     out: Dict[str, Any] = {"note": "NON-COMPARATIVE, internal-only (feasibility criterion 5)",
+                           "loaded_rate_usd_per_min": loaded_rate_usd_per_min,
                            "cells": {}, "qa_ecst_by_class": {}}
     class_runs: Dict[str, List[Dict[str, Any]]] = {}
     for (task, config), runs in sorted(cells.items()):
@@ -143,7 +167,7 @@ def compute(feasibility_dir: str) -> Dict[str, Any]:
             "n_accepted": sum(1 for r in runs if _accepted(r)),
             "ecst_marginal": e_marg,
             "ecst_fully_allocated": ecst(runs, "fully"),
-            "heac_marginal": heac(e_marg, runs),
+            "heac_marginal": heac(e_marg, runs, loaded_rate_usd_per_min),
             "dispersion_marginal_cost_usd": dispersion(marg_costs),
             "dispersion_output_tokens": dispersion(out_toks),
         }
@@ -159,4 +183,8 @@ def compute(feasibility_dir: str) -> Dict[str, Any]:
 if __name__ == "__main__":  # pragma: no cover - manual/reporting use
     import sys
     d = sys.argv[1] if len(sys.argv) > 1 else "results/feasibility"
-    print(json.dumps(compute(d), indent=2, sort_keys=True))
+    _repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    manifest = sys.argv[2] if len(sys.argv) > 2 \
+        else os.path.join(_repo, "manifest", "delivery-manifest.yaml")
+    rate = loaded_rate_from_manifest(manifest)
+    print(json.dumps(compute(d, rate), indent=2, sort_keys=True))

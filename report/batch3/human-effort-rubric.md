@@ -1,7 +1,8 @@
-> **STATUS: PENDING** — 2026-07-26. Active criterion-6 instrument for the batch-3
-> authoritative dataset ([`report/batch3/telemetry-completeness.md`](telemetry-completeness.md),
-> criterion 6). Awaiting reviewer timings — HEAC stays `unavailable` until filled.
-> Supersedes the never-completed
+> **STATUS: AUTHORITATIVE** — 2026-07-26. Completed criterion-6 record for the batch-3
+> authoritative dataset ([`report/batch3/telemetry-completeness.md`](telemetry-completeness.md)
+> §5.1). All 9 timings recorded (single reviewer, review order 1,4,7,2,5,8,3,6,9) and
+> folded into each rep-1 run's `human_effort`; HEAC computed at $1.60/min. Inter-reviewer
+> spread `unavailable` (single-operator). Supersedes the never-completed
 > [`report/batch2/human-effort-rubric.md`](../batch2/human-effort-rubric.md).
 
 # Timed human-effort rubric — batch-3 feasibility subset (criterion 6)
@@ -85,8 +86,22 @@ agent's diff. Record **minutes** (decimals ok, e.g. 3.5) in four buckets:
 | 7 | F3·P0 | Catherine | 7.0 | 0 | 0 | 0 | accepted, Merge. Focused 136-line suite; covers reachable branches and meaningful output values. |
 | 8 | F3·C2 | Catherine | 15.0 | 18.0 | 0 | 0 | gate: accepted / reviewer: would-not-merge. Needs work, hard to read, Approximately 492 lines for two simple mappers; repetitive fixtures/assertions and unnecessary mocking increase maintenance cost.|
 | 9 | F3·P1 | Catherine | 18.0 | 20.0 | 0 | 0 | gate: accepted / reviewer: would-not-merge Needs work. Approximately 547 lines; broad meaningful coverage but excessive duplication and weak scope discipline. |
-| … | (2nd reviewer, ≥3 rows) | | | | | | unavailable — single-operator deployment |
+| — | (2nd reviewer) | **unavailable** | unavailable | unavailable | unavailable | unavailable | Single-operator deployment — no second reviewer available. Inter-reviewer spread `unavailable`, recorded not fabricated (anti-bias protocol, ≥2-reviewer target unmet). |
 
-When complete, hand this back: I'll ingest the minutes (no model spend) into each run's
-`human_effort` slot, compute per-cell HEAC (once `loaded_rate_per_minute` is set in the
-manifest), and report inter-reviewer spread — closing criterion 6.
+## Result — ingested 2026-07-26 (no model spend)
+
+- **Timings folded** into each of the nine rep-1 runs' `human_effort` slot under
+  `results/feasibility-batch3/` (review/correction/active/blocked, authoritative tier),
+  plus a `reviewer_verdict` field per run. All nine re-validated audit-grade.
+- **HEAC computed** at `loaded_rate_per_minute = $1.60/min` (manifest); per-cell ECST +
+  HEAC bundle in `results/feasibility-batch3/metrics-noncomparative.json`; summary table
+  in the batch-3 telemetry-completeness report §5.1.
+- **Gate ≠ reviewer (rows 8, 9).** All nine runs are **gate-accepted**. The reviewer's
+  would-not-merge note on F3·C2 and F3·P1 is a **reviewer verdict**
+  (would-not-merge, 18 and 20 min correction), captured in `human_effort.reviewer_verdict`
+  and `correction_minutes` — it is **not** a gate outcome; `acceptance.result` stays
+  `accepted`.
+- **Inter-reviewer spread: `unavailable`** — single-operator deployment, no second
+  reviewer. Recorded per the anti-bias protocol, never fabricated. Every HEAC figure
+  therefore carries the **n=1 reviewer / n=1 rep / NON-COMPARATIVE** scope.
+- Criterion 6 → **PASS** at that scope.

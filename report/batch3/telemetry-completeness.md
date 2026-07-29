@@ -93,8 +93,8 @@ Appendix as provenance.
 | 2 | Cost reconstruction w/o self-report | **27/27** controlled runs costed from token metadata only (never `total_cost_usd`); every controlled usage field authoritative (C2/P0/P1 = 9/9 × 4 token classes); warm reps 2–3 `unavailable` and **enumerated, not zero-filled** | ✅ PASS |
 | 3 | Harness stability | **0 harness crashes**; reset determinism identical (1 tree hash per task, all reps); gate reproducibility from the 10-point validations (canonical → same verdict, 3/3 tasks). 2 subject-agent exit-1 (warm resume) handled gracefully, not crashes (§4.4) | ✅ PASS |
 | 4 | Escalation telemetry | **9/9** P1 runs record ITR + CR (both `economical`). No escalation *fired* — the economical tier (haiku-4-5) passed every task — so the failed-attempt-cost path carries **no live data this batch**. See §4.3 | ⚠️ PASS (routing recorded; escalation-cost path **not exercised**, §4.3) |
-| 5 | Metric computability | ECST / QA-ECST-by-class compute **finite on every accepted controlled cell** (27/27 accepted, all three gate types); both cost views compute per leg/cell. HEAC pending criterion 6 | ✅ PASS |
-| 6 | Human effort | rubric timings for the 9-run subset | ⏳ **PENDING** (human reviewers; not fabricated; rubric `report/human-effort-rubric-batch2.md`) |
+| 5 | Metric computability | ECST / QA-ECST-by-class compute **finite on every accepted controlled cell** (27/27 accepted, all three gate types); both cost views compute per leg/cell; **HEAC computes end-to-end** at $1.60/min (§5.1) | ✅ PASS |
+| 6 | Human effort | 9/9 rubric timings recorded (single reviewer) and folded into each rep-1 run's `human_effort`; HEAC computes at $1.60/min (§5.1) | ✅ PASS — **n=1 reviewer** (inter-reviewer spread `unavailable`, not fabricated), **n=1 rep**, NON-COMPARATIVE; rubric `report/batch3/human-effort-rubric.md` |
 | 7 | Cache | cold `cache_read` capture proven 27/27 + warm-series **costing delta** | ✅ PASS — cold capture 27/27 ✅; warm-series **delta demonstrated** on the redesigned driver (2026-07-26 revalidation, `results/feasibility-warm-series/`, authoritative warm cache tiers, marginal $ collapses on resume — §4.4). Batch-3 fresh-per-rep regression superseded |
 
 **Stop condition (self-report):** NOT triggered — every controlled run's cost is
@@ -254,12 +254,14 @@ F2·P0/F2·C2/F2·P1 as confounded by that order effect, not as a cell-level eff
 All controlled metrics compute end-to-end from the 27 runs (non-comparative, internal):
 - **ECST / QA-ECST**: **finite on every accepted controlled cell** (Σ attempt cost ÷
   accepted). Values below.
-- **HEAC**: `unavailable` until the criterion-6 human subset lands.
+- **HEAC**: **computes end-to-end** at `loaded_rate_per_minute = $1.60/min` on all nine
+  controlled cells (criterion 6 recorded, §5.1).
 - **Both cost views** (marginal_operating, fully_allocated) compute per leg/cell.
 
 Per-cell **marginal cost** (median / min–max, n=3) and ECST (accepted-only). With n=3
 per cell the IQR is not separately reported (ill-defined at n=3); min–max bounds the
-spread. Full stats in `results/feasibility-batch3/aggregate-noncomparative.json`.
+spread. Full cost stats in `results/feasibility-batch3/aggregate-noncomparative.json`;
+full ECST/HEAC bundle in `results/feasibility-batch3/metrics-noncomparative.json`.
 
 | Cell | median $ | range $ | acc | ECST $ |
 |---|---|---|---|---|
@@ -281,6 +283,47 @@ screening, budget **≥5 reps on strong / cold-sensitive cells** (P0, C1) and re
 medians with min–max/IQR (not means); 3 reps suffice for economical/cheap-first cells.
 Re-assess after screening scale.
 
+## 5.1 HEAC (human-effort-adjusted cost) — criterion 6
+
+HEAC = ECST + (active + review + correction minutes) × `loaded_rate_per_minute`
+(**$1.60/min**, a DECLARED manifest input — NOT a measurement, SPEC §1.2). The minutes
+are the single-reviewer stopwatch timings recorded in
+`report/batch3/human-effort-rubric.md` (review order 1,4,7,2,5,8,3,6,9), folded into each
+rep-1 run's `human_effort` slot (authoritative tier); full bundle in
+`results/feasibility-batch3/metrics-noncomparative.json`.
+
+**Scope — attaches to every HEAC figure below:** **n=1 reviewer** (single-operator
+deployment; **inter-reviewer spread is `unavailable`** — recorded as such, never
+fabricated), **n=1 rep** per cell (rep 1 only), **NON-COMPARATIVE / internal-only**. HEAC
+is a *feasibility* result (the metric computes end-to-end), not a configuration ranking.
+
+| Cell | ECST $ (model) | review+corr min | HEAC $ | reviewer verdict |
+|---|---|---|---|---|
+| F1·P0 | 0.2287 | 3.5 | 5.83 | would-merge |
+| F1·C2 | 0.0594 | 3.0 | 4.86 | would-merge |
+| F1·P1 | 0.0424 | 1.5 | 2.44 | would-merge |
+| F2·P0 | 0.3254 | 2.0 | 3.53 | would-merge |
+| F2·C2 | 0.0721 | 1.0 | 1.67 | would-merge |
+| F2·P1 | 0.0400 | 1.0 | 1.64 | would-merge |
+| F3·P0 | 0.4713 | 7.0 | 11.67 | would-merge |
+| F3·C2 | 0.1111 | 15+18 | 52.91 | **would-not-merge** (gate: accepted) |
+| F3·P1 | 0.1978 | 18+20 | 61.00 | **would-not-merge** (gate: accepted) |
+
+(F1·C1 warm-series: HEAC `unavailable` — the warm reps were not human-reviewed.)
+
+**Gate ≠ reviewer (rows F3·C2, F3·P1).** All nine runs are **gate-accepted** — the
+deterministic gate passed. On the two F3 (W1 test-generation) economical/cheap-first
+cells the reviewer judged the produced test suite **would-not-merge as-is** (≈490–550
+lines, repetitive fixtures, weak scope discipline) and estimated 18 and 20 min of
+correction. That is a **reviewer verdict** (stored in `human_effort.reviewer_verdict`),
+**NOT a gate outcome** — each run's `acceptance.result` remains `accepted`. The correction
+minutes flow into HEAC, which is why those two cells dominate.
+
+**Finding (feasibility, non-comparative):** at $1.60/min the **human term dominates HEAC**
+— review/correction dollars swamp the model's cents (e.g. F3·P1: $0.20 model vs. $61
+total). HEAC is finite on every accepted controlled cell; criterion 6 is satisfied as an
+*instrument* result at the scope above.
+
 ## 6. Go / No-Go
 
 **Instrument VALIDATED on the authoritative controlled dataset (27/27), on a single
@@ -300,8 +343,11 @@ gated on the conditions below and at CP-SCREEN-PREREG / the screening CP-SPEND.
    series (`results/feasibility-warm-series/`, $0.5450): reps 2–3 produced gate-accepted
    diffs with authoritative warm cache tiers and a costed delta. Criterion 7 → PASS.
    (Not a screening precondition anymore.)
-3. **Criterion 6 (human-effort subset)** — reviewers record the 9-run rubric timings +
-   inter-reviewer spread (no model spend). HEAC stays `unavailable` until then.
+3. **Criterion 6 (human-effort subset) — CLEARED (2026-07-26).** The 9-run rubric
+   timings are recorded (single reviewer) and folded into each rep-1 run's
+   `human_effort`; HEAC computes end-to-end at $1.60/min (§5.1). **Inter-reviewer spread
+   is `unavailable`** — single-operator deployment, recorded not fabricated; a second
+   reviewer remains desirable at screening scale but is not a blocking precondition.
 4. **Escalation-cost coverage (§4.3)** — include ≥1 screening task the economical tier
    is expected to fail, so real econ→strong escalation cost is captured.
 5. **Rep count** raised per §5 for strong/cold-sensitive cells (≥5).
@@ -315,10 +361,12 @@ validator-passing 30-run dataset (27 controlled accepted).
 
 The measurement system is validated on the authoritative batch-3 dataset (full 27
 controlled, three gate types, validator-passing telemetry, honest
-unavailable-not-zero handling, honest isolation labelling). The **warm-series delta**
-(criterion 7) is now cleared by the 2026-07-26 revalidation (§4.4). One criterion remains
-open and is carried as a screening condition: the **human-effort subset** (criterion 6,
-pending — reviewers in progress). CP-DATA acceptance clears the **telemetry-completeness** requirement for the controlled
+unavailable-not-zero handling, honest isolation labelling). Both previously-open criteria
+are now **cleared**: the **warm-series delta** (criterion 7) by the 2026-07-26
+revalidation (§4.4), and the **human-effort subset** (criterion 6) by the recorded 9-run
+rubric + HEAC computation (§5.1, at n=1 reviewer / n=1 rep, non-comparative). All
+feasibility criteria on the authoritative batch-3 dataset are satisfied. CP-DATA
+acceptance clears the **telemetry-completeness** requirement for the controlled
 instrument and unblocks Phase 4 **screening design**, subject to the §6 conditions
 (gated at CP-SCREEN-PREREG and the screening CP-SPEND, not here). **No number in this
 report appears in any docs / site / public report until CP-FINDINGS.** All figures are
