@@ -25,6 +25,14 @@ conflicts with SPEC.md, STOP and ask the human. Do not edit SPEC.md or this file
    change. Show the command output as evidence.
 7. **Permanent material uses placeholder labels** (Product A/B, STRONG_MODEL_A…);
    exact models/prices only in `manifest/delivery-manifest.yaml` and `pricing/`.
+8. **Reports are append-only per batch.** A checkpoint report produced for one batch is
+   never edited in place to describe another — create a new `report/batchN/` folder.
+   Every report carries a STATUS banner in its first five lines: AUTHORITATIVE,
+   SUPERSEDED (with date, reason and successor), or PENDING. Exactly one
+   telemetry-completeness report is AUTHORITATIVE at any time. Every dataset directory
+   under `results/` is listed in `results/README.md` and names the report that documents
+   it; `report/batchN/` pairs with `results/feasibility-batchN/`. Cross-cutting
+   investigations that are not dataset-scoped go in `report/findings/`.
 
 ## Workflow
 
@@ -61,7 +69,7 @@ Resume only after the human replies `CHECKPOINT APPROVED: <ID>` (or gives correc
 | CP-TASK | End of Phase 2 | Pilot task 10-point validation report; hidden-test plan |
 | CP-SPEND | Before ANY live benchmark run (Phases 3–4, each batch) | Budget + configs + manifest |
 | CP-DATA | After feasibility runs | Telemetry-completeness report accepted |
-| CP-SCREEN-PREREG | Before screening runs | Pre-registration of all W1–W5 tasks (anti-bias protocol) |
+| CP-SCREEN-PREREG | Before screening runs | Pre-registration of all W1–W7 tasks (anti-bias protocol) |
 | CP-FINDINGS | Before any result appears in docs/site/report | Numbers, scoping language, claims register |
 | CP-PUBLISH | Before Pages deploy includes results content | External-facing review |
 

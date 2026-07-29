@@ -1,0 +1,130 @@
+===== BATCH A: 18 controlled (F1,F2 x {P0,C2,P1} x 3 reps, cold) =====
+>>> 11:11:29 RUN task=pilot-realworld config=P0 rep=1 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/pilot-realworld-draft-articles__P0__rep1__20260719T111129
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$0.5516 runs=1 unavailable_legs=0
+>>> 11:13:05 RUN task=pilot-realworld config=P0 rep=2 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/pilot-realworld-draft-articles__P0__rep2__20260719T111306
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$0.6760 runs=2 unavailable_legs=0
+>>> 11:15:24 RUN task=pilot-realworld config=P0 rep=3 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/pilot-realworld-draft-articles__P0__rep3__20260719T111524
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$0.8903 runs=3 unavailable_legs=0
+>>> 11:17:12 RUN task=pilot-realworld config=C2 rep=1 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/pilot-realworld-draft-articles__C2__rep1__20260719T111713
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$0.9832 runs=4 unavailable_legs=0
+>>> 11:18:54 RUN task=pilot-realworld config=C2 rep=2 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/pilot-realworld-draft-articles__C2__rep2__20260719T111854
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$1.0987 runs=5 unavailable_legs=0
+>>> 11:20:45 RUN task=pilot-realworld config=C2 rep=3 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/pilot-realworld-draft-articles__C2__rep3__20260719T112046
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$1.2819 runs=6 unavailable_legs=0
+>>> 11:22:36 RUN task=pilot-realworld config=P1 rep=1 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/pilot-realworld-draft-articles__P1__rep1__20260719T112236
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$1.8975 runs=7 unavailable_legs=0
+>>> 11:26:13 RUN task=pilot-realworld config=P1 rep=2 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/pilot-realworld-draft-articles__P1__rep2__20260719T112613
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$2.4096 runs=8 unavailable_legs=0
+>>> 11:30:11 RUN task=pilot-realworld config=P1 rep=3 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/pilot-realworld-draft-articles__P1__rep3__20260719T113011
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$2.8722 runs=9 unavailable_legs=0
+>>> 11:33:21 RUN task=W4-complex-bugfix config=P0 rep=1 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/w4-realworld-missing-user-id__P0__rep1__20260719T113322
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$3.1876 runs=10 unavailable_legs=0
+>>> 11:34:49 RUN task=W4-complex-bugfix config=P0 rep=2 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/w4-realworld-missing-user-id__P0__rep2__20260719T113449
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$3.2648 runs=11 unavailable_legs=0
+>>> 11:36:45 RUN task=W4-complex-bugfix config=P0 rep=3 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/w4-realworld-missing-user-id__P0__rep3__20260719T113645
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$3.3409 runs=12 unavailable_legs=0
+>>> 11:38:50 RUN task=W4-complex-bugfix config=C2 rep=1 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/w4-realworld-missing-user-id__C2__rep1__20260719T113851
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$3.4394 runs=13 unavailable_legs=0
+>>> 11:40:39 RUN task=W4-complex-bugfix config=C2 rep=2 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/w4-realworld-missing-user-id__C2__rep2__20260719T114040
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$3.4634 runs=14 unavailable_legs=0
+>>> 11:42:10 RUN task=W4-complex-bugfix config=C2 rep=3 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/w4-realworld-missing-user-id__C2__rep3__20260719T114210
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$3.5248 runs=15 unavailable_legs=0
+>>> 11:43:33 RUN task=W4-complex-bugfix config=P1 rep=1 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/w4-realworld-missing-user-id__P1__rep1__20260719T114333
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$3.8752 runs=16 unavailable_legs=0
+>>> 11:46:01 RUN task=W4-complex-bugfix config=P1 rep=2 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/w4-realworld-missing-user-id__P1__rep2__20260719T114601
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$3.9815 runs=17 unavailable_legs=0
+>>> 11:49:31 RUN task=W4-complex-bugfix config=P1 rep=3 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/w4-realworld-missing-user-id__P1__rep3__20260719T114931
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$4.2158 runs=18 unavailable_legs=0
+===== BATCH B: product companions (F1 x {C3,C5} x rep 1,2, cold) =====
+>>> 11:52:24 RUN task=pilot-realworld config=C3 rep=1 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/pilot-realworld-draft-articles__C3__rep1__20260719T115225
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$4.2158 runs=19 unavailable_legs=1
+>>> 11:53:21 RUN task=pilot-realworld config=C3 rep=2 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/pilot-realworld-draft-articles__C3__rep2__20260719T115321
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$4.2158 runs=20 unavailable_legs=2
+>>> 11:54:17 RUN task=pilot-realworld config=C5 rep=1 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/pilot-realworld-draft-articles__C5__rep1__20260719T115417
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$4.5528 runs=21 unavailable_legs=3
+>>> 11:56:09 RUN task=pilot-realworld config=C5 rep=2 cache=cold 
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/pilot-realworld-draft-articles__C5__rep2__20260719T115609
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$4.7481 runs=22 unavailable_legs=4
+===== BATCH C: warm-series (F1 x C1: rep1 cold, reps 2-3 resume) =====
+warm session id: 43b8e041-90f9-4a83-87c9-2a9348d8b9c9
+>>> 11:57:44 RUN task=pilot-realworld config=C1 rep=1 cache=cold --session-id 43b8e041-90f9-4a83-87c9-2a9348d8b9c9
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/pilot-realworld-draft-articles__C1__rep1__20260719T115744
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$5.0199 runs=23 unavailable_legs=4
+>>> 12:00:15 RUN task=pilot-realworld config=C1 rep=2 cache=warm-series --session-id 43b8e041-90f9-4a83-87c9-2a9348d8b9c9 --resume
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/pilot-realworld-draft-articles__C1__rep2__20260719T120015
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$5.0560 runs=24 unavailable_legs=4
+>>> 12:01:20 RUN task=pilot-realworld config=C1 rep=3 cache=warm-series --session-id 43b8e041-90f9-4a83-87c9-2a9348d8b9c9 --resume
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/feasibility/pilot-realworld-draft-articles__C1__rep3__20260719T120120
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$5.2300 runs=25 unavailable_legs=4
+===== BATCH 1 COMPLETE 12:03:13 | cumulative=$5.2300 runs=25 unavailable_legs=4 =====

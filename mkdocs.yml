@@ -16,6 +16,7 @@ nav:
   - "M4 · Enterprise Decision Exercise": m4-decision-exercise.md
   - Exercises:
       - exercises/index.md
+  - Sealed Evaluation: sealed-evaluation.md
   - Cheatsheet: cheatsheet.md
   - Facilitator Guide: facilitator.md
 markdown_extensions: [admonition, tables, attr_list, pymdownx.details, pymdownx.superfences]

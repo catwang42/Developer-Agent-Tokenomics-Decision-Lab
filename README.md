@@ -8,6 +8,7 @@ model-routing policies are economically defensible.
 - **Built by:** Claude Code, phase by phase, per [`CLAUDE.md`](CLAUDE.md) and [`plans/`](plans/)
 - **Human role:** approve checkpoints only (see `CLAUDE.md` → Human checkpoints)
 - **Front end:** MkDocs Material site on GitHub Pages (auto-deployed from `docs/`)
+- **Grading integrity:** [`docs/sealed-evaluation.md`](docs/sealed-evaluation.md) — why hidden tests exist, who holds them, and what the per-result hash proves
 
 ## Layers (SPEC §0)
 1. Methodology (`methodology/`) · 2A. Balanced reference benchmark (`results/pilot-reference/`)

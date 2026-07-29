@@ -1,0 +1,35 @@
+{
+  "gate": "public",
+  "checks": [
+    {
+      "id": "P6-diff-scope",
+      "status": "pass",
+      "detail": "only allowed path(s) changed vs pin"
+    },
+    {
+      "id": "P5-no-leakage",
+      "status": "pass",
+      "detail": "no canonical patch / solution markers in tree"
+    },
+    {
+      "id": "P3-typecheck",
+      "status": "pass",
+      "detail": "tsc -p tsconfig.app.json --noEmit"
+    },
+    {
+      "id": "P4-build",
+      "status": "pass",
+      "detail": "nx build (app compiles)"
+    },
+    {
+      "id": "P1-public-test",
+      "status": "fail",
+      "detail": "Draft articles feature spec (create persists draft; list excludes drafts)"
+    },
+    {
+      "id": "P2-regression",
+      "status": "pass",
+      "detail": "DB-free unit suites (article|profile|utils)"
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+diff --git a/src/tests/mappers/mappers.test.ts b/src/tests/mappers/mappers.test.ts
+new file mode 100644
+index 0000000..e5c9184
+--- /dev/null
++++ b/src/tests/mappers/mappers.test.ts
+@@ -0,0 +1,111 @@
++import articleMapper from '../../app/routes/article/article.mapper';
++import authorMapper from '../../app/routes/article/author.mapper';
++
++// Reference unit tests for the article/author mappers (W1 / F3 canonical).
++// Goal: cover every REACHABLE branch of both mappers with MEANINGFUL assertions on
++// the mapped output values, so a broken (mutant) mapper is caught. article.mapper
++// reaches 100% branch; author.mapper reaches its reachable ceiling (5/6 legs — its
++// `author?.followedBy` nullish leg is unreachable, see report/w1-coverage-analysis.md).
++
++describe('authorMapper', () => {
++  const baseAuthor = {
++    username: 'jane',
++    bio: 'hi',
++    image: null,
++    followedBy: [{ id: 7 }, { id: 42 }],
++  };
++
++  test('no requesting id -> following is false (id-absent branch)', () => {
++    expect(authorMapper(baseAuthor)).toEqual({
++      username: 'jane',
++      bio: 'hi',
++      image: null,
++      following: false,
++    });
++  });
++
++  test('requesting id present and in followedBy -> following true', () => {
++    expect(authorMapper(baseAuthor, 42)).toEqual({
++      username: 'jane',
++      bio: 'hi',
++      image: null,
++      following: true,
++    });
++  });
++
++  test('requesting id present but not in followedBy -> following false', () => {
++    expect(authorMapper(baseAuthor, 99)).toEqual({
++      username: 'jane',
++      bio: 'hi',
++      image: null,
++      following: false,
++    });
++  });
++
++  test('empty followedBy with a requesting id -> following false', () => {
++    const author = { ...baseAuthor, followedBy: [] };
++    expect(authorMapper(author, 42).following).toBe(false);
++  });
++});
++
++describe('articleMapper', () => {
++  const author = {
++    username: 'jane',
++    bio: 'hi',
++    image: null,
++    followedBy: [{ id: 42 }],
++  };
++  const baseArticle = {
++    slug: 'hello-world',
++    title: 'Hello World',
++    description: 'a greeting',
++    body: 'the body',
++    tagList: [{ name: 'intro' }, { name: 'greeting' }],
++    createdAt: '2020-01-01T00:00:00.000Z',
++    updatedAt: '2020-01-02T00:00:00.000Z',
++    favoritedBy: [{ id: 7 }, { id: 42 }],
++    author,
++  };
++
++  test('maps every field; favorited + following true for a matching id', () => {
++    expect(articleMapper(baseArticle, 42)).toEqual({
++      slug: 'hello-world',
++      title: 'Hello World',
++      description: 'a greeting',
++      body: 'the body',
++      tagList: ['intro', 'greeting'],
++      createdAt: '2020-01-01T00:00:00.000Z',
++      updatedAt: '2020-01-02T00:00:00.000Z',
++      favorited: true,
++      favoritesCount: 2,
++      author: {
++        username: 'jane',
++        bio: 'hi',
++        image: null,
++        following: true,
++      },
++    });
++  });
++
++  test('favorited false when requesting id has not favorited it', () => {
++    const mapped = articleMapper(baseArticle, 100);
++    expect(mapped.favorited).toBe(false);
++    expect(mapped.favoritesCount).toBe(2);
++    // id 100 does not follow the author either
++    expect(mapped.author.following).toBe(false);
++  });
++
++  test('no requesting id -> favorited false and author.following false', () => {
++    const mapped = articleMapper(baseArticle);
++    expect(mapped.favorited).toBe(false);
++    expect(mapped.author.following).toBe(false);
++  });
++
++  test('empty tagList maps to empty array and favoritesCount 0', () => {
++    const article = { ...baseArticle, tagList: [], favoritedBy: [] };
++    const mapped = articleMapper(article, 7);
++    expect(mapped.tagList).toEqual([]);
++    expect(mapped.favoritesCount).toBe(0);
++    expect(mapped.favorited).toBe(false);
++  });
++});

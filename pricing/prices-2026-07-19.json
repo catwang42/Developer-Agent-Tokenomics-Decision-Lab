@@ -1,0 +1,60 @@
+{
+  "snapshot_date": "2026-07-19",
+  "retrieved_at_utc": "2026-07-19T10:00:00Z",
+  "note": "Pinned pricing snapshot for the Phase 3 feasibility batch-1 delivery. All four billed token classes per provider/model, USD per million tokens (usd_per_mtok). Prices retrieved from published pricing pages on the date below; confirm at CP-SPEND. Provider keys and model/selector keys MUST match manifest/delivery-manifest.yaml exactly (costing.py keys prices[providers][provider][model_or_selector]).",
+  "sources": [
+    {
+      "provider": "google_vertex (Claude/Anthropic)",
+      "basis": "Anthropic published list rates (Vertex global-endpoint tracks these; regional/multi-region endpoints add a documented +10% premium — see regional_premium note per model).",
+      "url": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "retrieved_at_utc": "2026-07-19T10:00:00Z"
+    },
+    {
+      "provider": "google (Gemini via Product B)",
+      "basis": "Google Cloud Vertex AI generative-ai pricing, global tier. cache_read = published cached-input price; cache_write = base input rate (Gemini bills cache-creation tokens as standard input on first pass; no separate per-token write premium is published).",
+      "url": "https://cloud.google.com/vertex-ai/generative-ai/pricing",
+      "retrieved_at_utc": "2026-07-19T10:00:00Z"
+    }
+  ],
+  "unit": "usd_per_mtok",
+  "providers": {
+    "google_vertex": {
+      "claude-sonnet-4-6@default": {
+        "input": 3.00,
+        "cache_write": 3.75,
+        "cache_read": 0.30,
+        "output": 15.00,
+        "unit": "usd_per_mtok",
+        "cache_write_note": "5-minute cache write = 1.25x base input (list).",
+        "regional_premium_note": "us-central1 (regional) adds +10% over these global-endpoint list rates per Anthropic/GCP docs: input 3.30, cache_write 4.125, cache_read 0.33, output 16.50. Confirm endpoint choice (global vs regional) at CP-SPEND."
+      },
+      "claude-haiku-4-5@20251001": {
+        "input": 1.00,
+        "cache_write": 1.25,
+        "cache_read": 0.10,
+        "output": 5.00,
+        "unit": "usd_per_mtok",
+        "cache_write_note": "5-minute cache write = 1.25x base input (list).",
+        "regional_premium_note": "us-central1 (regional) adds +10%: input 1.10, cache_write 1.375, cache_read 0.11, output 5.50."
+      }
+    },
+    "google": {
+      "Gemini 3.5 Flash (High)": {
+        "input": 1.50,
+        "cache_write": 1.50,
+        "cache_read": 0.15,
+        "output": 9.00,
+        "unit": "usd_per_mtok",
+        "selector_note": "Product B verbatim selector label. '(High)' is a reasoning-effort tier that raises token VOLUME (reasoning billed as output), not the per-token rate. Priced at Gemini 3.5 Flash global rates. Only used if Product B exposes token counts (proxy_observed); otherwise cost is recorded unavailable, never zero."
+      },
+      "Gemini 3.1 Pro (High)": {
+        "input": 2.00,
+        "cache_write": 2.00,
+        "cache_read": 0.20,
+        "output": 12.00,
+        "unit": "usd_per_mtok",
+        "selector_note": "Product B verbatim selector label. Priced at Gemini 3.1 Pro global rates; cache_read is the <=200K cached-input price (>200K is 0.40). '(High)' affects volume, not rate."
+      }
+    }
+  }
+}

@@ -1,0 +1,423 @@
+{
+  "cells": {
+    "pilot-realworld-draft-articles|C1": {
+      "dispersion_marginal_cost_usd": {
+        "iqr": 0.0,
+        "max": 0.321873,
+        "median": 0.321873,
+        "min": 0.321873,
+        "n": 1
+      },
+      "dispersion_output_tokens": {
+        "iqr": 0,
+        "max": 1120,
+        "median": 1120,
+        "min": 1120,
+        "n": 1
+      },
+      "ecst_fully_allocated": {
+        "attempt_cost_is_floor": true,
+        "attempt_cost_sum": 0.321873,
+        "n_accepted": 1,
+        "n_runs": 3,
+        "status": "derived_floor",
+        "value": 0.321873
+      },
+      "ecst_marginal": {
+        "attempt_cost_is_floor": true,
+        "attempt_cost_sum": 0.321873,
+        "n_accepted": 1,
+        "n_runs": 3,
+        "status": "derived_floor",
+        "value": 0.321873
+      },
+      "heac_marginal": {
+        "model_component": 0.321873,
+        "reason": "human-effort minutes not recorded (or no rate supplied)",
+        "status": "unavailable",
+        "value": null
+      },
+      "n_accepted": 1,
+      "n_runs": 3
+    },
+    "pilot-realworld-draft-articles|C2": {
+      "dispersion_marginal_cost_usd": {
+        "iqr": 0.0265,
+        "max": 0.068227,
+        "median": 0.068124,
+        "min": 0.041727,
+        "n": 3
+      },
+      "dispersion_output_tokens": {
+        "iqr": 12.0,
+        "max": 1805,
+        "median": 1795,
+        "min": 1793,
+        "n": 3
+      },
+      "ecst_fully_allocated": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 0.178078,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.059359
+      },
+      "ecst_marginal": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 0.178078,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.059359
+      },
+      "heac_marginal": {
+        "human_minutes": 3.0,
+        "status": "derived",
+        "value": 4.859359
+      },
+      "n_accepted": 3,
+      "n_runs": 3
+    },
+    "pilot-realworld-draft-articles|P0": {
+      "dispersion_marginal_cost_usd": {
+        "iqr": 0.038224,
+        "max": 0.244187,
+        "median": 0.236006,
+        "min": 0.205963,
+        "n": 3
+      },
+      "dispersion_output_tokens": {
+        "iqr": 149.0,
+        "max": 1233,
+        "median": 1210,
+        "min": 1084,
+        "n": 3
+      },
+      "ecst_fully_allocated": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 0.686156,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.228719
+      },
+      "ecst_marginal": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 0.686156,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.228719
+      },
+      "heac_marginal": {
+        "human_minutes": 3.5,
+        "status": "derived",
+        "value": 5.828719
+      },
+      "n_accepted": 3,
+      "n_runs": 3
+    },
+    "pilot-realworld-draft-articles|P1": {
+      "dispersion_marginal_cost_usd": {
+        "iqr": 0.001927,
+        "max": 0.043659,
+        "median": 0.041759,
+        "min": 0.041733,
+        "n": 3
+      },
+      "dispersion_output_tokens": {
+        "iqr": 330.0,
+        "max": 2133,
+        "median": 1809,
+        "min": 1803,
+        "n": 3
+      },
+      "ecst_fully_allocated": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 0.127151,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.042384
+      },
+      "ecst_marginal": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 0.127151,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.042384
+      },
+      "heac_marginal": {
+        "human_minutes": 1.5,
+        "status": "derived",
+        "value": 2.442384
+      },
+      "n_accepted": 3,
+      "n_runs": 3
+    },
+    "w1-realworld-mapper-tests|C2": {
+      "dispersion_marginal_cost_usd": {
+        "iqr": 0.055571,
+        "max": 0.147835,
+        "median": 0.093192,
+        "min": 0.092264,
+        "n": 3
+      },
+      "dispersion_output_tokens": {
+        "iqr": 1282.0,
+        "max": 6586,
+        "median": 5695,
+        "min": 5304,
+        "n": 3
+      },
+      "ecst_fully_allocated": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 0.333291,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.111097
+      },
+      "ecst_marginal": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 0.333291,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.111097
+      },
+      "heac_marginal": {
+        "human_minutes": 33.0,
+        "status": "derived",
+        "value": 52.911097
+      },
+      "n_accepted": 3,
+      "n_runs": 3
+    },
+    "w1-realworld-mapper-tests|P0": {
+      "dispersion_marginal_cost_usd": {
+        "iqr": 0.267181,
+        "max": 0.625235,
+        "median": 0.430553,
+        "min": 0.358053,
+        "n": 3
+      },
+      "dispersion_output_tokens": {
+        "iqr": 412.0,
+        "max": 2833,
+        "median": 2534,
+        "min": 2421,
+        "n": 3
+      },
+      "ecst_fully_allocated": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 1.413841,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.47128
+      },
+      "ecst_marginal": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 1.413841,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.47128
+      },
+      "heac_marginal": {
+        "human_minutes": 7.0,
+        "status": "derived",
+        "value": 11.67128
+      },
+      "n_accepted": 3,
+      "n_runs": 3
+    },
+    "w1-realworld-mapper-tests|P1": {
+      "dispersion_marginal_cost_usd": {
+        "iqr": 0.13262,
+        "max": 0.264743,
+        "median": 0.196612,
+        "min": 0.132123,
+        "n": 3
+      },
+      "dispersion_output_tokens": {
+        "iqr": 2643.0,
+        "max": 10916,
+        "median": 10073,
+        "min": 8273,
+        "n": 3
+      },
+      "ecst_fully_allocated": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 0.593478,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.197826
+      },
+      "ecst_marginal": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 0.593478,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.197826
+      },
+      "heac_marginal": {
+        "human_minutes": 38.0,
+        "status": "derived",
+        "value": 60.997826
+      },
+      "n_accepted": 3,
+      "n_runs": 3
+    },
+    "w4-realworld-missing-user-id|C2": {
+      "dispersion_marginal_cost_usd": {
+        "iqr": 0.071009,
+        "max": 0.107481,
+        "median": 0.072204,
+        "min": 0.036472,
+        "n": 3
+      },
+      "dispersion_output_tokens": {
+        "iqr": 1544.0,
+        "max": 2678,
+        "median": 1166,
+        "min": 1134,
+        "n": 3
+      },
+      "ecst_fully_allocated": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 0.216156,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.072052
+      },
+      "ecst_marginal": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 0.216156,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.072052
+      },
+      "heac_marginal": {
+        "human_minutes": 1.0,
+        "status": "derived",
+        "value": 1.672052
+      },
+      "n_accepted": 3,
+      "n_runs": 3
+    },
+    "w4-realworld-missing-user-id|P0": {
+      "dispersion_marginal_cost_usd": {
+        "iqr": 0.262977,
+        "max": 0.498896,
+        "median": 0.24136,
+        "min": 0.235919,
+        "n": 3
+      },
+      "dispersion_output_tokens": {
+        "iqr": 226.0,
+        "max": 888,
+        "median": 717,
+        "min": 662,
+        "n": 3
+      },
+      "ecst_fully_allocated": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 0.976175,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.325392
+      },
+      "ecst_marginal": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 0.976175,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.325392
+      },
+      "heac_marginal": {
+        "human_minutes": 2.0,
+        "status": "derived",
+        "value": 3.525392
+      },
+      "n_accepted": 3,
+      "n_runs": 3
+    },
+    "w4-realworld-missing-user-id|P1": {
+      "dispersion_marginal_cost_usd": {
+        "iqr": 0.050703,
+        "max": 0.062285,
+        "median": 0.046108,
+        "min": 0.011581,
+        "n": 3
+      },
+      "dispersion_output_tokens": {
+        "iqr": 1394.0,
+        "max": 1777,
+        "median": 1177,
+        "min": 383,
+        "n": 3
+      },
+      "ecst_fully_allocated": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 0.119974,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.039991
+      },
+      "ecst_marginal": {
+        "attempt_cost_is_floor": false,
+        "attempt_cost_sum": 0.119974,
+        "n_accepted": 3,
+        "n_runs": 3,
+        "status": "derived",
+        "value": 0.039991
+      },
+      "heac_marginal": {
+        "human_minutes": 1.0,
+        "status": "derived",
+        "value": 1.639991
+      },
+      "n_accepted": 3,
+      "n_runs": 3
+    }
+  },
+  "loaded_rate_usd_per_min": 1.6,
+  "note": "NON-COMPARATIVE, internal-only (feasibility criterion 5)",
+  "qa_ecst_by_class": {
+    "task:pilot-realworld-draft-articles": {
+      "attempt_cost_is_floor": true,
+      "attempt_cost_sum": 1.313258,
+      "n_accepted": 10,
+      "n_runs": 12,
+      "status": "derived_floor",
+      "value": 0.131326
+    },
+    "task:w1-realworld-mapper-tests": {
+      "attempt_cost_is_floor": false,
+      "attempt_cost_sum": 2.34061,
+      "n_accepted": 9,
+      "n_runs": 9,
+      "status": "derived",
+      "value": 0.260068
+    },
+    "task:w4-realworld-missing-user-id": {
+      "attempt_cost_is_floor": false,
+      "attempt_cost_sum": 1.312305,
+      "n_accepted": 9,
+      "n_runs": 9,
+      "status": "derived",
+      "value": 0.145812
+    }
+  }
+}

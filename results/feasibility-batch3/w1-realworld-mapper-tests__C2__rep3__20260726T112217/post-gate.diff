@@ -1,0 +1,434 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/src/tests/mappers/article.mapper.test.ts b/src/tests/mappers/article.mapper.test.ts
+new file mode 100644
+index 0000000..9884582
+--- /dev/null
++++ b/src/tests/mappers/article.mapper.test.ts
+@@ -0,0 +1,269 @@
++import articleMapper from '../../app/routes/article/article.mapper';
++
++describe('ArticleMapper', () => {
++  describe('article mapping', () => {
++    test('should map basic article fields', () => {
++      // Given
++      const article = {
++        slug: 'how-to-train-your-dragon',
++        title: 'How to train your dragon',
++        description: 'Ever wonder how?',
++        body: 'It takes a Jacobian',
++        tagList: [{ name: 'dragons' }, { name: 'training' }],
++        createdAt: '2016-02-18T03:48:35.824Z',
++        updatedAt: '2016-02-18T03:48:35.824Z',
++        favoritedBy: [],
++        author: {
++          username: 'jake',
++          bio: 'I work at statefarm',
++          image: 'https://i.stack.imgur.com/xHWG8.jpg',
++          followedBy: [],
++        },
++      };
++
++      // When
++      const result = articleMapper(article);
++
++      // Then
++      expect(result.slug).toBe('how-to-train-your-dragon');
++      expect(result.title).toBe('How to train your dragon');
++      expect(result.description).toBe('Ever wonder how?');
++      expect(result.body).toBe('It takes a Jacobian');
++      expect(result.createdAt).toBe('2016-02-18T03:48:35.824Z');
++      expect(result.updatedAt).toBe('2016-02-18T03:48:35.824Z');
++    });
++
++    test('should map tagList from tag objects to array of tag names', () => {
++      // Given
++      const article = {
++        slug: 'test',
++        title: 'Test Article',
++        description: 'Test',
++        body: 'Test body',
++        tagList: [{ name: 'tag1' }, { name: 'tag2' }, { name: 'tag3' }],
++        createdAt: '2016-02-18T03:48:35.824Z',
++        updatedAt: '2016-02-18T03:48:35.824Z',
++        favoritedBy: [],
++        author: {
++          username: 'testuser',
++          bio: 'test bio',
++          image: 'http://test.jpg',
++          followedBy: [],
++        },
++      };
++
++      // When
++      const result = articleMapper(article);
++
++      // Then
++      expect(result.tagList).toEqual(['tag1', 'tag2', 'tag3']);
++    });
++
++    test('should map empty tagList', () => {
++      // Given
++      const article = {
++        slug: 'test',
++        title: 'Test Article',
++        description: 'Test',
++        body: 'Test body',
++        tagList: [],
++        createdAt: '2016-02-18T03:48:35.824Z',
++        updatedAt: '2016-02-18T03:48:35.824Z',
++        favoritedBy: [],
++        author: {
++          username: 'testuser',
++          bio: 'test bio',
++          image: 'http://test.jpg',
++          followedBy: [],
++        },
++      };
++
++      // When
++      const result = articleMapper(article);
++
++      // Then
++      expect(result.tagList).toEqual([]);
++    });
++
++    test('should set favorited to false when requesting id is not in favoritedBy', () => {
++      // Given
++      const article = {
++        slug: 'test',
++        title: 'Test Article',
++        description: 'Test',
++        body: 'Test body',
++        tagList: [],
++        createdAt: '2016-02-18T03:48:35.824Z',
++        updatedAt: '2016-02-18T03:48:35.824Z',
++        favoritedBy: [{ id: 999 }],
++        author: {
++          username: 'testuser',
++          bio: 'test bio',
++          image: 'http://test.jpg',
++          followedBy: [],
++        },
++      };
++      const requestingId = 1;
++
++      // When
++      const result = articleMapper(article, requestingId);
++
++      // Then
++      expect(result.favorited).toBe(false);
++    });
++
++    test('should set favorited to true when requesting id is in favoritedBy', () => {
++      // Given
++      const article = {
++        slug: 'test',
++        title: 'Test Article',
++        description: 'Test',
++        body: 'Test body',
++        tagList: [],
++        createdAt: '2016-02-18T03:48:35.824Z',
++        updatedAt: '2016-02-18T03:48:35.824Z',
++        favoritedBy: [{ id: 123 }, { id: 456 }],
++        author: {
++          username: 'testuser',
++          bio: 'test bio',
++          image: 'http://test.jpg',
++          followedBy: [],
++        },
++      };
++      const requestingId = 123;
++
++      // When
++      const result = articleMapper(article, requestingId);
++
++      // Then
++      expect(result.favorited).toBe(true);
++    });
++
++    test('should set favoritesCount to length of favoritedBy array', () => {
++      // Given
++      const article = {
++        slug: 'test',
++        title: 'Test Article',
++        description: 'Test',
++        body: 'Test body',
++        tagList: [],
++        createdAt: '2016-02-18T03:48:35.824Z',
++        updatedAt: '2016-02-18T03:48:35.824Z',
++        favoritedBy: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }],
++        author: {
++          username: 'testuser',
++          bio: 'test bio',
++          image: 'http://test.jpg',
++          followedBy: [],
++        },
++      };
++
++      // When
++      const result = articleMapper(article);
++
++      // Then
++      expect(result.favoritesCount).toBe(4);
++    });
++
++    test('should set favoritesCount to 0 when favoritedBy is empty', () => {
++      // Given
++      const article = {
++        slug: 'test',
++        title: 'Test Article',
++        description: 'Test',
++        body: 'Test body',
++        tagList: [],
++        createdAt: '2016-02-18T03:48:35.824Z',
++        updatedAt: '2016-02-18T03:48:35.824Z',
++        favoritedBy: [],
++        author: {
++          username: 'testuser',
++          bio: 'test bio',
++          image: 'http://test.jpg',
++          followedBy: [],
++        },
++      };
++
++      // When
++      const result = articleMapper(article);
++
++      // Then
++      expect(result.favoritesCount).toBe(0);
++    });
++
++    test('should map author using authorMapper', () => {
++      // Given
++      const article = {
++        slug: 'test',
++        title: 'Test Article',
++        description: 'Test',
++        body: 'Test body',
++        tagList: [],
++        createdAt: '2016-02-18T03:48:35.824Z',
++        updatedAt: '2016-02-18T03:48:35.824Z',
++        favoritedBy: [],
++        author: {
++          username: 'jake',
++          bio: 'I work at statefarm',
++          image: 'https://i.stack.imgur.com/xHWG8.jpg',
++          followedBy: [{ id: 456 }],
++        },
++      };
++      const requestingId = 456;
++
++      // When
++      const result = articleMapper(article, requestingId);
++
++      // Then
++      expect(result.author).toEqual({
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        following: true,
++      });
++    });
++
++    test('should return complete mapped article object', () => {
++      // Given
++      const article = {
++        slug: 'how-to-train-your-dragon',
++        title: 'How to train your dragon',
++        description: 'Ever wonder how?',
++        body: 'It takes a Jacobian',
++        tagList: [{ name: 'dragons' }, { name: 'training' }],
++        createdAt: '2016-02-18T03:48:35.824Z',
++        updatedAt: '2016-02-18T03:48:35.824Z',
++        favoritedBy: [{ id: 123 }],
++        author: {
++          username: 'jake',
++          bio: 'I work at statefarm',
++          image: 'https://i.stack.imgur.com/xHWG8.jpg',
++          followedBy: [],
++        },
++      };
++      const requestingId = 123;
++
++      // When
++      const result = articleMapper(article, requestingId);
++
++      // Then
++      expect(result).toEqual({
++        slug: 'how-to-train-your-dragon',
++        title: 'How to train your dragon',
++        description: 'Ever wonder how?',
++        body: 'It takes a Jacobian',
++        tagList: ['dragons', 'training'],
++        createdAt: '2016-02-18T03:48:35.824Z',
++        updatedAt: '2016-02-18T03:48:35.824Z',
++        favorited: true,
++        favoritesCount: 1,
++        author: {
++          username: 'jake',
++          bio: 'I work at statefarm',
++          image: 'https://i.stack.imgur.com/xHWG8.jpg',
++          following: false,
++        },
++      });
++    });
++  });
++});
+diff --git a/src/tests/mappers/author.mapper.test.ts b/src/tests/mappers/author.mapper.test.ts
+new file mode 100644
+index 0000000..3f76d33
+--- /dev/null
++++ b/src/tests/mappers/author.mapper.test.ts
+@@ -0,0 +1,151 @@
++import authorMapper from '../../app/routes/article/author.mapper';
++
++describe('AuthorMapper', () => {
++  describe('author mapping', () => {
++    test('should map basic author fields', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [],
++      };
++
++      // When
++      const result = authorMapper(author);
++
++      // Then
++      expect(result.username).toBe('jake');
++      expect(result.bio).toBe('I work at statefarm');
++      expect(result.image).toBe('https://i.stack.imgur.com/xHWG8.jpg');
++    });
++
++    test('should set following to false when id is not provided', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [{ id: 123 }],
++      };
++
++      // When
++      const result = authorMapper(author);
++
++      // Then
++      expect(result.following).toBe(false);
++    });
++
++    test('should set following to false when id is provided but not in followedBy', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [{ id: 456 }, { id: 789 }],
++      };
++      const requestingId = 123;
++
++      // When
++      const result = authorMapper(author, requestingId);
++
++      // Then
++      expect(result.following).toBe(false);
++    });
++
++    test('should set following to true when id is provided and is in followedBy', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [{ id: 123 }, { id: 456 }],
++      };
++      const requestingId = 123;
++
++      // When
++      const result = authorMapper(author, requestingId);
++
++      // Then
++      expect(result.following).toBe(true);
++    });
++
++    test('should return complete mapped author object when not following', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [{ id: 456 }],
++      };
++      const requestingId = 123;
++
++      // When
++      const result = authorMapper(author, requestingId);
++
++      // Then
++      expect(result).toEqual({
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        following: false,
++      });
++    });
++
++    test('should return complete mapped author object when following', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [{ id: 123 }],
++      };
++      const requestingId = 123;
++
++      // When
++      const result = authorMapper(author, requestingId);
++
++      // Then
++      expect(result).toEqual({
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        following: true,
++      });
++    });
++
++    test('should handle author with empty followedBy when id is provided', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [],
++      };
++      const requestingId = 123;
++
++      // When
++      const result = authorMapper(author, requestingId);
++
++      // Then
++      expect(result.following).toBe(false);
++    });
++
++    test('should match the correct user in followedBy with multiple entries', () => {
++      // Given
++      const author = {
++        username: 'jake',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        followedBy: [{ id: 111 }, { id: 222 }, { id: 333 }, { id: 444 }],
++      };
++      const requestingId = 333;
++
++      // When
++      const result = authorMapper(author, requestingId);
++
++      // Then
++      expect(result.following).toBe(true);
++    });
++  });
++});

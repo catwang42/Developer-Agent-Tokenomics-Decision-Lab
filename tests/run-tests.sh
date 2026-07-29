@@ -147,6 +147,15 @@ if [ "$sh_count" -gt 0 ]; then
 fi
 echo "  -> $sh_count shell script(s) checked"
 
+# --- 3b. report/results structure (CLAUDE.md rule 8) -------------------------
+echo "== report/results structure (append-only reports; dataset<->report pairing) =="
+if "$PYTHON" -m unittest tests.test_report_structure -v; then
+  echo "  ok    report/results structure valid"
+else
+  echo "  FAIL  report/results structure invalid"
+  overall_rc=1
+fi
+
 # --- 4. Python unit tests ----------------------------------------------------
 echo "== python unit tests (harness/telemetry) =="
 if "$PYTHON" -m unittest discover -s tests -p 'test_*.py' -v; then

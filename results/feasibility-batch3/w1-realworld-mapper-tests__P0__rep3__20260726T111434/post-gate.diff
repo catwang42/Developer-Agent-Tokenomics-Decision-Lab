@@ -1,0 +1,126 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/src/tests/mappers/article-author.mapper.test.ts b/src/tests/mappers/article-author.mapper.test.ts
+new file mode 100644
+index 0000000..dbca530
+--- /dev/null
++++ b/src/tests/mappers/article-author.mapper.test.ts
+@@ -0,0 +1,118 @@
++import authorMapper from '../../app/routes/article/author.mapper';
++import articleMapper from '../../app/routes/article/article.mapper';
++
++const baseAuthor = {
++  username: 'jane',
++  bio: 'Test bio',
++  image: 'https://example.com/avatar.png',
++  followedBy: [],
++};
++
++const baseArticle = {
++  slug: 'test-slug',
++  title: 'Test Title',
++  description: 'Test description',
++  body: 'Test body',
++  tagList: [],
++  createdAt: new Date('2024-01-01'),
++  updatedAt: new Date('2024-01-02'),
++  favoritedBy: [],
++  author: baseAuthor,
++};
++
++describe('authorMapper', () => {
++  test('following is false when no id is provided', () => {
++    const result = authorMapper(baseAuthor);
++    expect(result).toEqual({
++      username: 'jane',
++      bio: 'Test bio',
++      image: 'https://example.com/avatar.png',
++      following: false,
++    });
++  });
++
++  test('following is true when id is present and user is in followedBy', () => {
++    const author = { ...baseAuthor, followedBy: [{ id: 42 }] };
++    const result = authorMapper(author, 42);
++    expect(result.following).toBe(true);
++    expect(result.username).toBe('jane');
++  });
++
++  test('following is false when id is present but user is not in followedBy', () => {
++    const author = { ...baseAuthor, followedBy: [{ id: 99 }] };
++    const result = authorMapper(author, 42);
++    expect(result.following).toBe(false);
++  });
++
++  test('following is false when id is present and followedBy is empty', () => {
++    const result = authorMapper(baseAuthor, 1);
++    expect(result.following).toBe(false);
++  });
++});
++
++describe('articleMapper', () => {
++  test('maps all scalar fields correctly', () => {
++    const result = articleMapper(baseArticle);
++    expect(result.slug).toBe('test-slug');
++    expect(result.title).toBe('Test Title');
++    expect(result.description).toBe('Test description');
++    expect(result.body).toBe('Test body');
++    expect(result.createdAt).toEqual(new Date('2024-01-01'));
++    expect(result.updatedAt).toEqual(new Date('2024-01-02'));
++  });
++
++  test('tagList is empty array when article has no tags', () => {
++    const result = articleMapper(baseArticle);
++    expect(result.tagList).toEqual([]);
++  });
++
++  test('tagList maps tag objects to their name strings', () => {
++    const article = {
++      ...baseArticle,
++      tagList: [{ name: 'javascript' }, { name: 'testing' }],
++    };
++    const result = articleMapper(article);
++    expect(result.tagList).toEqual(['javascript', 'testing']);
++  });
++
++  test('favorited is false when requesting id is not in favoritedBy', () => {
++    const article = { ...baseArticle, favoritedBy: [{ id: 99 }] };
++    const result = articleMapper(article, 42);
++    expect(result.favorited).toBe(false);
++  });
++
++  test('favorited is true when requesting id is in favoritedBy', () => {
++    const article = { ...baseArticle, favoritedBy: [{ id: 42 }, { id: 99 }] };
++    const result = articleMapper(article, 42);
++    expect(result.favorited).toBe(true);
++  });
++
++  test('favorited is false when no id is provided', () => {
++    const article = { ...baseArticle, favoritedBy: [{ id: 1 }] };
++    const result = articleMapper(article);
++    expect(result.favorited).toBe(false);
++  });
++
++  test('favoritesCount reflects the length of favoritedBy', () => {
++    const article = { ...baseArticle, favoritedBy: [{ id: 1 }, { id: 2 }, { id: 3 }] };
++    const result = articleMapper(article);
++    expect(result.favoritesCount).toBe(3);
++  });
++
++  test('favoritesCount is zero when favoritedBy is empty', () => {
++    const result = articleMapper(baseArticle);
++    expect(result.favoritesCount).toBe(0);
++  });
++
++  test('author field is the mapped author object', () => {
++    const author = { ...baseAuthor, followedBy: [{ id: 7 }] };
++    const article = { ...baseArticle, author };
++    const result = articleMapper(article, 7);
++    expect(result.author).toEqual({
++      username: 'jane',
++      bio: 'Test bio',
++      image: 'https://example.com/avatar.png',
++      following: true,
++    });
++  });
++});

@@ -44,7 +44,7 @@ further phase. **Narrow condition:** products with incomplete telemetry stay in 
 proxy/black-box tier with documented limitations.
 
 ## Output
-report/telemetry-completeness.md: per-config field table (authoritative/derived/
+report/batch3/telemetry-completeness.md: per-config field table (authoritative/derived/
 unavailable), stability results vs criteria 1–7, per-cell dispersion (median, IQR,
 min–max) feeding the rep-count decision, and the go/no-go statement. CP-DATA reviews
 this document.

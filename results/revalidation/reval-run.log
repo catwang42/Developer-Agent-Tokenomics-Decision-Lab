@@ -1,0 +1,25 @@
+>>> 12:45:21 RUN pilot-realworld P0 rep1
+  hash:    sha256:105c24189877b52fe57b1e453f53f73366ad3c7fa1a611a8a2a63042b667abe2
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/revalidation/pilot-realworld-draft-articles__P0__rep1__20260719T124521
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$0.5613 runs=1 unavailable_legs=0
+>>> 12:47:51 RUN pilot-realworld P0 rep2
+  hash:    sha256:105c24189877b52fe57b1e453f53f73366ad3c7fa1a611a8a2a63042b667abe2
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/revalidation/pilot-realworld-draft-articles__P0__rep2__20260719T124751
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$0.8555 runs=2 unavailable_legs=0
+>>> 12:50:14 RUN W4-complex-bugfix C2 rep1
+  hash:    sha256:3d6f804981cb28f1823a91e349be923431e09a206ef9cdb8636e3bc3871886c2
+== hidden gate: PASS ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/revalidation/w4-realworld-missing-user-id__C2__rep1__20260719T125014
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$0.9709 runs=3 unavailable_legs=0
+>>> 12:51:52 RUN pilot-realworld P1 rep1
+  hash:    sha256:105c24189877b52fe57b1e453f53f73366ad3c7fa1a611a8a2a63042b667abe2
+== hidden gate: FAIL ==
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/revalidation/pilot-realworld-draft-articles__P1__rep1__20260719T125153
+validate: PASS (audit-grade)
+<<< rc=0 | cumulative=$1.3760 runs=4 unavailable_legs=0
+===== REVALIDATION COMPLETE 12:55:24 | cumulative=$1.3760 runs=4 unavailable_legs=0 =====
