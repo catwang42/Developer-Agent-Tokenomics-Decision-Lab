@@ -76,7 +76,7 @@ agent's diff. Record **minutes** (decimals ok, e.g. 3.5) in four buckets:
 
 | # | Cell | reviewer | review_min | correction_min | active_min | blocked_min | notes |
 |---|---|---|---|---|---|---|---|
-| 1 | F1·P0 | | | | | | |
+| 1 | F1·P0 | Catherine | 3.5 | 0 | 0 | 0 | Order 1. Merge. Correct schema field, create persistence and public-list exclusion. |
 | 2 | F1·C2 | | | | | | |
 | 3 | F1·P1 | | | | | | |
 | 4 | F2·P0 | | | | | | |
