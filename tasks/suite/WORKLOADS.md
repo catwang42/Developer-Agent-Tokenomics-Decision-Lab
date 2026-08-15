@@ -41,6 +41,11 @@ this is a paper roster. Any live run requires **CP-SPEND**.
   signal to a workload-class claim requires a second, materially different task at tier
   `obscure` or `post_cutoff` (`tasks/WORKLOAD-SELECTION.md` §3, extending SPEC §5.2),
   preferably sourced by commit mining (§4).
-- **Screening scope.** W1–W5 are the SPEC §5.1 classes (spanning expected wins and the
-  W5 break-even loser). W6–W7 were added before CP-SCREEN-PREREG under the SPEC §5
-  anti-bias protocol.
+- **Screening scope.** W1–W7 is the SPEC §5.1 v2.2 roster (spanning expected wins and
+  the W5 break-even loser). W6 and W7 joined it in SPEC v2.2, before CP-SCREEN-PREREG,
+  under the SPEC §5 anti-bias protocol.
+- **Escalation probe.** W6 is the pre-registered escalation probe (fallback W3): a
+  workload selected *because* the economical tier is predicted to fail its gate. The
+  prediction is recorded at CP-SCREEN-PREREG and the result published either way —
+  it is the mechanism that finally exercises P1's escalation-cost path
+  (SPEC §2.9 item 3, §5.1).

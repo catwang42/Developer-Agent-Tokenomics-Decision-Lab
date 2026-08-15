@@ -3,10 +3,13 @@
 **Branch:** phase/5-site
 
 ## Tasks
-1. Build out docs/: index (module cards + 240-min agenda + formats), setup (pre-work +
-   doctor), m0..m4 module pages, exercises/ex110..ex410 pages (timed parts + completion
-   checklists), cheatsheet (claims register card + seven-point audit checklist),
-   facilitator.md (fallback ladder, checkpoint script, disclosure slide text).
+1. Build out docs/: index (module cards + the SPEC §3 v2.2 agenda: 235-min core in a
+   240-min block + formats), setup (pre-work + doctor), m0..m4 module pages,
+   exercises/ex110..ex410 pages (timed parts + completion checklists — timings and
+   content per plans/EXERCISE-SPECS.md), facilitator.md (fallback ladder, checkpoint
+   script, disclosure slide text). **docs/cheatsheet.md already holds the canonical
+   seven-point audit checklist** — ex130 and ex410 link to it; no page restates it.
+   The claims-register card is the remaining cheatsheet addition.
 2. Follow the claims register (SPEC §1.2) — placeholders for models, no exact pilot
    percentages, black-box disclaimer on gallery pages.
 3. report/calculator: static HTML/JS break-even & sensitivity calculator embedded in docs

@@ -19,9 +19,11 @@ CP-FINDINGS and CP-PUBLISH. No SaaS, no live services, no browser storage.
    cost view; output always a shaded range, never a point estimate.
 7. **Cache economics panel** — the warm-series data only, plotted separately from cold
    cells; naive-vs-cache-aware recomputation of the ex120 pinned run.
-8. **Screening annex (results/screening/)** — separate page carrying the mandatory
-   transparency label verbatim (SPEC §5); candidate advantages only; nulls/negatives
-   shown with equal visual weight.
+8. **Screening annex (results/screening/, results/screening-batch*/)** — separate page
+   carrying the mandatory transparency label verbatim (SPEC §5); candidate advantages
+   only; nulls/negatives shown with equal visual weight. Roster is W1–W7 (SPEC §5.1
+   v2.2); the Product-B panel is C3 vs C3-prev (generational, same tier) — no C4 cell
+   and no C6 run in the current window.
 
 ## Rules
 - Every chart caption carries the pinned-conditions scope line (task suite version,
