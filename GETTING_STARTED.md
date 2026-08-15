@@ -1,7 +1,13 @@
-# Getting Started — Building the Lab with Claude Code
+# Getting Started — Historical Build Runbook (built with Claude Code)
 
-You approve checkpoints; Claude Code does the rest. Total human touch points: ~7 per
-full build (one per checkpoint) plus PR merges.
+> **Historical build runbook:** how this repo was *originally constructed* with Claude
+> Code as the **build agent**. **To USE or FORK the lab you do not need Claude Code (or
+> any AI assistant)** — see [`docs/OPERATOR.md`](docs/OPERATOR.md). This document is
+> retained as build provenance.
+
+This runbook records the original build loop: you approve checkpoints; Claude Code (the
+build agent) does the rest. Total human touch points: ~7 per full build (one per
+checkpoint) plus PR merges.
 
 ## 0. Prerequisites (once)
 - Git + a GitHub account + the GitHub CLI (`gh auth login`)
