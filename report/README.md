@@ -71,8 +71,10 @@ banner in its first few lines giving the date, the reason, and its successor.
 
 Investigations that are **not** dataset-scoped live in
 [`report/findings/`](findings/) — e.g. the gate-fairness audit, the subject-isolation leak
-finding and its verification, and the W1 coverage-ceiling analysis. These describe
-harness/task properties that span batches, so they are not tied to a single `batchN/`.
+finding and its verification, the W1 coverage-ceiling analysis, and the screening-window
+[model-pin resolution](findings/model-pin-resolution-2026-08-16.md) (which model ids
+actually resolve, and what usage shape they report). These describe harness/task
+properties that span batches, so they are not tied to a single `batchN/`.
 
 ## Layout
 
