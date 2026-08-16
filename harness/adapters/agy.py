@@ -37,11 +37,54 @@ EXIT_OK = 0
 EXIT_PRODUCT_ERROR = 40
 EXIT_TIMEOUT = 41
 
+# OUR subprocess kill. It must stay strictly ABOVE the manifest-pinned
+# --print-timeout (15m0s = 900s) so the product's own timeout fires first and leaves
+# a diagnosable product error, rather than this opaque kill truncating the evidence.
 DEFAULT_TIMEOUT_S = 1800
 
 
-def build_command(prompt: str, selector_label: str) -> List[str]:
+class ProductVersionMismatch(RuntimeError):
+    """The product on PATH is not the version pinned as a run condition."""
+
+
+_GO_DURATION_UNITS = {"h": 3600, "m": 60, "s": 1}
+
+
+def print_timeout_seconds(value: str) -> float:
+    """Parse agy's Go-duration ``--print-timeout`` (e.g. ``"15m0s"``) to seconds.
+
+    Deliberately strict — an unparseable pin is a configuration error, not a
+    default to fall back to, because falling back would silently reinstate the
+    5m0s product default that already truncated one real attempt.
+    """
+    rest, total, seen = value.strip(), 0.0, False
+    while rest:
+        digits = ""
+        while rest and (rest[0].isdigit() or rest[0] == "."):
+            digits, rest = digits + rest[0], rest[1:]
+        if not digits or not rest or rest[0] not in _GO_DURATION_UNITS:
+            raise ValueError(f"print_timeout {value!r} is not a Go duration (e.g. '15m0s')")
+        total, seen = total + float(digits) * _GO_DURATION_UNITS[rest[0]], True
+        rest = rest[1:]
+    if not seen:
+        raise ValueError(f"print_timeout {value!r} is not a Go duration (e.g. '15m0s')")
+    return total
+
+
+def build_command(prompt: str, selector_label: str,
+                  print_timeout: Optional[str] = None) -> List[str]:
     """Build the headless ``agy`` command (pure; no execution).
+
+    ``print_timeout`` is the manifest-pinned ``--print-timeout`` value (a Go
+    duration such as ``"15m0s"``). It is a PINNED CONDITION, not a tuning knob: the
+    product's own default is 5m0s and the one verified-invocation smoke was cut off
+    by it mid-attempt, so the value in force is recorded per run like any other
+    condition. When None, no flag is passed and the product default applies —
+    we never invent a value the manifest did not declare.
+
+    Reasoning effort is expressed through the SELECTOR SUFFIX only (e.g. "Gemini
+    3.7 Flash (High)"), never through agy's separate ``--effort`` flag: two
+    mechanisms for one condition is how an arm silently becomes un-attributable.
 
     Verified against ``agy --help`` / ``agy models`` (agy 1.1.4):
       * There is **no ``run`` subcommand** — ``agy help run`` errors
@@ -60,9 +103,19 @@ def build_command(prompt: str, selector_label: str) -> List[str]:
         test-compat patch (Antigravity produced zero changes), so we have no verified
         invocation. The pinned CP-SPEND smoke run settles it. The current ordering
         (``--print`` immediately before the prompt) is correct under either reading.
+      * ``--print-timeout`` takes a Go duration and defaults to ``5m0s`` (``agy
+        --help``, re-read 2026-08-16 on agy 1.1.13).
     """
-    return ["agy", "--dangerously-skip-permissions",
-            "--model", selector_label, "--print", prompt]
+    cmd = ["agy", "--dangerously-skip-permissions", "--model", selector_label]
+    if print_timeout:
+        if print_timeout_seconds(print_timeout) >= DEFAULT_TIMEOUT_S:
+            raise ValueError(
+                f"pinned --print-timeout {print_timeout!r} is not below our own "
+                f"{DEFAULT_TIMEOUT_S}s subprocess kill; the product's timeout must "
+                f"fire first so a slow attempt yields a diagnosable product error"
+            )
+        cmd += ["--print-timeout", print_timeout]
+    return cmd + ["--print", prompt]
 
 
 def usage_from_agy_json(obj: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -99,7 +152,21 @@ class AgyAdapter(Adapter):
         # recorded and reported as such — never claimed as authoritative.
         emit("model_call_started", **leg_meta, **session_payload(spec))
 
-        cmd = build_command(spec.prompt, r.model_or_selector)
+        # Product-B version drift is a known hazard (SPEC 2.9: 1.1.4 -> 1.1.7 mid-
+        # programme, and agy self-updates). The manifest pins the version as a run
+        # CONDITION, so a mismatch invalidates the condition and we refuse BEFORE
+        # spending rather than quietly measuring a different product.
+        observed_version = cli_version("agy", self.container)
+        if r.product_version_pin and observed_version != r.product_version_pin:
+            raise ProductVersionMismatch(
+                f"agy version {observed_version!r} does not match the manifest pin "
+                f"{r.product_version_pin!r} for selector {r.model_or_selector!r}. A "
+                f"run under a different product version is a different condition; "
+                f"refusing before spend. Re-pin the manifest (with the drift recorded) "
+                f"or install the pinned version."
+            )
+
+        cmd = build_command(spec.prompt, r.model_or_selector, r.print_timeout)
         # Host mode runs cmd in subject_dir; container mode wraps it in `docker run`
         # (offline default; agent-leg egress is a CP-SPEND item). Only argv/cwd differ.
         argv, cwd = resolve_spawn(self.container, cmd, subject_dir)
@@ -107,7 +174,10 @@ class AgyAdapter(Adapter):
         # provenance, not telemetry; the runner redacts credential-bearing env).
         invocation = {
             "leg": spec.leg_id, "role": spec.role,
-            "product_version": cli_version("agy", self.container),
+            "product_version": observed_version,
+            "product_version_pin": r.product_version_pin or "unpinned",
+            "print_timeout": r.print_timeout or "product_default",
+            "effort_pin": r.effort_pin or "unpinned",
             "argv": list(argv), "cwd": cwd,
         }
         payload: Optional[Dict[str, Any]] = None
@@ -147,5 +217,11 @@ class AgyAdapter(Adapter):
             "auth_billing_path": tiered("product_blackbox", "authoritative"),
             "permission_profile": tiered(SUBJECT_PERMISSION_PROFILE, "authoritative"),
         }
+        if r.effort_pin:
+            # The effort tier we PINNED, carried verbatim inside the selector label
+            # we passed. Authoritative as a condition (it is what we asked for); it
+            # is not a claim about what the product did internally.
+            identity["reasoning_config"] = tiered(
+                f"selector_suffix:{r.effort_pin}", "authoritative")
         return AttemptOutcome(identity=identity, leg_options=leg_options,
                               invocation=invocation)

@@ -111,6 +111,11 @@ def _is_placeholder(val: Any) -> bool:
     return val is None or str(val).strip() in _PLACEHOLDERS or "YYYY" in str(val)
 
 
+def _opt_str(val: Any) -> Optional[str]:
+    """A declared condition as a string, or None when absent/placeholder."""
+    return None if _is_placeholder(val) else str(val).strip()
+
+
 def _require_resolved(field: str, val: Any, model_ref: str) -> Any:
     if _is_placeholder(val):
         raise RunnerError(
@@ -154,11 +159,18 @@ def resolve_model(manifest: Dict[str, Any], model_ref: str, product: str) -> Res
         )
     if surface == "product_blackbox":
         selector = _require_resolved("selector_label", entry.get("selector_label"), model_ref)
+        # Pinned run conditions travel with the resolution so the adapter enforces
+        # them (version mismatch -> refuse before spend) instead of the runner
+        # silently tolerating a drifted product. Absent block => no pin declared.
+        cond = entry.get("conditions") or {}
         # model_id stays None — the backend id is never inferred (SPEC 6.3).
         return ResolvedModel(
             provider=provider, model_or_selector=selector, model_id=None,
             cost_basis=cost_basis, product=product, product_surface=surface,
             region=region, model_confidence="proxy_observed", seat_allocation_usd=seat,
+            product_version_pin=_opt_str(cond.get("agy_version")),
+            print_timeout=_opt_str(cond.get("print_timeout")),
+            effort_pin=_opt_str(cond.get("effort")),
         )
     raise RunnerError(f"{model_ref}.product_surface {surface!r} unknown (controlled_api|product_blackbox)")
 

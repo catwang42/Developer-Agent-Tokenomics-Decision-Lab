@@ -112,6 +112,13 @@ class ResolvedModel:
     model_confidence: str = "authoritative"
     # Delivery-declared costing inputs (never invented; absent => cost unavailable).
     seat_allocation_usd: Optional[float] = None
+    # Pinned run CONDITIONS from the manifest entry's `conditions:` block. These are
+    # part of the experimental condition, not tuning knobs: the adapter refuses to
+    # run when the observed product version differs from product_version_pin, and
+    # passes print_timeout to the product verbatim. None => no pin declared.
+    product_version_pin: Optional[str] = None
+    print_timeout: Optional[str] = None
+    effort_pin: Optional[str] = None
 
 
 def base_model_name(model: Optional[str]) -> str:
