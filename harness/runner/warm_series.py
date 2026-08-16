@@ -140,7 +140,6 @@ def run_series(
             "a live warm-series bills a real account and requires CP-SPEND approval; "
             "set LAB_ALLOW_SPEND=1 for an approved run, or pass --dry-run"
         )
-    R.assert_recordable_configuration(config)
     task = R.load_task(task_arg, manifest)
     plan = R.build_plan(config, manifest, task=task, require_frozen=not dry_run)
     prices, pricing_snapshot = R.resolve_pricing(manifest, plan)

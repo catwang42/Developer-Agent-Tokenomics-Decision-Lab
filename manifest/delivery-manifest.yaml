@@ -139,7 +139,8 @@ routing_policies:
   P3:
     path: harness/policies/p3-policy-delegation.yaml
     sha256: sha256:68ba37376b39dc2dd6108a17bd5940098fab3920194eecbf2089daaa19434e29
-    status: proposed   # -> frozen after human review
+    status: frozen
+    frozen_date: 2026-08-16   # human FREEZE APPROVED; hash verified against the file
     governs: [C5]
     extracted_from: harness/configurations/C5.yaml   # rules verbatim; commit d900358
 
@@ -165,7 +166,8 @@ pilot_task:
   delegation_split:
     path: tasks/pilot-realworld/split.yaml
     sha256: sha256:6e33c4c13588b7d71f8cced82a0baba1518ee7e892540314631a84ebadd69929
-    status: proposed   # -> frozen after human review
+    status: frozen
+    frozen_date: 2026-08-16   # human FREEZE APPROVED; hash verified against the file
 
 # W4 complex-bugfix / F2 feasibility bugfix. Commit-mined per WORKLOAD-SELECTION 4:
 # re-implement the change in canonical_fix_commit starting from pinned_commit (its
@@ -205,4 +207,5 @@ w1_task:
   delegation_split:
     path: tasks/suite/W1-test-generation/split.yaml
     sha256: sha256:6fa4aea042b3614850768da600af1d2771b9e6d1649bd45cd6a49c49cb9d89f5
-    status: proposed   # -> frozen after human review
+    status: frozen
+    frozen_date: 2026-08-16   # human FREEZE APPROVED; hash verified against the file

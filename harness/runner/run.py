@@ -85,8 +85,9 @@ _PRODUCT_LABELS = {"PRODUCT_A": "Product A", "PRODUCT_B": "Product B"}
 _POLICY_FILES = {"P0": "p0-baseline.yaml", "P1": "p1-cheap-first.yaml",
                  "P2": "p2-delegation.yaml"}
 
-# The frozen telemetry schema (CP-SCHEMA) enumerates the configuration ids a summary
-# may carry; a run whose id is outside it cannot be recorded, however well it runs.
+# The telemetry schema (CP-SCHEMA) enumerates the configuration ids a summary may
+# carry; a run whose id is outside it cannot be recorded, however well it runs, so
+# tests assert the harness and the enum agree.
 TELEMETRY_SCHEMA = os.path.join(REPO_ROOT, "harness", "telemetry", "schema-v2.json")
 
 
@@ -1119,31 +1120,18 @@ def _make_run_id(task: Task, config_id: str, rep: int) -> str:
 
 
 def schema_configuration_ids() -> Tuple[str, ...]:
-    """Configuration ids the FROZEN telemetry schema will accept in a summary."""
+    """Configuration ids the telemetry schema will accept in a summary.
+
+    Read from ``schema-v2.json`` rather than duplicated here, so a harness that can
+    run an id the schema cannot record is a test failure (tests/test_telemetry.py)
+    rather than a run that bills and then fails validation at the end. Widening the
+    enum stays a CP-SCHEMA decision; the last one was the human-approved additive
+    widening of 2026-08-16 (C3-prev, P2).
+    """
     with open(TELEMETRY_SCHEMA, encoding="utf-8") as fh:
         schema = json.load(fh)
     enum = ((schema.get("properties") or {}).get("configuration_id") or {}).get("enum") or []
     return tuple(str(v) for v in enum)
-
-
-def assert_recordable_configuration(config_id: str) -> None:
-    """Refuse, before any work, a run the frozen schema could not record.
-
-    ``schema-v2.json`` is frozen at CP-SCHEMA and enumerates ``configuration_id``.
-    A run under an id outside that list executes fine and then fails audit-grade
-    validation at the very end — after a live run has already billed. Failing here
-    instead makes the gap explicit: widening the enum is a CP-SCHEMA decision, and
-    it is the human's, not the runner's, to make.
-    """
-    allowed = schema_configuration_ids()
-    if allowed and config_id not in allowed:
-        raise RunnerError(
-            f"configuration_id {config_id!r} is not in the FROZEN telemetry schema's "
-            f"enum {list(allowed)}, so this run could not be recorded as a valid "
-            f"summary. The harness supports it; the schema does not yet. Adding an id "
-            f"to schema-v2.json is a CP-SCHEMA decision — request it before running "
-            f"(see harness/policies/README.md, P2)."
-        )
 
 
 def resolve_pricing(manifest: Dict[str, Any], plan: RunPlan) -> Tuple[Dict[str, Any], str]:
@@ -1260,9 +1248,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--task", required=True, help="task dir (e.g. tasks/pilot-realworld)")
     ap.add_argument("--config", required=True,
                     help="configuration or policy id: C1|C2|C3|C4|C5|P0|P1|P2. P2 is "
-                         "scripted delegation (B3): it needs the task's pinned "
-                         "split.yaml, hashed in the manifest, and is refused until "
-                         "the frozen telemetry schema accepts the id (CP-SCHEMA)")
+                         "scripted delegation (B3): it needs the task's pinned, frozen "
+                         "split.yaml (a live run is refused on a draft split)")
     ap.add_argument("--manifest", default=os.path.join(REPO_ROOT, "manifest", "delivery-manifest.yaml"))
     ap.add_argument("--phase", default="feasibility", help="results/<phase>/ for live runs")
     ap.add_argument("--rep", type=int, default=1)
@@ -1342,9 +1329,6 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "a live run bills a real account and requires CP-SPEND approval; set "
                 "LAB_ALLOW_SPEND=1 for an approved run, or pass --dry-run"
             )
-        # Cheapest, most fundamental refusal first: a run the frozen schema cannot
-        # record is stopped before any task/plan resolution or spend.
-        assert_recordable_configuration(args.config)
         task = load_task(args.task, manifest)
         plan = build_plan(args.config, manifest, task=task,
                           require_frozen=not args.dry_run)

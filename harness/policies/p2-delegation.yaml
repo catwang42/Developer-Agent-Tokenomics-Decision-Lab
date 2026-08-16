@@ -37,10 +37,9 @@ record: [per_leg_usage, per_leg_cost, split_file_sha256, executor_scopes, conduc
 #    the conductor leg with delegation_attribution: unavailable. The bill is never
 #    divided by assumption.
 
-# OPEN (CP-SCHEMA): schema-v2.json's configuration_id enum has no "P2", so a P2 run
-# cannot be recorded as a valid summary yet and the runner refuses --config P2 up
-# front rather than billing a run it cannot record. Widening the enum is a human
-# decision at CP-SCHEMA; see harness/policies/README.md.
+# CLOSED (CP-SCHEMA approved 2026-08-16): schema-v2.json's configuration_id enum was
+# widened additively to include "P2" (and "C3-prev"), so a P2 run records as a valid
+# summary. All pre-existing v2.0 summaries remain valid.
 
 # HOW the delegation is performed, and what has actually been established about it.
 mechanism:

@@ -212,12 +212,22 @@ class ManifestPin(unittest.TestCase):
         with self.assertRaises(dele.SplitError):
             dele.check_pin(tampered, manifest, "pilot_task", require_frozen=False)
 
-    def test_live_run_requires_a_frozen_pin(self) -> None:
+    def test_both_splits_are_frozen_and_live_runnable(self) -> None:
+        """Human FREEZE APPROVED 2026-08-16 for both reference splits."""
         manifest = yaml.safe_load(open(REAL_MANIFEST, encoding="utf-8"))
+        for task_dir, key in ((PILOT_TASK, "pilot_task"), (W1_TASK, "w1_task")):
+            with self.subTest(task=key):
+                pin = manifest[key]["delegation_split"]
+                self.assertEqual(pin["status"], "frozen")
+                split = dele.load_split(task_dir, repo_root=str(ROOT))
+                dele.check_pin(split, manifest, key, require_frozen=True)  # must not raise
+
+    def test_live_run_requires_a_frozen_pin(self) -> None:
+        """A draft split is dry-runnable but never live-runnable."""
+        manifest = yaml.safe_load(open(REAL_MANIFEST, encoding="utf-8"))
+        manifest["pilot_task"]["delegation_split"]["status"] = "proposed"
         split = dele.load_split(PILOT_TASK, repo_root=str(ROOT))
-        status = (manifest["pilot_task"]["delegation_split"] or {}).get("status")
-        if status == "frozen":
-            self.skipTest("split already frozen by human review")
+        dele.check_pin(split, manifest, "pilot_task", require_frozen=False)  # dry run: ok
         with self.assertRaises(dele.SplitError):
             dele.check_pin(split, manifest, "pilot_task", require_frozen=True)
 
@@ -420,24 +430,33 @@ class RunnerIntegration(unittest.TestCase):
         # ONE product invocation, so the cache contract still sees one fresh session.
         self.assertEqual(runner.assert_cache_contract(events, "cold"), [])
 
-    def test_p2_is_refused_until_the_frozen_schema_can_record_it(self) -> None:
-        # schema-v2.json is frozen at CP-SCHEMA and its configuration_id enum has no
-        # "P2", so a P2 run could not be recorded. The runner refuses up front rather
-        # than running (and, live, billing) and failing validation at the end.
-        self.assertNotIn("P2", runner.schema_configuration_ids())
-        with self.assertRaises(runner.RunnerError):
-            runner.assert_recordable_configuration("P2")
-        for known in ("C1", "C5", "P0", "P1"):
-            runner.assert_recordable_configuration(known)  # must not raise
+    def test_p2_is_recordable_by_the_telemetry_schema(self) -> None:
+        # CP-SCHEMA 2026-08-16 widened configuration_id additively; a P2 run now
+        # records as a valid summary instead of validating only at the end.
+        self.assertIn("P2", runner.schema_configuration_ids())
 
-    def test_cli_refuses_p2_with_a_clear_reason(self) -> None:
+    def test_cli_dry_run_under_p2_writes_a_valid_summary(self) -> None:
+        """End-to-end through main(): plan -> stub attempt -> derived summary -> validate."""
+        manifest = self._manifest()
+        manifest["pilot_task"]["delegation_split"]["status"] = "frozen"
         out_root = tempfile.mkdtemp(prefix="lab-p2-")
+        manifest_path = os.path.join(out_root, "manifest-SYNTHETIC.yaml")
+        with open(manifest_path, "w", encoding="utf-8") as fh:
+            yaml.safe_dump(manifest, fh)
         os.environ.pop("LAB_ALLOW_SPEND", None)
         rc = runner.main(["--task", "tasks/pilot-realworld", "--config", "P2", "--dry-run",
-                          "--cache-state", "cold", "--manifest", SYNTH_MANIFEST,
+                          "--cache-state", "cold", "--manifest", manifest_path,
                           "--out-root", out_root])
-        self.assertEqual(rc, 2)
-        self.assertEqual(os.listdir(out_root), [], "refused run must write nothing")
+        self.assertEqual(rc, 0, "P2 dry run must produce an audit-grade summary")
+        runs = [d for d in os.listdir(out_root) if "__P2__" in d]
+        self.assertEqual(len(runs), 1)
+        with open(os.path.join(out_root, runs[0], "summary.json"), encoding="utf-8") as fh:
+            summary = json.load(fh)
+        self.assertEqual(summary["configuration_id"], "P2")
+        legs = {leg["leg_id"]: leg for leg in summary["legs"]}
+        self.assertEqual(set(legs), {"conductor", "executor"})
+        self.assertNotEqual(legs["conductor"]["model_or_selector"]["value"],
+                            legs["executor"]["model_or_selector"]["value"])
 
 
 if __name__ == "__main__":

@@ -118,6 +118,54 @@ class ValidatorTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertTrue(any("configuration_id" in r for r in reasons))
 
+    def test_configuration_id_enum_accepts_the_cp_schema_2026_08_16_additions(self):
+        """CP-SCHEMA 2026-08-16: additive widening for C3-prev (two Product-B
+        generations that must not merge into one cell) and P2 (scripted delegation).
+        """
+        for config_id in ("C3-prev", "P2"):
+            with self.subTest(configuration_id=config_id):
+                summary = _load("summary-valid-SYNTHETIC.json")
+                summary["configuration_id"] = config_id
+                ok, reasons = validate_summary(summary)
+                self.assertTrue(ok, msg=f"reasons: {reasons}")
+
+    def test_widening_was_additive_only(self):
+        """Every id valid before the widening is still valid (no v2.0 summary breaks)."""
+        for config_id in ("C1", "C2", "C3", "C4", "C5", "P0", "P1"):
+            with self.subTest(configuration_id=config_id):
+                summary = _load("summary-valid-SYNTHETIC.json")
+                summary["configuration_id"] = config_id
+                ok, reasons = validate_summary(summary)
+                self.assertTrue(ok, msg=f"reasons: {reasons}")
+        # ...and the enum is still closed: a near-miss on a new id is still rejected.
+        for config_id in ("C3prev", "C3-PREV", "P3", "p2"):
+            with self.subTest(rejected=config_id):
+                summary = _load("summary-valid-SYNTHETIC.json")
+                summary["configuration_id"] = config_id
+                ok, _ = validate_summary(summary)
+                self.assertFalse(ok)
+
+    def test_schema_records_the_human_approved_amendment(self):
+        with open(telemetry._SCHEMA_PATH, encoding="utf-8") as fh:
+            schema = json.load(fh)
+        self.assertIn("v2.1 2026-08-16: additive enum widening (C3-prev, P2), "
+                      "human-approved; all v2.0 summaries remain valid.",
+                      schema["description"])
+
+
+class HarnessSchemaAgreementTests(unittest.TestCase):
+    """A run the harness can plan but the schema cannot record bills and then fails
+    validation at the very end. Catch that disagreement here instead."""
+
+    def test_every_plannable_configuration_id_is_in_the_schema_enum(self):
+        from harness.runner import run as runner  # local: keeps this module import-light
+
+        cfg_dir = os.path.join(os.path.dirname(__file__), "..", "harness", "configurations")
+        plannable = {os.path.splitext(f)[0] for f in os.listdir(cfg_dir)
+                     if f.endswith(".yaml")} | set(runner._POLICY_FILES)
+        missing = sorted(plannable - set(runner.schema_configuration_ids()))
+        self.assertEqual(missing, [], f"harness can plan {missing}, schema cannot record it")
+
 
 class DeriveSummaryTests(unittest.TestCase):
     def setUp(self):

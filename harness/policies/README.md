@@ -16,7 +16,7 @@ and does not causally support live in
 |---|---|---|---|---|---|
 | P0 | `p0-baseline.yaml` | **Exists** | Static strong single-model baseline; no escalation; deterministic gate | Controlled set; ex220-B/B1 | — (model refs resolve via manifest) |
 | P1 | `p1-cheap-first.yaml` | **Exists** | Economical attempt → pre-registered gate → escalate on fail; records intention-to-route, completed route, failed-attempt costs; both legs billed | Controlled set; ex220-B/B2 | — (model refs resolve via manifest) |
-| P2 | `p2-delegation.yaml` | **Built** (harness/runner/delegation.py; `--config P2`). Reference splits authored for the pilot and W1, both **pinned as `proposed`** — awaiting human freeze. **Not yet runnable end-to-end**: see "P2 and the frozen schema" below | Scripted delegation: pinned `tasks/<task>/split.yaml` assigns executor vs conductor scopes; both legs itemized | ex220-B/B3 | split-file hash per task (`<task>.delegation_split.sha256`) |
+| P2 | `p2-delegation.yaml` | **Built and runnable** (`harness/runner/delegation.py`; `--config P2`). Reference splits for the pilot and W1 **pinned and frozen** (human freeze 2026-08-16); `P2` accepted by the telemetry schema since the CP-SCHEMA widening of 2026-08-16. Live delegation itself is still **unverified** — it needs a CP-SPEND run | Scripted delegation: pinned `tasks/<task>/split.yaml` assigns executor vs conductor scopes; both legs itemized | ex220-B/B3 | split-file hash per task (`<task>.delegation_split.sha256`) |
 | P3 | `p3-policy-delegation.yaml` | **Built** (SPEC §6 item 3). C5's inline rules extracted verbatim; `C5.yaml` references the policy by path and the runner hash-checks it against the manifest. Pinned as `proposed` — awaiting human freeze | Policy-driven delegation governing C5: conductor decides when to delegate to the cross-family executor | ex220-B/B4; C5 companion runs | policy hash `routing_policies.P3.sha256` (**required before any C5 run is cited in workshop material**) |
 
 ## P2 split-file contract (`tasks/<task>/split.yaml`)
@@ -74,14 +74,18 @@ product never metered is `unavailable` (never 0) plus a `delegation_leg_unmetere
 failure, because "the executor did no work" and "delegation never happened" look
 identical in the tokens and only the second is a defect.
 
-### P2 and the frozen schema (open, needs CP-SCHEMA)
+### P2 and the telemetry schema (closed — CP-SCHEMA approved 2026-08-16)
 
-`harness/telemetry/schema-v2.json` is frozen at CP-SCHEMA and its `configuration_id`
-enum is `C1 C2 C3 C4 C5 P0 P1` — it has no `P2`. A P2 run would therefore execute and
-then fail audit-grade validation, so the runner refuses `--config P2` up front
-(`assert_recordable_configuration`) instead of billing a run it cannot record. Widening
-the enum is a one-line schema change and a **human CP-SCHEMA decision**; the harness is
-otherwise complete and its tests run the delegation path directly.
+`harness/telemetry/schema-v2.json`'s `configuration_id` enum was widened **additively**
+to `C1 C2 C3 C3-prev C4 C5 P0 P1 P2` (schema note: "v2.1 2026-08-16: additive enum
+widening (C3-prev, P2), human-approved; all v2.0 summaries remain valid"). Nothing else
+in the schema changed and every existing batch summary still validates, so a P2 run now
+records as a valid summary. `tests/test_telemetry.py` asserts the enum accepts both new
+ids, rejects an unknown one, and stays in agreement with the ids the runner can plan.
+
+What is still open is not the schema but the **evidence**: live delegation is
+`unverified` in the policy until a CP-SPEND-approved run shows the product honouring the
+subagent definition and metering both models separately.
 
 ## P3 policy reference (`harness/configurations/C5.yaml` → `p3-policy-delegation.yaml`)
 
