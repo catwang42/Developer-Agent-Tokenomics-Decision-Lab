@@ -169,6 +169,18 @@ Live runs write into `results/<phase>/`. Which models/prices a live run resolves
 from `manifest/delivery-manifest.yaml` + `pricing/`; a live run refuses to start on an
 unresolved manifest.
 
+**Product-B version pin (pre-batch check).** Product B (`agy`) self-updates, so the
+binary can move between the CP-SPEND approval that priced a batch and the run that
+spends against it — and a batch whose later runs measure a different build is not the
+experiment that was approved. A live run therefore probes `agy --version` **before**
+anything is created or billed and refuses to start unless it equals the manifest pin
+(`subject_isolation.agent_leg.agy_version`, mirrored in every
+`configurations.PRODUCT_B_*.conditions.agy_version`); an unreadable version is a refusal
+too. The adapter sets the product's own updater kill-switch
+(`AGY_CLI_DISABLE_AUTO_UPDATE=1`) on every invocation, including that probe, and the
+state is recorded per run as `conditions.auto_update`. If the check fires, re-pin the
+manifest with the drift recorded — do not work around it.
+
 ---
 
 ## Fork guidance

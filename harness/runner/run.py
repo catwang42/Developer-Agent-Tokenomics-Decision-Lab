@@ -38,6 +38,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import yaml
 
 from harness.adapters import REAL_ADAPTERS, ResolvedModel, StubAdapter
+from harness.adapters import agy as agy_adapter
 from harness.adapters.base import (
     SUBJECT_PROFILE_CONTAINER_AGENT,
     SUBJECT_PROFILE_CONTAINER_GATE,
@@ -45,6 +46,7 @@ from harness.adapters.base import (
     AttemptSpec,
     DelegatedLeg,
     DelegationPlan,
+    cli_version,
 )
 from harness.container import egress as egress_mod
 from harness.container.exec import (
@@ -70,6 +72,17 @@ from harness.telemetry.telemetry import EventLog, derive_summary, tiered, unavai
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 COST_BASES = ("marginal_api_cost", "allocated_subscription_cost",
               "provider_reported_cost", "cost_unavailable")
+
+# Declared qualifications of a cost_basis (manifest `cost_basis_qualifier`). The
+# schema's cost_basis enum is FROZEN at COST_BASES and widening it is a CP-SCHEMA
+# decision; a qualifier says how the basis was derived without touching the enum.
+# Closed list on purpose — an unrecognised qualifier is a manifest error, because a
+# free-text qualifier could smuggle an unreviewed costing claim into a summary.
+#   cache_blind_upper_bound — cache token classes were not measurable for this
+#   provider, so the figure prices all input at the full input rate and is an UPPER
+#   BOUND on real spend (human decision 2026-08-16; manifest notes
+#   gemini_cache_blindness; report/findings/vertex-token-metric-surface-2026-08-16.md).
+COST_BASIS_QUALIFIERS = ("cache_blind_upper_bound",)
 
 # Per-task offline subject image (batch-2 containerized posture; see
 # harness/container/README.md and manifest subject_isolation).
@@ -111,6 +124,11 @@ def _is_placeholder(val: Any) -> bool:
     return val is None or str(val).strip() in _PLACEHOLDERS or "YYYY" in str(val)
 
 
+def _opt_str(val: Any) -> Optional[str]:
+    """A declared condition as a string, or None when absent/placeholder."""
+    return None if _is_placeholder(val) else str(val).strip()
+
+
 def _require_resolved(field: str, val: Any, model_ref: str) -> Any:
     if _is_placeholder(val):
         raise RunnerError(
@@ -138,6 +156,13 @@ def resolve_model(manifest: Dict[str, Any], model_ref: str, product: str) -> Res
     cost_basis = _require_resolved("cost_basis", entry.get("cost_basis"), model_ref)
     if cost_basis not in COST_BASES:
         raise RunnerError(f"{model_ref}.cost_basis {cost_basis!r} not in {COST_BASES}")
+    qualifier = _opt_str(entry.get("cost_basis_qualifier"))
+    if qualifier is not None and qualifier not in COST_BASIS_QUALIFIERS:
+        raise RunnerError(
+            f"{model_ref}.cost_basis_qualifier {qualifier!r} not in "
+            f"{COST_BASIS_QUALIFIERS}; a qualifier changes how a cost figure must be "
+            f"read, so a new one is a human decision, not a manifest free-text field"
+        )
     surface = entry.get("product_surface")
 
     region = entry.get("region")
@@ -151,14 +176,23 @@ def resolve_model(manifest: Dict[str, Any], model_ref: str, product: str) -> Res
             provider=provider, model_or_selector=model_id, model_id=model_id,
             cost_basis=cost_basis, product=product, product_surface=surface,
             region=region, model_confidence="authoritative", seat_allocation_usd=seat,
+            cost_basis_qualifier=qualifier,
         )
     if surface == "product_blackbox":
         selector = _require_resolved("selector_label", entry.get("selector_label"), model_ref)
+        # Pinned run conditions travel with the resolution so the adapter enforces
+        # them (version mismatch -> refuse before spend) instead of the runner
+        # silently tolerating a drifted product. Absent block => no pin declared.
+        cond = entry.get("conditions") or {}
         # model_id stays None — the backend id is never inferred (SPEC 6.3).
         return ResolvedModel(
             provider=provider, model_or_selector=selector, model_id=None,
             cost_basis=cost_basis, product=product, product_surface=surface,
             region=region, model_confidence="proxy_observed", seat_allocation_usd=seat,
+            cost_basis_qualifier=qualifier,
+            product_version_pin=_opt_str(cond.get("agy_version")),
+            print_timeout=_opt_str(cond.get("print_timeout")),
+            effort_pin=_opt_str(cond.get("effort")),
         )
     raise RunnerError(f"{model_ref}.product_surface {surface!r} unknown (controlled_api|product_blackbox)")
 
@@ -765,14 +799,22 @@ def build_economics(legs: List[Dict[str, Any]], prices: Dict[str, Any],
     NOT get a single-basis aggregate placed beside incompatible bases — the top
     level is marked ``cost_unavailable`` and per-leg costs (precise, available)
     are the source of truth.
+
+    ``cost_basis_qualifier`` propagates UP, not sideways: if ANY leg's basis is
+    qualified, the run-level figure inherits the qualification, because a total
+    that contains one cache-blind upper bound is itself an upper bound. C5 is the
+    case that matters — a Claude conductor plus a cache-blind Gemini executor.
     """
     agg = cost_for_legs(legs, prices, leg_options=leg_options)
     per_leg_views = {v["leg_id"]: v for v in agg["legs"]}
 
     bases = {leg["cost_basis"] for leg in legs}
     uniform = next(iter(bases)) if len(bases) == 1 else None
+    qualifiers = sorted({q for leg in legs if (q := leg.get("cost_basis_qualifier"))})
 
     econ: Dict[str, Any] = {"pricing_snapshot": os.path.basename(pricing_snapshot)}
+    if qualifiers:
+        econ["cost_basis_qualifier"] = ",".join(qualifiers)
     if uniform:
         econ["cost_basis"] = uniform
         econ["marginal_operating_usd"] = agg["marginal_operating_usd"]
@@ -1134,6 +1176,44 @@ def schema_configuration_ids() -> Tuple[str, ...]:
     return tuple(str(v) for v in enum)
 
 
+def preflight_product_versions(plan: RunPlan) -> None:
+    """Refuse to start a run whose product binary has drifted from the manifest pin.
+
+    The agy adapter already refuses on a version mismatch, but it does so *inside*
+    the attempt, after the run directory exists and the batch has begun. `agy`
+    self-updates, so the version on PATH can move between the CP-SPEND approval
+    that priced a batch and the run that spends against it — and a batch whose
+    later runs measure a different product build is not the experiment that was
+    approved. This check runs before anything is created or billed.
+
+    The HOST binary is checked in both isolation modes on purpose: under
+    ``--subject-isolation container`` the agent image is staged FROM the host
+    binary (harness/container/stage-agy.sh vendors it and the build asserts its
+    sha256), so host drift is exactly what would silently rebuild the image on a
+    different version. The adapter's in-container check still runs afterwards.
+
+    ``unavailable`` (binary absent or unrunnable) is a refusal too: a pin that
+    cannot be checked has not been satisfied.
+    """
+    for leg in plan.legs:
+        pin = leg.resolved.product_version_pin
+        if not pin:
+            continue
+        observed = cli_version("agy", None, env=agy_adapter.agy_env())
+        if observed != pin:
+            raise RunnerError(
+                f"pre-batch check: `agy --version` reports {observed!r} but the "
+                f"manifest pins {pin!r} (leg {leg.leg_id}, selector "
+                f"{leg.resolved.model_or_selector!r}). agy self-updates, so this is "
+                f"the expected drift mode; refusing to start before anything is "
+                f"created or billed. Re-pin the manifest with the drift recorded "
+                f"(subject_isolation.agent_leg.agy_version + agy_sha256 + every "
+                f"configurations.PRODUCT_B_*.conditions.agy_version, which "
+                f"tests/test_manifest_pricing.py keeps in agreement), or install "
+                f"the pinned version."
+            )
+
+
 def resolve_pricing(manifest: Dict[str, Any], plan: RunPlan) -> Tuple[Dict[str, Any], str]:
     """Load the pinned pricing snapshot for a plan (SPEC 1.4 / cache-protocol rule 3).
 
@@ -1332,6 +1412,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         task = load_task(args.task, manifest)
         plan = build_plan(args.config, manifest, task=task,
                           require_frozen=not args.dry_run)
+
+        # Pre-batch product-version check. Live runs only: --dry-run drives stub
+        # adapters and never touches the product binary, so probing it there would
+        # make an offline test depend on what is installed on the machine.
+        if not args.dry_run:
+            preflight_product_versions(plan)
 
         prices, pricing_snapshot = resolve_pricing(manifest, plan)
 

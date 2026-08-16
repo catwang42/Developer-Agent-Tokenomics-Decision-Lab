@@ -17,8 +17,11 @@ import sys
 import tempfile
 import unittest
 
+import yaml
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from harness.adapters import agy  # noqa: E402
 from harness.runner import run as runner  # noqa: E402
 from harness.telemetry.telemetry import validate  # noqa: E402
 
@@ -157,6 +160,185 @@ class ProductBlackboxUnavailable(unittest.TestCase):
         # Costed via the product-reported figure, not token math.
         self.assertEqual(summary["economics"]["cost_basis"], "provider_reported_cost")
         self.assertEqual(summary["legs"][0]["marginal_operating_usd"]["confidence"], "proxy_observed")
+
+
+class CostBasisQualifier(unittest.TestCase):
+    """A declared qualification of a cost_basis must survive to the summary.
+
+    The screening window declares Product-B costing cache-blind (human decision
+    2026-08-16): every Gemini leg carries ``cost_basis_qualifier:
+    cache_blind_upper_bound`` beside an unchanged ``cost_basis``. The failure this
+    guards against is silence — a qualifier that is pinned in the manifest, dropped
+    somewhere between resolution and the summary, and so never seen by whoever
+    reads the cost. It must also survive re-derivation, or the run is not
+    audit-grade.
+    """
+
+    def test_solo_leg_carries_the_qualifier_and_stays_audit_grade(self) -> None:
+        rc, run_dir, summary = _run("C3")
+        self.assertEqual(rc, 0)
+        ok, reasons = validate(run_dir)
+        self.assertTrue(ok, f"qualifier broke re-derivation: {reasons}")
+        self.assertEqual(summary["legs"][0]["cost_basis_qualifier"],
+                         "cache_blind_upper_bound")
+        self.assertEqual(summary["economics"]["cost_basis_qualifier"],
+                         "cache_blind_upper_bound")
+        # The frozen enum is untouched — the qualifier sits BESIDE the basis.
+        self.assertEqual(summary["legs"][0]["cost_basis"], "provider_reported_cost")
+
+    def test_one_qualified_leg_qualifies_the_whole_run(self) -> None:
+        """C5: a total containing one upper bound is itself an upper bound."""
+        rc, _, summary = _run("C5")
+        self.assertEqual(rc, 0)
+        legs = {leg["leg_id"]: leg for leg in summary["legs"]}
+        self.assertNotIn("cost_basis_qualifier", legs["conductor"])
+        self.assertEqual(legs["executor"]["cost_basis_qualifier"],
+                         "cache_blind_upper_bound")
+        self.assertEqual(summary["economics"]["cost_basis_qualifier"],
+                         "cache_blind_upper_bound")
+
+    def test_unqualified_run_gains_no_key(self) -> None:
+        """Absence stays absence: C1 has nothing to qualify."""
+        rc, _, summary = _run("C1")
+        self.assertEqual(rc, 0)
+        self.assertNotIn("cost_basis_qualifier", summary["legs"][0])
+        self.assertNotIn("cost_basis_qualifier", summary["economics"])
+
+    def test_an_unknown_qualifier_is_refused(self) -> None:
+        """Free text here could smuggle an unreviewed costing claim into a summary."""
+        manifest = yaml.safe_load(open(SYNTH_MANIFEST, encoding="utf-8"))
+        manifest["configurations"]["PRODUCT_B_ECON_TIER"]["cost_basis_qualifier"] = \
+            "SYNTHETIC-not-a-real-qualifier"
+        with self.assertRaises(runner.RunnerError):
+            runner.resolve_model(manifest, "PRODUCT_B_ECON_TIER", "product_b")
+
+
+class ScreeningArms(unittest.TestCase):
+    """The two extra Product-B arms added for the screening window.
+
+    C3-med (effort) and C3-prev (generation) exist so the summarizer cannot merge
+    them into C3. Each must plan, run and validate as its OWN configuration_id and
+    resolve its OWN selector — if either collapsed onto C3's id or C3's selector,
+    the arm would be invisible in exactly the way the schema widening was meant to
+    prevent.
+    """
+
+    ARMS = {"C3-med": "PRODUCT_B_ECON_TIER_MED", "C3-prev": "PRODUCT_B_ECON_TIER_PREV"}
+
+    def test_each_arm_validates_under_its_own_configuration_id(self) -> None:
+        for config in self.ARMS:
+            with self.subTest(config=config):
+                rc, run_dir, summary = _run(config)
+                self.assertEqual(rc, 0, f"{config} runner exit")
+                ok, reasons = validate(run_dir)
+                self.assertTrue(ok, f"{config} not audit-grade: {reasons}")
+                self.assertEqual(summary["configuration_id"], config)
+
+    def test_arms_resolve_distinct_selectors_from_c3(self) -> None:
+        manifest = yaml.safe_load(open(SYNTH_MANIFEST, encoding="utf-8"))
+        seen = {}
+        for config in ("C3", *self.ARMS):
+            plan = runner.build_plan(config, manifest)
+            self.assertEqual(len(plan.legs), 1, f"{config} is a solo arm")
+            seen[config] = plan.legs[0].resolved.model_or_selector
+        self.assertEqual(len(set(seen.values())), 3, f"arms share a selector: {seen}")
+
+    def test_arms_never_infer_a_backend_model_id(self) -> None:
+        """SPEC 6.3 holds for the new arms too: label verbatim, id never inferred."""
+        manifest = yaml.safe_load(open(SYNTH_MANIFEST, encoding="utf-8"))
+        for config in self.ARMS:
+            with self.subTest(config=config):
+                resolved = runner.build_plan(config, manifest).legs[0].resolved
+                self.assertIsNone(resolved.model_id)
+                self.assertEqual(resolved.model_confidence, "proxy_observed")
+
+
+class ProductVersionPreflight(unittest.TestCase):
+    """Pre-batch product-version check (human decision 2026-08-16, decision 4).
+
+    agy self-updates, so the binary can move between the CP-SPEND approval that
+    priced a batch and the run that spends against it. The adapter's own check
+    fires inside the attempt, after the run directory exists; this one fires
+    before anything is created or billed.
+    """
+
+    def _plan(self, config: str = "C3-med"):
+        manifest = yaml.safe_load(open(SYNTH_MANIFEST, encoding="utf-8"))
+        return runner.build_plan(config, manifest)
+
+    def _with_version(self, version: str, plan) -> None:
+        seen = {}
+        original = runner.cli_version
+
+        def fake(binary, container=None, env=None):
+            seen["binary"], seen["env"] = binary, env
+            return version
+
+        runner.cli_version = fake
+        try:
+            runner.preflight_product_versions(plan)
+        finally:
+            runner.cli_version = original
+        self.seen = seen
+
+    def test_the_pinned_version_passes_and_the_probe_disables_auto_update(self) -> None:
+        plan = self._plan()
+        self.assertEqual(plan.legs[0].resolved.product_version_pin, "SYNTHETIC-0.0.0")
+        self._with_version("SYNTHETIC-0.0.0", plan)
+        self.assertEqual(self.seen["binary"], "agy")
+        # The probe itself must not be the invocation that lets an update land.
+        self.assertEqual(self.seen["env"].get(agy.AUTO_UPDATE_DISABLE_ENV), "1")
+
+    def test_a_drifted_version_refuses_to_start(self) -> None:
+        plan = self._plan()
+        with self.assertRaises(runner.RunnerError):
+            self._with_version("SYNTHETIC-9.9.9", plan)
+
+    def test_an_unreadable_version_refuses_too(self) -> None:
+        """A pin that cannot be checked has not been satisfied — unavailable != ok."""
+        plan = self._plan()
+        with self.assertRaises(runner.RunnerError):
+            self._with_version("unavailable", plan)
+
+    def test_an_unpinned_leg_is_not_probed(self) -> None:
+        """Product-A legs have no agy pin; probing for them would make a Claude-only
+        run depend on whether agy is installed at all."""
+        plan = self._plan("C1")
+        self.assertIsNone(plan.legs[0].resolved.product_version_pin)
+        self.seen = {}
+        self._with_version("SYNTHETIC-9.9.9", plan)   # would raise if probed
+        self.assertEqual(self.seen, {})
+
+    def test_dry_runs_do_not_probe_the_product_binary(self) -> None:
+        """--dry-run drives stub adapters and never touches agy; probing there would
+        make the offline suite depend on the host's installed product."""
+        called = []
+        original = runner.cli_version
+        runner.cli_version = lambda *a, **k: called.append(a) or "SYNTHETIC-9.9.9"
+        try:
+            rc, run_dir, _ = _run("C3-med")
+        finally:
+            runner.cli_version = original
+        self.assertEqual(rc, 0)
+        self.assertEqual(called, [])
+        ok, reasons = validate(run_dir)
+        self.assertTrue(ok, f"not audit-grade: {reasons}")
+
+
+class AutoUpdateKillSwitch(unittest.TestCase):
+    """The updater state is a pinned run condition, so it must actually be set."""
+
+    def test_the_adapter_env_carries_the_products_own_kill_switch(self) -> None:
+        env = agy.agy_env()
+        self.assertEqual(env[agy.AUTO_UPDATE_DISABLE_ENV], "1")
+        # ...and does not drop what agent_env() already provided.
+        for key, value in agy.agent_env().items():
+            self.assertEqual(env[key], value)
+
+    def test_the_condition_string_names_the_variable_it_sets(self) -> None:
+        """A condition recorded as a bare 'disabled' would not say how, and could not
+        be re-established by anyone reading the run record."""
+        self.assertIn(agy.AUTO_UPDATE_DISABLE_ENV, agy.AUTO_UPDATE_CONDITION)
 
 
 class StartupGuards(unittest.TestCase):

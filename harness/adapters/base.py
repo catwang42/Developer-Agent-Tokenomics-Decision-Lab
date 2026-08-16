@@ -112,6 +112,20 @@ class ResolvedModel:
     model_confidence: str = "authoritative"
     # Delivery-declared costing inputs (never invented; absent => cost unavailable).
     seat_allocation_usd: Optional[float] = None
+    # How the declared cost_basis was DERIVED, when that needs qualifying. The
+    # schema's cost_basis enum is frozen at four values, so a qualification like
+    # "cache_blind_upper_bound" (Product B this window: the provider meter emits no
+    # cache series for publisher=google, so cache classes stay unavailable and the
+    # figure prices all input at the full rate) rides here instead of overloading
+    # the enum. Additive: absent => the basis needs no qualification.
+    cost_basis_qualifier: Optional[str] = None
+    # Pinned run CONDITIONS from the manifest entry's `conditions:` block. These are
+    # part of the experimental condition, not tuning knobs: the adapter refuses to
+    # run when the observed product version differs from product_version_pin, and
+    # passes print_timeout to the product verbatim. None => no pin declared.
+    product_version_pin: Optional[str] = None
+    print_timeout: Optional[str] = None
+    effort_pin: Optional[str] = None
 
 
 def base_model_name(model: Optional[str]) -> str:
@@ -253,11 +267,16 @@ class Adapter:
 def leg_identity_payload(resolved: ResolvedModel) -> Dict[str, Any]:
     """The leg-identifying fields a ``model_call_completed`` event must carry so
     the deriver can attribute per-leg provider/model/cost_basis (SPEC 2.7)."""
-    return {
+    payload = {
         "provider": tiered(resolved.provider, "authoritative"),
         "model_or_selector": tiered(resolved.model_or_selector, resolved.model_confidence),
         "cost_basis": resolved.cost_basis,
     }
+    # Emitted only when the manifest declares one, so runs whose basis needs no
+    # qualification keep exactly the event shape they had before.
+    if resolved.cost_basis_qualifier:
+        payload["cost_basis_qualifier"] = resolved.cost_basis_qualifier
+    return payload
 
 
 def usage_field(value: Optional[int], confidence: str, reason: str = "") -> Dict[str, Any]:
@@ -294,7 +313,7 @@ def agent_env() -> Dict[str, str]:
     return {k: v for k, v in os.environ.items() if k not in _HARNESS_ENV_KEYS}
 
 
-def cli_version(binary: str, container=None) -> str:
+def cli_version(binary: str, container=None, env: Optional[Dict[str, str]] = None) -> str:
     """Product/CLI version string for the invocation.txt artifact and identity.
 
     In CONTAINER mode the version comes from the launched image's pinned label
@@ -303,6 +322,10 @@ def cli_version(binary: str, container=None) -> str:
     ``<binary> --version`` (no model spend) and returns its first output line.
     Either way, ``"unavailable"`` when it cannot be established — never fabricated,
     never silently substituted from the other mode.
+
+    ``env`` overrides the probe's environment (``None`` inherits). A self-updating
+    product needs its updater switched off here too, or the probe itself can change
+    the version it is about to report.
     """
     if container is not None and getattr(container, "image", None):
         from harness.container.exec import image_cli_version
@@ -311,7 +334,7 @@ def cli_version(binary: str, container=None) -> str:
     try:
         proc = subprocess.run(  # noqa: S603 - fixed argv, no shell
             [binary, "--version"], capture_output=True, text=True,
-            check=False, timeout=15,
+            check=False, timeout=15, env=env,
         )
     except (OSError, subprocess.SubprocessError):
         return "unavailable"
