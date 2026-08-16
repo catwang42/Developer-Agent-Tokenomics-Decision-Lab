@@ -21,12 +21,42 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "manifest" / "delivery-manifest.yaml"
 SCHEMA = ROOT / "harness" / "telemetry" / "schema-v2.json"
 
-# Every task directory driven by the shared harness.
-TASK_DIRS = [
+# Task directories driven by the shared harness, split by the phase they belong to.
+# The two lists differ in ONE invariant — which configuration set task.yaml declares
+# (see ConfigurationDeclarations) — so everything else iterates TASK_DIRS.
+FEASIBILITY_TASK_DIRS = [
     ROOT / "tasks" / "pilot-realworld",
     ROOT / "tasks" / "suite" / "W4-complex-bugfix",
     ROOT / "tasks" / "suite" / "W1-test-generation",
 ]
+# Phase-4 screening roster, commit-mined and pinned 2026-08-16 to break batch 3's
+# ceiling effect. Register: tasks/proposals/2026-08-commit-mined-candidates.md.
+SCREENING_TASK_DIRS = [
+    ROOT / "tasks" / "suite" / "W4b-zarr-consolidated-order",
+    ROOT / "tasks" / "suite" / "W3-migration",
+    ROOT / "tasks" / "suite" / "W1b-zarr-block-mask-properties",
+    ROOT / "tasks" / "suite" / "W6-pr-review",
+]
+TASK_DIRS = FEASIBILITY_TASK_DIRS + SCREENING_TASK_DIRS
+
+# Test-file naming, per stack. The suite spans a jest/TypeScript repo and three
+# pytest/Python repos, and sqlfluff configures python_files = "*_test.py" while zarr
+# uses the default test_*.py — so both Python forms are recognised.
+TS_TEST_SUFFIXES = (".test.ts", ".spec.ts")
+
+
+def _is_test_file(path: str) -> bool:
+    """True if ``path`` names a test file in any stack the suite uses."""
+    if path.endswith(TS_TEST_SUFFIXES):
+        return True
+    base = path.rsplit("/", 1)[-1]
+    return base.startswith("test_") and base.endswith(".py") or base.endswith("_test.py")
+
+
+def _patch_files(patch: str) -> list:
+    """Repo-relative paths touched by a unified diff, from its `diff --git` lines."""
+    return [ln[len("diff --git a/"):].split(" b/")[0]
+            for ln in patch.splitlines() if ln.startswith("diff --git ")]
 
 
 def _yaml(path: pathlib.Path) -> dict:
@@ -35,7 +65,8 @@ def _yaml(path: pathlib.Path) -> dict:
 
 
 def _gate_type(task: dict) -> str:
-    # Default (feature/bugfix) tasks omit gate_type; test-generation declares it.
+    # Default (feature/bugfix) tasks omit gate_type; test-generation and pr_review
+    # declare it.
     return task.get("gate_type", "solution")
 
 
@@ -110,8 +141,14 @@ class TaskInvariants(unittest.TestCase):
     def test_canonical_patch_targets_declared_paths(self) -> None:
         # Solution gate: the canonical patch modifies the declared PRODUCT
         # target_paths. Test-generation gate is the inverse — see
-        # test_testgen_canonical_only_adds_tests_under_scope.
+        # test_testgen_canonical_only_adds_tests_under_scope. pr_review ships no
+        # canonical at all: the reference "solution" is the sealed defect map.
         for d, task in self._tasks():
+            if _gate_type(task) == "pr_review":
+                self.assertNotIn("canonical_patch", task,
+                                 f"{d.name}: pr_review grades a report against the "
+                                 f"sealed defect map; it ships no canonical patch")
+                continue
             if _gate_type(task) == "test_generation":
                 continue
             patch = (d / task["canonical_patch"]).read_text(encoding="utf-8")
@@ -121,29 +158,37 @@ class TaskInvariants(unittest.TestCase):
 
     def test_public_test_exists(self) -> None:
         # Only solution-gate tasks ship a public_test file; test-generation grades
-        # the agent's own tests (T1–T4), so it declares none.
+        # the agent's own tests (T1–T4) and pr_review grades a report, so neither
+        # declares one.
         for d, task in self._tasks():
-            if _gate_type(task) == "test_generation":
+            if _gate_type(task) in ("test_generation", "pr_review"):
                 self.assertNotIn("public_test", task,
-                                 f"{d.name}: test-generation task must not declare public_test")
+                                 f"{d.name}: {_gate_type(task)} task must not declare public_test")
                 continue
             self.assertTrue((d / task["public_test"]).exists(),
                             f"{d.name}: missing public_test {task['public_test']}")
+            # public_test_support names files the gate CREATES EMPTY in the subject
+            # tree (e.g. a package __init__.py the upstream PR adds alongside its new
+            # test module), so they are repo-relative paths, never task-dir paths.
+            for rel in task.get("public_test_support") or []:
+                self.assertFalse(str(rel).startswith(("/", "..")),
+                                 f"{d.name}: public_test_support {rel} is not repo-relative")
+                self.assertFalse((d / rel).exists(),
+                                 f"{d.name}: public_test_support {rel} must not be shipped "
+                                 f"in the task dir; the gate creates it empty")
 
     def test_canonical_patch_touches_no_test_files(self) -> None:
         # Anti-gaming: a SOLUTION canonical is product code only; test files are
         # never part of the solution (they are restored/harness-owned). This
-        # invariant does not apply to test-generation, whose canonical IS tests.
+        # invariant does not apply to test-generation, whose canonical IS tests,
+        # nor to pr_review, which has no canonical.
         for d, task in self._tasks():
-            if _gate_type(task) == "test_generation":
+            if _gate_type(task) in ("test_generation", "pr_review"):
                 continue
             patch = (d / task["canonical_patch"]).read_text(encoding="utf-8")
-            for line in patch.splitlines():
-                if line.startswith(("+++ ", "--- ", "diff --git")):
-                    self.assertNotIn(".test.ts", line,
-                                     f"{d.name}: canonical patch must not touch test files")
-                    self.assertNotIn(".spec.ts", line,
-                                     f"{d.name}: canonical patch must not touch test files")
+            for f in _patch_files(patch):
+                self.assertFalse(_is_test_file(f),
+                                 f"{d.name}: canonical patch must not touch test file {f}")
 
     def test_testgen_canonical_only_adds_tests_under_scope(self) -> None:
         # Test-generation canonical: every file it touches is a NEW test file under
@@ -155,13 +200,12 @@ class TaskInvariants(unittest.TestCase):
             scope = task["agent_write_scope"].rstrip("/") + "/"
             targets = set(task["target_paths"])
             patch = (d / task["canonical_patch"]).read_text(encoding="utf-8")
-            touched = [ln[len("diff --git a/"):].split(" b/")[0]
-                       for ln in patch.splitlines() if ln.startswith("diff --git ")]
+            touched = _patch_files(patch)
             self.assertTrue(touched, f"{d.name}: canonical patch touches no files")
             for f in touched:
                 self.assertTrue(f.startswith(scope),
                                 f"{d.name}: canonical adds {f} outside agent_write_scope {scope}")
-                self.assertTrue(f.endswith((".test.ts", ".spec.ts")),
+                self.assertTrue(_is_test_file(f),
                                 f"{d.name}: canonical adds non-test file {f}")
                 self.assertNotIn(f, targets,
                                  f"{d.name}: canonical must not touch product target {f}")
@@ -193,48 +237,72 @@ class TaskInvariants(unittest.TestCase):
         # Agent-allowed diff scope must not include any test file.
         for d, task in self._tasks():
             for t in task["target_paths"]:
-                self.assertNotIn(".test.ts", t, f"{d.name}: target_paths includes a test file")
-                self.assertNotIn(".spec.ts", t, f"{d.name}: target_paths includes a test file")
+                self.assertFalse(_is_test_file(t),
+                                 f"{d.name}: target_paths includes a test file: {t}")
 
     def test_compat_patch_touches_only_test_files(self) -> None:
-        # If a task ships a harness-owned type-compat shim, it may touch ONLY
-        # *.test.ts / *.spec.ts (the single documented exception, mechanically bounded).
+        # If a task ships a harness-owned type-compat shim, it may touch ONLY test
+        # files (the single documented exception, mechanically bounded).
         for d, task in self._tasks():
             rel = task.get("test_compat_patch")
             if not rel:
                 continue
             patch = (d / rel).read_text(encoding="utf-8")
-            for line in patch.splitlines():
-                if line.startswith("diff --git"):
-                    self.assertTrue(
-                        (".test.ts" in line) or (".spec.ts" in line),
-                        f"{d.name}: test_compat_patch touches a non-test file: {line}",
-                    )
+            for f in _patch_files(patch):
+                self.assertTrue(_is_test_file(f),
+                                f"{d.name}: test_compat_patch touches a non-test file: {f}")
 
     def test_hidden_dir_has_readme_but_no_committed_tests(self) -> None:
         for d, _ in self._tasks():
             hidden = d / "hidden"
             self.assertTrue((hidden / "README-FOR-HUMAN.md").exists(),
                             f"{d.name}: missing hidden/README-FOR-HUMAN.md")
-            # Sealed tests are human-held and gitignored: they MAY exist locally
+            # Sealed material is human-held and gitignored: it MAY exist locally
             # (that is the CP-TASK deliverable, authored in the gate's default
             # HIDDEN_TESTS_DIR=$TASK_DIR/hidden), but must never be *committed*.
             # Check git tracking, not filesystem presence — otherwise this test
             # goes red on the very machine where the human authored the tests
             # while passing in a clean checkout (SPEC §2.6).
+            #
+            # Whitelist rather than blacklist: the roster's sealed artifacts are no
+            # longer just test modules (W1b ships check.sh + mutants/, W6 ships
+            # check.sh + defect-map.json + review-diff.patch), and a suffix list
+            # would silently stop covering the next gate type. README-FOR-HUMAN.md
+            # is the ONLY tracked file any hidden/ dir may contain — the same rule
+            # .gitignore enforces (`**/hidden/*`, `!**/hidden/README-FOR-HUMAN.md`).
             tracked = subprocess.run(
                 ["git", "ls-files", "-z", str(hidden)],
                 cwd=ROOT, capture_output=True, text=True, check=True,
             ).stdout.split("\0")
-            committed = [p for p in tracked if p.endswith((".test.ts", ".spec.ts"))]
-            self.assertEqual(committed, [], f"{d.name}: sealed tests must not be committed")
+            committed = sorted(p.rsplit("/", 1)[-1] for p in tracked if p)
+            self.assertEqual(committed, ["README-FOR-HUMAN.md"],
+                             f"{d.name}: hidden/ may commit only README-FOR-HUMAN.md; "
+                             f"found {committed}")
 
     def test_public_test_kind_is_known(self) -> None:
+        # repro       — a hand-authored failing test reproducing the reported defect
+        # feature     — a hand-authored test for behaviour the task adds
+        # pr_own_tests — the upstream PR's OWN test file, lifted verbatim (the
+        #                commit-mining default: the gate is sealed by construction
+        #                and pre-modification failure is free; WORKLOAD-SELECTION §4)
         for d, task in self._tasks():
-            if _gate_type(task) == "test_generation":
+            if _gate_type(task) in ("test_generation", "pr_review"):
                 continue  # no public_test, hence no public_test_kind
-            self.assertIn(task["public_test_kind"], ("repro", "feature"),
+            self.assertIn(task["public_test_kind"], ("repro", "feature", "pr_own_tests"),
                           f"{d.name}: unknown public_test_kind")
+
+    def test_gate_type_is_known(self) -> None:
+        for d, task in self._tasks():
+            self.assertIn(_gate_type(task), ("solution", "test_generation", "pr_review"),
+                          f"{d.name}: unknown gate_type")
+
+    def test_screening_tasks_declare_the_screening_phase(self) -> None:
+        # task_phase disambiguates which configuration set applies (below) and which
+        # dataset a run belongs to. Feasibility tasks predate the field.
+        for d in SCREENING_TASK_DIRS:
+            t = _yaml(d / "task.yaml")
+            self.assertEqual(t.get("task_phase"), "screening",
+                             f"{d.name}: screening task must declare task_phase: screening")
 
     def test_synthetic_fixtures_are_labeled(self) -> None:
         for name in ("pilot-draft-hidden-SYNTHETIC", "w4-bugfix-hidden-SYNTHETIC"):
@@ -261,15 +329,34 @@ class ConfigurationDeclarations(unittest.TestCase):
                 self.assertIn(c, VALID_CONFIGS, f"{d.name}: unknown config id {c!r}")
 
     def test_configurations_is_the_controlled_feasibility_set(self) -> None:
-        # Convention: task.yaml `configurations` is the SPEC §2.3 controlled set
-        # (P0/C2/P1); companions go in companion_configurations; screening lives in
-        # workload.yaml. Guards against the old F2 screening-framing regression.
-        for d in TASK_DIRS:
+        # Convention for FEASIBILITY tasks: task.yaml `configurations` is the SPEC
+        # §2.3 controlled set (P0/C2/P1); companions go in
+        # companion_configurations; the screening arms live in workload.yaml.
+        # Guards against the old F2 screening-framing regression.
+        for d in FEASIBILITY_TASK_DIRS:
             t = _yaml(d / "task.yaml")
             self.assertEqual(
                 set(t["configurations"]), {"P0", "C2", "P1"},
                 f"{d.name}: configurations must be the controlled feasibility set "
                 f"P0/C2/P1 (screening configs belong in workload.yaml)",
+            )
+
+    def test_screening_configurations_are_the_screening_arms(self) -> None:
+        # The screening roster is not part of the feasibility dataset: those tasks
+        # were commit-mined FOR screening, are named in no feasibility batch, and
+        # carry no workload.yaml of their own in two of four cases (W1b, W4b are
+        # second TASKS of W1/W4). So their task.yaml is the only place the arms can
+        # be declared, and they declare the screening set — C1/C2/C3/C5 — matching
+        # the workload.yaml of the workload they belong to.
+        for d in SCREENING_TASK_DIRS:
+            t = _yaml(d / "task.yaml")
+            self.assertEqual(
+                set(t["configurations"]), {"C1", "C2", "C3", "C5"},
+                f"{d.name}: screening task must declare the screening arms C1/C2/C3/C5",
+            )
+            self.assertEqual(
+                t.get("companion_configurations", []), [],
+                f"{d.name}: screening tasks run no companions",
             )
 
     def test_batch2_undeclared_runs_are_exactly_dropped_f1_companions(self) -> None:
