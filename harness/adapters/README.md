@@ -12,21 +12,32 @@ Benchmark subjects run agentic, so the real CLIs are invoked with
 (Edit/Write/Bash) is **auto-approved**. Without this the headless agent can read but
 cannot modify files — the root cause of the batch-1 0/25 no-write failures.
 
-Two declared postures (`base.py`: `SUBJECT_PROFILE_HOST` / `SUBJECT_PROFILE_CONTAINER`),
-selected by the runner via `--subject-isolation` and stamped **authoritatively** into
-`identity.permission_profile` + `identity.network_policy` (the runner knows the mode it
-launched, so it overrides any adapter default — the adapters carry `SUBJECT_PROFILE_HOST`
-only as a back-compat default):
+Three declared postures (`base.py`: `SUBJECT_PROFILE_HOST`,
+`SUBJECT_PROFILE_CONTAINER_GATE`, `SUBJECT_PROFILE_CONTAINER_AGENT`), selected by the
+runner via `--subject-isolation` / `--subject-egress` and stamped **authoritatively**
+into `identity.permission_profile` + `identity.network_policy` (the runner knows the
+mode it launched, so it overrides any adapter default — the adapters carry
+`SUBJECT_PROFILE_HOST` only as a back-compat default). Each stamp states what is
+*actually* enforced and nothing more (the FIX C lesson):
 
-- **HOST** (batch-1 / revalidation, superseded) — only confinement is the throwaway
-  per-task `.work/repo` cwd on the dev VM: no container, no network policy.
-- **CONTAINER** (batch-2, human decision 2026-07-19) — the subject execs inside the
-  offline per-task image with `--network=none`; the deterministic gate runs offline in
-  the same posture (`harness/container/`, `manifest` `subject_isolation`). Adapters
-  route their spawn through `harness.container.exec.resolve_spawn` (host mode = run in
-  `cwd`; container mode = wrap in `docker run`). The live agent leg's model-API egress
-  allowlist is a **CP-SPEND finalization item** (it needs model spend to validate); the
-  offline gate is fully verified this session. See `harness/container/README.md`.
+- **HOST** (batch-1 / revalidation, and still the supported feasibility fallback) —
+  the subject tree is staged outside the lab repo and harness path pointers are
+  scrubbed, so task material is unreachable by traversal or env pointer; but there is
+  no container, no filesystem namespace and no network policy.
+- **CONTAINER / gate** (batch-2, human decision 2026-07-19) — the deterministic gate
+  execs inside the offline per-task image with `--network=none`. Task material is
+  present *by design*: the gate reads `task.yaml` to know what to grade.
+- **CONTAINER / agent leg** (SPEC §6 item 1) — a *separate* image
+  (`lab-subject-agent/…`) with the product CLIs baked at build-asserted pinned
+  versions, credentials mounted read-only, no `canonical/`/`hidden/`/`task.yaml` in
+  any layer (asserted at build), and egress restricted to a hashed model-API
+  allowlist recorded in `identity.network_policy`. The allowlist's **enforcement** is
+  verified without spend (`harness/container/verify-egress.sh`); whether it is
+  *sufficient* for a live agentic run stays open until a CP-SPEND-approved run.
+
+Adapters route their spawn through `harness.container.exec.resolve_spawn` (host mode =
+run in `cwd`; container mode = wrap in `docker run`) and are otherwise unaware of the
+posture. See `harness/container/README.md` and `manifest` `subject_isolation`.
 
 ## Adding a benchmark subject (adapter contract — a supported extension point)
 
@@ -90,6 +101,29 @@ still emit `model_call_completed`, and capture `exit_code`/`stdout`/`stderr` int
 `invocation` dict so a no-output run is itself diagnosable. Never let a hung leg stall the
 batch.
 
+### One attempt, several legs (scripted delegation, P2)
+
+Normally one attempt is one billing leg. Under policy **P2** (`AttemptSpec.delegation`
+is a `DelegationPlan`) a single product invocation bills two models, so the adapter
+emits **one `model_call_completed` per declared leg** from ONE run:
+
+- Per-leg usage comes from the product's own per-model usage metadata
+  (`claude_code.split_usage_by_model`), matched to a leg by **base model name** — the
+  manifest may pin a floating alias while the product meters a concrete version.
+- A leg's `model_or_selector` keeps the **manifest-resolved id** (that is the pricing
+  key); the metered id goes in `resolved_model_version`.
+- Run-level diagnostics (`num_turns`, `is_error`, the product's total cost) describe the
+  *invocation*, so they are stamped on the conductor's event only.
+- Nothing is divided by assumption: no per-model breakdown ⇒ the total stays on the
+  conductor with `delegation_attribution: unavailable`; a declared-but-unmetered leg ⇒
+  `unavailable` usage plus a `delegation_leg_unmetered` failure; a metered model matching
+  no leg ⇒ its own `cost_unavailable` leg so its tokens stay on the bill.
+- Lost telemetry (timeout, unparseable JSON) records **every declared leg** as
+  `unavailable`, not just the conductor.
+
+An adapter that does not implement delegation must say so rather than silently running
+the conductor leg alone. Contract: `harness/policies/README.md` (P2 split-file contract).
+
 ### Container spawn
 
 Route the subject command through `resolve_spawn` so host vs container is the *only*
@@ -103,9 +137,14 @@ proc = subprocess.run(argv, cwd=cwd, env=agent_env(), timeout=DEFAULT_TIMEOUT_S,
 
 `self.container` is `None` in host/dry-run/test mode (runs `cmd` in `subject_dir`) and a
 `ContainerLaunch` under `--subject-isolation container` (wraps `cmd` in `docker run`,
-offline by default). Always spawn with `agent_env()` — it strips harness/task pointers
+offline by default; the launch carries the credential mounts, the enumerated env and the
+per-run handoff volume). Always spawn with `agent_env()` — it strips harness/task pointers
 from the environment so the subject never receives a path to `canonical/`, `hidden/`, or
 the task dir (isolation FIX B).
+
+Report the CLI version with `cli_version("claude", self.container)`: in host mode it
+execs `--version`, in container mode it reads the version **label the build asserted**,
+so the stamp describes the binary that actually ran rather than the one on the host.
 
 ### Verbatim model-selector label
 

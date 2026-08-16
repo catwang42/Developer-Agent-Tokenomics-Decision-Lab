@@ -22,6 +22,7 @@ runner refuses to start if any required field is missing or still a placeholder.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -30,7 +31,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -38,18 +39,31 @@ import yaml
 
 from harness.adapters import REAL_ADAPTERS, ResolvedModel, StubAdapter
 from harness.adapters.base import (
-    SUBJECT_PROFILE_CONTAINER,
+    SUBJECT_PROFILE_CONTAINER_AGENT,
+    SUBJECT_PROFILE_CONTAINER_GATE,
     SUBJECT_PROFILE_HOST,
     AttemptSpec,
+    DelegatedLeg,
+    DelegationPlan,
 )
+from harness.container import egress as egress_mod
 from harness.container.exec import (
+    TARGET_AGENT,
+    TARGET_GATE,
     ContainerExecutor,
     ContainerLaunch,
+    agent_container_env,
+    agent_credential_mounts,
+    agent_image_tag,
+    agent_volume_name,
     build_subject_image,
+    create_volume,
     image_exists,
+    remove_volume,
     subject_image_tag,
 )
 from harness.results.record import build_result_record
+from harness.runner import delegation
 from harness.telemetry.costing import cost_for_legs, load_prices
 from harness.telemetry.telemetry import EventLog, derive_summary, tiered, unavailable, validate
 
@@ -68,7 +82,13 @@ _PLACEHOLDERS = {
     "verbatim label from product", "null", "None", "",
 }
 _PRODUCT_LABELS = {"PRODUCT_A": "Product A", "PRODUCT_B": "Product B"}
-_POLICY_FILES = {"P0": "p0-baseline.yaml", "P1": "p1-cheap-first.yaml"}
+_POLICY_FILES = {"P0": "p0-baseline.yaml", "P1": "p1-cheap-first.yaml",
+                 "P2": "p2-delegation.yaml"}
+
+# The telemetry schema (CP-SCHEMA) enumerates the configuration ids a summary may
+# carry; a run whose id is outside it cannot be recorded, however well it runs, so
+# tests assert the harness and the enum agree.
+TELEMETRY_SCHEMA = os.path.join(REPO_ROOT, "harness", "telemetry", "schema-v2.json")
 
 
 class RunnerError(Exception):
@@ -157,19 +177,167 @@ class LegPlan:
 class RunPlan:
     adapter_name: str
     legs: List[LegPlan]
-    policy: str  # "static" | "cheap_first" | "workflow"
+    policy: str  # "static" | "cheap_first" | "scripted_delegation" | "workflow"
+    # Set only under scripted delegation (P2): the pinned split's legs, brief and
+    # executor binding, handed to the adapter as ONE attempt that bills two models.
+    delegation: Optional[DelegationPlan] = None
 
 
-def build_plan(config_id: str, manifest: Dict[str, Any]) -> RunPlan:
+def _delegation_plan(pol: Dict[str, Any], manifest: Dict[str, Any], task: Optional["Task"],
+                     *, require_frozen: bool) -> Tuple[List[LegPlan], DelegationPlan]:
+    """Build P2's two legs and their pinned split (SPEC 2.1b B3 / 2.1c).
+
+    Everything that could make the delegation ambiguous is refused here rather than
+    at run time: no task, no split file, a split that disagrees with the task's own
+    write scope, a split whose hash is not the manifest's pin, or (for a live run) a
+    split that has not been frozen by human review.
+    """
+    if task is None:
+        raise RunnerError(
+            "P2 (scripted delegation) is defined by the task's pinned split file, so "
+            "the plan cannot be built without a task"
+        )
+    if pol.get("runtime_model_choice_routes_work") is not False:
+        raise RunnerError(
+            "p2-delegation.yaml must declare runtime_model_choice_routes_work: false — "
+            "work assigned by a runtime decision is B4 (P3), not B3, and would be "
+            "recorded under the wrong family"
+        )
+    product = _PRODUCT_LABELS["PRODUCT_A"]
+    conductor = resolve_model(manifest, pol["conductor_model_ref"], product)
+    executor = resolve_model(manifest, pol["executor_model_ref"], product)
+    agent_name = ((pol.get("mechanism") or {}).get("executor_agent_name")
+                  or delegation.EXECUTOR_LEG_ID)
+    try:
+        split = delegation.load_split(task.task_dir, repo_root=REPO_ROOT,
+                                      expected_task_id=task.task_id)
+        delegation.validate_against_task(split, task.task_yaml)
+        delegation.check_pin(split, manifest, task.manifest_key or "",
+                             require_frozen=require_frozen)
+    except delegation.SplitError as exc:
+        raise RunnerError(str(exc)) from exc
+
+    legs = [LegPlan(delegation.CONDUCTOR_LEG_ID, "conductor", conductor),
+            LegPlan(delegation.EXECUTOR_LEG_ID, "executor", executor)]
+    plan = DelegationPlan(
+        legs=tuple(DelegatedLeg(leg.leg_id, leg.role, leg.resolved) for leg in legs),
+        brief=delegation.render_brief(split, executor_agent=agent_name),
+        agents_json=delegation.executor_agent_json(
+            split, agent_name=agent_name,
+            model_id=executor.model_id or executor.model_or_selector),
+        agent_name=agent_name,
+        provenance=delegation.telemetry_payload(split),
+    )
+    return legs, plan
+
+
+# --------------------------------------------------------------------------- #
+# Configuration -> routing policy, by reference (SPEC 2.1c)
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class ResolvedPolicy:
+    """A routing policy resolved from a configuration's ``policy_file`` reference."""
+    policy_id: str
+    rel_path: str
+    sha256: str          # over the RAW FILE BYTES — what the manifest pins
+    doc: Dict[str, Any]
+
+    @property
+    def rules(self) -> List[Any]:
+        return list(self.doc.get("rules") or [])
+
+    @property
+    def label(self) -> str:
+        return f"{self.policy_id}@{os.path.basename(self.rel_path)}:sha256:{self.sha256[:12]}"
+
+
+def load_policy_file(rel_path: str) -> Tuple[Dict[str, Any], str]:
+    """Parse a policy file and hash its raw bytes (comments included)."""
+    path = rel_path if os.path.isabs(rel_path) else os.path.join(REPO_ROOT, rel_path)
+    try:
+        with open(path, "rb") as fh:
+            raw = fh.read()
+    except OSError as exc:
+        raise RunnerError(f"policy file {rel_path} cannot be read: {exc}") from exc
+    return yaml.safe_load(raw.decode("utf-8")) or {}, hashlib.sha256(raw).hexdigest()
+
+
+def policy_manifest_pin(manifest: Dict[str, Any], policy_id: str) -> Dict[str, Any]:
+    return ((manifest.get("routing_policies") or {}).get(policy_id) or {})
+
+
+def resolve_config_policy(cfg: Dict[str, Any], config_id: str,
+                          manifest: Optional[Dict[str, Any]] = None,
+                          *, require_pin: bool = False) -> Optional[ResolvedPolicy]:
+    """Resolve the routing policy a configuration references (SPEC 2.1c).
+
+    A configuration declares the *stack*; a policy declares the *routing decision*.
+    C5 references P3 by path so its delegation rules are hash-pinned rather than
+    inline — which is what makes "which rules did this run execute?" answerable from
+    the manifest. Returns ``None`` for a configuration that declares no routing
+    decision at all (C1–C4 are static single-leg stacks).
+
+    Refuses a configuration that carries BOTH a reference and inline ``rules`` (two
+    copies drift, and only one of them is hashed), a reference whose ``policy_id``
+    disagrees with ``policy_ref``, a policy that does not declare it governs this
+    configuration, and a file whose bytes no longer match the manifest pin.
+    """
+    if "rules" in cfg:
+        raise RunnerError(
+            f"{config_id}.yaml carries inline 'rules'; routing rules live in the "
+            f"referenced policy file (SPEC 2.1c) so they are hash-pinned — a second "
+            f"inline copy would drift unhashed"
+        )
+    rel_path = cfg.get("policy_file")
+    if not rel_path:
+        return None
+    doc, sha = load_policy_file(rel_path)
+    policy_id = str(doc.get("policy_id") or "")
+    declared = cfg.get("policy_ref")
+    if declared and policy_id != declared:
+        raise RunnerError(
+            f"{config_id}.yaml references {declared} but {rel_path} declares "
+            f"policy_id {policy_id or '<missing>'}"
+        )
+    governs = doc.get("governs") or []
+    if governs and config_id not in governs:
+        raise RunnerError(
+            f"{rel_path} ({policy_id}) governs {list(governs)}, not {config_id}"
+        )
+    pin = policy_manifest_pin(manifest or {}, policy_id)
+    if not pin:
+        if require_pin:
+            raise RunnerError(
+                f"manifest routing_policies.{policy_id}.sha256 is missing; {policy_id}'s "
+                f"manifest pin is its policy hash (SPEC 2.1c) and no {config_id} run may "
+                f"be cited in workshop material without it"
+            )
+    else:
+        pinned = str(pin.get("sha256") or "").replace("sha256:", "")
+        if pinned != sha:
+            raise RunnerError(
+                f"{rel_path} sha256 {sha} does not match the manifest pin "
+                f"{pinned or '<empty>'} — the policy changed after it was pinned. "
+                f"Re-pin it (and, if it was frozen, re-freeze it) before running."
+            )
+    return ResolvedPolicy(policy_id=policy_id, rel_path=rel_path, sha256=sha, doc=doc)
+
+
+def build_plan(config_id: str, manifest: Dict[str, Any], task: Optional["Task"] = None,
+               *, require_frozen: bool = True) -> RunPlan:
     cfg_dir = os.path.join(REPO_ROOT, "harness", "configurations")
     pol_dir = os.path.join(REPO_ROOT, "harness", "policies")
 
-    if config_id in _POLICY_FILES:  # P0 / P1 run on the controlled harness (Product A).
+    if config_id in _POLICY_FILES:  # P0 / P1 / P2 run on the controlled harness (Product A).
         pol = _load_yaml(os.path.join(pol_dir, _POLICY_FILES[config_id]))
         product = _PRODUCT_LABELS["PRODUCT_A"]
         if config_id == "P0":
             r = resolve_model(manifest, pol["model_ref"], product)
             return RunPlan("claude_code", [LegPlan("main", "solver", r)], "static")
+        if config_id == "P2":
+            legs, dele = _delegation_plan(pol, manifest, task, require_frozen=require_frozen)
+            return RunPlan(pol.get("adapter", "claude_code"), legs,
+                           "scripted_delegation", delegation=dele)
         econ = resolve_model(manifest, pol["attempt_model_ref"], product)
         strong = resolve_model(manifest, pol["escalate_to_model_ref"], product)
         return RunPlan("claude_code", [
@@ -180,6 +348,12 @@ def build_plan(config_id: str, manifest: Dict[str, Any]) -> RunPlan:
     cfg = _load_yaml(os.path.join(cfg_dir, f"{config_id}.yaml"))
     if not cfg:
         raise RunnerError(f"no configuration or policy named {config_id!r}")
+
+    # The routing decision is resolved by reference and hash-checked against the
+    # manifest before any work happens (SPEC 2.1c; C5 -> P3). Validation only: the
+    # rules describe how the run is read, not how it executes, so this does not
+    # change what a run does — it stops a run whose policy drifted from its pin.
+    resolve_config_policy(cfg, config_id, manifest)
 
     if config_id == "C5":  # integrated workflow: conductor + executor, both billed.
         legs_cfg = cfg.get("legs") or {}
@@ -210,6 +384,10 @@ class Task:
     gate_type: str = "solution"
     pinned_commit: Optional[str] = None
     task_dir_rel: Optional[str] = None  # repo-root-relative (for the container image)
+    manifest_key: Optional[str] = None  # where this task's pins live in the manifest
+    # The parsed task.yaml, kept so policies that must agree with the task's own
+    # declarations (P2's split file vs the gate's write scope) can check, not assume.
+    task_yaml: Dict[str, Any] = field(default_factory=dict)
 
 
 def load_task(task_arg: str, manifest: Dict[str, Any]) -> Task:
@@ -231,6 +409,8 @@ def load_task(task_arg: str, manifest: Dict[str, Any]) -> Task:
         gate_type=ty.get("gate_type", "solution"),
         pinned_commit=mentry.get("pinned_commit"),
         task_dir_rel=os.path.relpath(task_dir, REPO_ROOT),
+        manifest_key=mkey,
+        task_yaml=ty,
     )
 
 
@@ -306,21 +486,25 @@ def real_gate(task_dir: str, run_dir: str, subject_dir: str
 
 def container_gate(launch: ContainerLaunch, task: "Task", run_dir: str
                    ) -> Tuple[bool, str, Dict[str, Any]]:
-    """Run the deterministic gate OFFLINE inside the subject container (--network=none).
+    """Run the deterministic gate OFFLINE inside the subject-gate container (--network=none).
 
-    Grades the tree baked into the image at ``/lab/<task>/.work/repo`` (proven this
-    session: pre-mod FAILs, canonical PASSes with jest/coverage/build running
-    offline). ``run_dir`` is mounted at ``/out`` so the gate's JSON reports land on
-    the host. NOTE (CP-SPEND finalization): a LIVE run must co-locate the agent's
-    edits and this gate in the SAME container instance (the agent leg is deferred to
-    CP-SPEND); with no agent, this grades the pristine baked tree = the containerized
-    pre-modification gate.
+    Grades the tree at ``/lab/<task>/.work/repo``. When the agent leg ran in its own
+    container, ``launch.agent_volume`` is the named volume holding the agent's edits
+    and it is mounted over that path here — so the gate grades what the agent
+    actually produced, across two images, without either image needing the other's
+    contents. With no agent volume this grades the pristine baked tree (the
+    containerized pre-modification gate).
+
+    ``run_dir`` is mounted at ``/out`` so the gate's JSON reports land on the host.
+    The gate is always ``--network=none``; the agent leg's egress never applies here.
     """
     ex = ContainerExecutor(launch.image)
     task_c = f"{CONTAINER_LAB_ROOT}/{task.task_dir_rel}"
     work_c = f"{task_c}/.work"
     repo_c = f"{work_c}/repo"
     mounts = [(run_dir, "/out", "rw")]
+    if launch.agent_volume:
+        mounts.append((launch.agent_volume, repo_c, "rw"))
     base_env = {"TASK_DIR": task_c, "TASK_WORKDIR": work_c}
 
     pub = ex.run(
@@ -439,6 +623,17 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
     leg_options: Dict[str, Dict[str, Any]] = {}
     invocations: List[Dict[str, Any]] = []
 
+    def record_outcome(leg: LegPlan, outcome: Any) -> None:
+        """Fold one adapter outcome into the run's identity, costing options, argv log."""
+        if not identity:  # top-level identity from the primary leg; legs[] hold per-leg detail
+            identity.update(outcome.identity)
+        opts = dict(outcome.leg_options)
+        if leg.resolved.seat_allocation_usd is not None:
+            opts.setdefault("seat_allocation_usd", leg.resolved.seat_allocation_usd)
+        leg_options[leg.leg_id] = opts
+        if outcome.invocation:
+            invocations.append(outcome.invocation)
+
     def run_leg(leg: LegPlan, leg_index: int) -> None:
         # Session ids MUST be valid UUIDs — the claude CLI's --session-id rejects
         # anything else (and then prints a non-JSON error, losing all usage
@@ -452,15 +647,7 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
             leg_session = str(uuid.uuid4())
         spec = AttemptSpec(leg.leg_id, leg.role, leg.resolved, task.prompt,
                            cache_state=cache_state, session_id=leg_session, resume=resume)
-        outcome = adapter.run_attempt(spec, subject_dir, emit)
-        if not identity:  # top-level identity from the primary leg; legs[] hold per-leg detail
-            identity.update(outcome.identity)
-        opts = dict(outcome.leg_options)
-        if leg.resolved.seat_allocation_usd is not None:
-            opts.setdefault("seat_allocation_usd", leg.resolved.seat_allocation_usd)
-        leg_options[leg.leg_id] = opts
-        if outcome.invocation:
-            invocations.append(outcome.invocation)
+        record_outcome(leg, adapter.run_attempt(spec, subject_dir, emit))
 
     # Fix 5: archive the agent's diff the instant its work is complete and BEFORE
     # any gate step mutates the tree (the gate restores src/tests and applies
@@ -500,6 +687,31 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
             passed, result, checks = _gate(dry_run, scenario, strong.leg_id, task, run_dir,
                                            launch, subject_dir)
             cr = "strong"
+    elif plan.policy == "scripted_delegation":
+        # P2/B3: ONE product invocation that bills every leg the pinned split
+        # declares. The conductor leg carries the attempt; the adapter splits the
+        # product's per-model usage metadata across the legs (it does not decide the
+        # assignment — the split file did that before the run).
+        conductor, *others = plan.legs
+        spec = AttemptSpec(conductor.leg_id, conductor.role, conductor.resolved,
+                           task.prompt, cache_state=cache_state,
+                           session_id=base_session, resume=resume,
+                           delegation=plan.delegation)
+        outcome = adapter.run_attempt(spec, subject_dir, emit)
+        record_outcome(conductor, outcome)
+        for leg in others:
+            # Per-leg costing options for a leg that shares the attempt: only what
+            # the manifest declares for it (an adapter outcome describes the attempt,
+            # and attributing its options to a second leg would double-count).
+            leg_options[leg.leg_id] = (
+                {"seat_allocation_usd": leg.resolved.seat_allocation_usd}
+                if leg.resolved.seat_allocation_usd is not None else {}
+            )
+        itr = "scripted_split"
+        cr = "scripted_split"
+        archive_pre_gate()
+        passed, result, checks = _gate(dry_run, scenario, conductor.leg_id, task,
+                                       run_dir, launch, subject_dir)
     else:  # static | workflow
         for i, leg in enumerate(plan.legs):
             run_leg(leg, i)
@@ -773,29 +985,80 @@ def _write_invocation_file(run_dir: str, invocations: List[Dict[str, Any]],
         pass
 
 
-def _ensure_container_launch(task: Task, network: str) -> ContainerLaunch:
-    """Resolve the per-task offline image (building it if absent) and a launch spec.
+def _ensure_image(task: Task, tag: str, target: str,
+                  build_args: Optional[Dict[str, str]] = None) -> None:
+    """Build ``tag`` from ``target`` if it is not already present locally.
 
-    Building bakes the subject repo + deps at build time (network at build only —
-    not model spend, CLAUDE.md rule 5). The returned launch runs the subject
-    ``--network=<network>`` (default ``none``). NOTE (CP-SPEND finalization): a live
-    agent run must co-locate the agent's edits and the gate in ONE container; the
-    agent leg is deferred to CP-SPEND, so this session exercises the container path
-    for the deterministic gate on the image's baked tree.
+    Build-time network clones the subject repo, runs ``npm ci`` and installs the
+    product CLIs — tooling setup, not model spend (CLAUDE.md rule 5).
     """
+    if image_exists(tag):
+        return
+    print(f"runner: building subject image {tag} (target {target}; build-time "
+          f"network; not model spend)", file=sys.stderr)
+    proc = build_subject_image(task.task_dir_rel, tag, REPO_ROOT, SUBJECT_DOCKERFILE,
+                               target=target, build_args=build_args)
+    if proc.returncode != 0:
+        raise RunnerError(f"docker build failed for {tag} (rc={proc.returncode})")
+
+
+def _require_pin(task: Task) -> None:
     if not task.pinned_commit:
         raise RunnerError(
             f"container isolation needs task {task.task_id!r} pinned_commit in the "
-            f"manifest to tag/build the offline image"
+            f"manifest to tag/build the subject image"
         )
+
+
+def _ensure_gate_launch(task: Task, agent_volume: Optional[str] = None) -> ContainerLaunch:
+    """The deterministic gate's launch: ``subject-gate`` image, always offline."""
+    _require_pin(task)
     tag = subject_image_tag(task.task_id, task.pinned_commit)
-    if not image_exists(tag):
-        print(f"runner: building offline subject image {tag} (build-time network; "
-              f"not model spend)", file=sys.stderr)
-        proc = build_subject_image(task.task_dir_rel, tag, REPO_ROOT, SUBJECT_DOCKERFILE)
-        if proc.returncode != 0:
-            raise RunnerError(f"docker build failed for {tag} (rc={proc.returncode})")
-    return ContainerLaunch(image=tag, network=network)
+    _ensure_image(task, tag, TARGET_GATE)
+    return ContainerLaunch(
+        image=tag, network=egress_mod.NETWORK_NONE_LABEL,
+        agent_volume=agent_volume, profile=SUBJECT_PROFILE_CONTAINER_GATE,
+    )
+
+
+def _ensure_agent_launch(
+    task: Task, run_id: str, policy: Optional[egress_mod.EgressPolicy],
+    *, network_override: Optional[str] = None,
+) -> Tuple[ContainerLaunch, str]:
+    """The agent leg's launch: ``subject-agent`` image + credentials + egress.
+
+    Returns ``(launch, network_policy_label)``. The label is what lands verbatim in
+    ``identity.network_policy``; it names the allowlist and its hash, so a run under
+    a later, wider allowlist is not mistaken for one made under this one.
+
+    With no policy the agent container runs ``--network=none``. That is a legitimate
+    posture for exercising the container path without spend, and the label says so
+    plainly rather than implying an allowlist was in force.
+    """
+    _require_pin(task)
+    tag = agent_image_tag(task.task_id, task.pinned_commit)
+    _ensure_image(task, tag, TARGET_AGENT)
+
+    if policy is not None:
+        egress_mod.ensure_proxy(policy)
+        network = policy.network
+        label = policy.label
+        env = agent_container_env(policy.proxy_env())
+    else:
+        network = network_override or egress_mod.NETWORK_NONE_LABEL
+        env = agent_container_env()
+        label = (
+            f"{network}; no-egress-allowlist-in-force"
+            if network == egress_mod.NETWORK_NONE_LABEL
+            else f"{network}; docker-network-verbatim; no-lab-allowlist-in-force"
+        )
+
+    volume = agent_volume_name(run_id)
+    create_volume(volume)
+    return ContainerLaunch(
+        image=tag, network=network, mounts=tuple(agent_credential_mounts()),
+        env=env, agent_volume=volume, profile=SUBJECT_PROFILE_CONTAINER_AGENT,
+    ), label
 
 
 def _stage_subject_outside_repo(source_repo: str) -> str:
@@ -856,6 +1119,21 @@ def _make_run_id(task: Task, config_id: str, rep: int) -> str:
     return f"{task.task_id}__{config_id}__rep{rep}__{stamp}"
 
 
+def schema_configuration_ids() -> Tuple[str, ...]:
+    """Configuration ids the telemetry schema will accept in a summary.
+
+    Read from ``schema-v2.json`` rather than duplicated here, so a harness that can
+    run an id the schema cannot record is a test failure (tests/test_telemetry.py)
+    rather than a run that bills and then fails validation at the end. Widening the
+    enum stays a CP-SCHEMA decision; the last one was the human-approved additive
+    widening of 2026-08-16 (C3-prev, P2).
+    """
+    with open(TELEMETRY_SCHEMA, encoding="utf-8") as fh:
+        schema = json.load(fh)
+    enum = ((schema.get("properties") or {}).get("configuration_id") or {}).get("enum") or []
+    return tuple(str(v) for v in enum)
+
+
 def resolve_pricing(manifest: Dict[str, Any], plan: RunPlan) -> Tuple[Dict[str, Any], str]:
     """Load the pinned pricing snapshot for a plan (SPEC 1.4 / cache-protocol rule 3).
 
@@ -885,6 +1163,7 @@ def execute_and_validate_run(
     subject_dir: Optional[str], launch: Optional[ContainerLaunch],
     cache_state: str, base_session: str, resume: bool,
     subject_isolation: str, subject_network: str, manifest_rel: str,
+    agent_containerized: bool = False,
     prices: Dict[str, Any], pricing_snapshot: str, config_id: str,
     dry_run: bool, scenario: str,
 ) -> Tuple[bool, List[str]]:
@@ -922,9 +1201,21 @@ def execute_and_validate_run(
     # Subject isolation posture — the runner authoritatively knows the mode it
     # launched, so it stamps permission_profile + network_policy here, overriding
     # any adapter default (SPEC 1.3; batch-2 decision, manifest subject_isolation).
+    # ``subject_network`` is the LABEL for the agent leg's egress (a bare network
+    # name, or the allowlist policy label naming the list and its hash). The gate is
+    # always offline, and the stamp says so explicitly rather than leaving a reader
+    # to infer which leg the recorded policy applied to.
     if subject_isolation == "container":
-        identity["permission_profile"] = tiered(SUBJECT_PROFILE_CONTAINER, "authoritative")
-        identity["network_policy"] = tiered(subject_network, "authoritative")
+        identity["permission_profile"] = tiered(
+            SUBJECT_PROFILE_CONTAINER_AGENT if agent_containerized
+            else SUBJECT_PROFILE_CONTAINER_GATE,
+            "authoritative",
+        )
+        identity["network_policy"] = tiered(
+            f"agent-leg: {subject_network} | gate: none" if agent_containerized
+            else subject_network,
+            "authoritative",
+        )
     else:
         identity["permission_profile"] = tiered(SUBJECT_PROFILE_HOST, "authoritative")
         identity["network_policy"] = tiered("no-network-policy", "authoritative")
@@ -956,7 +1247,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description="Controlled harness runner (SPEC 2.1–2.3, 2.7)")
     ap.add_argument("--task", required=True, help="task dir (e.g. tasks/pilot-realworld)")
     ap.add_argument("--config", required=True,
-                    help="configuration or policy id: C1|C2|C3|C4|C5|P0|P1")
+                    help="configuration or policy id: C1|C2|C3|C4|C5|P0|P1|P2. P2 is "
+                         "scripted delegation (B3): it needs the task's pinned, frozen "
+                         "split.yaml (a live run is refused on a draft split)")
     ap.add_argument("--manifest", default=os.path.join(REPO_ROOT, "manifest", "delivery-manifest.yaml"))
     ap.add_argument("--phase", default="feasibility", help="results/<phase>/ for live runs")
     ap.add_argument("--rep", type=int, default=1)
@@ -975,15 +1268,26 @@ def main(argv: Optional[List[str]] = None) -> int:
                          "cap the runner halts (exit 3) without starting. Resumable: "
                          "re-invoke (optionally with a raised cap) to continue.")
     ap.add_argument("--subject-isolation", choices=("host", "container"), default="host",
-                    help="subject sandbox posture (batch-2 = container). host: legacy "
-                         "skip-perms + cwd on the dev VM. container: exec the subject "
-                         "inside the offline per-task image and grade the gate there "
-                         "(--network=none). Recorded authoritatively in "
-                         "identity.permission_profile + identity.network_policy.")
+                    help="subject sandbox posture. host: skip-perms + staged cwd on "
+                         "the dev VM (the feasibility fallback; no fs namespace, no "
+                         "network policy). container: the agent leg execs in the "
+                         "subject-agent image (product CLIs baked, no task material, "
+                         "credentials read-only, egress per --subject-egress) and the "
+                         "gate grades its edits in the subject-gate image offline. "
+                         "Recorded authoritatively in identity.permission_profile + "
+                         "identity.network_policy.")
+    ap.add_argument("--subject-egress", choices=("none", "allowlist"), default="none",
+                    help="agent-leg egress under --subject-isolation container. none: "
+                         "--network=none (no model API reachable; container path "
+                         "without spend). allowlist: deny-by-default proxy on an "
+                         "internal network permitting only "
+                         "harness/container/egress/allowlist-model-api.txt; the list "
+                         "name + sha256 are recorded in identity.network_policy. The "
+                         "deterministic gate is --network=none either way.")
     ap.add_argument("--subject-network", default="none",
-                    help="docker --network for the subject container (default none = "
-                         "offline). The live agent leg's model-API egress network is a "
-                         "CP-SPEND item; whatever value is used is recorded verbatim.")
+                    help="raw docker --network for the agent container, used only "
+                         "when --subject-egress none. Recorded verbatim; carries no "
+                         "claim that the lab allowlist was in force.")
     ap.add_argument("--dry-run", action="store_true",
                     help="synthetic adapters + gate; no spend/clone/network")
     ap.add_argument("--out-root", default=None,
@@ -1026,7 +1330,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "LAB_ALLOW_SPEND=1 for an approved run, or pass --dry-run"
             )
         task = load_task(args.task, manifest)
-        plan = build_plan(args.config, manifest)
+        plan = build_plan(args.config, manifest, task=task,
+                          require_frozen=not args.dry_run)
 
         prices, pricing_snapshot = resolve_pricing(manifest, plan)
 
@@ -1059,16 +1364,31 @@ def main(argv: Optional[List[str]] = None) -> int:
         launch: Optional[ContainerLaunch] = None
         subject_dir: Optional[str] = None
         staged_root: Optional[str] = None  # temp staging dir to clean up (FIX A)
+        agent_volume: Optional[str] = None
+        agent_containerized = False
+        network_label = args.subject_network
         if args.dry_run:
             adapter: Any = StubAdapter()
             subject_dir = os.path.join(run_dir, "SYNTHETIC-subject")  # unused by stub
+            if args.subject_isolation == "container":
+                # --dry-run never touches Docker (no daemon required, no build). The
+                # posture is still stamped, so the recorded label must not imply an
+                # allowlist that was never brought up.
+                network_label = args.subject_network
         else:
             adapter = REAL_ADAPTERS[plan.adapter_name]()
             if args.subject_isolation == "container":
-                # Subject lives inside the offline image; the agent leg (deferred to
-                # CP-SPEND) and the gate run in-container. No host clone.
-                launch = _ensure_container_launch(task, args.subject_network)
-                adapter.container = launch
+                policy = (egress_mod.load_policy()
+                          if args.subject_egress == "allowlist" else None)
+                agent_launch, network_label = _ensure_agent_launch(
+                    task, run_id, policy, network_override=args.subject_network)
+                adapter.container = agent_launch
+                agent_volume = agent_launch.agent_volume
+                agent_containerized = True
+                # The gate is a SEPARATE image and a separate posture: task material
+                # intact, --network=none, mounting the agent's volume so it grades
+                # the agent's tree rather than the pristine baked one.
+                launch = _ensure_gate_launch(task, agent_volume=agent_volume)
             else:
                 subject_dir = _setup_subject(task.task_dir, run_dir)
                 staged_root = os.path.dirname(subject_dir)  # <staged>/repo -> <staged>
@@ -1077,7 +1397,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             run_dir=run_dir, task=task, plan=plan, adapter=adapter,
             subject_dir=subject_dir, launch=launch,
             cache_state=args.cache_state, base_session=base_session, resume=args.resume,
-            subject_isolation=args.subject_isolation, subject_network=args.subject_network,
+            subject_isolation=args.subject_isolation, subject_network=network_label,
+            agent_containerized=agent_containerized,
             manifest_rel=os.path.relpath(args.manifest, REPO_ROOT),
             prices=prices, pricing_snapshot=pricing_snapshot, config_id=args.config,
             dry_run=args.dry_run, scenario=args.stub_scenario,
@@ -1088,6 +1409,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         # Best-effort cleanup so batches don't accumulate temp trees.
         if staged_root:
             shutil.rmtree(staged_root, ignore_errors=True)
+        # Same for the agent->gate handoff volume: it has already been graded, and
+        # the agent's edits are archived as a diff under run_dir.
+        if agent_volume:
+            remove_volume(agent_volume)
     except RunnerError as exc:
         print(f"runner: {exc}", file=sys.stderr)
         return 2

@@ -1,0 +1,51 @@
+# Model-API egress allowlist for the CONTAINERIZED AGENT LEG (SPEC §6 item 1).
+#
+# Deny-by-default. One POSIX extended regex per line, matched case-insensitively
+# against the CONNECT/request HOST by tinyproxy (FilterDefaultDeny Yes). A host
+# that matches no line here cannot be reached from the agent container at all:
+# the container sits on an `--internal` Docker network with no default route, so
+# this proxy is the only path out (harness/container/egress.py).
+#
+# STATUS OF THIS LIST — read before citing it as verified.
+#   * Enforcement is verified: harness/container/verify-egress.sh proves an
+#     allowlisted host connects and a non-allowlisted host is refused 403, with
+#     no model spend.
+#   * SUFFICIENCY IS NOT VERIFIED. Whether this exact set is enough for a full
+#     agentic run of either product can only be established by a live run, which
+#     is CP-SPEND-gated. Entries below are marked with how they were sourced.
+#     A live run that fails on a blocked host is the expected way this list gets
+#     its next revision — the proxy log names the refused host explicitly.
+#   * The DETERMINISTIC GATE never uses this list. It runs --network=none.
+#
+# Changing this file changes its sha256, which changes the policy label recorded
+# in identity.network_policy on every run. Runs made under different allowlists
+# are therefore distinguishable after the fact.
+
+# --- Google / Vertex AI: Product A (claude -p with CLAUDE_CODE_USE_VERTEX=1) ---
+# Sourced from the delivery manifest (provider google_vertex, region global) and
+# the host runtime env (CLOUD_ML_REGION, ANTHROPIC_VERTEX_PROJECT_ID).
+# Covers aiplatform.googleapis.com plus its regional prefixes
+# (us-central1-aiplatform…, global-aiplatform…).
+^([a-z0-9-]+-)?aiplatform\.googleapis\.com$
+
+# --- Google auth: ADC token exchange (both products) ---
+# Sourced from the ADC flow: a mounted application_default_credentials.json is a
+# refresh token that must be exchanged for an access token before any API call.
+^oauth2\.googleapis\.com$
+^accounts\.google\.com$
+^sts\.googleapis\.com$
+^iamcredentials\.googleapis\.com$
+
+# --- Anthropic direct API (only if a run is configured off Vertex) ---
+# Sourced from the product's documented API host. Not used by the Vertex path;
+# present so a direct-API configuration does not silently fail closed.
+^api\.anthropic\.com$
+
+# --- Product B (agy) ---
+# Sourced from strings extracted from the installed agy 1.1.13 binary on
+# 2026-08-16 (antigravity-unleash.goog appears as an API host; antigravity.google
+# as the docs/changelog host). NOT confirmed by a live agy run — the smoke run
+# predates containerization. Treat as candidate entries.
+^antigravity-unleash\.goog$
+^([a-z0-9-]+\.)?antigravity\.google$
+^cloudcode-pa\.googleapis\.com$

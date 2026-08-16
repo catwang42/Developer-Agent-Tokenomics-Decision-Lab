@@ -141,7 +141,7 @@ def run_series(
             "set LAB_ALLOW_SPEND=1 for an approved run, or pass --dry-run"
         )
     task = R.load_task(task_arg, manifest)
-    plan = R.build_plan(config, manifest)
+    plan = R.build_plan(config, manifest, task=task, require_frozen=not dry_run)
     prices, pricing_snapshot = R.resolve_pricing(manifest, plan)
     manifest_rel = os.path.relpath(manifest_path, R.REPO_ROOT)
 

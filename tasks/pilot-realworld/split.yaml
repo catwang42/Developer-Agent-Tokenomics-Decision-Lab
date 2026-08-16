@@ -1,0 +1,73 @@
+# Scripted-delegation split (policy P2, family B3) for the pilot feature task.
+# Contract: harness/policies/README.md#p2-split-file-contract. Loaded and validated
+# by harness/runner/delegation.py; sha256 pinned in manifest pilot_task.delegation_split.
+#
+# STATUS: proposed — awaiting human review and freeze. Until the manifest pin says
+# `status: frozen`, the runner allows this split in --dry-run only.
+#
+# Scoped from the PUBLIC prompt in task.yaml and nothing else: this file must never
+# contain information the agent could not derive from the prompt and the repo (no
+# canonical patch content, no hidden-test hints). Read it as the plan a competent
+# tech lead would write after reading the ticket.
+#
+# METHODOLOGICAL CAVEAT, stated here because it travels with the artifact: a B3 cell
+# differs from a B1 cell in TWO ways at once — the routing AND the decomposition this
+# file hands the model. A cost or quality difference between them is therefore not
+# attributable to delegation alone. B3 is a demonstration of per-leg itemization
+# (SPEC 2.1b), not a causal comparison.
+split_version: 1
+policy: P2
+task_id: pilot-realworld-draft-articles
+
+# Executor (ECONOMICAL_MODEL_A): mechanical, locally-specified edits whose shape the
+# prompt already fixes.
+executor_scopes:
+  - id: E1-schema-field
+    kind: scaffold
+    step: >
+      Add the `draft Boolean @default(false)` field to the `Article` model in the
+      Prisma schema, matching the surrounding field style.
+    paths: [src/prisma/schema.prisma]
+    writes: true
+
+  - id: E2-create-persists-draft
+    kind: boilerplate
+    step: >
+      In `createArticle`, read the request's `draft` value and pass it into the
+      Prisma `create` `data` object, defaulting to false when the field is absent.
+      Follow the existing pattern used by the neighbouring fields.
+    paths: [src/app/routes/article/article.service.ts]
+    writes: true
+
+# Conductor (STRONG_MODEL_A): the parts where getting the *shape* wrong still
+# "works" but fails the contract — exactly what the gate-fairness audit found
+# (report/findings/gate-fairness-audit.md).
+conductor_scopes:
+  - id: C1-list-filter-integration
+    kind: integration
+    step: >
+      In `getArticles`, exclude drafts by adding a plain `{ draft: false }` entry to
+      the top-level `AND` array of the `where` object, in the exact shape the prompt
+      pins and consistent with how the existing filters are added.
+    paths: [src/app/routes/article/article.service.ts]
+    writes: true
+
+  - id: C2-count-and-findmany
+    kind: edge_cases
+    step: >
+      Ensure the same `where` is applied to BOTH `prisma.article.count` and
+      `prisma.article.findMany` so pagination totals and results agree, and that an
+      absent `draft` on create still yields a non-draft article.
+    paths: [src/app/routes/article/article.service.ts]
+    writes: true
+
+  - id: C3-final-verification
+    kind: final_verification
+    step: >
+      Review the complete diff before finishing: only the two permitted files are
+      touched, no test file is modified, no unrelated edits, and the change compiles
+      against the generated Prisma client.
+    paths:
+      - src/app/routes/article/article.service.ts
+      - src/prisma/schema.prisma
+    writes: false

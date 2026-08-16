@@ -22,7 +22,7 @@ from __future__ import annotations
 import os
 import subprocess
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from harness.telemetry.telemetry import tiered, unavailable
 
@@ -49,20 +49,41 @@ EmitFn = Callable[..., None]
 #               policy. Earlier material wrongly labelled this "cwd-confined-.work-repo"
 #               — the batch-1/2 host runs had no such confinement (see
 #               report/findings/subject-isolation-leak.md).
-#   CONTAINER — the subject CLI execs inside the task-tools Docker container with the
-#               network DISABLED (--network=none), deps pre-baked into a per-task
-#               image, cwd-confined to /subject. The deterministic gate runs offline
-#               in the same posture. This is the real isolation boundary; the live
-#               agent leg is unimplemented (deferred to Phase 4). See
-#               harness/container/README.md and .dockerignore (canonical/ + hidden/
-#               excluded from the image).
+#   CONTAINER — the subject CLI execs inside a per-task Docker image. TWO variants,
+#               because the gate and the agent leg enforce different things and one
+#               stamp for both would overstate at least one of them:
+#                 GATE  — subject-gate image, --network=none. Task material is
+#                         PRESENT (the gate reads task.yaml to know what to grade),
+#                         so this posture is about hermeticity, not answer-hiding.
+#                 AGENT — subject-agent image. Task material absent from every layer
+#                         (asserted at build), product CLIs baked at pinned versions,
+#                         cwd /subject, credentials mounted read-only. Egress is
+#                         allowlisted, NOT absent: the exact policy is recorded
+#                         separately in identity.network_policy. Tool permissions
+#                         are still bypassed inside the container.
+#               See harness/container/README.md and Dockerfile.subject.
 SUBJECT_PROFILE_HOST = (
     "skip-all-tools; subject-staged-in-temp-outside-lab-repo; "
     "no-relative-path-to-canonical|hidden|task.yaml; harness-env-pointers-scrubbed; "
     "same-uid; no-container; no-fs-namespace; absolute-path-fs-access-NOT-confined; "
     "no-network-policy"
 )
-SUBJECT_PROFILE_CONTAINER = "skip-all-tools; container-isolated; network=none; cwd-confined-/subject"
+SUBJECT_PROFILE_CONTAINER_GATE = (
+    "deterministic-gate; container-isolated; image=subject-gate; network=none; "
+    "no-egress; task-material-present-by-design(gate-reads-task.yaml); "
+    "cwd-confined-/lab/<task>/.work/repo; root-in-container"
+)
+SUBJECT_PROFILE_CONTAINER_AGENT = (
+    "skip-all-tools-inside-container; container-isolated; image=subject-agent; "
+    "fs-namespace-confined; no-canonical|hidden|task.yaml-in-image(build-asserted); "
+    "cwd-confined-/subject; harness-env-pointers-scrubbed; "
+    "credentials-mounted-read-only; product-CLIs-baked-at-pinned-versions; "
+    "egress-allowlisted-see-network_policy; root-in-container"
+)
+
+# Back-compat alias. Historical runs stamped one CONTAINER profile covering the gate
+# only (the agent leg was host-mode), so the gate variant is what it meant.
+SUBJECT_PROFILE_CONTAINER = SUBJECT_PROFILE_CONTAINER_GATE
 
 # Back-compat default for adapters that stamp a posture directly; the runner
 # overrides identity.permission_profile with the mode it actually launched.
@@ -93,9 +114,63 @@ class ResolvedModel:
     seat_allocation_usd: Optional[float] = None
 
 
+def base_model_name(model: Optional[str]) -> str:
+    """A model id without its version suffix (``a@b`` -> ``a``); ``''`` for None."""
+    return (model or "").split("@", 1)[0]
+
+
+@dataclass(frozen=True)
+class DelegatedLeg:
+    """One side of a scripted split: the billing leg a metered model belongs to."""
+
+    leg_id: str
+    role: str
+    resolved: ResolvedModel
+
+
+@dataclass(frozen=True)
+class DelegationPlan:
+    """Scripted delegation (policy P2 / family B3) handed to the adapter.
+
+    One product invocation, two billing legs. The runner builds this from the
+    task's pinned ``split.yaml`` — the adapter never decides who does what, and
+    must not treat the absence of a metered model as a zero-cost leg.
+
+    ``brief`` is the deterministic instruction text appended to the task prompt;
+    ``agents_json`` binds the executor subagent to the economical model.
+    ``legs`` is conductor-first, and ``provenance`` carries the split file's path
+    and hash onto the emitted events.
+    """
+
+    legs: Tuple["DelegatedLeg", ...]
+    brief: str
+    agents_json: str
+    agent_name: str
+    provenance: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def conductor(self) -> "DelegatedLeg":
+        return self.legs[0]
+
+    def leg_for_model(self, model_key: str) -> Optional["DelegatedLeg"]:
+        """Which declared leg a metered model id belongs to, or ``None``.
+
+        Matched on the base name (the part before ``@``), because the manifest may
+        pin a floating alias while the product meters the concrete version it
+        served. An unmatched id is never guessed into a leg: the caller records it
+        as its own, explicitly unattributed leg so its tokens stay on the bill.
+        """
+        base = base_model_name(model_key)
+        for leg in self.legs:
+            declared = leg.resolved.model_id or leg.resolved.model_or_selector
+            if base_model_name(declared) == base:
+                return leg
+        return None
+
+
 @dataclass
 class AttemptSpec:
-    """One execution attempt = one billing leg.
+    """One execution attempt = one billing leg (or, under P2, one *split* of legs).
 
     ``cache_state``/``session_id``/``resume`` carry the runner's cache-protocol
     contract (methodology/cache-protocol.md rule 4) down to the adapter: a
@@ -103,6 +178,12 @@ class AttemptSpec:
     by emitting its ``session_id`` into the event log; a ``warm-series`` attempt
     continues an existing session (``resume=True``) so the provider prompt-cache
     carries over. The runner owns these values; the adapter only honours them.
+
+    ``delegation`` is set only under scripted delegation (P2): the attempt is a
+    single product invocation that bills two models, and the adapter splits the
+    product's own per-model usage metadata into one leg each. It is ``None``
+    everywhere else, and an adapter that does not implement delegation must say so
+    rather than silently running the conductor leg alone.
     """
 
     leg_id: str
@@ -112,6 +193,7 @@ class AttemptSpec:
     cache_state: str = "cold"
     session_id: Optional[str] = None
     resume: bool = False
+    delegation: Optional[DelegationPlan] = None
 
 
 def session_payload(spec: "AttemptSpec") -> Dict[str, Any]:
@@ -212,15 +294,20 @@ def agent_env() -> Dict[str, str]:
     return {k: v for k, v in os.environ.items() if k not in _HARNESS_ENV_KEYS}
 
 
-def cli_version(binary: str) -> str:
-    """Best-effort product/CLI version string for the invocation.txt artifact.
+def cli_version(binary: str, container=None) -> str:
+    """Product/CLI version string for the invocation.txt artifact and identity.
 
-    Runs ``<binary> --version`` (which incurs NO model spend) and returns its first
-    output line, or ``"unavailable"`` if the binary is absent, errors, or times out
-    — never fabricated. This is run-provenance for retroactive diagnosis, not
-    telemetry. In container mode this reports the host CLI version (the batch-2
-    agent leg is host-mode; the containerized agent leg is unimplemented).
+    In CONTAINER mode the version comes from the launched image's pinned label
+    (``lab.cli.<product>.version``, asserted against the CLI at build time), because
+    the host CLI is not the one that runs and the two drift. In HOST mode it runs
+    ``<binary> --version`` (no model spend) and returns its first output line.
+    Either way, ``"unavailable"`` when it cannot be established — never fabricated,
+    never silently substituted from the other mode.
     """
+    if container is not None and getattr(container, "image", None):
+        from harness.container.exec import image_cli_version
+
+        return image_cli_version(container.image, os.path.basename(binary))
     try:
         proc = subprocess.run(  # noqa: S603 - fixed argv, no shell
             [binary, "--version"], capture_output=True, text=True,

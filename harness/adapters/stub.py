@@ -19,7 +19,7 @@ produces an identical tree (feasibility criterion 3 in spirit) and tests are sta
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Any, Dict, List, Tuple
 
 from harness.telemetry.telemetry import tiered
 
@@ -28,6 +28,7 @@ from .base import (
     AttemptOutcome,
     AttemptSpec,
     EmitFn,
+    ResolvedModel,
     leg_identity_payload,
     session_payload,
     usage_field,
@@ -42,10 +43,26 @@ _SYNTHETIC_PROFILE = {
 }
 
 
-def _profile_for(spec: AttemptSpec) -> Dict[str, int]:
+def _profile_for(leg_id: str, resolved: ResolvedModel) -> Dict[str, int]:
     """Pick a synthetic token profile from the leg's economic role."""
-    econ_like = ("econ" in spec.leg_id) or ("ECON" in (spec.resolved.model_or_selector or ""))
+    econ_like = ("econ" in leg_id) or ("ECON" in (resolved.model_or_selector or ""))
     return _SYNTHETIC_PROFILE["economical" if econ_like else "strong"]
+
+
+def _synthetic_usage(leg_id: str, resolved: ResolvedModel
+                     ) -> Tuple[Dict[str, Any], Dict[str, object]]:
+    """(usage, leg_options) for one synthetic leg, mirroring its config surface."""
+    if resolved.product_surface == "product_blackbox":
+        # Black-box product: token usage unavailable (never zero-filled); a
+        # synthetic provider-reported cost stands in for a product-exposed figure.
+        usage = {
+            cls: usage_field(None, "unavailable", "product does not expose token counts")
+            for cls in ("input_tokens", "cache_creation_tokens",
+                        "cache_read_tokens", "output_tokens")
+        }
+        return usage, {"provider_reported_usd": 0.0137}  # SYNTHETIC
+    profile = _profile_for(leg_id, resolved)
+    return {cls: tiered(val, "authoritative") for cls, val in profile.items()}, {}
 
 
 class StubAdapter(Adapter):
@@ -55,30 +72,35 @@ class StubAdapter(Adapter):
 
     def run_attempt(self, spec: AttemptSpec, subject_dir: str, emit: EmitFn) -> AttemptOutcome:
         r = spec.resolved
+        dele = spec.delegation
         leg_meta = {"leg": spec.leg_id, "role": spec.role, **leg_identity_payload(r)}
 
-        emit("model_call_started", **leg_meta, **session_payload(spec))
+        emit("model_call_started", **leg_meta, **session_payload(spec),
+             **(dele.provenance if dele else {}))
         # A couple of representative behaviour events so the summary has content.
         emit("tool_invoked", leg=spec.leg_id, tool="Read")
         emit("file_read", leg=spec.leg_id, path="SYNTHETIC/src/example.ts", bytes=2048)
         emit("tool_invoked", leg=spec.leg_id, tool="Edit")
         emit("test_run", leg=spec.leg_id, suite="SYNTHETIC")
 
+        # Under scripted delegation (P2) ONE attempt bills every leg the pinned split
+        # declares, so the dry-run pipeline exercises the same multi-leg shape the
+        # real adapter derives from the product's per-model usage metadata.
+        billed: List[Tuple[str, str, ResolvedModel]] = (
+            [(leg.leg_id, leg.role, leg.resolved) for leg in dele.legs] if dele
+            else [(spec.leg_id, spec.role, r)]
+        )
+        # AttemptOutcome.leg_options is per-ATTEMPT, so only the primary (conductor)
+        # leg's costing options travel back; P2's legs are both controlled_api and
+        # carry none, so nothing is lost here.
         leg_options: Dict[str, object] = {}
-        if r.product_surface == "product_blackbox":
-            # Black-box product: token usage unavailable (never zero-filled); a
-            # synthetic provider-reported cost stands in for a product-exposed figure.
-            usage = {
-                cls: usage_field(None, "unavailable", "product does not expose token counts")
-                for cls in ("input_tokens", "cache_creation_tokens",
-                            "cache_read_tokens", "output_tokens")
-            }
-            leg_options["provider_reported_usd"] = 0.0137  # SYNTHETIC product-reported cost
-        else:
-            profile = _profile_for(spec)
-            usage = {cls: tiered(val, "authoritative") for cls, val in profile.items()}
-
-        emit("model_call_completed", usage=usage, **leg_meta)
+        for index, (leg_id, role, resolved) in enumerate(billed):
+            usage, opts = _synthetic_usage(leg_id, resolved)
+            if index == 0:
+                leg_options.update(opts)
+            emit("model_call_completed", usage=usage, leg=leg_id, role=role,
+                 **leg_identity_payload(resolved),
+                 **(dele.provenance if dele and index == 0 else {}))
 
         identity = {
             "product": tiered(r.product, "authoritative"),
