@@ -46,7 +46,16 @@ EVENT_TYPES = (
     "correction",
     "failure",
     "acceptance",
+    # Provider-side (billing-plane) usage attributed to a leg after the fact by
+    # harness/collectors/. It carries a ``usage`` block in the same shape as
+    # ``model_call_completed`` but is NOT a turn: backfill must never inflate
+    # behaviour counts. Appending one keeps the log immutable — the original
+    # `unavailable` model_call_completed events stay exactly as recorded.
+    "provider_usage_backfill",
 )
+
+# Event types whose ``usage`` block contributes to a leg's token totals.
+_USAGE_EVENT_TYPES = ("model_call_completed", "provider_usage_backfill")
 
 _SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema-v2.json")
 
@@ -166,12 +175,19 @@ def _count_events(events: List[Dict[str, Any]], event_type: str) -> int:
 
 
 def _leg_usage_from_events(events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    """Aggregate token classes from ``model_call_completed`` events for one leg."""
+    """Aggregate token classes from a leg's usage-bearing events.
+
+    Usage-bearing means ``model_call_completed`` (product-reported, at run time)
+    or ``provider_usage_backfill`` (billing-plane, attributed afterwards). A leg
+    that reported nothing at run time and was later backfilled therefore derives
+    its totals wholly from the collector; a class neither source reported stays
+    *unavailable*, never 0.
+    """
     usage: Dict[str, Dict[str, Any]] = {}
     for cls in _USAGE_TOKEN_CLASSES:
         contribs: List[Tuple[Any, str]] = []
         for e in events:
-            if e.get("event_type") != "model_call_completed":
+            if e.get("event_type") not in _USAGE_EVENT_TYPES:
                 continue
             field = (e.get("usage") or {}).get(cls)
             if _is_tiered(field):
@@ -196,11 +212,14 @@ def derive_summary(
     """Derive a run summary from an event log (SPEC 2.7).
 
     Aggregation rules:
-      * Token usage is summed across ``model_call_completed`` events. A leg is
+      * Token usage is summed across the usage-bearing events
+        (``model_call_completed`` and ``provider_usage_backfill``). A leg is
         identified by an event's ``leg`` field (default ``"main"``); each leg
         gets its own usage block, and top-level ``usage`` is the sum across legs.
         This makes dual-bill (C5) workflows auditable.
       * Behaviour counts are event counts (turns, retries, tool calls, …).
+        ``turns`` counts ``model_call_completed`` only — a provider-side backfill
+        adds tokens, never a turn.
       * Nothing is zero-filled: a class no event reported stays *unavailable*.
       * ``economics``/``human_effort``/``identity`` are supplied by the caller
         (an adapter knows the billing path, seat basis, and human timings); this
@@ -211,7 +230,7 @@ def derive_summary(
     # Group model-call events by billing leg.
     legs_seen: List[str] = []
     for e in events:
-        if e.get("event_type") == "model_call_completed":
+        if e.get("event_type") in _USAGE_EVENT_TYPES:
             leg = e.get("leg", "main")
             if leg not in legs_seen:
                 legs_seen.append(leg)
@@ -222,7 +241,7 @@ def derive_summary(
     for leg in legs_seen:
         leg_events = [
             e for e in events
-            if e.get("event_type") == "model_call_completed" and e.get("leg", "main") == leg
+            if e.get("event_type") in _USAGE_EVENT_TYPES and e.get("leg", "main") == leg
         ]
         leg_meta_source = next((e for e in leg_events), {})
         legs.append({

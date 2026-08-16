@@ -1,0 +1,174 @@
+{
+  "_fixture": "SYNTHETIC — invented Cloud Monitoring timeSeries payloads for unit tests ONLY. Not real telemetry, not a real measurement, never place under results/. Shapes mirror aiplatform.googleapis.com/publisher/online_serving/token_count on aiplatform.googleapis.com/PublisherModel; every token value is made up.",
+  "_run_window": {
+    "start": "2026-08-16T10:00:00Z",
+    "end": "2026-08-16T10:05:00Z",
+    "guard_seconds": 60,
+    "_note": "guarded window is 09:59:00 .. 10:06:00"
+  },
+
+  "two_models": [
+    {
+      "resource": {"type": "aiplatform.googleapis.com/PublisherModel",
+        "labels": {"publisher": "google", "model_user_id": "SYNTHETIC-gemini-flash",
+                   "model_version_id": "", "location": "global",
+                   "project_id": "SYNTHETIC-project"}},
+      "metric": {"type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+        "labels": {"type": "input", "request_type": "shared",
+                   "shared_request_type": "standard", "source": "global"}},
+      "points": [
+        {"interval": {"startTime": "2026-08-16T10:00:00Z", "endTime": "2026-08-16T10:01:00Z"},
+         "value": {"int64Value": "1000"}},
+        {"interval": {"startTime": "2026-08-16T10:02:00Z", "endTime": "2026-08-16T10:03:00Z"},
+         "value": {"int64Value": "500"}}
+      ]
+    },
+    {
+      "resource": {"type": "aiplatform.googleapis.com/PublisherModel",
+        "labels": {"publisher": "google", "model_user_id": "SYNTHETIC-gemini-flash",
+                   "model_version_id": "", "location": "global",
+                   "project_id": "SYNTHETIC-project"}},
+      "metric": {"type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+        "labels": {"type": "output", "request_type": "shared",
+                   "shared_request_type": "standard", "source": "global"}},
+      "points": [
+        {"interval": {"startTime": "2026-08-16T10:01:00Z", "endTime": "2026-08-16T10:02:00Z"},
+         "value": {"int64Value": "300"}}
+      ]
+    },
+    {
+      "resource": {"type": "aiplatform.googleapis.com/PublisherModel",
+        "labels": {"publisher": "anthropic", "model_user_id": "SYNTHETIC-claude-strong",
+                   "model_version_id": "default", "location": "global",
+                   "project_id": "SYNTHETIC-project"}},
+      "metric": {"type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+        "labels": {"type": "input", "explicit_caching": "false", "request_type": "shared",
+                   "shared_request_type": "standard", "source": "global"}},
+      "points": [
+        {"interval": {"startTime": "2026-08-16T10:00:00Z", "endTime": "2026-08-16T10:01:00Z"},
+         "value": {"int64Value": "2000"}}
+      ]
+    },
+    {
+      "resource": {"type": "aiplatform.googleapis.com/PublisherModel",
+        "labels": {"publisher": "anthropic", "model_user_id": "SYNTHETIC-claude-strong",
+                   "model_version_id": "default", "location": "global",
+                   "project_id": "SYNTHETIC-project"}},
+      "metric": {"type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+        "labels": {"type": "cache_read_input", "explicit_caching": "false",
+                   "request_type": "shared", "shared_request_type": "standard",
+                   "source": "global"}},
+      "points": [
+        {"interval": {"startTime": "2026-08-16T10:00:00Z", "endTime": "2026-08-16T10:01:00Z"},
+         "value": {"int64Value": "800"}}
+      ]
+    },
+    {
+      "resource": {"type": "aiplatform.googleapis.com/PublisherModel",
+        "labels": {"publisher": "anthropic", "model_user_id": "SYNTHETIC-claude-strong",
+                   "model_version_id": "default", "location": "global",
+                   "project_id": "SYNTHETIC-project"}},
+      "metric": {"type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+        "labels": {"type": "cache_write_1h_input", "explicit_caching": "true",
+                   "request_type": "shared", "shared_request_type": "standard",
+                   "source": "global"}},
+      "points": [
+        {"interval": {"startTime": "2026-08-16T10:01:00Z", "endTime": "2026-08-16T10:02:00Z"},
+         "value": {"int64Value": "400"}}
+      ]
+    },
+    {
+      "resource": {"type": "aiplatform.googleapis.com/PublisherModel",
+        "labels": {"publisher": "anthropic", "model_user_id": "SYNTHETIC-claude-strong",
+                   "model_version_id": "default", "location": "global",
+                   "project_id": "SYNTHETIC-project"}},
+      "metric": {"type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+        "labels": {"type": "output", "explicit_caching": "false", "request_type": "shared",
+                   "shared_request_type": "standard", "source": "global"}},
+      "points": [
+        {"interval": {"startTime": "2026-08-16T10:03:00Z", "endTime": "2026-08-16T10:04:00Z"},
+         "value": {"int64Value": "600"}}
+      ]
+    }
+  ],
+
+  "_window_edges_note": "9999 lands 10 minutes before the run; 7777 lands 30s past the guard; 250 lands inside the guard tail. Only 250 may be counted.",
+  "window_edges": [
+    {
+      "resource": {"type": "aiplatform.googleapis.com/PublisherModel",
+        "labels": {"publisher": "google", "model_user_id": "SYNTHETIC-gemini-flash",
+                   "model_version_id": "", "location": "global",
+                   "project_id": "SYNTHETIC-project"}},
+      "metric": {"type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+        "labels": {"type": "input", "request_type": "shared",
+                   "shared_request_type": "standard", "source": "global"}},
+      "points": [
+        {"interval": {"startTime": "2026-08-16T09:49:00Z", "endTime": "2026-08-16T09:50:00Z"},
+         "value": {"int64Value": "9999"}},
+        {"interval": {"startTime": "2026-08-16T10:05:00Z", "endTime": "2026-08-16T10:05:30Z"},
+         "value": {"int64Value": "250"}},
+        {"interval": {"startTime": "2026-08-16T10:06:00Z", "endTime": "2026-08-16T10:06:30Z"},
+         "value": {"int64Value": "7777"}}
+      ]
+    }
+  ],
+
+  "_unmapped_types_note": "cache_write_input is the real 5m-TTL class the pinned mapping omits; SYNTHETIC-thinking stands in for any reasoning-flavoured type. Neither may be counted, neither may be dropped.",
+  "unmapped_types": [
+    {
+      "resource": {"type": "aiplatform.googleapis.com/PublisherModel",
+        "labels": {"publisher": "google", "model_user_id": "SYNTHETIC-gemini-flash",
+                   "model_version_id": "", "location": "global",
+                   "project_id": "SYNTHETIC-project"}},
+      "metric": {"type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+        "labels": {"type": "input", "request_type": "shared", "source": "global"}},
+      "points": [
+        {"interval": {"startTime": "2026-08-16T10:00:00Z", "endTime": "2026-08-16T10:01:00Z"},
+         "value": {"int64Value": "1000"}}
+      ]
+    },
+    {
+      "resource": {"type": "aiplatform.googleapis.com/PublisherModel",
+        "labels": {"publisher": "google", "model_user_id": "SYNTHETIC-gemini-flash",
+                   "model_version_id": "", "location": "global",
+                   "project_id": "SYNTHETIC-project"}},
+      "metric": {"type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+        "labels": {"type": "cache_write_input", "request_type": "shared", "source": "global"}},
+      "points": [
+        {"interval": {"startTime": "2026-08-16T10:00:00Z", "endTime": "2026-08-16T10:01:00Z"},
+         "value": {"int64Value": "700"}}
+      ]
+    },
+    {
+      "resource": {"type": "aiplatform.googleapis.com/PublisherModel",
+        "labels": {"publisher": "google", "model_user_id": "SYNTHETIC-gemini-flash",
+                   "model_version_id": "", "location": "global",
+                   "project_id": "SYNTHETIC-project"}},
+      "metric": {"type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+        "labels": {"type": "SYNTHETIC-thinking", "request_type": "shared", "source": "global"}},
+      "points": [
+        {"interval": {"startTime": "2026-08-16T10:01:00Z", "endTime": "2026-08-16T10:02:00Z"},
+         "value": {"int64Value": "123"}}
+      ]
+    }
+  ],
+
+  "_no_data_note": "Ingestion lag: the query ran before the points landed. Fills nothing.",
+  "no_data": [],
+
+  "_unreadable_note": "A point with no int64Value/doubleValue must raise, never be read as 0.",
+  "unreadable_point": [
+    {
+      "resource": {"type": "aiplatform.googleapis.com/PublisherModel",
+        "labels": {"publisher": "google", "model_user_id": "SYNTHETIC-gemini-flash",
+                   "model_version_id": "", "location": "global",
+                   "project_id": "SYNTHETIC-project"}},
+      "metric": {"type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+        "labels": {"type": "input", "request_type": "shared", "source": "global"}},
+      "points": [
+        {"interval": {"startTime": "2026-08-16T10:00:00Z", "endTime": "2026-08-16T10:01:00Z"},
+         "value": {}}
+      ]
+    }
+  ]
+}

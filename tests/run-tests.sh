@@ -167,6 +167,18 @@ else
   overall_rc=1
 fi
 
+# --- 3d. provider-side collector (SPEC 2.9 item 1) ---------------------------
+# Named gate because this is where a Product-B cost figure is born: window
+# attribution, per-model leg split, lag backfill, unmapped-type flagging, and the
+# never-zero-fill rule. Runs fully offline against SYNTHETIC time-series fixtures.
+echo "== provider-side token collector (offline, SYNTHETIC fixtures) =="
+if "$PYTHON" -m unittest tests.test_vertex_collector -v; then
+  echo "  ok    collector attribution + backfill contracts hold"
+else
+  echo "  FAIL  collector contracts broken"
+  overall_rc=1
+fi
+
 # --- 4. Python unit tests ----------------------------------------------------
 echo "== python unit tests (harness/telemetry) =="
 if "$PYTHON" -m unittest discover -s tests -p 'test_*.py' -v; then
