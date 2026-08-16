@@ -120,9 +120,11 @@ class ValidatorTests(unittest.TestCase):
 
     def test_configuration_id_enum_accepts_the_cp_schema_2026_08_16_additions(self):
         """CP-SCHEMA 2026-08-16: additive widening for C3-prev (two Product-B
-        generations that must not merge into one cell) and P2 (scripted delegation).
+        generations that must not merge into one cell), P2 (scripted delegation),
+        and C3-med (the within-product effort-level arm, which must not merge with
+        C3 in the summarizer).
         """
-        for config_id in ("C3-prev", "P2"):
+        for config_id in ("C3-prev", "C3-med", "P2"):
             with self.subTest(configuration_id=config_id):
                 summary = _load("summary-valid-SYNTHETIC.json")
                 summary["configuration_id"] = config_id
@@ -138,19 +140,30 @@ class ValidatorTests(unittest.TestCase):
                 ok, reasons = validate_summary(summary)
                 self.assertTrue(ok, msg=f"reasons: {reasons}")
         # ...and the enum is still closed: a near-miss on a new id is still rejected.
-        for config_id in ("C3prev", "C3-PREV", "P3", "p2"):
+        # "C3med"/"C3-Med" in particular must NOT silently pass as the effort arm.
+        for config_id in ("C3prev", "C3-PREV", "C3med", "C3-Med", "C3-medium", "P3", "p2"):
             with self.subTest(rejected=config_id):
                 summary = _load("summary-valid-SYNTHETIC.json")
                 summary["configuration_id"] = config_id
                 ok, _ = validate_summary(summary)
                 self.assertFalse(ok)
 
-    def test_schema_records_the_human_approved_amendment(self):
+    def test_schema_records_the_human_approved_amendments(self):
         with open(telemetry._SCHEMA_PATH, encoding="utf-8") as fh:
             schema = json.load(fh)
-        self.assertIn("v2.1 2026-08-16: additive enum widening (C3-prev, P2), "
-                      "human-approved; all v2.0 summaries remain valid.",
-                      schema["description"])
+        for note in ("v2.1 2026-08-16: additive enum widening (C3-prev, P2), "
+                     "human-approved; all v2.0 summaries remain valid.",
+                     "additive widening (C3-med), human-approved 2026-08-16; "
+                     "all prior summaries remain valid."):
+            self.assertIn(note, schema["description"])
+
+    def test_c3_med_is_a_distinct_cell_from_c3(self):
+        """The effort arm exists so the summarizer cannot merge it into C3. If the
+        two ids ever collapse to one value, that merge is back."""
+        ids = set(json.load(open(telemetry._SCHEMA_PATH, encoding="utf-8"))
+                  ["properties"]["configuration_id"]["enum"])
+        self.assertLessEqual({"C3", "C3-med", "C3-prev"}, ids)
+        self.assertEqual(len({"C3", "C3-med", "C3-prev"}), 3)
 
 
 class HarnessSchemaAgreementTests(unittest.TestCase):

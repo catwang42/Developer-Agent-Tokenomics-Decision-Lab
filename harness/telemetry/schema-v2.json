@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Run Summary v2 (SPEC 2.7) — every field: {value, confidence}",
-  "description": "Derived run summary. Every telemetry field carries value + source/confidence tier. Unavailable is recorded as unavailable, never zero. See SPEC.md 2.7. v2.1 2026-08-16: additive enum widening (C3-prev, P2), human-approved; all v2.0 summaries remain valid.",
+  "description": "Derived run summary. Every telemetry field carries value + source/confidence tier. Unavailable is recorded as unavailable, never zero. See SPEC.md 2.7. v2.1 2026-08-16: additive enum widening (C3-prev, P2), human-approved; all v2.0 summaries remain valid. additive widening (C3-med), human-approved 2026-08-16; all prior summaries remain valid.",
   "definitions": {
     "tiered": {
       "type": "object",
@@ -22,7 +22,7 @@
     "run_id": {"type": "string"},
     "task_id": {"type": "string"},
     "task_suite_version": {"type": "string"},
-    "configuration_id": {"enum": ["C1", "C2", "C3", "C3-prev", "C4", "C5", "P0", "P1", "P2"]},
+    "configuration_id": {"enum": ["C1", "C2", "C3", "C3-med", "C3-prev", "C4", "C5", "P0", "P1", "P2"]},
     "manifest_ref": {"type": "string"},
     "hidden_test_hash": {"type": "string"},
     "identity": {
