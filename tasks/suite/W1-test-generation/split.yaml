@@ -1,0 +1,77 @@
+# Scripted-delegation split (policy P2, family B3) for the W1 test-generation task.
+# Contract: harness/policies/README.md#p2-split-file-contract. Loaded and validated
+# by harness/runner/delegation.py; sha256 pinned in manifest w1_task.delegation_split.
+#
+# STATUS: proposed — awaiting human review and freeze. Until the manifest pin says
+# `status: frozen`, the runner allows this split in --dry-run only.
+#
+# W1 inverts the pilot's write scope: the mappers are READ-ONLY targets and the agent
+# may only add files under src/tests/ (task.yaml `agent_write_scope`). Every write
+# scope below therefore lives under src/tests/; delegation.py refuses a split that
+# gets this backwards, because the gate's diff-scope check (T1) would fail every run.
+#
+# Scoped from the PUBLIC prompt only — no sealed-mutant knowledge. The hidden test is
+# mutation-catch; a split that hinted at the mutants would invalidate the task.
+#
+# METHODOLOGICAL CAVEAT: a B3 cell differs from a B1 cell in TWO ways — the routing
+# AND this decomposition. Differences are not attributable to delegation alone
+# (SPEC 2.1b: B3 is a per-leg-itemization demonstration, not a causal comparison).
+split_version: 1
+policy: P2
+task_id: w1-realworld-mapper-tests
+
+# Executor (ECONOMICAL_MODEL_A): the bulk test file and its fixtures — high-volume,
+# low-ambiguity output, which is what the cheap tier is for.
+executor_scopes:
+  - id: E1-test-file-scaffold
+    kind: scaffold
+    step: >
+      Create the new Jest test file under src/tests/mappers/ with the imports, describe
+      blocks and fixture objects (author, article, favoritedBy/followedBy collections)
+      the mapper tests need, matching the conventions of the existing suite.
+    paths: [src/tests/mappers/]
+    writes: true
+
+  - id: E2-article-mapper-cases
+    kind: test_generation
+    step: >
+      Write the articleMapper cases: `favorited` true and false (requesting id in and
+      not in `favoritedBy`), `favoritesCount`, and `tagList` mapping for both an empty
+      and a non-empty tag list. Assert the mapped output values, not just that the
+      function ran.
+    paths: [src/tests/mappers/]
+    writes: true
+
+# Conductor (STRONG_MODEL_A): the reasoning the prompt flags as easy to get wrong —
+# the reachable-branch ceiling and whether the assertions are actually meaningful.
+conductor_scopes:
+  - id: C1-author-mapper-branches
+    kind: edge_cases
+    step: >
+      Write the authorMapper cases: `following` with the requesting id present vs
+      absent, and, when present, the user in vs not in `followedBy`. Do not attempt
+      the unreachable defensive branch — the prompt states the reachable ceiling is
+      5 of 6 legs and chasing the sixth wastes the run.
+    paths: [src/tests/mappers/]
+    writes: true
+
+  - id: C2-suite-integration
+    kind: integration
+    step: >
+      Make the new file fit the existing suite: correct relative imports and types,
+      runs under the project's Jest config, and every pre-existing test still passes.
+      No product file, config file or existing test is modified.
+    paths: [src/tests/mappers/]
+    writes: true
+
+  - id: C3-meaningfulness-review
+    kind: final_verification
+    step: >
+      Read both mappers and check each assertion against them: every test must fail
+      if the mapped value were wrong, not merely if the function threw. Replace any
+      assertion that would pass against a broken mapper.
+    paths:
+      - src/app/routes/article/article.mapper.ts
+      - src/app/routes/article/author.mapper.ts
+      - src/tests/mappers/
+    writes: false

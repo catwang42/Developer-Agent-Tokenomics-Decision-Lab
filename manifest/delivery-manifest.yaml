@@ -144,6 +144,13 @@ pilot_task:
     version: sealed-pilot-v1
     sha256: sha256:105c24189877b52fe57b1e453f53f73366ad3c7fa1a611a8a2a63042b667abe2
     validated: 10/10   # host run with sealed test present; clean container = 9 pass + 1 awaiting
+  # P2 scripted-delegation split (SPEC 2.1c: P2's manifest pin is the split-file hash
+  # per task). status frozen == human-reviewed; the runner refuses a LIVE P2 run on a
+  # draft split and allows --dry-run, so the harness is testable before the freeze.
+  delegation_split:
+    path: tasks/pilot-realworld/split.yaml
+    sha256: sha256:6e33c4c13588b7d71f8cced82a0baba1518ee7e892540314631a84ebadd69929
+    status: proposed   # -> frozen after human review
 
 # W4 complex-bugfix / F2 feasibility bugfix. Commit-mined per WORKLOAD-SELECTION 4:
 # re-implement the change in canonical_fix_commit starting from pinned_commit (its
@@ -178,3 +185,9 @@ w1_task:
     version: "sealed-w1-v1 2026-07-20 6-mutants"
     sha256: sha256:37f3acd685fd03e0624a98f328e38edffe8faef5179263e502035c707c51f4e9
     validated: 10/10   # all six seeded mutants caught; canonical accepted, pre-mod fails (test_generation gate)
+  # P2 scripted-delegation split (SPEC 2.1c). See pilot_task.delegation_split for the
+  # frozen-status rule; W1's writes are confined to src/tests/ (agent_write_scope).
+  delegation_split:
+    path: tasks/suite/W1-test-generation/split.yaml
+    sha256: sha256:6fa4aea042b3614850768da600af1d2771b9e6d1649bd45cd6a49c49cb9d89f5
+    status: proposed   # -> frozen after human review

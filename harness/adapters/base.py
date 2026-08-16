@@ -22,7 +22,7 @@ from __future__ import annotations
 import os
 import subprocess
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from harness.telemetry.telemetry import tiered, unavailable
 
@@ -114,9 +114,63 @@ class ResolvedModel:
     seat_allocation_usd: Optional[float] = None
 
 
+def base_model_name(model: Optional[str]) -> str:
+    """A model id without its version suffix (``a@b`` -> ``a``); ``''`` for None."""
+    return (model or "").split("@", 1)[0]
+
+
+@dataclass(frozen=True)
+class DelegatedLeg:
+    """One side of a scripted split: the billing leg a metered model belongs to."""
+
+    leg_id: str
+    role: str
+    resolved: ResolvedModel
+
+
+@dataclass(frozen=True)
+class DelegationPlan:
+    """Scripted delegation (policy P2 / family B3) handed to the adapter.
+
+    One product invocation, two billing legs. The runner builds this from the
+    task's pinned ``split.yaml`` — the adapter never decides who does what, and
+    must not treat the absence of a metered model as a zero-cost leg.
+
+    ``brief`` is the deterministic instruction text appended to the task prompt;
+    ``agents_json`` binds the executor subagent to the economical model.
+    ``legs`` is conductor-first, and ``provenance`` carries the split file's path
+    and hash onto the emitted events.
+    """
+
+    legs: Tuple["DelegatedLeg", ...]
+    brief: str
+    agents_json: str
+    agent_name: str
+    provenance: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def conductor(self) -> "DelegatedLeg":
+        return self.legs[0]
+
+    def leg_for_model(self, model_key: str) -> Optional["DelegatedLeg"]:
+        """Which declared leg a metered model id belongs to, or ``None``.
+
+        Matched on the base name (the part before ``@``), because the manifest may
+        pin a floating alias while the product meters the concrete version it
+        served. An unmatched id is never guessed into a leg: the caller records it
+        as its own, explicitly unattributed leg so its tokens stay on the bill.
+        """
+        base = base_model_name(model_key)
+        for leg in self.legs:
+            declared = leg.resolved.model_id or leg.resolved.model_or_selector
+            if base_model_name(declared) == base:
+                return leg
+        return None
+
+
 @dataclass
 class AttemptSpec:
-    """One execution attempt = one billing leg.
+    """One execution attempt = one billing leg (or, under P2, one *split* of legs).
 
     ``cache_state``/``session_id``/``resume`` carry the runner's cache-protocol
     contract (methodology/cache-protocol.md rule 4) down to the adapter: a
@@ -124,6 +178,12 @@ class AttemptSpec:
     by emitting its ``session_id`` into the event log; a ``warm-series`` attempt
     continues an existing session (``resume=True``) so the provider prompt-cache
     carries over. The runner owns these values; the adapter only honours them.
+
+    ``delegation`` is set only under scripted delegation (P2): the attempt is a
+    single product invocation that bills two models, and the adapter splits the
+    product's own per-model usage metadata into one leg each. It is ``None``
+    everywhere else, and an adapter that does not implement delegation must say so
+    rather than silently running the conductor leg alone.
     """
 
     leg_id: str
@@ -133,6 +193,7 @@ class AttemptSpec:
     cache_state: str = "cold"
     session_id: Optional[str] = None
     resume: bool = False
+    delegation: Optional[DelegationPlan] = None
 
 
 def session_payload(spec: "AttemptSpec") -> Dict[str, Any]:

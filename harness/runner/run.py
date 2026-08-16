@@ -30,7 +30,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -42,6 +42,8 @@ from harness.adapters.base import (
     SUBJECT_PROFILE_CONTAINER_GATE,
     SUBJECT_PROFILE_HOST,
     AttemptSpec,
+    DelegatedLeg,
+    DelegationPlan,
 )
 from harness.container import egress as egress_mod
 from harness.container.exec import (
@@ -60,6 +62,7 @@ from harness.container.exec import (
     subject_image_tag,
 )
 from harness.results.record import build_result_record
+from harness.runner import delegation
 from harness.telemetry.costing import cost_for_legs, load_prices
 from harness.telemetry.telemetry import EventLog, derive_summary, tiered, unavailable, validate
 
@@ -78,7 +81,12 @@ _PLACEHOLDERS = {
     "verbatim label from product", "null", "None", "",
 }
 _PRODUCT_LABELS = {"PRODUCT_A": "Product A", "PRODUCT_B": "Product B"}
-_POLICY_FILES = {"P0": "p0-baseline.yaml", "P1": "p1-cheap-first.yaml"}
+_POLICY_FILES = {"P0": "p0-baseline.yaml", "P1": "p1-cheap-first.yaml",
+                 "P2": "p2-delegation.yaml"}
+
+# The frozen telemetry schema (CP-SCHEMA) enumerates the configuration ids a summary
+# may carry; a run whose id is outside it cannot be recorded, however well it runs.
+TELEMETRY_SCHEMA = os.path.join(REPO_ROOT, "harness", "telemetry", "schema-v2.json")
 
 
 class RunnerError(Exception):
@@ -167,19 +175,75 @@ class LegPlan:
 class RunPlan:
     adapter_name: str
     legs: List[LegPlan]
-    policy: str  # "static" | "cheap_first" | "workflow"
+    policy: str  # "static" | "cheap_first" | "scripted_delegation" | "workflow"
+    # Set only under scripted delegation (P2): the pinned split's legs, brief and
+    # executor binding, handed to the adapter as ONE attempt that bills two models.
+    delegation: Optional[DelegationPlan] = None
 
 
-def build_plan(config_id: str, manifest: Dict[str, Any]) -> RunPlan:
+def _delegation_plan(pol: Dict[str, Any], manifest: Dict[str, Any], task: Optional["Task"],
+                     *, require_frozen: bool) -> Tuple[List[LegPlan], DelegationPlan]:
+    """Build P2's two legs and their pinned split (SPEC 2.1b B3 / 2.1c).
+
+    Everything that could make the delegation ambiguous is refused here rather than
+    at run time: no task, no split file, a split that disagrees with the task's own
+    write scope, a split whose hash is not the manifest's pin, or (for a live run) a
+    split that has not been frozen by human review.
+    """
+    if task is None:
+        raise RunnerError(
+            "P2 (scripted delegation) is defined by the task's pinned split file, so "
+            "the plan cannot be built without a task"
+        )
+    if pol.get("runtime_model_choice_routes_work") is not False:
+        raise RunnerError(
+            "p2-delegation.yaml must declare runtime_model_choice_routes_work: false — "
+            "work assigned by a runtime decision is B4 (P3), not B3, and would be "
+            "recorded under the wrong family"
+        )
+    product = _PRODUCT_LABELS["PRODUCT_A"]
+    conductor = resolve_model(manifest, pol["conductor_model_ref"], product)
+    executor = resolve_model(manifest, pol["executor_model_ref"], product)
+    agent_name = ((pol.get("mechanism") or {}).get("executor_agent_name")
+                  or delegation.EXECUTOR_LEG_ID)
+    try:
+        split = delegation.load_split(task.task_dir, repo_root=REPO_ROOT,
+                                      expected_task_id=task.task_id)
+        delegation.validate_against_task(split, task.task_yaml)
+        delegation.check_pin(split, manifest, task.manifest_key or "",
+                             require_frozen=require_frozen)
+    except delegation.SplitError as exc:
+        raise RunnerError(str(exc)) from exc
+
+    legs = [LegPlan(delegation.CONDUCTOR_LEG_ID, "conductor", conductor),
+            LegPlan(delegation.EXECUTOR_LEG_ID, "executor", executor)]
+    plan = DelegationPlan(
+        legs=tuple(DelegatedLeg(leg.leg_id, leg.role, leg.resolved) for leg in legs),
+        brief=delegation.render_brief(split, executor_agent=agent_name),
+        agents_json=delegation.executor_agent_json(
+            split, agent_name=agent_name,
+            model_id=executor.model_id or executor.model_or_selector),
+        agent_name=agent_name,
+        provenance=delegation.telemetry_payload(split),
+    )
+    return legs, plan
+
+
+def build_plan(config_id: str, manifest: Dict[str, Any], task: Optional["Task"] = None,
+               *, require_frozen: bool = True) -> RunPlan:
     cfg_dir = os.path.join(REPO_ROOT, "harness", "configurations")
     pol_dir = os.path.join(REPO_ROOT, "harness", "policies")
 
-    if config_id in _POLICY_FILES:  # P0 / P1 run on the controlled harness (Product A).
+    if config_id in _POLICY_FILES:  # P0 / P1 / P2 run on the controlled harness (Product A).
         pol = _load_yaml(os.path.join(pol_dir, _POLICY_FILES[config_id]))
         product = _PRODUCT_LABELS["PRODUCT_A"]
         if config_id == "P0":
             r = resolve_model(manifest, pol["model_ref"], product)
             return RunPlan("claude_code", [LegPlan("main", "solver", r)], "static")
+        if config_id == "P2":
+            legs, dele = _delegation_plan(pol, manifest, task, require_frozen=require_frozen)
+            return RunPlan(pol.get("adapter", "claude_code"), legs,
+                           "scripted_delegation", delegation=dele)
         econ = resolve_model(manifest, pol["attempt_model_ref"], product)
         strong = resolve_model(manifest, pol["escalate_to_model_ref"], product)
         return RunPlan("claude_code", [
@@ -220,6 +284,10 @@ class Task:
     gate_type: str = "solution"
     pinned_commit: Optional[str] = None
     task_dir_rel: Optional[str] = None  # repo-root-relative (for the container image)
+    manifest_key: Optional[str] = None  # where this task's pins live in the manifest
+    # The parsed task.yaml, kept so policies that must agree with the task's own
+    # declarations (P2's split file vs the gate's write scope) can check, not assume.
+    task_yaml: Dict[str, Any] = field(default_factory=dict)
 
 
 def load_task(task_arg: str, manifest: Dict[str, Any]) -> Task:
@@ -241,6 +309,8 @@ def load_task(task_arg: str, manifest: Dict[str, Any]) -> Task:
         gate_type=ty.get("gate_type", "solution"),
         pinned_commit=mentry.get("pinned_commit"),
         task_dir_rel=os.path.relpath(task_dir, REPO_ROOT),
+        manifest_key=mkey,
+        task_yaml=ty,
     )
 
 
@@ -453,6 +523,17 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
     leg_options: Dict[str, Dict[str, Any]] = {}
     invocations: List[Dict[str, Any]] = []
 
+    def record_outcome(leg: LegPlan, outcome: Any) -> None:
+        """Fold one adapter outcome into the run's identity, costing options, argv log."""
+        if not identity:  # top-level identity from the primary leg; legs[] hold per-leg detail
+            identity.update(outcome.identity)
+        opts = dict(outcome.leg_options)
+        if leg.resolved.seat_allocation_usd is not None:
+            opts.setdefault("seat_allocation_usd", leg.resolved.seat_allocation_usd)
+        leg_options[leg.leg_id] = opts
+        if outcome.invocation:
+            invocations.append(outcome.invocation)
+
     def run_leg(leg: LegPlan, leg_index: int) -> None:
         # Session ids MUST be valid UUIDs — the claude CLI's --session-id rejects
         # anything else (and then prints a non-JSON error, losing all usage
@@ -466,15 +547,7 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
             leg_session = str(uuid.uuid4())
         spec = AttemptSpec(leg.leg_id, leg.role, leg.resolved, task.prompt,
                            cache_state=cache_state, session_id=leg_session, resume=resume)
-        outcome = adapter.run_attempt(spec, subject_dir, emit)
-        if not identity:  # top-level identity from the primary leg; legs[] hold per-leg detail
-            identity.update(outcome.identity)
-        opts = dict(outcome.leg_options)
-        if leg.resolved.seat_allocation_usd is not None:
-            opts.setdefault("seat_allocation_usd", leg.resolved.seat_allocation_usd)
-        leg_options[leg.leg_id] = opts
-        if outcome.invocation:
-            invocations.append(outcome.invocation)
+        record_outcome(leg, adapter.run_attempt(spec, subject_dir, emit))
 
     # Fix 5: archive the agent's diff the instant its work is complete and BEFORE
     # any gate step mutates the tree (the gate restores src/tests and applies
@@ -514,6 +587,31 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
             passed, result, checks = _gate(dry_run, scenario, strong.leg_id, task, run_dir,
                                            launch, subject_dir)
             cr = "strong"
+    elif plan.policy == "scripted_delegation":
+        # P2/B3: ONE product invocation that bills every leg the pinned split
+        # declares. The conductor leg carries the attempt; the adapter splits the
+        # product's per-model usage metadata across the legs (it does not decide the
+        # assignment — the split file did that before the run).
+        conductor, *others = plan.legs
+        spec = AttemptSpec(conductor.leg_id, conductor.role, conductor.resolved,
+                           task.prompt, cache_state=cache_state,
+                           session_id=base_session, resume=resume,
+                           delegation=plan.delegation)
+        outcome = adapter.run_attempt(spec, subject_dir, emit)
+        record_outcome(conductor, outcome)
+        for leg in others:
+            # Per-leg costing options for a leg that shares the attempt: only what
+            # the manifest declares for it (an adapter outcome describes the attempt,
+            # and attributing its options to a second leg would double-count).
+            leg_options[leg.leg_id] = (
+                {"seat_allocation_usd": leg.resolved.seat_allocation_usd}
+                if leg.resolved.seat_allocation_usd is not None else {}
+            )
+        itr = "scripted_split"
+        cr = "scripted_split"
+        archive_pre_gate()
+        passed, result, checks = _gate(dry_run, scenario, conductor.leg_id, task,
+                                       run_dir, launch, subject_dir)
     else:  # static | workflow
         for i, leg in enumerate(plan.legs):
             run_leg(leg, i)
@@ -921,6 +1019,34 @@ def _make_run_id(task: Task, config_id: str, rep: int) -> str:
     return f"{task.task_id}__{config_id}__rep{rep}__{stamp}"
 
 
+def schema_configuration_ids() -> Tuple[str, ...]:
+    """Configuration ids the FROZEN telemetry schema will accept in a summary."""
+    with open(TELEMETRY_SCHEMA, encoding="utf-8") as fh:
+        schema = json.load(fh)
+    enum = ((schema.get("properties") or {}).get("configuration_id") or {}).get("enum") or []
+    return tuple(str(v) for v in enum)
+
+
+def assert_recordable_configuration(config_id: str) -> None:
+    """Refuse, before any work, a run the frozen schema could not record.
+
+    ``schema-v2.json`` is frozen at CP-SCHEMA and enumerates ``configuration_id``.
+    A run under an id outside that list executes fine and then fails audit-grade
+    validation at the very end — after a live run has already billed. Failing here
+    instead makes the gap explicit: widening the enum is a CP-SCHEMA decision, and
+    it is the human's, not the runner's, to make.
+    """
+    allowed = schema_configuration_ids()
+    if allowed and config_id not in allowed:
+        raise RunnerError(
+            f"configuration_id {config_id!r} is not in the FROZEN telemetry schema's "
+            f"enum {list(allowed)}, so this run could not be recorded as a valid "
+            f"summary. The harness supports it; the schema does not yet. Adding an id "
+            f"to schema-v2.json is a CP-SCHEMA decision — request it before running "
+            f"(see harness/policies/README.md, P2)."
+        )
+
+
 def resolve_pricing(manifest: Dict[str, Any], plan: RunPlan) -> Tuple[Dict[str, Any], str]:
     """Load the pinned pricing snapshot for a plan (SPEC 1.4 / cache-protocol rule 3).
 
@@ -1034,7 +1160,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description="Controlled harness runner (SPEC 2.1–2.3, 2.7)")
     ap.add_argument("--task", required=True, help="task dir (e.g. tasks/pilot-realworld)")
     ap.add_argument("--config", required=True,
-                    help="configuration or policy id: C1|C2|C3|C4|C5|P0|P1")
+                    help="configuration or policy id: C1|C2|C3|C4|C5|P0|P1|P2. P2 is "
+                         "scripted delegation (B3): it needs the task's pinned "
+                         "split.yaml, hashed in the manifest, and is refused until "
+                         "the frozen telemetry schema accepts the id (CP-SCHEMA)")
     ap.add_argument("--manifest", default=os.path.join(REPO_ROOT, "manifest", "delivery-manifest.yaml"))
     ap.add_argument("--phase", default="feasibility", help="results/<phase>/ for live runs")
     ap.add_argument("--rep", type=int, default=1)
@@ -1114,8 +1243,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "a live run bills a real account and requires CP-SPEND approval; set "
                 "LAB_ALLOW_SPEND=1 for an approved run, or pass --dry-run"
             )
+        # Cheapest, most fundamental refusal first: a run the frozen schema cannot
+        # record is stopped before any task/plan resolution or spend.
+        assert_recordable_configuration(args.config)
         task = load_task(args.task, manifest)
-        plan = build_plan(args.config, manifest)
+        plan = build_plan(args.config, manifest, task=task,
+                          require_frozen=not args.dry_run)
 
         prices, pricing_snapshot = resolve_pricing(manifest, plan)
 

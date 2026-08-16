@@ -101,6 +101,29 @@ still emit `model_call_completed`, and capture `exit_code`/`stdout`/`stderr` int
 `invocation` dict so a no-output run is itself diagnosable. Never let a hung leg stall the
 batch.
 
+### One attempt, several legs (scripted delegation, P2)
+
+Normally one attempt is one billing leg. Under policy **P2** (`AttemptSpec.delegation`
+is a `DelegationPlan`) a single product invocation bills two models, so the adapter
+emits **one `model_call_completed` per declared leg** from ONE run:
+
+- Per-leg usage comes from the product's own per-model usage metadata
+  (`claude_code.split_usage_by_model`), matched to a leg by **base model name** — the
+  manifest may pin a floating alias while the product meters a concrete version.
+- A leg's `model_or_selector` keeps the **manifest-resolved id** (that is the pricing
+  key); the metered id goes in `resolved_model_version`.
+- Run-level diagnostics (`num_turns`, `is_error`, the product's total cost) describe the
+  *invocation*, so they are stamped on the conductor's event only.
+- Nothing is divided by assumption: no per-model breakdown ⇒ the total stays on the
+  conductor with `delegation_attribution: unavailable`; a declared-but-unmetered leg ⇒
+  `unavailable` usage plus a `delegation_leg_unmetered` failure; a metered model matching
+  no leg ⇒ its own `cost_unavailable` leg so its tokens stay on the bill.
+- Lost telemetry (timeout, unparseable JSON) records **every declared leg** as
+  `unavailable`, not just the conductor.
+
+An adapter that does not implement delegation must say so rather than silently running
+the conductor leg alone. Contract: `harness/policies/README.md` (P2 split-file contract).
+
 ### Container spawn
 
 Route the subject command through `resolve_spawn` so host vs container is the *only*

@@ -1,0 +1,70 @@
+policy_id: P2
+family: B3                              # scripted delegation (SPEC 2.1b)
+description: >
+  Scripted delegation. A pinned per-task split file assigns executor scopes and
+  conductor scopes before the run; both legs are itemized on one bill.
+
+# Model refs resolve ONLY through manifest/delivery-manifest.yaml (SPEC 1.4).
+conductor_model_ref: STRONG_MODEL_A
+executor_model_ref: ECONOMICAL_MODEL_A
+adapter: claude_code
+gate: deterministic_gate                # hidden tests -> type/lint -> regression -> rubric
+
+# THE routing rule of this family. The split file is the router: what the executor
+# does is fixed before the run and nothing observed at run time may change it. A
+# policy in which the conductor DECIDES when to delegate is B4 (P3) — a different
+# family with different claims attached. Enforced in harness/runner/delegation.py.
+delegation_source: pinned_split_file_only
+runtime_model_choice_routes_work: false
+
+split_file:
+  path: tasks/<task>/split.yaml         # per task; sha256 pinned in the manifest
+  required: true                        # a P2 run without one is refused, not degraded
+  contract: harness/policies/README.md#p2-split-file-contract
+  manifest_pin: <task>.delegation_split.sha256
+  frozen_status_required_for_live_runs: true
+
+record: [per_leg_usage, per_leg_cost, split_file_sha256, executor_scopes, conductor_scopes]
+
+# Reading the recorded numbers honestly:
+#  * behavior.turns counts model_call_completed events, which under P2 are BILLING
+#    LEGS, not product turns; the product's own num_turns rides on the conductor's
+#    event. Do not present turns from a P2 cell beside turns from a B1 cell.
+#  * A leg the product never metered is unavailable (never 0) and raises a
+#    delegation_leg_unmetered failure — that is the signal the delegation did not
+#    happen, and it must not be read as "the executor was cheap".
+#  * If the product reports no per-model breakdown at all, the run total stays on
+#    the conductor leg with delegation_attribution: unavailable. The bill is never
+#    divided by assumption.
+
+# OPEN (CP-SCHEMA): schema-v2.json's configuration_id enum has no "P2", so a P2 run
+# cannot be recorded as a valid summary yet and the runner refuses --config P2 up
+# front rather than billing a run it cannot record. Widening the enum is a human
+# decision at CP-SCHEMA; see harness/policies/README.md.
+
+# HOW the delegation is performed, and what has actually been established about it.
+mechanism:
+  product: PRODUCT_A
+  path: product_native_subagent         # SPEC 2.1b B3 path (a)
+  executor_binding: cli_agents_json     # --agents JSON defines the executor + its model
+  executor_agent_name: executor
+  usage_split: product_model_usage_metadata
+  usage_split_source: per-model usage object in the product's own JSON output
+  verification:
+    command_construction: unit_tested   # pure fns; tests/test_adapters.py + test_delegation.py
+    usage_split: unit_tested_on_synthetic_fixtures
+    live_delegation: unverified         # requires a CP-SPEND-approved run; NOT claimed
+    note: >
+      Enforcement of the split at run time depends on the product honouring the
+      subagent definition and metering both models separately. Neither can be
+      established without spend. SPEC 2.1b makes the delivered B3 stack a
+      CP-SCREEN-PREREG selection from whichever paths are verified by then; this
+      policy is path (a) built and ready to be verified, not a verified path.
+
+# What a P2 cell may and may not be used to say (SPEC 1.2 claims register).
+claims:
+  supports: [per-leg cost itemization of one scripted split on one task]
+  does_not_support:
+    - any causal claim that delegation caused a cost or quality difference
+    - comparison against a differently-split run as if the split were held constant
+    - product-superiority claims of any kind

@@ -16,8 +16,72 @@ and does not causally support live in
 |---|---|---|---|---|---|
 | P0 | `p0-baseline.yaml` | **Exists** | Static strong single-model baseline; no escalation; deterministic gate | Controlled set; ex220-B/B1 | — (model refs resolve via manifest) |
 | P1 | `p1-cheap-first.yaml` | **Exists** | Economical attempt → pre-registered gate → escalate on fail; records intention-to-route, completed route, failed-attempt costs; both legs billed | Controlled set; ex220-B/B2 | — (model refs resolve via manifest) |
-| P2 | `p2-delegation.yaml` | **To build (Phase 4, SPEC §6 item 3)** | Scripted delegation: pinned `tasks/<task>/split.yaml` assigns executor vs conductor scopes; both legs itemized | ex220-B/B3 | split-file hash per task |
+| P2 | `p2-delegation.yaml` | **Built** (harness/runner/delegation.py; `--config P2`). Reference splits authored for the pilot and W1, both **pinned as `proposed`** — awaiting human freeze. **Not yet runnable end-to-end**: see "P2 and the frozen schema" below | Scripted delegation: pinned `tasks/<task>/split.yaml` assigns executor vs conductor scopes; both legs itemized | ex220-B/B3 | split-file hash per task (`<task>.delegation_split.sha256`) |
 | P3 | `p3-policy-delegation.yaml` | **To build (Phase 4, SPEC §6 item 3).** C5's delegation rules currently live inline in `harness/configurations/C5.yaml`; extracting them into P3 is the build step | Policy-driven delegation governing C5: conductor decides when to delegate to the cross-family executor | ex220-B/B4; C5 companion runs | policy hash (**required before any C5 run is cited in workshop material**) |
+
+## P2 split-file contract (`tasks/<task>/split.yaml`)
+
+B3 is *scripted*: the assignment is fixed **before** the run by a pinned file, and no
+runtime decision may change it. (A conductor that decides *when* to delegate is B4/P3 —
+a different family with different claims.) The loader is
+[`harness/runner/delegation.py`](../runner/delegation.py); it refuses anything
+ambiguous rather than repairing it.
+
+```yaml
+split_version: 1                 # must be 1
+policy: P2                       # must be P2
+task_id: <the task's own task_id> # must match tasks/<task>/task.yaml
+executor_scopes:                 # non-empty; ECONOMICAL_MODEL_A does these
+  - id: E1-...                   # unique across BOTH lists
+    kind: scaffold               # scaffold | boilerplate | test_generation
+    step: >                      # what to do — a path list alone is not an assignment
+      ...
+    paths: [src/foo/]            # globs; a trailing '/' means "anything under here"
+    writes: true                 # explicit bool; never inferred
+conductor_scopes:                # non-empty; STRONG_MODEL_A does these
+  - id: C1-...
+    kind: integration            # integration | edge_cases | final_verification
+    step: >
+      ...
+    paths: [src/bar.ts]
+    writes: false
+```
+
+Enforced on load:
+
+- **Kind vocabulary is closed, per side.** A step that does not fit its side's kinds
+  belongs on the other side; free-text kinds would make the split unreadable as B3.
+- **Both sides must be non-empty.** A split with an empty side is a single-model run
+  wearing P2's label.
+- **Write scopes must agree with the task's own gate scope.** For a feature/bugfix task
+  `target_paths` are writable; for a **test-generation** task they are read-only and
+  writes are confined to `agent_write_scope` (W1 inverts the pilot). A split that gets
+  this backwards would fail the gate's diff-scope check on every run, so it is refused.
+- **The hash is over the raw file bytes**, comments included, and must equal
+  `manifest/delivery-manifest.yaml → <task>.delegation_split.sha256`. A live run
+  additionally requires `status: frozen`; `--dry-run` is allowed on a draft.
+
+What lands in telemetry: `split_file`, `split_sha256` and the scope ids ride on the
+delegated legs' existing `model_call_started` / `model_call_completed` events (no new
+event type — the vocabulary is frozen), so a run's delegation policy is reconstructible
+from the event log plus the manifest.
+
+Reading the resulting legs: per-leg usage comes from the product's own `modelUsage`
+metadata, matched to a leg by base model name. `behavior.turns` counts
+`model_call_completed` events, so under P2 it counts **billing legs, not product
+turns** — the product's own `num_turns` is recorded on the conductor's event. A leg the
+product never metered is `unavailable` (never 0) plus a `delegation_leg_unmetered`
+failure, because "the executor did no work" and "delegation never happened" look
+identical in the tokens and only the second is a defect.
+
+### P2 and the frozen schema (open, needs CP-SCHEMA)
+
+`harness/telemetry/schema-v2.json` is frozen at CP-SCHEMA and its `configuration_id`
+enum is `C1 C2 C3 C4 C5 P0 P1` — it has no `P2`. A P2 run would therefore execute and
+then fail audit-grade validation, so the runner refuses `--config P2` up front
+(`assert_recordable_configuration`) instead of billing a run it cannot record. Widening
+the enum is a one-line schema change and a **human CP-SCHEMA decision**; the harness is
+otherwise complete and its tests run the delegation path directly.
 
 ## Acceptance-gate artifacts (SPEC §2.6 priority order; per task)
 
