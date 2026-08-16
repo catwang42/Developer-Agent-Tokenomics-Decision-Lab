@@ -156,6 +156,17 @@ else
   overall_rc=1
 fi
 
+# --- 3c. decision-table data contract (Phase-5 report page input) ------------
+# Runs against the AUTHORITATIVE batch-3 dataset: the summarizer must reproduce its
+# cells with no zero-fills, every figure carrying a confidence tier and an n/scope line.
+echo "== decision-table contract (harness/telemetry/summarize.py vs batch 3) =="
+if "$PYTHON" -m unittest tests.test_summarize -v; then
+  echo "  ok    decision table reproduces batch 3; unavailable stayed unavailable"
+else
+  echo "  FAIL  decision-table contract broken"
+  overall_rc=1
+fi
+
 # --- 4. Python unit tests ----------------------------------------------------
 echo "== python unit tests (harness/telemetry) =="
 if "$PYTHON" -m unittest discover -s tests -p 'test_*.py' -v; then
