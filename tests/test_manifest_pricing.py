@@ -17,12 +17,16 @@ import yaml
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from harness.adapters import agy  # noqa: E402
-from harness.telemetry.costing import load_prices  # noqa: E402
+from harness.telemetry.costing import load_prices, required_rate_keys  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 MANIFEST = os.path.join(ROOT, "manifest", "delivery-manifest.yaml")
 
-BILLED_CLASSES = ("input", "cache_write", "cache_read", "output")
+# Read from costing.py rather than restated here: a renamed or added rate key must
+# fail as a missing row in the PINNED snapshot, not silently stop being checked.
+# Currently ("input", "cache_write_1h", "cache_read", "output") — the cache-write
+# key is TTL-specific since the 2026-08-16 split.
+BILLED_CLASSES = required_rate_keys()
 OUT_OF_SCOPE = "out_of_scope_this_window"
 
 

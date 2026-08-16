@@ -174,6 +174,40 @@ evidence that no caching occurred.
 **Cross-product cache comparisons remain out of scope** (SPEC §2.9), unchanged
 from the finding above.
 
+### On finding 3 — cache-write TTL: RESOLVED on the pricing side
+
+`pricing/prices-2026-08-16.json` now carries **both** write rates as separate keys
+per Claude model — `cache_write_5m` (1.25× base input) and `cache_write_1h`
+(2× base input), rates cited to the same source page — and the legacy single
+`cache_write` key is gone from that card, because one key silently picks a TTL.
+`costing.py` prices `usage.cache_creation_tokens` at **`cache_write_1h`**, which
+matches the `cache_write_1h_input` series the collector maps into that field, and
+records the key it used in each derived cost's `rate_keys`.
+
+The collector's mapping table is unchanged: a `cache_write_input` (5m) series stays
+**unmapped-and-loud** until a priced mapping is human-approved. A rate existing for
+the 5m class is not permission to map it.
+
+#### Which write rate the batch-3 snapshot used, and the direction of the error
+
+Batch-3 artifacts are **not edited** — this is the record, kept here.
+
+| | batch 3 |
+|---|---|
+| snapshot | `pricing/prices-2026-07-19.json` (pinned in all 30 batch-3 summaries) |
+| write key | single `cache_write` |
+| rate carried | `claude-sonnet-4-6@default` 3.75 = **1.25× input** → the **5-minute** rate |
+| TTL actually written | `ephemeral_1h_input_tokens: 0` in **all 28** batch-3 runs that recorded a cache write; the other 2 are `unavailable`. Every recorded write was 5-minute TTL. |
+
+**Direction of the resulting understatement: none.** Batch 3 priced 5m writes at
+the 5m rate, so its cache-write costing is correct as recorded and needs no
+re-costing. The mismatch finding 3 names — 1h traffic priced off a 5m card — is a
+*forward* hazard for the screening window, not a defect in batch 3. It is closed
+before the first screening run by the change above.
+
+Scope note: no run under `results/` anywhere records a non-zero
+`ephemeral_1h_input_tokens`, so nothing already collected is affected.
+
 ### On finding 1 — effort attribution: ACCEPTED as-is
 
 C3 vs C3-med attribution rests on serialization windows alone. No mitigation was

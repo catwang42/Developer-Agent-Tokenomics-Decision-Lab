@@ -1,18 +1,19 @@
 {
   "snapshot_date": "2026-08-16",
   "retrieved_at_utc": "2026-08-16T07:56:26Z",
-  "note": "Pinned pricing snapshot for the Phase 4 SCREENING window. All four billed token classes per provider/model, USD per million tokens (usd_per_mtok). Prices are published LIST rates retrieved from the cited pages on the date below; re-confirm at CP-SPEND. Provider keys and model/selector keys MUST match manifest/delivery-manifest.yaml exactly (costing.py keys prices[providers][provider][model_or_selector]). This snapshot does NOT supersede pricing/prices-2026-07-19.json: batch-3 runs stay priced by the snapshot they were run under.",
+  "note": "Pinned pricing snapshot for the Phase 4 SCREENING window. All billed token classes per provider/model, USD per million tokens (usd_per_mtok). Prices are published LIST rates retrieved from the cited pages on the date below; re-confirm at CP-SPEND. Provider keys and model/selector keys MUST match manifest/delivery-manifest.yaml exactly (costing.py keys prices[providers][provider][model_or_selector]). This snapshot does NOT supersede pricing/prices-2026-07-19.json: batch-3 runs stay priced by the snapshot they were run under.",
+  "cache_write_key_note": "REVISED 2026-08-16 (human decision). Cache writes are carried as TWO separate keys per model, cache_write_5m and cache_write_1h, because the provider meters and prices them as two classes. The single legacy key `cache_write` is GONE from this snapshot on purpose: a lone key silently picks a TTL. costing.py prices usage.cache_creation_tokens at cache_write_1h (preference order cache_write_1h -> cache_write) and records the key it used in the derived cost's `rate_keys`. The legacy fallback exists only so runs priced under pre-split snapshots stay re-costable; it is not reachable from this card.",
   "effort_level_note": "Effort level changes token CONSUMPTION, not the per-token rate. 'Gemini 3.7 Flash (High)' and 'Gemini 3.7 Flash (Medium)' therefore share one rate-card entry STRUCTURE with identical rates, but they are separate keys because manifest/delivery-manifest.yaml pins them as separate selectors (PRODUCT_B_ECON_TIER vs PRODUCT_B_ECON_TIER_MED) and the C3 vs C3-med arm exists precisely to measure the consumption difference. Never collapse the two keys: costing.py looks up by the verbatim selector label, and a merged key would silently merge the two arms.",
   "sources": [
     {
       "provider": "google_vertex (Claude/Anthropic)",
-      "basis": "Anthropic published list rates (Vertex global-endpoint tracks these; regional/multi-region endpoints add a documented +10% premium — see regional_premium_note per model). Same basis as the 2026-07-19 snapshot. cache_write in this rate card is the 5-MINUTE cache-write rate (1.25x base input); the 1-hour rate (2x base input) is recorded per model as cache_write_1h_note but is NOT what costing.py bills — see cache_write_ttl_caveat.",
+      "basis": "Anthropic published list rates (Vertex global-endpoint tracks these; regional/multi-region endpoints add a documented +10% premium — see regional_premium_note per model). Same basis as the 2026-07-19 snapshot. Cache writes are published as two rates off the base input rate: 5-minute TTL = 1.25x input, 1-hour TTL = 2x input. Both are carried below as cache_write_5m and cache_write_1h; costing bills cache_creation_tokens at the 1h rate — see cache_write_ttl_basis.",
       "url": "https://platform.claude.com/docs/en/about-claude/pricing",
       "retrieved_at_utc": "2026-08-16T07:52:00Z"
     },
     {
       "provider": "google (Gemini via Product B)",
-      "basis": "Google published Gemini paid-tier list rates. SURFACE CAVEAT: https://cloud.google.com/vertex-ai/generative-ai/pricing could not be retrieved on this date (the page did not render in the fetch), so the Gemini rows below are sourced from the Gemini API pricing page instead. Vertex-vs-Gemini-API rate parity for the 3.7/3.6 Flash generation is NOT verified in this snapshot — see verify_at_cp_spend. cache_read = published context-caching read price; cache_write = base input rate (Google bills cache-creation tokens as standard input on first pass; no separate per-token cache-write premium is published — the separate charge is time-based cache STORAGE, see cache_storage_caveat).",
+      "basis": "Google published Gemini paid-tier list rates. SURFACE CAVEAT: https://cloud.google.com/vertex-ai/generative-ai/pricing could not be retrieved on this date (the page did not render in the fetch), so the Gemini rows below are sourced from the Gemini API pricing page instead. Vertex-vs-Gemini-API rate parity for the 3.7/3.6 Flash generation is NOT verified in this snapshot — see verify_at_cp_spend. cache_read = published context-caching read price; cache_write_5m and cache_write_1h both carry the base input rate because Google publishes NO TTL-differentiated cache-write price — cache-creation tokens bill as standard input on first pass, and the separate charge is time-based cache STORAGE (see cache_storage_caveat). The two keys exist for structural parity with the Claude rows, not because Google prices them differently.",
       "url": "https://ai.google.dev/gemini-api/docs/pricing",
       "retrieved_at_utc": "2026-08-16T07:54:00Z"
     }
@@ -20,65 +21,73 @@
   "verify_at_cp_spend": [
     "Gemini rows: confirm the three selector labels price at these rates on the surface Product B actually bills through (Vertex vs Gemini API). Not verified in this snapshot because the Vertex pricing page was unretrievable on 2026-08-16.",
     "Gemini rows: the rates below are PROMOTIONAL through 2026-12-31 (see promotional_pricing_note). If any screening run lands on or after 2027-01-01, re-snapshot before costing it.",
-    "Claude rows: confirm Vertex global-endpoint parity with Anthropic list rates, and confirm the endpoint in use is global (CLOUD_ML_REGION=global) so the +10% regional premium does not apply."
+    "Claude rows: confirm Vertex global-endpoint parity with Anthropic list rates, and confirm the endpoint in use is global (CLOUD_ML_REGION=global) so the +10% regional premium does not apply.",
+    "Claude rows: confirm the 5m/1h cache-write multipliers (1.25x / 2x input) are unchanged on the source page before the first screening batch."
   ],
-  "cache_write_ttl_caveat": "Our schema has ONE cache-write class (usage.cache_creation_tokens) while Product A reports the write split by TTL (usage.cache_creation.{ephemeral_5m_input_tokens, ephemeral_1h_input_tokens}) and the rate card prices the two differently (5m = 1.25x input, 1h = 2x input). Both pin-resolution smokes wrote 5m-TTL only, so this rate card bills the 5m rate. If a 1h-TTL write appears in a screening run, its cost is UNDERSTATED by this card and the run must be re-costed with a TTL split — see report/findings/model-pin-resolution-2026-08-16.md.",
+  "cache_write_ttl_basis": "HUMAN DECISION 2026-08-16. Our schema has ONE cache-write class (usage.cache_creation_tokens) while the provider meters two: metric type cache_write_input (5m TTL) and cache_write_1h_input (1h TTL), priced 1.25x and 2x base input respectively. Resolution: costing prices cache_creation_tokens at the 1-HOUR rate, matching the cache_write_1h_input traffic that harness/collectors/vertex_token_collector.py maps into that field. The 5m class is deliberately NOT mapped — if a cache_write_input series is ever observed it stays unmapped-and-loud in the collector's report until a priced mapping is human-approved. cache_write_5m is carried here so the rate is on the record for that decision, not because anything bills against it today. Supersedes the earlier reading of this card, in which the single `cache_write` key held the 5m rate while the collector fed the field from the 1h series (report/findings/vertex-token-metric-surface-2026-08-16.md finding 3).",
   "cache_storage_caveat": "Google prices Gemini context-cache STORAGE per token per HOUR ($0.50 / 1M tokens / hour through 2026-12-31; $1.00 after), which is a time-based charge with no per-token-class equivalent in this rate card. It is therefore NOT captured by costing.py and any Product-B cost derived here EXCLUDES cache storage. This is a stated exclusion, not a zero: do not report a Product-B cost as complete without naming it.",
+  "gemini_cache_blind_note": "Product-B costing this window is CACHE-BLIND: the provider meter emits no cache-class series for publisher=google on this project, so a Gemini leg's cache_read_tokens and cache_creation_tokens stay unavailable and neither cache row below is exercised. Every Gemini leg is declared cost_basis_qualifier: cache_blind_upper_bound — see manifest/delivery-manifest.yaml notes.gemini_cache_blindness. Implicit caching, if any, makes real spend LOWER than the computed figure.",
   "tokenizer_comparability_note": "Anthropic documents that Claude 4.7 and later models (which includes claude-opus-5) use a newer tokenizer producing approximately 30% more tokens for the same text, while claude-sonnet-4-6 and earlier use the previous tokenizer. Token COUNTS are therefore not directly comparable across the strong/economical pair pinned for this window; dollar costs are. Any tokens-per-task comparison between claude-opus-5 and claude-sonnet-4-6 must state this.",
   "unit": "usd_per_mtok",
   "providers": {
     "google_vertex": {
       "claude-opus-5@default": {
         "input": 5.00,
-        "cache_write": 6.25,
+        "cache_write_5m": 6.25,
+        "cache_write_1h": 10.00,
         "cache_read": 0.50,
         "output": 25.00,
         "unit": "usd_per_mtok",
-        "cache_write_note": "5-minute cache write = 1.25x base input (list).",
-        "cache_write_1h_note": "1-hour cache write = 2x base input = 10.00. Not billed by this card; see cache_write_ttl_caveat.",
-        "regional_premium_note": "us-central1 (regional) adds +10% over these global-endpoint list rates: input 5.50, cache_write 6.875, cache_read 0.55, output 27.50. Confirm endpoint choice (global vs regional) at CP-SPEND.",
+        "cache_write_note": "5-minute cache write = 1.25x base input = 6.25 (list). 1-hour cache write = 2x base input = 10.00 (list). costing.py bills cache_creation_tokens at cache_write_1h; see cache_write_ttl_basis.",
+        "regional_premium_note": "us-central1 (regional) adds +10% over these global-endpoint list rates: input 5.50, cache_write_5m 6.875, cache_write_1h 11.00, cache_read 0.55, output 27.50. Confirm endpoint choice (global vs regional) at CP-SPEND.",
         "fast_mode_note": "Anthropic lists a separate premium 'fast mode' rate for Claude Opus 5 (input 10.00 / output 50.00), first-party API only and NOT available on partner-operated clouds. Our runs record speed='standard' in the product JSON; this card prices standard speed only.",
         "pin_note": "Vertex publishes only the floating '@default' alias for this model (no dated snapshot) — SPEC 6.3 caveat recorded in report/findings/model-pin-resolution-2026-08-16.md."
       },
       "claude-sonnet-4-6@default": {
         "input": 3.00,
-        "cache_write": 3.75,
+        "cache_write_5m": 3.75,
+        "cache_write_1h": 6.00,
         "cache_read": 0.30,
         "output": 15.00,
         "unit": "usd_per_mtok",
-        "cache_write_note": "5-minute cache write = 1.25x base input (list).",
-        "cache_write_1h_note": "1-hour cache write = 2x base input = 6.00. Not billed by this card; see cache_write_ttl_caveat.",
-        "regional_premium_note": "us-central1 (regional) adds +10%: input 3.30, cache_write 4.125, cache_read 0.33, output 16.50.",
+        "cache_write_note": "5-minute cache write = 1.25x base input = 3.75 (list). 1-hour cache write = 2x base input = 6.00 (list). costing.py bills cache_creation_tokens at cache_write_1h; see cache_write_ttl_basis.",
+        "regional_premium_note": "us-central1 (regional) adds +10%: input 3.30, cache_write_5m 4.125, cache_write_1h 6.60, cache_read 0.33, output 16.50.",
         "pin_note": "Unchanged from the 2026-07-19 snapshot; re-verified on the source page 2026-08-16. Role changed this window: economical tier (was strong tier)."
       }
     },
     "google": {
       "Gemini 3.7 Flash (High)": {
         "input": 0.75,
-        "cache_write": 0.75,
+        "cache_write_5m": 0.75,
+        "cache_write_1h": 0.75,
         "cache_read": 0.075,
         "output": 3.75,
         "unit": "usd_per_mtok",
+        "cache_write_note": "Google publishes no TTL-differentiated cache-write price: cache-creation tokens bill as standard input (0.75) on first pass, and the separate charge is time-based storage. Both TTL keys therefore carry the base input rate — the split is structural parity with the Claude rows, not two real rates. Neither key is exercised this window (see gemini_cache_blind_note).",
         "selector_note": "Product B verbatim selector label, confirmed against `agy models` output on 2026-08-16 (row: 'gemini-3.7-flash-high\\tGemini 3.7 Flash (High)'). '(High)' is a reasoning-effort tier that raises token VOLUME (reasoning billed as output), not the per-token rate — see effort_level_note. Used only where Product-B token counts exist (product-reported, or provider-side via harness/collectors/vertex_token_collector.py); otherwise cost is recorded unavailable, never zero.",
         "promotional_pricing_note": "Source page states these are the rates through 2026-12-31; from 2027-01-01 the listed rates double to input 1.50, output 7.50, cache_read 0.15.",
         "cache_storage_note": "Cache storage 0.50 per 1M tokens per hour (1.00 from 2027-01-01) — time-based, excluded from this card. See cache_storage_caveat."
       },
       "Gemini 3.7 Flash (Medium)": {
         "input": 0.75,
-        "cache_write": 0.75,
+        "cache_write_5m": 0.75,
+        "cache_write_1h": 0.75,
         "cache_read": 0.075,
         "output": 3.75,
         "unit": "usd_per_mtok",
+        "cache_write_note": "Google publishes no TTL-differentiated cache-write price: cache-creation tokens bill as standard input (0.75) on first pass, and the separate charge is time-based storage. Both TTL keys therefore carry the base input rate — the split is structural parity with the Claude rows, not two real rates. Neither key is exercised this window (see gemini_cache_blind_note).",
         "selector_note": "Product B verbatim selector label, confirmed against `agy models` output on 2026-08-16 (row: 'gemini-3.7-flash-medium\\tGemini 3.7 Flash (Medium)'). Same rates as the (High) selector by design — the effort level changes consumption, not price. Kept as a separate key because the manifest pins it as a separate selector (PRODUCT_B_ECON_TIER_MED) and it is the C3-med arm. See effort_level_note.",
         "promotional_pricing_note": "Source page states these are the rates through 2026-12-31; from 2027-01-01 the listed rates double to input 1.50, output 7.50, cache_read 0.15.",
         "cache_storage_note": "Cache storage 0.50 per 1M tokens per hour (1.00 from 2027-01-01) — time-based, excluded from this card. See cache_storage_caveat."
       },
       "Gemini 3.6 Flash (High)": {
         "input": 0.75,
-        "cache_write": 0.75,
+        "cache_write_5m": 0.75,
+        "cache_write_1h": 0.75,
         "cache_read": 0.075,
         "output": 3.75,
         "unit": "usd_per_mtok",
+        "cache_write_note": "Google publishes no TTL-differentiated cache-write price: cache-creation tokens bill as standard input (0.75) on first pass, and the separate charge is time-based storage. Both TTL keys therefore carry the base input rate — the split is structural parity with the Claude rows, not two real rates. Neither key is exercised this window (see gemini_cache_blind_note).",
         "selector_note": "Product B verbatim selector label, confirmed against `agy models` output on 2026-08-16 (row: 'gemini-3.6-flash-high\\tGemini 3.6 Flash (High)'). Previous-generation arm (C3-prev). The source page lists the 3.6 Flash and 3.7 Flash rows at identical rates, so a 3.6-vs-3.7 cost difference is a CONSUMPTION difference, not a rate difference — state that wherever the arms are compared.",
         "promotional_pricing_note": "Source page states these are the rates through 2026-12-31; from 2027-01-01 the listed rates double to input 1.50, output 7.50, cache_read 0.15.",
         "cache_storage_note": "Cache storage 0.50 per 1M tokens per hour (1.00 from 2027-01-01) — time-based, excluded from this card. See cache_storage_caveat."

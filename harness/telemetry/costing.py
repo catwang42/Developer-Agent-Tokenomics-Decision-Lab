@@ -23,17 +23,42 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .telemetry import tiered, unavailable
 
-# The four *billed* token classes and their price keys. reasoning_tokens and
-# tool_result_tokens are diagnostic / typically folded into these by providers,
-# so they are excluded from the cost sum to avoid double-counting.
-_BILLED_CLASSES: Tuple[Tuple[str, str], ...] = (
-    ("input_tokens", "input"),
-    ("cache_creation_tokens", "cache_write"),
-    ("cache_read_tokens", "cache_read"),
-    ("output_tokens", "output"),
+# The four *billed* token classes and the price keys each may be looked up under,
+# in preference order. reasoning_tokens and tool_result_tokens are diagnostic /
+# typically folded into these by providers, so they are excluded from the cost sum
+# to avoid double-counting.
+#
+# cache_creation_tokens is priced at the **1-hour** cache-write rate (human
+# decision 2026-08-16). The provider meter emits cache writes as two separately
+# priced type values — ``cache_write_1h_input`` (2x base input) and
+# ``cache_write_input`` (5m TTL, 1.25x base input) — and the collector maps only
+# the 1h series into cache_creation_tokens, so the 1h rate is the one that matches
+# the traffic actually landing in this field. A 5m series stays unmapped-and-loud
+# in the collector until a priced mapping is human-approved; it is deliberately
+# NOT summed in here.
+#   ``cache_write`` is the LEGACY single-rate key. Snapshots predating the TTL
+#   split (pricing/prices-2026-07-19.json, the SYNTHETIC fixture) carry only that
+#   key, and runs priced under them must stay re-costable. Which key was used is
+#   recorded per class in the returned field's ``rate_keys``, so a cost is never
+#   silently attributed to a rate the snapshot did not name.
+_BILLED_CLASSES: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
+    ("input_tokens", ("input",)),
+    ("cache_creation_tokens", ("cache_write_1h", "cache_write")),
+    ("cache_read_tokens", ("cache_read",)),
+    ("output_tokens", ("output",)),
 )
 
 _MTOK = 1_000_000
+
+
+def required_rate_keys() -> Tuple[str, ...]:
+    """The price key a *current* snapshot must carry for each billed class.
+
+    The first (preferred) key of each class. Agreement tests use this so adding a
+    billed class or renaming a rate key cannot leave the pinned snapshot short a
+    row and surface as a mid-batch KeyError.
+    """
+    return tuple(keys[0] for _, keys in _BILLED_CLASSES)
 
 
 def load_prices(path: str) -> Dict[str, Any]:
@@ -66,10 +91,11 @@ def token_cost_usd(
     """
     rates = _rate_table(prices, provider, model_id)
     components: Dict[str, float] = {}
+    rate_keys_used: Dict[str, str] = {}
     missing: List[str] = []
     all_auth = True
 
-    for usage_key, rate_key in _BILLED_CLASSES:
+    for usage_key, rate_keys in _BILLED_CLASSES:
         field = usage.get(usage_key)
         if not isinstance(field, dict) or field.get("confidence") == "unavailable" \
                 or field.get("value") is None:
@@ -77,11 +103,12 @@ def token_cost_usd(
             continue
         if field.get("confidence") != "authoritative":
             all_auth = False
-        rate = rates.get(rate_key)
-        if rate is None:
-            missing.append(f"{usage_key}(no rate)")
+        rate_key = next((k for k in rate_keys if rates.get(k) is not None), None)
+        if rate_key is None:
+            missing.append(f"{usage_key}(no rate: tried {'/'.join(rate_keys)})")
             continue
-        components[usage_key] = field["value"] * rate / _MTOK
+        components[usage_key] = field["value"] * rates[rate_key] / _MTOK
+        rate_keys_used[usage_key] = rate_key
 
     if missing:
         return unavailable(
@@ -91,6 +118,9 @@ def token_cost_usd(
     total = round(sum(components.values()), 10)
     field = tiered(total, "derived")
     field["components"] = {k: round(v, 10) for k, v in components.items()}
+    # Which rate row priced each class — the audit trail for the cache-write TTL
+    # split, where a snapshot may offer cache_write_1h, legacy cache_write, or both.
+    field["rate_keys"] = rate_keys_used
     field["basis"] = "marginal_api_cost"
     return field
 

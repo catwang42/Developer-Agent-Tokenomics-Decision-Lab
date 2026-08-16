@@ -54,6 +54,62 @@ class TokenCostTests(unittest.TestCase):
             token_cost_usd({}, "provider_a", "NO_SUCH_MODEL", self.prices)
 
 
+class CacheWriteTtlTests(unittest.TestCase):
+    """cache_creation_tokens is priced at the 1-HOUR cache-write rate.
+
+    Human decision 2026-08-16: the provider meters cache writes as two separately
+    priced classes and the collector maps only the 1h series into
+    cache_creation_tokens, so the 1h rate is the one that matches the traffic. The
+    5m rate is on the record but nothing bills against it.
+    """
+
+    USAGE = {
+        "input_tokens": {"value": 0, "confidence": "authoritative"},
+        "cache_creation_tokens": {"value": 1_000_000, "confidence": "authoritative"},
+        "cache_read_tokens": {"value": 0, "confidence": "authoritative"},
+        "output_tokens": {"value": 0, "confidence": "authoritative"},
+    }
+
+    def _prices(self, row):
+        return {"providers": {"p": {"m": row}}}
+
+    def test_the_1h_rate_wins_when_both_are_present(self):
+        cost = token_cost_usd(self.USAGE, "p", "m", self._prices(
+            {"input": 1, "cache_write_5m": 12.5, "cache_write_1h": 20, "cache_read": 1,
+             "output": 1}))
+        self.assertAlmostEqual(cost["value"], 20.0, places=10)
+        self.assertEqual(cost["rate_keys"]["cache_creation_tokens"], "cache_write_1h")
+
+    def test_a_legacy_single_key_snapshot_still_costs(self):
+        """prices-2026-07-19.json predates the split; batch-3 runs must stay
+        re-costable, and the summary must say which key priced them."""
+        cost = token_cost_usd(self.USAGE, "p", "m", self._prices(
+            {"input": 1, "cache_write": 12.5, "cache_read": 1, "output": 1}))
+        self.assertAlmostEqual(cost["value"], 12.5, places=10)
+        self.assertEqual(cost["rate_keys"]["cache_creation_tokens"], "cache_write")
+
+    def test_a_5m_only_snapshot_is_unavailable_not_silently_repriced(self):
+        """cache_write_5m alone is NOT a fallback: the 5m class is unmapped by
+        decision, so pricing the 1h field off it would invent a mapping."""
+        cost = token_cost_usd(self.USAGE, "p", "m", self._prices(
+            {"input": 1, "cache_write_5m": 12.5, "cache_read": 1, "output": 1}))
+        self.assertEqual(cost["confidence"], "unavailable")
+        self.assertIsNone(cost["value"])
+        self.assertIn("cache_creation_tokens", cost["reason"])
+
+    def test_the_pinned_snapshot_bills_cache_writes_at_2x_input(self):
+        """Against the REAL pinned card, not a fixture: 1h write = 2x base input."""
+        prices = load_prices(os.path.join(
+            os.path.dirname(FIXTURES), "..", "pricing", "prices-2026-08-16.json"))
+        for model in ("claude-opus-5@default", "claude-sonnet-4-6@default"):
+            row = prices["providers"]["google_vertex"][model]
+            with self.subTest(model=model):
+                self.assertAlmostEqual(row["cache_write_1h"], row["input"] * 2, places=10)
+                self.assertAlmostEqual(row["cache_write_5m"], row["input"] * 1.25, places=10)
+                self.assertNotIn("cache_write", row,
+                                 "the legacy single key would silently pick a TTL")
+
+
 class DualBillTests(unittest.TestCase):
     def setUp(self):
         self.prices = load_prices(os.path.join(FIXTURES, "prices-SYNTHETIC.json"))

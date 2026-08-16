@@ -55,10 +55,22 @@ analysis can re-cost by modality or region without re-querying.
 `cache_write_input` (5-minute TTL cache write) is a real, separate type value from
 `cache_write_1h_input`, and the two are **priced differently**. The pinned mapping
 above names only the 1h class, so the 5m class shows up as unmapped. That is
-deliberate: merging them would silently mis-cost. See
+deliberate: merging them would silently mis-cost. Background:
 [`report/findings/vertex-token-metric-surface-2026-08-16.md`](../../report/findings/vertex-token-metric-surface-2026-08-16.md)
-finding 3 for the two admissible fixes — it is a costing decision, not a code
-cleanup.
+finding 3.
+
+**Resolved 2026-08-16 (human decision), on the pricing side, not here.**
+`pricing/prices-2026-08-16.json` now carries **both** write rates as separate keys
+per Claude model — `cache_write_5m` (1.25× input) and `cache_write_1h` (2× input),
+with the legacy single `cache_write` key removed — and `costing.py` prices
+`cache_creation_tokens` at **`cache_write_1h`**, matching the
+`cache_write_1h_input` traffic this collector maps into that field. Each derived
+cost records the key it used under `rate_keys`.
+
+The mapping table above is therefore **unchanged**: if a `cache_write_input` series
+is ever observed it stays **unmapped-and-loud** — reported, never merged, never
+zero-filled — until a priced mapping is human-approved. A rate existing for the 5m
+class is not permission to map it.
 
 ## Effort-level attribution: `model_user_id` **collapses** effort levels
 
