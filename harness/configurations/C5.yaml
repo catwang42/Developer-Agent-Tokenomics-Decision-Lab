@@ -4,8 +4,9 @@ adapter: hybrid_c5
 legs:
   conductor: {product_ref: PRODUCT_A, model_ref: STRONG_MODEL_A, cost_basis: DECLARE_AT_DELIVERY}
   executor:  {product_ref: PRODUCT_B, model_ref: PRODUCT_B_ECON_TIER, cost_basis: DECLARE_AT_DELIVERY}
-rules:
-  - both legs metered and reported; totals include failed delegations + verification
-  - frontier_token_share computed as diagnostic only
-  - executor-tier variation within pinned C5 = within-workflow executor-tier comparison
+# Routing decision lives in the policy, not the configuration (SPEC 2.1c). C5's
+# delegation rules were extracted verbatim into P3 so they are hash-pinned in the
+# manifest; keeping a second inline copy here is refused by the resolver.
+policy_ref: P3
+policy_file: harness/policies/p3-policy-delegation.yaml
 cache_protocol: cold_default

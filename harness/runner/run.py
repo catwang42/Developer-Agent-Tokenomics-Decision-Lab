@@ -22,6 +22,7 @@ runner refuses to start if any required field is missing or still a placeholder.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -229,6 +230,98 @@ def _delegation_plan(pol: Dict[str, Any], manifest: Dict[str, Any], task: Option
     return legs, plan
 
 
+# --------------------------------------------------------------------------- #
+# Configuration -> routing policy, by reference (SPEC 2.1c)
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class ResolvedPolicy:
+    """A routing policy resolved from a configuration's ``policy_file`` reference."""
+    policy_id: str
+    rel_path: str
+    sha256: str          # over the RAW FILE BYTES — what the manifest pins
+    doc: Dict[str, Any]
+
+    @property
+    def rules(self) -> List[Any]:
+        return list(self.doc.get("rules") or [])
+
+    @property
+    def label(self) -> str:
+        return f"{self.policy_id}@{os.path.basename(self.rel_path)}:sha256:{self.sha256[:12]}"
+
+
+def load_policy_file(rel_path: str) -> Tuple[Dict[str, Any], str]:
+    """Parse a policy file and hash its raw bytes (comments included)."""
+    path = rel_path if os.path.isabs(rel_path) else os.path.join(REPO_ROOT, rel_path)
+    try:
+        with open(path, "rb") as fh:
+            raw = fh.read()
+    except OSError as exc:
+        raise RunnerError(f"policy file {rel_path} cannot be read: {exc}") from exc
+    return yaml.safe_load(raw.decode("utf-8")) or {}, hashlib.sha256(raw).hexdigest()
+
+
+def policy_manifest_pin(manifest: Dict[str, Any], policy_id: str) -> Dict[str, Any]:
+    return ((manifest.get("routing_policies") or {}).get(policy_id) or {})
+
+
+def resolve_config_policy(cfg: Dict[str, Any], config_id: str,
+                          manifest: Optional[Dict[str, Any]] = None,
+                          *, require_pin: bool = False) -> Optional[ResolvedPolicy]:
+    """Resolve the routing policy a configuration references (SPEC 2.1c).
+
+    A configuration declares the *stack*; a policy declares the *routing decision*.
+    C5 references P3 by path so its delegation rules are hash-pinned rather than
+    inline — which is what makes "which rules did this run execute?" answerable from
+    the manifest. Returns ``None`` for a configuration that declares no routing
+    decision at all (C1–C4 are static single-leg stacks).
+
+    Refuses a configuration that carries BOTH a reference and inline ``rules`` (two
+    copies drift, and only one of them is hashed), a reference whose ``policy_id``
+    disagrees with ``policy_ref``, a policy that does not declare it governs this
+    configuration, and a file whose bytes no longer match the manifest pin.
+    """
+    if "rules" in cfg:
+        raise RunnerError(
+            f"{config_id}.yaml carries inline 'rules'; routing rules live in the "
+            f"referenced policy file (SPEC 2.1c) so they are hash-pinned — a second "
+            f"inline copy would drift unhashed"
+        )
+    rel_path = cfg.get("policy_file")
+    if not rel_path:
+        return None
+    doc, sha = load_policy_file(rel_path)
+    policy_id = str(doc.get("policy_id") or "")
+    declared = cfg.get("policy_ref")
+    if declared and policy_id != declared:
+        raise RunnerError(
+            f"{config_id}.yaml references {declared} but {rel_path} declares "
+            f"policy_id {policy_id or '<missing>'}"
+        )
+    governs = doc.get("governs") or []
+    if governs and config_id not in governs:
+        raise RunnerError(
+            f"{rel_path} ({policy_id}) governs {list(governs)}, not {config_id}"
+        )
+    pin = policy_manifest_pin(manifest or {}, policy_id)
+    if not pin:
+        if require_pin:
+            raise RunnerError(
+                f"manifest routing_policies.{policy_id}.sha256 is missing; {policy_id}'s "
+                f"manifest pin is its policy hash (SPEC 2.1c) and no {config_id} run may "
+                f"be cited in workshop material without it"
+            )
+    else:
+        pinned = str(pin.get("sha256") or "").replace("sha256:", "")
+        if pinned != sha:
+            raise RunnerError(
+                f"{rel_path} sha256 {sha} does not match the manifest pin "
+                f"{pinned or '<empty>'} — the policy changed after it was pinned. "
+                f"Re-pin it (and, if it was frozen, re-freeze it) before running."
+            )
+    return ResolvedPolicy(policy_id=policy_id, rel_path=rel_path, sha256=sha, doc=doc)
+
+
 def build_plan(config_id: str, manifest: Dict[str, Any], task: Optional["Task"] = None,
                *, require_frozen: bool = True) -> RunPlan:
     cfg_dir = os.path.join(REPO_ROOT, "harness", "configurations")
@@ -254,6 +347,12 @@ def build_plan(config_id: str, manifest: Dict[str, Any], task: Optional["Task"] 
     cfg = _load_yaml(os.path.join(cfg_dir, f"{config_id}.yaml"))
     if not cfg:
         raise RunnerError(f"no configuration or policy named {config_id!r}")
+
+    # The routing decision is resolved by reference and hash-checked against the
+    # manifest before any work happens (SPEC 2.1c; C5 -> P3). Validation only: the
+    # rules describe how the run is read, not how it executes, so this does not
+    # change what a run does — it stops a run whose policy drifted from its pin.
+    resolve_config_policy(cfg, config_id, manifest)
 
     if config_id == "C5":  # integrated workflow: conductor + executor, both billed.
         legs_cfg = cfg.get("legs") or {}

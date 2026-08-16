@@ -17,7 +17,7 @@ and does not causally support live in
 | P0 | `p0-baseline.yaml` | **Exists** | Static strong single-model baseline; no escalation; deterministic gate | Controlled set; ex220-B/B1 | — (model refs resolve via manifest) |
 | P1 | `p1-cheap-first.yaml` | **Exists** | Economical attempt → pre-registered gate → escalate on fail; records intention-to-route, completed route, failed-attempt costs; both legs billed | Controlled set; ex220-B/B2 | — (model refs resolve via manifest) |
 | P2 | `p2-delegation.yaml` | **Built** (harness/runner/delegation.py; `--config P2`). Reference splits authored for the pilot and W1, both **pinned as `proposed`** — awaiting human freeze. **Not yet runnable end-to-end**: see "P2 and the frozen schema" below | Scripted delegation: pinned `tasks/<task>/split.yaml` assigns executor vs conductor scopes; both legs itemized | ex220-B/B3 | split-file hash per task (`<task>.delegation_split.sha256`) |
-| P3 | `p3-policy-delegation.yaml` | **To build (Phase 4, SPEC §6 item 3).** C5's delegation rules currently live inline in `harness/configurations/C5.yaml`; extracting them into P3 is the build step | Policy-driven delegation governing C5: conductor decides when to delegate to the cross-family executor | ex220-B/B4; C5 companion runs | policy hash (**required before any C5 run is cited in workshop material**) |
+| P3 | `p3-policy-delegation.yaml` | **Built** (SPEC §6 item 3). C5's inline rules extracted verbatim; `C5.yaml` references the policy by path and the runner hash-checks it against the manifest. Pinned as `proposed` — awaiting human freeze | Policy-driven delegation governing C5: conductor decides when to delegate to the cross-family executor | ex220-B/B4; C5 companion runs | policy hash `routing_policies.P3.sha256` (**required before any C5 run is cited in workshop material**) |
 
 ## P2 split-file contract (`tasks/<task>/split.yaml`)
 
@@ -83,6 +83,33 @@ then fail audit-grade validation, so the runner refuses `--config P2` up front
 the enum is a one-line schema change and a **human CP-SCHEMA decision**; the harness is
 otherwise complete and its tests run the delegation path directly.
 
+## P3 policy reference (`harness/configurations/C5.yaml` → `p3-policy-delegation.yaml`)
+
+A configuration declares the **stack**; a policy declares the **routing decision**.
+C5's delegation rules used to sit inline in `C5.yaml`, where nothing hashed them — so
+"which rules did this run execute?" was unanswerable from the artifacts. They are now
+extracted **verbatim** into P3 and referenced by path:
+
+```yaml
+# harness/configurations/C5.yaml
+policy_ref: P3
+policy_file: harness/policies/p3-policy-delegation.yaml
+```
+
+[`run.py:resolve_config_policy`](../runner/run.py) resolves the reference before any
+work and refuses: a configuration carrying **both** a reference and inline `rules` (two
+copies drift, and only one is hashed); a `policy_ref` that disagrees with the file's own
+`policy_id`; a policy that does not declare it `governs:` this configuration; and a file
+whose bytes no longer match `manifest → routing_policies.P3.sha256`. The hash is over the
+**raw file bytes**, comments included, so a comment-only edit breaks the pin — as it
+should, since the comments carry the claims-register text.
+
+This is a **validation-only** change: the rules describe how a C5 run is *read*, not how
+it *executes*, so C5 runs behave exactly as before the extraction
+(`tests/test_policy_p3.py` pins the resolved rule list to the pre-extraction literal).
+What the extraction buys is that a drifted policy now stops the run instead of quietly
+changing what the numbers mean.
+
 ## Acceptance-gate artifacts (SPEC §2.6 priority order; per task)
 
 | Artifact | Location | Status |
@@ -94,8 +121,12 @@ otherwise complete and its tests run the delegation path directly.
 
 ## Not yet pinned in the manifest
 
-Open, SPEC §6 item 6: per-task **prompt hashes** · the **P3 policy hash** · **Product-B
-version** and **`--print-timeout`** pins.
+Open, SPEC §6 item 6: per-task **prompt hashes** · **Product-B version** and
+**`--print-timeout`** pins.
+
+Pinned but **not yet frozen** (human review outstanding, so nothing produced under them
+is citable): the two P2 split hashes (`pilot_task` / `w1_task` `.delegation_split`) and
+the P3 policy hash (`routing_policies.P3`).
 
 ## Rules
 
@@ -105,6 +136,7 @@ version** and **`--print-timeout`** pins.
 - **Model references are placeholders** (`STRONG_MODEL_A`, `ECONOMICAL_MODEL_A`) and
   resolve only through `manifest/delivery-manifest.yaml`. Never hardcode a model ID or a
   price in a policy file.
-- **A policy is not citable until its manifest pin exists** where the table above
-  requires one. P3 in particular: no C5 run may be cited in workshop material before its
-  policy hash is in the manifest.
+- **A policy is not citable until its manifest pin exists and is frozen** where the table
+  above requires one. P3 in particular: no C5 run may be cited in workshop material before
+  its policy hash is in the manifest (it now is, at `status: proposed`) and a human has
+  frozen it.

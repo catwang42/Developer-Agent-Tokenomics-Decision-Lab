@@ -1,0 +1,55 @@
+policy_id: P3
+family: B4                              # policy-driven delegation (SPEC 2.1b)
+description: >
+  Policy-driven delegation. A strong conductor decides at run time when to hand
+  work to a cross-family executor; both legs are metered and reported. Governs
+  configuration C5, whose delegation rules these are — extracted verbatim from
+  C5.yaml so the rules a run executed are hash-pinned rather than inline.
+
+# Governance. A configuration declares the stack; this policy declares the routing
+# decision (SPEC 2.1c). C5.yaml references this file by path and carries no inline
+# rules; harness/runner/run.py:resolve_config_policy resolves the reference and
+# refuses a configuration that carries both.
+governs: [C5]
+manifest_pin: routing_policies.P3.sha256   # over the RAW FILE BYTES of this file
+
+# THE routing rule of this family, and the reason B4 supports no causal claim: the
+# assignment is NOT fixed before the run. If the assignment were pinned ahead of
+# time it would be B3 (P2) — a different family with different claims attached.
+delegation_source: conductor_runtime_decision
+runtime_model_choice_routes_work: true
+
+# Rules — EXTRACTED VERBATIM from harness/configurations/C5.yaml (pre-extraction
+# commit d900358). Byte-identical by contract; tests/test_policy_p3.py asserts the
+# resolved C5 policy still equals the pre-extraction list. Changing a rule changes
+# this file's hash, which invalidates the manifest pin until a human re-pins it.
+rules:
+  - both legs metered and reported; totals include failed delegations + verification
+  - frontier_token_share computed as diagnostic only
+  - executor-tier variation within pinned C5 = within-workflow executor-tier comparison
+
+# HOW the delegation is performed, and what has actually been established about it.
+mechanism:
+  conductor_product: PRODUCT_A
+  executor_product: PRODUCT_B            # cross-family by construction
+  path: product_native_workflow          # the products' own delegation interface
+  adapter: hybrid_c5                     # per-leg dispatcher; each leg billed separately
+  usage_split: per_leg_adapter_telemetry # not a split of one bill: two bills
+  verification:
+    leg_dispatch: unit_tested            # tests/test_runner.py::C5DualBill (stub, no spend)
+    live_delegation: unverified          # requires a CP-SPEND-approved run; NOT claimed
+    note: >
+      Product B exposes partial usage telemetry, so a C5 executor leg may be
+      cost_unavailable at run time and the workflow total mixed-basis. That is
+      recorded, never imputed (CLAUDE.md rules 1 and 3).
+
+# What a C5/P3 cell may and may not be used to say (SPEC 1.2 claims register).
+claims:
+  supports:
+    - both bills on screen for one integrated workflow on one task
+    - within-workflow executor-tier comparison inside a pinned C5
+  does_not_support:
+    - any causal claim about delegation, product architecture or context transfer
+    - inheriting the causal status of the controlled P0-vs-P1 (B1-vs-B2) comparison
+    - product-superiority claims of any kind
+    - frontier_token_share as anything but a diagnostic

@@ -128,6 +128,21 @@ subject_isolation:
     sufficiency_verified: unavailable
   gate_egress: none               # the deterministic gate is always docker run --network=none
 
+# Routing-policy pins (SPEC 2.1c). Only policies whose registry row requires a pin
+# appear here; P0/P1/P2 pin differently (P0/P1 resolve their models through this
+# manifest; P2's pin is the per-task split hash under <task>.delegation_split).
+# The hash is over the RAW policy-file bytes, comments included; the runner
+# (run.py:resolve_config_policy) refuses a run whose policy file has drifted from
+# its pin. status frozen == human-reviewed; SPEC §2.1c requires P3's hash before any
+# C5 run is cited in workshop material.
+routing_policies:
+  P3:
+    path: harness/policies/p3-policy-delegation.yaml
+    sha256: sha256:68ba37376b39dc2dd6108a17bd5940098fab3920194eecbf2089daaa19434e29
+    status: proposed   # -> frozen after human review
+    governs: [C5]
+    extracted_from: harness/configurations/C5.yaml   # rules verbatim; commit d900358
+
 # Pinned benchmark tasks (Phase 2). Concrete SHAs live here only; task dirs mirror
 # these and add gate wiring (tests/test_tasks.py enforces agreement).
 

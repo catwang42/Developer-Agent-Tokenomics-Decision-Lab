@@ -16,8 +16,8 @@ there is a defect.
 |---|---|---|---|
 | **B1** | Static assignment | One model does all the work. No routing decision at runtime. By construction, every single-model configuration run is a B1 run | P0 (`p0-baseline.yaml`) |
 | **B2** | Escalation (cheap-first) | Economical attempt → pre-registered gate → escalate to the strong tier on failure. **Both legs billed**; intention-to-route and completed-route both recorded | P1 (`p1-cheap-first.yaml`) |
-| **B3** | Scripted delegation | A **pinned split file** (`tasks/<task>/split.yaml`) assigns executor vs conductor scopes ahead of time. Both legs itemized on one bill | P2 (to build) |
-| **B4** | Policy-driven delegation | The conductor decides at runtime when to delegate to a cross-family executor, under a pinned delegation policy | P3 (to build; governs C5) |
+| **B3** | Scripted delegation | A **pinned split file** (`tasks/<task>/split.yaml`) assigns executor vs conductor scopes ahead of time. Both legs itemized on one bill | P2 (`p2-delegation.yaml`; splits pinned, awaiting freeze) |
+| **B4** | Policy-driven delegation | The conductor decides at runtime when to delegate to a cross-family executor, under a pinned delegation policy | P3 (`p3-policy-delegation.yaml`; governs C5, pinned, awaiting freeze) |
 
 ### What each family does and does not causally support
 
