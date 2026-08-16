@@ -107,7 +107,7 @@ class AgyAdapter(Adapter):
         # provenance, not telemetry; the runner redacts credential-bearing env).
         invocation = {
             "leg": spec.leg_id, "role": spec.role,
-            "product_version": cli_version("agy"),
+            "product_version": cli_version("agy", self.container),
             "argv": list(argv), "cwd": cwd,
         }
         payload: Optional[Dict[str, Any]] = None

@@ -1,22 +1,44 @@
-# Per-task OFFLINE subject image for containerized, network-disabled runs.
+# Per-task subject images — TWO targets, two different jobs, two different postures.
 #
-# Bakes ONE task's subject repo + node_modules + generated Prisma client into the
-# image at BUILD time (network is available during `docker build`; that is tooling
-# setup, NOT model spend — CLAUDE.md rule 5). The graded run is then fully offline:
-#   docker run --rm --network=none <tag> bash /lab/harness/task-tools/gate/check-public.sh
+#   subject-gate  (default target)  the deterministic grader. Task material intact
+#                                   (the gate requires task.yaml); runs --network=none.
+#   subject-agent                   the agent leg. Product CLIs baked; NO task
+#                                   material in any layer; runs on the egress-
+#                                   allowlist network (harness/container/egress.py).
 #
-# Baking (vs mounting the host's node_modules) is deliberate: the host toolchain is
-# node v22 while this image is node v20, and Prisma/esbuild ship platform-specific
-# native binaries — installing INSIDE the image guarantees the deps match the
-# container platform. Build from the repository root so the context includes the
-# manifest, task dirs, and harness:
+# The split exists because the two jobs have incompatible requirements: the gate
+# cannot work without task.yaml (harness/task-tools/lib.sh reads gate_type, target
+# paths and write scope from it), and the agent must never see it. One image cannot
+# be both, so there are two — built from a common base so they grade the same tree.
+#
+# Both bake ONE task's subject repo + node_modules + generated Prisma client at
+# BUILD time (network is available during `docker build`; that is tooling setup, NOT
+# model spend — CLAUDE.md rule 5). Baking (vs mounting the host's node_modules) is
+# deliberate: the host toolchain is node v22 while this image is node v20, and
+# Prisma/esbuild ship platform-specific native binaries — installing INSIDE the image
+# guarantees the deps match the container platform.
+#
+# Build from the repository root (the context needs manifest/, tasks/, harness/,
+# vendor/):
 #   docker build -f harness/container/Dockerfile.subject \
 #     --build-arg BAKE_TASK_DIR=tasks/suite/W1-test-generation \
-#     -t lab-subject/<task>:<pin12> .
+#     --target subject-gate -t lab-subject/<task>:<pin12> .
+#   docker build -f harness/container/Dockerfile.subject \
+#     --build-arg BAKE_TASK_DIR=tasks/suite/W1-test-generation \
+#     --build-arg CLAUDE_CLI_VERSION=2.1.233 \
+#     --target subject-agent -t lab-subject-agent/<task>:<pin12> .
+# or via harness/container/build-subject-image.sh, which resolves the tag and pins.
 #
-# .dockerignore already excludes .work/, node_modules/, hidden/ (sealed, human-held)
-# and results/, so none of those enter the image.
-FROM node:20-bookworm-slim
+# .dockerignore excludes .work/, node_modules/, hidden/ (sealed, human-held),
+# canonical/ (the answer patch) and results/. The agent target does NOT trust that:
+# it takes the subject repo through a scrubbed export stage and then asserts. A
+# 2026-07-19 image shipped canonical/mapper-tests.patch because the .dockerignore
+# rule postdated the build — a declared-path check would not have caught it.
+
+# =============================================================================
+# subject-base — subject repo + deps baked; task material present
+# =============================================================================
+FROM node:20-bookworm-slim AS subject-base
 
 RUN apt-get update -qq \
     && apt-get install -y --no-install-recommends git ca-certificates python3 python3-yaml \
@@ -27,6 +49,8 @@ WORKDIR /lab
 COPY manifest/ /lab/manifest/
 COPY tasks/ /lab/tasks/
 COPY harness/task-tools/ /lab/harness/task-tools/
+COPY harness/container/assert-no-task-material.sh /usr/local/bin/assert-no-task-material
+RUN chmod +x /usr/local/bin/assert-no-task-material
 
 # Which task's deps to bake. Passed at build time; used only in RUN (Docker COPY
 # cannot take an ARG source path, so we copy all task dirs — they are tiny yaml +
@@ -40,7 +64,114 @@ RUN TASK_DIR="/lab/${BAKE_TASK_DIR}" bash /lab/harness/task-tools/setup.sh
 
 # Record which task this image was baked for (introspection; not used at runtime).
 ENV TASK_DIR="/lab/${BAKE_TASK_DIR}"
+ENV BAKE_TASK_DIR="${BAKE_TASK_DIR}"
 
-# No ENTRYPOINT: the runner/offline-gate append the exact command to run
-# (check-public.sh, validate.sh, or the agent CLI) via `docker run <tag> <cmd...>`.
-CMD ["bash", "-lc", "echo 'subject image ready; pass a command to docker run'"]
+# =============================================================================
+# subject-gate — the deterministic grader (default target; posture unchanged)
+# =============================================================================
+FROM subject-base AS subject-gate
+
+LABEL lab.image.role="subject-gate" \
+      lab.image.network_posture="none (docker run --network=none)" \
+      lab.image.task_material="present — the deterministic gate requires task.yaml"
+
+# No ENTRYPOINT: the runner/offline gate append the exact command to run
+# (check-public.sh, validate.sh) via `docker run <tag> <cmd...>`.
+CMD ["bash", "-lc", "echo 'subject gate image ready; pass a command to docker run'"]
+
+# =============================================================================
+# subject-export — scratch stage: isolate the subject repo at a FIXED path
+# =============================================================================
+# Intermediate only; never tagged, never run. Its job is to produce a clean tree at
+# a path the agent stage can COPY --from without ARG expansion, so the agent image
+# inherits NO layer that ever contained /lab. That matters: a deleted file is still
+# recoverable from the layer archive of an image that once held it, so "rm -rf /lab"
+# in the agent stage would leave a runtime-clean image with task material one
+# `docker save` away. This way it is absent from the layer history too.
+FROM subject-base AS subject-export
+RUN mkdir -p /export \
+    && mv "/lab/${BAKE_TASK_DIR}/.work/repo" /export/subject \
+    && rm -rf /lab \
+    && assert-no-task-material /export
+
+# =============================================================================
+# subject-agent — the agent leg: product CLIs baked, no task material
+# =============================================================================
+FROM node:20-bookworm-slim AS subject-agent
+
+RUN apt-get update -qq \
+    && apt-get install -y --no-install-recommends git ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY harness/container/assert-no-task-material.sh /usr/local/bin/assert-no-task-material
+RUN chmod +x /usr/local/bin/assert-no-task-material
+
+# Product A CLI: a public, versioned npm package, so the pin is checkable by anyone.
+# Pass the exact version; the build asserts the installed CLI reports it back.
+ARG CLAUDE_CLI_VERSION=2.1.233
+# Product B CLI: staged into vendor/ by harness/container/stage-agy.sh from the
+# binary installed on the build host (no verifiable public download URL exists — see
+# that script). AGY_REQUIRED=1 makes its absence a build failure; the default 0 lets
+# the image build without it and labels agy `unavailable` rather than claiming a
+# version that is not in the image.
+ARG AGY_VERSION=unavailable
+ARG AGY_SHA256=unavailable
+ARG AGY_REQUIRED=0
+
+RUN npm install -g "@anthropic-ai/claude-code@${CLAUDE_CLI_VERSION}" \
+    && npm cache clean --force
+
+# Assert the pin rather than trusting the install: a CLI that resolved to something
+# else would be stamped into every run's identity.product_version as a falsehood.
+RUN got="$(claude --version 2>&1 | head -1)"; \
+    case "$got" in \
+      *"${CLAUDE_CLI_VERSION}"*) echo "claude CLI pin ok: $got" ;; \
+      *) echo "FAIL: claude CLI reports '$got', expected ${CLAUDE_CLI_VERSION}" >&2; exit 1 ;; \
+    esac
+
+# vendor/ always exists in the context (vendor/.gitkeep is committed) so this COPY
+# never fails; whether it holds agy is what the next step decides.
+COPY vendor/ /opt/lab-vendor/
+RUN set -e; \
+    if [ -x /opt/lab-vendor/agy ]; then \
+      got_sha="$(sha256sum /opt/lab-vendor/agy | cut -d' ' -f1)"; \
+      if [ "$AGY_SHA256" != "unavailable" ] && [ "$got_sha" != "$AGY_SHA256" ]; then \
+        echo "FAIL: vendored agy sha256 $got_sha != pinned $AGY_SHA256" >&2; exit 1; \
+      fi; \
+      install -m 0755 /opt/lab-vendor/agy /usr/local/bin/agy; \
+      got_ver="$(agy --version 2>&1 | tr -d '\r' | head -1)"; \
+      if [ "$AGY_VERSION" != "unavailable" ] && [ "$got_ver" != "$AGY_VERSION" ]; then \
+        echo "FAIL: agy reports '$got_ver', expected '$AGY_VERSION'" >&2; exit 1; \
+      fi; \
+      echo "agy pin ok: $got_ver ($got_sha)"; \
+    elif [ "$AGY_REQUIRED" = "1" ]; then \
+      echo "FAIL: AGY_REQUIRED=1 but vendor/agy is absent — run stage-agy.sh" >&2; exit 1; \
+    else \
+      echo "agy: ABSENT from this image (vendor/agy not staged). Product-B legs" >&2; \
+      echo "     cannot run in it; the image label records agy.version=unavailable." >&2; \
+    fi; \
+    rm -rf /opt/lab-vendor
+
+# The subject repo, and nothing else, from the scrubbed export stage.
+COPY --from=subject-export /export/subject /subject
+
+ENV NX_DAEMON=false NX_CLOUD_ACCESS_TOKEN='' CI=true TASK_IN_CONTAINER=1
+WORKDIR /subject
+
+# The assertion. Scans the WHOLE filesystem for canonical/, hidden/ and task.yaml —
+# not a declared subtree, because the failure mode this exists to catch is material
+# arriving somewhere nobody thought to look. Fails the BUILD, so an agent image
+# containing task material never exists to be run.
+RUN assert-no-task-material /
+
+# Version pins recorded in the image, so a run stamps identity.product_version from
+# the image it actually launched rather than from whatever CLI sits on the host:
+#   docker image inspect -f '{{json .Config.Labels}}' <tag>
+LABEL lab.image.role="subject-agent" \
+      lab.image.network_posture="egress-allowlist; set per run and recorded verbatim in identity.network_policy" \
+      lab.image.task_material="none — asserted by assert-no-task-material / at build time" \
+      lab.cli.claude.version="${CLAUDE_CLI_VERSION}" \
+      lab.cli.agy.version="${AGY_VERSION}" \
+      lab.cli.agy.sha256="${AGY_SHA256}"
+
+CMD ["bash", "-lc", "echo 'subject agent image ready; pass a command to docker run'"]

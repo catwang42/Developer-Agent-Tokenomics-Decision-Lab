@@ -354,6 +354,70 @@ class SubjectIsolationPosture(unittest.TestCase):
                          "lab-egress-model-only")
 
 
+class ContainerizedAgentLegPosture(unittest.TestCase):
+    """Stamps for the containerized AGENT leg (SPEC §6 item 1).
+
+    Drives ``execute_and_validate_run`` with the stub adapter and
+    ``agent_containerized=True`` — the state a real container-mode run reaches —
+    so the recorded posture is pinned without a Docker daemon or any spend.
+    """
+
+    def _stub_run(self, network_label: str):
+        out_root = tempfile.mkdtemp(prefix="lab-agentmode-")
+        run_dir = os.path.join(out_root, "pilot__P0__rep1__stub")
+        os.makedirs(run_dir)
+        manifest = runner._load_yaml(SYNTH_MANIFEST)
+        task = runner.load_task(TASK, manifest)
+        plan = runner.build_plan("P0", manifest)
+        prices, snapshot = runner.resolve_pricing(manifest, plan)
+        ok, reasons = runner.execute_and_validate_run(
+            run_dir=run_dir, task=task, plan=plan, adapter=runner.StubAdapter(),
+            subject_dir=os.path.join(run_dir, "SYNTHETIC-subject"), launch=None,
+            cache_state="cold", base_session="11111111-1111-4111-8111-111111111111",
+            resume=False, subject_isolation="container",
+            subject_network=network_label, agent_containerized=True,
+            manifest_rel="tests/fixtures/manifest-SYNTHETIC.yaml",
+            prices=prices, pricing_snapshot=snapshot, config_id="P0",
+            dry_run=True, scenario="accept",
+        )
+        with open(os.path.join(run_dir, "summary.json"), encoding="utf-8") as fh:
+            summary = json.load(fh)
+        return ok, reasons, run_dir, summary
+
+    def test_stub_run_in_container_mode_produces_a_valid_summary(self) -> None:
+        ok, reasons, run_dir, summary = self._stub_run("egress-allowlist:model-api-v1")
+        self.assertTrue(ok, reasons)
+        valid, why = validate(run_dir)
+        self.assertTrue(valid, why)
+        self.assertIsNotNone(summary["identity"]["permission_profile"]["value"])
+
+    def test_agent_profile_states_what_is_actually_enforced(self) -> None:
+        _, _, _, summary = self._stub_run("egress-allowlist:model-api-v1")
+        profile = summary["identity"]["permission_profile"]["value"]
+        self.assertEqual(
+            summary["identity"]["permission_profile"]["confidence"], "authoritative")
+        # Claims the agent image genuinely enforces.
+        for claim in ("container-isolated", "image=subject-agent", "cwd-confined-/subject",
+                      "credentials-mounted-read-only",
+                      "no-canonical|hidden|task.yaml-in-image(build-asserted)"):
+            self.assertIn(claim, profile)
+        # The FIX C lesson: the stamp must NOT imply isolation the mode lacks.
+        # Tool permissions are still bypassed and egress is allowlisted, not absent.
+        self.assertIn("skip-all-tools-inside-container", profile)
+        self.assertNotIn("no-network", profile)
+        self.assertIn("egress-allowlisted-see-network_policy", profile)
+
+    def test_network_label_distinguishes_agent_leg_from_gate(self) -> None:
+        # One field covers two containers with opposite postures; a reader must not
+        # have to guess which leg the recorded policy applied to.
+        _, _, _, summary = self._stub_run(
+            "egress-allowlist:model-api-v1@sha256:ce78aa16d545; deny-by-default")
+        label = summary["identity"]["network_policy"]["value"]
+        self.assertTrue(label.startswith("agent-leg: "))
+        self.assertIn("sha256:ce78aa16d545", label)
+        self.assertIn("gate: none", label)
+
+
 class ResultRecordEmission(unittest.TestCase):
     def test_result_json_emitted_and_matches_summary(self) -> None:
         _, run_dir, summary = _run("P1", scenario="escalate")

@@ -18,32 +18,52 @@ tooling setup, not model spend (CLAUDE.md rule 5).
 
 from __future__ import annotations
 
+import json
+import os
 import re
 import subprocess
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
-# Network modes we recognise. ``none`` = fully offline (batch-2 default posture).
-# Any other value is passed verbatim to ``docker run --network`` so a CP-SPEND
-# egress policy (a named docker network) can be selected later without code change.
+# Network modes we recognise. ``none`` = fully offline (the gate posture, always).
+# Any other value is passed verbatim to ``docker run --network`` — the agent leg
+# uses the egress-allowlist network from ``harness/container/egress.py``.
 NETWORK_NONE = "none"
 
 # Where the subject repo lives INSIDE the container (matches Dockerfile.subject).
 CONTAINER_SUBJECT_ROOT = "/subject"
 
+# Build targets in Dockerfile.subject. The gate keeps task.yaml (it cannot grade
+# without it); the agent image has no task material in any layer.
+TARGET_GATE = "subject-gate"
+TARGET_AGENT = "subject-agent"
+
 _SLUG_RE = re.compile(r"[^a-z0-9_.-]+")
 
 
+def _slug(task_id: str) -> str:
+    return _SLUG_RE.sub("-", (task_id or "task").lower()).strip("-") or "task"
+
+
 def subject_image_tag(task_id: str, pin: str) -> str:
-    """Deterministic per-task image tag: ``lab-subject/<task_id>:<pin12>``.
+    """Deterministic per-task GATE image tag: ``lab-subject/<task_id>:<pin12>``.
 
     Task id is slugified to a Docker-safe repository name; the 12-char commit
     prefix pins the baked deps to the exact subject tree, so a re-pin yields a new
     tag (never a stale image silently reused).
     """
-    slug = _SLUG_RE.sub("-", (task_id or "task").lower()).strip("-") or "task"
-    pin12 = (pin or "nopin")[:12]
-    return f"lab-subject/{slug}:{pin12}"
+    return f"lab-subject/{_slug(task_id)}:{(pin or 'nopin')[:12]}"
+
+
+def agent_image_tag(task_id: str, pin: str) -> str:
+    """Deterministic per-task AGENT image tag: ``lab-subject-agent/<task_id>:<pin12>``.
+
+    A separate repository name, not a separate tag on the same one: the two images
+    have different contents and opposite task-material postures, and a tag collision
+    between them would be the kind of mistake that silently hands an agent the
+    answer patch.
+    """
+    return f"lab-subject-agent/{_slug(task_id)}:{(pin or 'nopin')[:12]}"
 
 
 def docker_run_argv(
@@ -94,18 +114,43 @@ class ContainerResult:
 
 @dataclass
 class ContainerLaunch:
-    """How to launch a subject command inside its offline container.
+    """How to launch a subject command inside its container.
 
-    Carried by the runner into an adapter (``Adapter.container``) so the live
-    agent leg execs inside the container instead of on the host. ``network``
-    defaults to ``none`` (offline); the live agent leg's model-API egress network
-    is set here at CP-SPEND and recorded authoritatively in identity.network_policy.
+    Carried by the runner into an adapter (``Adapter.container``) so the agent leg
+    execs inside the container instead of on the host.
+
+    ``network`` defaults to ``none`` (offline) — the gate posture. The agent leg
+    passes the egress-allowlist network name from ``harness/container/egress.py``;
+    whatever value is used, the runner records the matching policy label verbatim in
+    ``identity.network_policy``.
+
+    ``env`` is the environment handed to the container. It is an explicit, small
+    dict (credentials + provider routing), never the host environment: the agent
+    must not receive harness path pointers (FIX B) and does not need the rest.
+
+    ``agent_volume``, when set, is a named Docker volume mounted at the subject root
+    so the agent's edits SURVIVE the container and can be graded by the gate
+    container, which mounts the same volume at the path its image expects. Docker
+    seeds an empty named volume from the image content on first mount, so the agent
+    starts from the baked tree with no copy step on the host.
     """
 
     image: str
     network: str = NETWORK_NONE
     mounts: Tuple[Tuple[str, str, str], ...] = ()
     subject_root: str = CONTAINER_SUBJECT_ROOT
+    env: Dict[str, str] = field(default_factory=dict)
+    agent_volume: Optional[str] = None
+    #: Free-text description of what this launch actually enforces, stamped into
+    #: identity.permission_profile. Set by the runner, which knows the mode.
+    profile: str = ""
+
+    def all_mounts(self) -> List[Tuple[str, str, str]]:
+        """Declared mounts plus the agent volume (if any), in a stable order."""
+        mounts = list(self.mounts)
+        if self.agent_volume:
+            mounts.append((self.agent_volume, self.subject_root, "rw"))
+        return mounts
 
 
 def resolve_spawn(
@@ -116,16 +161,127 @@ def resolve_spawn(
     Host mode (``launch is None``) → run ``cmd`` with ``cwd=subject_dir``, exactly
     as before (dry-run/tests and batch-1 posture are unchanged). Container mode →
     wrap ``cmd`` in ``docker run`` (``cwd=None``; the container's ``-w`` sets the
-    workdir). This is the single seam that routes the agent leg through the
-    container; both branches are pure and unit-testable.
+    workdir), carrying the launch's mounts, network and environment. This is the
+    single seam that routes the agent leg through the container; both branches are
+    pure and unit-testable.
     """
     if launch is None:
         return list(cmd), subject_dir
     argv = docker_run_argv(
-        launch.image, cmd, mounts=launch.mounts,
+        launch.image, cmd, mounts=launch.all_mounts(),
         workdir=launch.subject_root, network=launch.network,
+        env=launch.env or None,
     )
     return argv, None
+
+
+# --------------------------------------------------------------------------- #
+# Agent-leg credentials and provider routing
+# --------------------------------------------------------------------------- #
+# The agent container needs exactly two things from the host beyond the network:
+# a credential to mint provider tokens, and the env that says which project/region
+# to route to. Both are enumerated here rather than inherited, so nothing else — in
+# particular no harness path pointer (FIX B) — crosses the boundary.
+
+#: Provider-routing env forwarded from the host if present. Values are not secrets
+#: (project id, region, routing flags); the credential itself is a MOUNT, not env.
+AGENT_ENV_PASSTHROUGH: Tuple[str, ...] = (
+    "CLAUDE_CODE_USE_VERTEX",
+    "ANTHROPIC_VERTEX_PROJECT_ID",
+    "ANTHROPIC_VERTEX_BASE_URL",
+    "CLOUD_ML_REGION",
+    "GOOGLE_CLOUD_PROJECT",
+    "GOOGLE_CLOUD_LOCATION",
+    "VERTEX_REGION_CLAUDE_HAIKU_4_5",
+    "VERTEX_REGION_CLAUDE_SONNET_4_6",
+)
+
+#: Where the host's gcloud config (holding application-default credentials) is
+#: mounted READ-ONLY inside the agent container.
+CONTAINER_GCLOUD_DIR = "/creds/gcloud"
+CONTAINER_ADC_PATH = f"{CONTAINER_GCLOUD_DIR}/application_default_credentials.json"
+#: Product B's auth/config state, mounted read-only when present.
+CONTAINER_AGY_DIR = "/creds/gemini"
+
+
+def host_gcloud_dir() -> Optional[str]:
+    """The host gcloud config dir holding ADC, or ``None`` if there is no ADC file."""
+    base = os.environ.get("CLOUDSDK_CONFIG") or os.path.join(
+        os.path.expanduser("~"), ".config", "gcloud")
+    return base if os.path.isfile(
+        os.path.join(base, "application_default_credentials.json")) else None
+
+
+def host_agy_dir() -> Optional[str]:
+    """Product B's host auth/config dir, or ``None`` if absent."""
+    path = os.path.join(os.path.expanduser("~"), ".gemini")
+    return path if os.path.isdir(path) else None
+
+
+def agent_credential_mounts() -> List[Tuple[str, str, str]]:
+    """Read-only credential mounts for the agent container (only what exists).
+
+    Read-only is deliberate and has a cost: a CLI that wants to refresh a cached
+    token on disk will fail rather than write. That failure is visible and
+    diagnosable; a benchmark run silently mutating the operator's credential store
+    is not. If a product turns out to require write access, that is a finding to
+    record at CP-SPEND, not something to pre-emptively grant here.
+    """
+    mounts: List[Tuple[str, str, str]] = []
+    gcloud = host_gcloud_dir()
+    if gcloud:
+        mounts.append((gcloud, CONTAINER_GCLOUD_DIR, "ro"))
+    agy = host_agy_dir()
+    if agy:
+        mounts.append((agy, CONTAINER_AGY_DIR, "ro"))
+    return mounts
+
+
+def agent_container_env(extra: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    """Environment for the agent container: routing passthrough + credential paths.
+
+    Enumerated, not inherited. Absent host vars are simply omitted — never
+    defaulted to a guess, because a wrong project or region would silently bill and
+    measure the wrong thing.
+    """
+    env: Dict[str, str] = {
+        key: os.environ[key] for key in AGENT_ENV_PASSTHROUGH if os.environ.get(key)
+    }
+    if host_gcloud_dir():
+        env["GOOGLE_APPLICATION_CREDENTIALS"] = CONTAINER_ADC_PATH
+        env["CLOUDSDK_CONFIG"] = CONTAINER_GCLOUD_DIR
+    env.update(extra or {})
+    return env
+
+
+def image_labels(tag: str) -> Dict[str, str]:
+    """Labels baked into ``tag`` (CLI version pins), or ``{}`` if unreadable.
+
+    Read from the image the run actually launches, so ``identity.product_version``
+    describes the CLI inside the container rather than whatever is installed on the
+    host — the two drift, and the host's is irrelevant to a containerized leg.
+    """
+    proc = subprocess.run(  # noqa: S603 - fixed argv
+        ["docker", "image", "inspect", "-f", "{{json .Config.Labels}}", tag],
+        capture_output=True, text=True, check=False,
+    )
+    if proc.returncode != 0:
+        return {}
+    try:
+        labels = json.loads(proc.stdout.strip() or "null")
+    except json.JSONDecodeError:
+        return {}
+    return {str(k): str(v) for k, v in (labels or {}).items()}
+
+
+def image_cli_version(tag: str, product: str) -> str:
+    """CLI version baked into ``tag`` for ``product`` (``claude``/``agy``).
+
+    Returns ``"unavailable"`` when the label is missing or the image records the CLI
+    as absent — never a host fallback and never a guess (CLAUDE.md rule 3).
+    """
+    value = image_labels(tag).get(f"lab.cli.{product}.version", "").strip()
+    return value if value and value != "unavailable" else "unavailable"
 
 
 class ContainerExecutor:
@@ -180,21 +336,53 @@ def image_exists(tag: str) -> bool:
 
 def build_subject_image(
     task_dir_rel: str, tag: str, repo_root: str, dockerfile: str,
-    *, timeout: Optional[float] = 1800,
+    *, target: str = TARGET_GATE, build_args: Optional[Dict[str, str]] = None,
+    timeout: Optional[float] = 1800,
 ) -> subprocess.CompletedProcess:
-    """Build the per-task offline image (network at BUILD time only; not spend).
+    """Build a per-task subject image (network at BUILD time only; not spend).
 
     Bakes the subject repo + node_modules + generated Prisma client into the image
     for the CONTAINER platform via ``setup.sh`` at build time, so the graded run is
-    fully offline. Returns the completed ``docker build`` process (caller checks rc).
+    fully offline. ``target`` selects ``subject-gate`` (task material intact, the
+    grader) or ``subject-agent`` (product CLIs baked, task material asserted absent).
+    Returns the completed ``docker build`` process (caller checks rc).
     """
     argv = [
         "docker", "build",
         "-f", dockerfile,
+        "--target", target,
         "--build-arg", f"BAKE_TASK_DIR={task_dir_rel}",
-        "-t", tag,
-        repo_root,
     ]
+    for key in sorted(build_args or {}):
+        argv += ["--build-arg", f"{key}={build_args[key]}"]
+    argv += ["-t", tag, repo_root]
     return subprocess.run(  # noqa: S603 - workshop-owned command
         argv, check=False, timeout=timeout,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Agent -> gate handoff volume
+# --------------------------------------------------------------------------- #
+def agent_volume_name(run_id: str) -> str:
+    """Per-run named volume carrying the agent's edits to the gate container.
+
+    Scoped to the run id so two runs never share a tree — the whole point of
+    ``cold`` reps is that each starts from the pristine baked state.
+    """
+    return f"lab-subject-work-{_slug(run_id)}"[:120]
+
+
+def create_volume(name: str) -> None:
+    subprocess.run(  # noqa: S603 - fixed argv
+        ["docker", "volume", "create", name],
+        capture_output=True, text=True, check=False,
+    )
+
+
+def remove_volume(name: str) -> None:
+    """Best-effort volume cleanup; the run's provenance lives under ``run_dir``."""
+    subprocess.run(  # noqa: S603 - fixed argv
+        ["docker", "volume", "rm", "-f", name],
+        capture_output=True, text=True, check=False,
     )

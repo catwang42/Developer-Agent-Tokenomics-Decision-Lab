@@ -38,15 +38,25 @@ import yaml
 
 from harness.adapters import REAL_ADAPTERS, ResolvedModel, StubAdapter
 from harness.adapters.base import (
-    SUBJECT_PROFILE_CONTAINER,
+    SUBJECT_PROFILE_CONTAINER_AGENT,
+    SUBJECT_PROFILE_CONTAINER_GATE,
     SUBJECT_PROFILE_HOST,
     AttemptSpec,
 )
+from harness.container import egress as egress_mod
 from harness.container.exec import (
+    TARGET_AGENT,
+    TARGET_GATE,
     ContainerExecutor,
     ContainerLaunch,
+    agent_container_env,
+    agent_credential_mounts,
+    agent_image_tag,
+    agent_volume_name,
     build_subject_image,
+    create_volume,
     image_exists,
+    remove_volume,
     subject_image_tag,
 )
 from harness.results.record import build_result_record
@@ -306,21 +316,25 @@ def real_gate(task_dir: str, run_dir: str, subject_dir: str
 
 def container_gate(launch: ContainerLaunch, task: "Task", run_dir: str
                    ) -> Tuple[bool, str, Dict[str, Any]]:
-    """Run the deterministic gate OFFLINE inside the subject container (--network=none).
+    """Run the deterministic gate OFFLINE inside the subject-gate container (--network=none).
 
-    Grades the tree baked into the image at ``/lab/<task>/.work/repo`` (proven this
-    session: pre-mod FAILs, canonical PASSes with jest/coverage/build running
-    offline). ``run_dir`` is mounted at ``/out`` so the gate's JSON reports land on
-    the host. NOTE (CP-SPEND finalization): a LIVE run must co-locate the agent's
-    edits and this gate in the SAME container instance (the agent leg is deferred to
-    CP-SPEND); with no agent, this grades the pristine baked tree = the containerized
-    pre-modification gate.
+    Grades the tree at ``/lab/<task>/.work/repo``. When the agent leg ran in its own
+    container, ``launch.agent_volume`` is the named volume holding the agent's edits
+    and it is mounted over that path here — so the gate grades what the agent
+    actually produced, across two images, without either image needing the other's
+    contents. With no agent volume this grades the pristine baked tree (the
+    containerized pre-modification gate).
+
+    ``run_dir`` is mounted at ``/out`` so the gate's JSON reports land on the host.
+    The gate is always ``--network=none``; the agent leg's egress never applies here.
     """
     ex = ContainerExecutor(launch.image)
     task_c = f"{CONTAINER_LAB_ROOT}/{task.task_dir_rel}"
     work_c = f"{task_c}/.work"
     repo_c = f"{work_c}/repo"
     mounts = [(run_dir, "/out", "rw")]
+    if launch.agent_volume:
+        mounts.append((launch.agent_volume, repo_c, "rw"))
     base_env = {"TASK_DIR": task_c, "TASK_WORKDIR": work_c}
 
     pub = ex.run(
@@ -773,29 +787,80 @@ def _write_invocation_file(run_dir: str, invocations: List[Dict[str, Any]],
         pass
 
 
-def _ensure_container_launch(task: Task, network: str) -> ContainerLaunch:
-    """Resolve the per-task offline image (building it if absent) and a launch spec.
+def _ensure_image(task: Task, tag: str, target: str,
+                  build_args: Optional[Dict[str, str]] = None) -> None:
+    """Build ``tag`` from ``target`` if it is not already present locally.
 
-    Building bakes the subject repo + deps at build time (network at build only —
-    not model spend, CLAUDE.md rule 5). The returned launch runs the subject
-    ``--network=<network>`` (default ``none``). NOTE (CP-SPEND finalization): a live
-    agent run must co-locate the agent's edits and the gate in ONE container; the
-    agent leg is deferred to CP-SPEND, so this session exercises the container path
-    for the deterministic gate on the image's baked tree.
+    Build-time network clones the subject repo, runs ``npm ci`` and installs the
+    product CLIs — tooling setup, not model spend (CLAUDE.md rule 5).
     """
+    if image_exists(tag):
+        return
+    print(f"runner: building subject image {tag} (target {target}; build-time "
+          f"network; not model spend)", file=sys.stderr)
+    proc = build_subject_image(task.task_dir_rel, tag, REPO_ROOT, SUBJECT_DOCKERFILE,
+                               target=target, build_args=build_args)
+    if proc.returncode != 0:
+        raise RunnerError(f"docker build failed for {tag} (rc={proc.returncode})")
+
+
+def _require_pin(task: Task) -> None:
     if not task.pinned_commit:
         raise RunnerError(
             f"container isolation needs task {task.task_id!r} pinned_commit in the "
-            f"manifest to tag/build the offline image"
+            f"manifest to tag/build the subject image"
         )
+
+
+def _ensure_gate_launch(task: Task, agent_volume: Optional[str] = None) -> ContainerLaunch:
+    """The deterministic gate's launch: ``subject-gate`` image, always offline."""
+    _require_pin(task)
     tag = subject_image_tag(task.task_id, task.pinned_commit)
-    if not image_exists(tag):
-        print(f"runner: building offline subject image {tag} (build-time network; "
-              f"not model spend)", file=sys.stderr)
-        proc = build_subject_image(task.task_dir_rel, tag, REPO_ROOT, SUBJECT_DOCKERFILE)
-        if proc.returncode != 0:
-            raise RunnerError(f"docker build failed for {tag} (rc={proc.returncode})")
-    return ContainerLaunch(image=tag, network=network)
+    _ensure_image(task, tag, TARGET_GATE)
+    return ContainerLaunch(
+        image=tag, network=egress_mod.NETWORK_NONE_LABEL,
+        agent_volume=agent_volume, profile=SUBJECT_PROFILE_CONTAINER_GATE,
+    )
+
+
+def _ensure_agent_launch(
+    task: Task, run_id: str, policy: Optional[egress_mod.EgressPolicy],
+    *, network_override: Optional[str] = None,
+) -> Tuple[ContainerLaunch, str]:
+    """The agent leg's launch: ``subject-agent`` image + credentials + egress.
+
+    Returns ``(launch, network_policy_label)``. The label is what lands verbatim in
+    ``identity.network_policy``; it names the allowlist and its hash, so a run under
+    a later, wider allowlist is not mistaken for one made under this one.
+
+    With no policy the agent container runs ``--network=none``. That is a legitimate
+    posture for exercising the container path without spend, and the label says so
+    plainly rather than implying an allowlist was in force.
+    """
+    _require_pin(task)
+    tag = agent_image_tag(task.task_id, task.pinned_commit)
+    _ensure_image(task, tag, TARGET_AGENT)
+
+    if policy is not None:
+        egress_mod.ensure_proxy(policy)
+        network = policy.network
+        label = policy.label
+        env = agent_container_env(policy.proxy_env())
+    else:
+        network = network_override or egress_mod.NETWORK_NONE_LABEL
+        env = agent_container_env()
+        label = (
+            f"{network}; no-egress-allowlist-in-force"
+            if network == egress_mod.NETWORK_NONE_LABEL
+            else f"{network}; docker-network-verbatim; no-lab-allowlist-in-force"
+        )
+
+    volume = agent_volume_name(run_id)
+    create_volume(volume)
+    return ContainerLaunch(
+        image=tag, network=network, mounts=tuple(agent_credential_mounts()),
+        env=env, agent_volume=volume, profile=SUBJECT_PROFILE_CONTAINER_AGENT,
+    ), label
 
 
 def _stage_subject_outside_repo(source_repo: str) -> str:
@@ -885,6 +950,7 @@ def execute_and_validate_run(
     subject_dir: Optional[str], launch: Optional[ContainerLaunch],
     cache_state: str, base_session: str, resume: bool,
     subject_isolation: str, subject_network: str, manifest_rel: str,
+    agent_containerized: bool = False,
     prices: Dict[str, Any], pricing_snapshot: str, config_id: str,
     dry_run: bool, scenario: str,
 ) -> Tuple[bool, List[str]]:
@@ -922,9 +988,21 @@ def execute_and_validate_run(
     # Subject isolation posture — the runner authoritatively knows the mode it
     # launched, so it stamps permission_profile + network_policy here, overriding
     # any adapter default (SPEC 1.3; batch-2 decision, manifest subject_isolation).
+    # ``subject_network`` is the LABEL for the agent leg's egress (a bare network
+    # name, or the allowlist policy label naming the list and its hash). The gate is
+    # always offline, and the stamp says so explicitly rather than leaving a reader
+    # to infer which leg the recorded policy applied to.
     if subject_isolation == "container":
-        identity["permission_profile"] = tiered(SUBJECT_PROFILE_CONTAINER, "authoritative")
-        identity["network_policy"] = tiered(subject_network, "authoritative")
+        identity["permission_profile"] = tiered(
+            SUBJECT_PROFILE_CONTAINER_AGENT if agent_containerized
+            else SUBJECT_PROFILE_CONTAINER_GATE,
+            "authoritative",
+        )
+        identity["network_policy"] = tiered(
+            f"agent-leg: {subject_network} | gate: none" if agent_containerized
+            else subject_network,
+            "authoritative",
+        )
     else:
         identity["permission_profile"] = tiered(SUBJECT_PROFILE_HOST, "authoritative")
         identity["network_policy"] = tiered("no-network-policy", "authoritative")
@@ -975,15 +1053,26 @@ def main(argv: Optional[List[str]] = None) -> int:
                          "cap the runner halts (exit 3) without starting. Resumable: "
                          "re-invoke (optionally with a raised cap) to continue.")
     ap.add_argument("--subject-isolation", choices=("host", "container"), default="host",
-                    help="subject sandbox posture (batch-2 = container). host: legacy "
-                         "skip-perms + cwd on the dev VM. container: exec the subject "
-                         "inside the offline per-task image and grade the gate there "
-                         "(--network=none). Recorded authoritatively in "
-                         "identity.permission_profile + identity.network_policy.")
+                    help="subject sandbox posture. host: skip-perms + staged cwd on "
+                         "the dev VM (the feasibility fallback; no fs namespace, no "
+                         "network policy). container: the agent leg execs in the "
+                         "subject-agent image (product CLIs baked, no task material, "
+                         "credentials read-only, egress per --subject-egress) and the "
+                         "gate grades its edits in the subject-gate image offline. "
+                         "Recorded authoritatively in identity.permission_profile + "
+                         "identity.network_policy.")
+    ap.add_argument("--subject-egress", choices=("none", "allowlist"), default="none",
+                    help="agent-leg egress under --subject-isolation container. none: "
+                         "--network=none (no model API reachable; container path "
+                         "without spend). allowlist: deny-by-default proxy on an "
+                         "internal network permitting only "
+                         "harness/container/egress/allowlist-model-api.txt; the list "
+                         "name + sha256 are recorded in identity.network_policy. The "
+                         "deterministic gate is --network=none either way.")
     ap.add_argument("--subject-network", default="none",
-                    help="docker --network for the subject container (default none = "
-                         "offline). The live agent leg's model-API egress network is a "
-                         "CP-SPEND item; whatever value is used is recorded verbatim.")
+                    help="raw docker --network for the agent container, used only "
+                         "when --subject-egress none. Recorded verbatim; carries no "
+                         "claim that the lab allowlist was in force.")
     ap.add_argument("--dry-run", action="store_true",
                     help="synthetic adapters + gate; no spend/clone/network")
     ap.add_argument("--out-root", default=None,
@@ -1059,16 +1148,31 @@ def main(argv: Optional[List[str]] = None) -> int:
         launch: Optional[ContainerLaunch] = None
         subject_dir: Optional[str] = None
         staged_root: Optional[str] = None  # temp staging dir to clean up (FIX A)
+        agent_volume: Optional[str] = None
+        agent_containerized = False
+        network_label = args.subject_network
         if args.dry_run:
             adapter: Any = StubAdapter()
             subject_dir = os.path.join(run_dir, "SYNTHETIC-subject")  # unused by stub
+            if args.subject_isolation == "container":
+                # --dry-run never touches Docker (no daemon required, no build). The
+                # posture is still stamped, so the recorded label must not imply an
+                # allowlist that was never brought up.
+                network_label = args.subject_network
         else:
             adapter = REAL_ADAPTERS[plan.adapter_name]()
             if args.subject_isolation == "container":
-                # Subject lives inside the offline image; the agent leg (deferred to
-                # CP-SPEND) and the gate run in-container. No host clone.
-                launch = _ensure_container_launch(task, args.subject_network)
-                adapter.container = launch
+                policy = (egress_mod.load_policy()
+                          if args.subject_egress == "allowlist" else None)
+                agent_launch, network_label = _ensure_agent_launch(
+                    task, run_id, policy, network_override=args.subject_network)
+                adapter.container = agent_launch
+                agent_volume = agent_launch.agent_volume
+                agent_containerized = True
+                # The gate is a SEPARATE image and a separate posture: task material
+                # intact, --network=none, mounting the agent's volume so it grades
+                # the agent's tree rather than the pristine baked one.
+                launch = _ensure_gate_launch(task, agent_volume=agent_volume)
             else:
                 subject_dir = _setup_subject(task.task_dir, run_dir)
                 staged_root = os.path.dirname(subject_dir)  # <staged>/repo -> <staged>
@@ -1077,7 +1181,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             run_dir=run_dir, task=task, plan=plan, adapter=adapter,
             subject_dir=subject_dir, launch=launch,
             cache_state=args.cache_state, base_session=base_session, resume=args.resume,
-            subject_isolation=args.subject_isolation, subject_network=args.subject_network,
+            subject_isolation=args.subject_isolation, subject_network=network_label,
+            agent_containerized=agent_containerized,
             manifest_rel=os.path.relpath(args.manifest, REPO_ROOT),
             prices=prices, pricing_snapshot=pricing_snapshot, config_id=args.config,
             dry_run=args.dry_run, scenario=args.stub_scenario,
@@ -1088,6 +1193,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         # Best-effort cleanup so batches don't accumulate temp trees.
         if staged_root:
             shutil.rmtree(staged_root, ignore_errors=True)
+        # Same for the agent->gate handoff volume: it has already been graded, and
+        # the agent's edits are archived as a diff under run_dir.
+        if agent_volume:
+            remove_volume(agent_volume)
     except RunnerError as exc:
         print(f"runner: {exc}", file=sys.stderr)
         return 2

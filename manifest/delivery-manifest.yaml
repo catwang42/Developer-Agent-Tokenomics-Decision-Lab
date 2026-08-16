@@ -72,22 +72,61 @@ notes: >
 # (containerization before pre-mod validation, so validation runs under the SAME
 # posture as the batch it validates for — no posture delta).
 subject_isolation:
-  # Batch-2 posture is SPLIT and recorded verbatim per run in identity.permission_profile
-  # + identity.network_policy (CP-SPEND 2026-07-20, decision 4 + containerization-gap
-  # finding). The deterministic GATE is containerized + offline (verified); the live
-  # AGENT leg runs HOST because the containerized agent leg is unimplemented (no
-  # claude/agy/creds in Dockerfile.subject; resolve_spawn passes no egress/creds) —
-  # that is new engineering, so it is DEFERRED. Full containerized-subject isolation
-  # AND endpoint-allowlist egress are HARD REQUIREMENTS for the Phase-4 screening
-  # CP-SPEND (same accept-small / mandate-later pattern as the permissions posture).
+  # Posture is recorded verbatim per run in identity.permission_profile +
+  # identity.network_policy (CP-SPEND 2026-07-20, decision 4 + containerization-gap
+  # finding). BATCH 2/3 (historical): the deterministic GATE was containerized +
+  # offline, while the live AGENT leg ran HOST because the containerized agent leg
+  # was unimplemented (no claude/agy/creds in Dockerfile.subject; resolve_spawn
+  # passed no egress/creds). Those runs' stamps say so and remain accurate.
+  # PHASE 4: the containerized agent leg + endpoint-allowlist egress are HARD
+  # REQUIREMENTS for the screening CP-SPEND; they are built (see agent_leg below).
   gate_posture: container       # deterministic gate: docker run --network=none (offline)
-  agent_leg_posture: host       # batch-2 live agent leg: --subject-isolation host
+  agent_leg_posture: host       # batch-2/3 live agent leg (historical; see agent_leg)
   batch2_network_policy: no-network-policy   # host agent leg; recorded verbatim per run
   network_policy: none          # graded gate runs fully offline (docker run --network=none)
   image: per-task baked         # harness/container/Dockerfile.subject; deps baked at BUILD time
   gate_verified_offline: w1-2026-07-19   # W1 public gate ran offline in-container (pre-mod FAIL; canonical PASS)
-  agent_leg_egress: deferred_to_phase4   # containerized agent leg + Vertex/Google endpoint allowlist = Phase-4 hard req
   batch1_posture: host          # skip-all-tools; cwd-confined; dev-vm; no-container (superseded)
+
+  # --- Phase-4 screening prerequisite: the containerized agent leg (SPEC §6 item 1).
+  # Built 2026-08-16, no spend. Supersedes agent_leg_egress: deferred_to_phase4.
+  # `--subject-isolation container` now runs the AGENT in its own image on an
+  # egress-allowlist network and grades its edits in the offline gate image;
+  # `--subject-isolation host` remains available as the feasibility fallback.
+  agent_leg:
+    posture: container_available   # host remains the fallback (--subject-isolation host)
+    image_target: subject-agent    # harness/container/Dockerfile.subject
+    gate_image_target: subject-gate
+    task_material_in_agent_image: none   # build-asserted (assert-no-task-material /)
+    credentials: adc_read_only     # host gcloud config mounted ro at /creds/gcloud
+    handoff: named_volume          # agent edits reach the gate container via a per-run volume
+    # Product CLI versions BAKED INTO the agent image and asserted at build time.
+    # These are the versions that actually run; the host's are irrelevant to a
+    # containerized leg, and identity.product_version is read from the image label.
+    claude_cli_version: 2.1.233
+    agy_version: 1.1.13
+    # agy has no verifiable public download URL, so the binary is vendored from the
+    # build host by harness/container/stage-agy.sh and pinned by content hash. The
+    # image build fails if the staged binary's sha256 or self-reported version differ.
+    agy_sha256: 416b197e4b38c797c8661098f0af2bb4e1323ffe3c286d5e9b6408cf7d7ee920
+    agy_source: vendored_from_build_host   # no verifiable public install URL exists
+  agent_leg_egress:
+    policy_file: harness/container/egress/allowlist-model-api.txt
+    policy_sha256: ce78aa16d5450d44486ba80d12ee8f465a1e1b0d83d2dbbd30653fcc27475e2c
+    policy_name: model-api-v1
+    mechanism: internal_docker_network_plus_deny_by_default_proxy
+    host_patterns: 9
+    connect_ports: [443]
+    # Enforcement verified with no model spend (harness/container/verify-egress.sh,
+    # 2026-08-16): no route without the proxy; allowlisted host reachable;
+    # non-allowlisted host refused 403; non-443 CONNECT refused.
+    enforcement_verified: 2026-08-16
+    # SUFFICIENCY for a live agentic run is NOT established and cannot be without
+    # spend. The Product-B entries in particular are sourced from binary strings,
+    # not from an observed agy run. First CP-SPEND screening run is the test; the
+    # proxy log names any refused host.
+    sufficiency_verified: unavailable
+  gate_egress: none               # the deterministic gate is always docker run --network=none
 
 # Pinned benchmark tasks (Phase 2). Concrete SHAs live here only; task dirs mirror
 # these and add gate wiring (tests/test_tasks.py enforces agreement).

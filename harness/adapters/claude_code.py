@@ -156,7 +156,7 @@ class ClaudeCodeAdapter(Adapter):
         # credential-bearing environment values when it writes the file.
         invocation = {
             "leg": spec.leg_id, "role": spec.role,
-            "product_version": cli_version("claude"),
+            "product_version": cli_version("claude", self.container),
             "argv": list(argv), "cwd": cwd,
         }
         try:

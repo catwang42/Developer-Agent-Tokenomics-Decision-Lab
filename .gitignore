@@ -14,3 +14,8 @@ results/cohort/
 *.secret
 .env
 .DS_Store
+# Product-B CLI staged into the agent image by harness/container/stage-agy.sh.
+# A ~200 MB vendored binary is not a repo artifact; the pin that IS tracked is the
+# sha256 recorded in manifest/delivery-manifest.yaml and asserted at image build.
+vendor/*
+!vendor/.gitkeep
