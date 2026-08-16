@@ -17,6 +17,8 @@ import sys
 import tempfile
 import unittest
 
+import yaml
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from harness.runner import run as runner  # noqa: E402
@@ -157,6 +159,46 @@ class ProductBlackboxUnavailable(unittest.TestCase):
         # Costed via the product-reported figure, not token math.
         self.assertEqual(summary["economics"]["cost_basis"], "provider_reported_cost")
         self.assertEqual(summary["legs"][0]["marginal_operating_usd"]["confidence"], "proxy_observed")
+
+
+class ScreeningArms(unittest.TestCase):
+    """The two extra Product-B arms added for the screening window.
+
+    C3-med (effort) and C3-prev (generation) exist so the summarizer cannot merge
+    them into C3. Each must plan, run and validate as its OWN configuration_id and
+    resolve its OWN selector — if either collapsed onto C3's id or C3's selector,
+    the arm would be invisible in exactly the way the schema widening was meant to
+    prevent.
+    """
+
+    ARMS = {"C3-med": "PRODUCT_B_ECON_TIER_MED", "C3-prev": "PRODUCT_B_ECON_TIER_PREV"}
+
+    def test_each_arm_validates_under_its_own_configuration_id(self) -> None:
+        for config in self.ARMS:
+            with self.subTest(config=config):
+                rc, run_dir, summary = _run(config)
+                self.assertEqual(rc, 0, f"{config} runner exit")
+                ok, reasons = validate(run_dir)
+                self.assertTrue(ok, f"{config} not audit-grade: {reasons}")
+                self.assertEqual(summary["configuration_id"], config)
+
+    def test_arms_resolve_distinct_selectors_from_c3(self) -> None:
+        manifest = yaml.safe_load(open(SYNTH_MANIFEST, encoding="utf-8"))
+        seen = {}
+        for config in ("C3", *self.ARMS):
+            plan = runner.build_plan(config, manifest)
+            self.assertEqual(len(plan.legs), 1, f"{config} is a solo arm")
+            seen[config] = plan.legs[0].resolved.model_or_selector
+        self.assertEqual(len(set(seen.values())), 3, f"arms share a selector: {seen}")
+
+    def test_arms_never_infer_a_backend_model_id(self) -> None:
+        """SPEC 6.3 holds for the new arms too: label verbatim, id never inferred."""
+        manifest = yaml.safe_load(open(SYNTH_MANIFEST, encoding="utf-8"))
+        for config in self.ARMS:
+            with self.subTest(config=config):
+                resolved = runner.build_plan(config, manifest).legs[0].resolved
+                self.assertIsNone(resolved.model_id)
+                self.assertEqual(resolved.model_confidence, "proxy_observed")
 
 
 class StartupGuards(unittest.TestCase):
