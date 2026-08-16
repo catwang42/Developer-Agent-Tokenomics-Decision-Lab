@@ -244,7 +244,7 @@ def derive_summary(
             if e.get("event_type") in _USAGE_EVENT_TYPES and e.get("leg", "main") == leg
         ]
         leg_meta_source = next((e for e in leg_events), {})
-        legs.append({
+        leg_record: Dict[str, Any] = {
             "leg_id": leg,
             "role": leg_meta_source.get("role", leg),
             "provider": leg_meta_source.get("provider", unavailable("not reported by adapter")),
@@ -252,7 +252,12 @@ def derive_summary(
                 "model_or_selector", unavailable("not reported by adapter")),
             "cost_basis": leg_meta_source.get("cost_basis", "cost_unavailable"),
             "usage": _leg_usage_from_events(leg_events),
-        })
+        }
+        # Carried through only when the event log has it, so re-derivation matches
+        # the stored summary byte-for-byte on legs that declare no qualifier.
+        if leg_meta_source.get("cost_basis_qualifier"):
+            leg_record["cost_basis_qualifier"] = leg_meta_source["cost_basis_qualifier"]
+        legs.append(leg_record)
 
     # Top-level usage = sum across all legs (dual-bill aggregation).
     usage: Dict[str, Any] = {}

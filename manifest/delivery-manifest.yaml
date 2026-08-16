@@ -69,12 +69,20 @@ configurations:
   # agy's separate `--effort low|medium|high` flag — one mechanism only, so a run's
   # effort is unambiguous from the label we record verbatim. The adapter never
   # passes --effort. See notes.effort_rule.
+  #
+  # cost_basis_qualifier: cache_blind_upper_bound — human decision 2026-08-16, see
+  # notes.gemini_cache_blindness. cost_basis stays marginal_api_cost (the frozen
+  # schema enum; widening it is a CP-SCHEMA decision, not taken here); the
+  # qualifier is the additive field that records HOW that marginal cost was
+  # derived. It rides on every Gemini leg — solo C3/C3-med/C3-prev and the C5
+  # executor — because the C5 executor resolves through PRODUCT_B_ECON_TIER.
   PRODUCT_B_ECON_TIER:
     provider: google
     product_surface: product_blackbox
     selector_label: "Gemini 3.7 Flash (High)"    # re-pinned 2026-08-16 (was Gemini 3.5 Flash (High))
     model_id: null
     cost_basis: marginal_api_cost
+    cost_basis_qualifier: cache_blind_upper_bound
     conditions:
       agy_version: "1.1.13"
       print_timeout: "15m0s"
@@ -85,6 +93,7 @@ configurations:
     selector_label: "Gemini 3.7 Flash (Medium)"  # new 2026-08-16: the C3-med effort arm
     model_id: null
     cost_basis: marginal_api_cost
+    cost_basis_qualifier: cache_blind_upper_bound
     conditions:
       agy_version: "1.1.13"
       print_timeout: "15m0s"
@@ -95,6 +104,7 @@ configurations:
     selector_label: "Gemini 3.6 Flash (High)"    # new 2026-08-16: the C3-prev generation arm
     model_id: null
     cost_basis: marginal_api_cost
+    cost_basis_qualifier: cache_blind_upper_bound
     conditions:
       agy_version: "1.1.13"
       print_timeout: "15m0s"
@@ -120,7 +130,33 @@ notes: >
   so a C3/C5 leg may be cost_unavailable at runtime; the provider-side collector
   (harness/collectors/) is what turns that into counts, at derived attribution.
   C2's semantics changed this window: the Product-A economical tier is now
-  claude-sonnet-4-6 (it was the strong tier through batch 3).
+  claude-sonnet-4-6 (it was the strong tier through batch 3). Product-B costing
+  this window is CACHE-BLIND — see gemini_cache_blindness.
+gemini_cache_blindness: >
+  HUMAN DECISION 2026-08-16 (accepted; no probe run). Product-B (Gemini) costing
+  for the screening window is CACHE-BLIND, and every Gemini leg — solo C3/C3-med/
+  C3-prev and the C5 executor — carries cost_basis_qualifier
+  cache_blind_upper_bound. Basis for the decision: the provider-side token metric
+  (aiplatform.googleapis.com/publisher/online_serving/token_count) emits only
+  type=input and type=output for publisher="google" on this project, and the
+  explicit_caching label appears on zero google series, while the anthropic series
+  carry cache_read_input / cache_write_input / cache_write_1h_input. Evidence:
+  report/findings/vertex-token-metric-surface-2026-08-16.md finding 2. So a Gemini
+  leg's cache_read_tokens / cache_creation_tokens have no provider-side series to
+  fill them; they stay unavailable (never 0), and any Gemini cost derived from
+  input+output alone prices every input token at the full input rate.
+  DIRECTION OF THE ERROR: implicit provider-side caching, if it happens, can only
+  make real Gemini spend LOWER than the computed figure (cached input bills at the
+  cheaper cache-read rate) — hence "upper bound". The basis name says so; do not
+  restate a cache-blind figure as an exact cost.
+  SCOPE: cross-product cache comparisons stay OUT OF SCOPE this window (SPEC 2.9).
+  A Product-A vs Product-B cache-efficiency claim is not derivable from a
+  cache-blind Product-B figure and must not be made.
+  MECHANISM NOTE: cost_basis itself remains marginal_api_cost. The telemetry
+  schema's cost_basis enum is frozen at four values and widening it is a CP-SCHEMA
+  decision that has NOT been taken; cost_basis_qualifier is an additive field
+  (legs[] and economics accept additional properties) that records how the
+  marginal cost was derived without touching the frozen enum.
 effort_rule: >
   Effort level is a within-product arm, never mixed with routing. ALL C5 executor
   legs are pinned to a "(High)" selector; the effort-level comparison is C3 vs

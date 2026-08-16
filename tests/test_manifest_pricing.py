@@ -137,6 +137,25 @@ class ProductBConditionTests(unittest.TestCase):
                     f"{ref}: effort {effort!r} not the suffix of "
                     f"{entry['selector_label']!r}")
 
+    def test_every_gemini_arm_declares_the_cache_blind_qualifier(self):
+        """Human decision 2026-08-16: Product-B costing this window is cache-blind.
+
+        The qualifier is the only thing that stops a Gemini figure being read as an
+        exact cost, so an arm that silently omits it publishes an unqualified number.
+        Applies to the C5 executor too — it resolves through PRODUCT_B_ECON_TIER.
+        """
+        for ref in ("PRODUCT_B_ECON_TIER", "PRODUCT_B_ECON_TIER_MED",
+                    "PRODUCT_B_ECON_TIER_PREV"):
+            with self.subTest(model_ref=ref):
+                self.assertEqual(self.configs[ref].get("cost_basis_qualifier"),
+                                 "cache_blind_upper_bound")
+
+    def test_no_product_a_entry_is_cache_blind(self):
+        """Product A's cache classes ARE metered; qualifying them would be false."""
+        for ref in ("STRONG_MODEL_A", "ECONOMICAL_MODEL_A"):
+            with self.subTest(model_ref=ref):
+                self.assertIsNone(self.configs[ref].get("cost_basis_qualifier"))
+
     def test_the_three_screening_selectors_are_distinct(self):
         labels = [self.configs[r]["selector_label"] for r in
                   ("PRODUCT_B_ECON_TIER", "PRODUCT_B_ECON_TIER_MED",

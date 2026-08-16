@@ -161,6 +161,57 @@ class ProductBlackboxUnavailable(unittest.TestCase):
         self.assertEqual(summary["legs"][0]["marginal_operating_usd"]["confidence"], "proxy_observed")
 
 
+class CostBasisQualifier(unittest.TestCase):
+    """A declared qualification of a cost_basis must survive to the summary.
+
+    The screening window declares Product-B costing cache-blind (human decision
+    2026-08-16): every Gemini leg carries ``cost_basis_qualifier:
+    cache_blind_upper_bound`` beside an unchanged ``cost_basis``. The failure this
+    guards against is silence — a qualifier that is pinned in the manifest, dropped
+    somewhere between resolution and the summary, and so never seen by whoever
+    reads the cost. It must also survive re-derivation, or the run is not
+    audit-grade.
+    """
+
+    def test_solo_leg_carries_the_qualifier_and_stays_audit_grade(self) -> None:
+        rc, run_dir, summary = _run("C3")
+        self.assertEqual(rc, 0)
+        ok, reasons = validate(run_dir)
+        self.assertTrue(ok, f"qualifier broke re-derivation: {reasons}")
+        self.assertEqual(summary["legs"][0]["cost_basis_qualifier"],
+                         "cache_blind_upper_bound")
+        self.assertEqual(summary["economics"]["cost_basis_qualifier"],
+                         "cache_blind_upper_bound")
+        # The frozen enum is untouched — the qualifier sits BESIDE the basis.
+        self.assertEqual(summary["legs"][0]["cost_basis"], "provider_reported_cost")
+
+    def test_one_qualified_leg_qualifies_the_whole_run(self) -> None:
+        """C5: a total containing one upper bound is itself an upper bound."""
+        rc, _, summary = _run("C5")
+        self.assertEqual(rc, 0)
+        legs = {leg["leg_id"]: leg for leg in summary["legs"]}
+        self.assertNotIn("cost_basis_qualifier", legs["conductor"])
+        self.assertEqual(legs["executor"]["cost_basis_qualifier"],
+                         "cache_blind_upper_bound")
+        self.assertEqual(summary["economics"]["cost_basis_qualifier"],
+                         "cache_blind_upper_bound")
+
+    def test_unqualified_run_gains_no_key(self) -> None:
+        """Absence stays absence: C1 has nothing to qualify."""
+        rc, _, summary = _run("C1")
+        self.assertEqual(rc, 0)
+        self.assertNotIn("cost_basis_qualifier", summary["legs"][0])
+        self.assertNotIn("cost_basis_qualifier", summary["economics"])
+
+    def test_an_unknown_qualifier_is_refused(self) -> None:
+        """Free text here could smuggle an unreviewed costing claim into a summary."""
+        manifest = yaml.safe_load(open(SYNTH_MANIFEST, encoding="utf-8"))
+        manifest["configurations"]["PRODUCT_B_ECON_TIER"]["cost_basis_qualifier"] = \
+            "SYNTHETIC-not-a-real-qualifier"
+        with self.assertRaises(runner.RunnerError):
+            runner.resolve_model(manifest, "PRODUCT_B_ECON_TIER", "product_b")
+
+
 class ScreeningArms(unittest.TestCase):
     """The two extra Product-B arms added for the screening window.
 

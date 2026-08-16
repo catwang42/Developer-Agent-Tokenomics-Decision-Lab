@@ -146,6 +146,40 @@ filter excludes everything on a *different* model, but nothing separates a subje
 run from a background job on the *same* model except the time window. Hence the
 CP-SPEND checklist line in `harness/collectors/README.md`.
 
+## Decisions taken on these findings (appended 2026-08-16)
+
+Append-only. The findings above are left exactly as recorded; this section records
+what the human decided about them and what changed as a result.
+
+### On finding 2 — cache-blind Product-B costing: ACCEPTED, no probe
+
+Product-B (Gemini) costing for the screening window is **cache-blind**. No probe
+run was authorised to test whether a cache-class series can appear; the surface is
+taken as observed. Every Gemini leg — solo C3/C3-med/C3-prev and the C5 executor —
+now carries `cost_basis_qualifier: cache_blind_upper_bound` beside its unchanged
+`cost_basis: marginal_api_cost`, pinned in
+`manifest/delivery-manifest.yaml` (`notes.gemini_cache_blindness`) and stated in
+`harness/collectors/README.md`.
+
+**Direction of the error.** The cache-blind figure is an **upper bound**, not an
+estimate with unknown sign. Gemini's implicit provider-side caching, if it occurs,
+bills the cached share of input at the cheaper cache-read rate — so real Gemini
+spend can only be **lower** than the computed figure, never higher. The basis name
+carries that claim; a cache-blind number must never be restated as an exact cost.
+
+`cache_read_tokens` and `cache_creation_tokens` on a Gemini leg stay `unavailable`
+(never `0`): no series exists to fill them, and a cache-blind figure is not
+evidence that no caching occurred.
+
+**Cross-product cache comparisons remain out of scope** (SPEC §2.9), unchanged
+from the finding above.
+
+### On finding 1 — effort attribution: ACCEPTED as-is
+
+C3 vs C3-med attribution rests on serialization windows alone. No mitigation was
+added and none is required: the README statement and the CP-SPEND quiet-window
+checklist line stand as the record of the dependency.
+
 ## Reproducing this
 
 `harness/collectors/vertex_token_collector.py` builds the same filter; the raw

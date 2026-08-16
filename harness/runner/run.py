@@ -71,6 +71,17 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 COST_BASES = ("marginal_api_cost", "allocated_subscription_cost",
               "provider_reported_cost", "cost_unavailable")
 
+# Declared qualifications of a cost_basis (manifest `cost_basis_qualifier`). The
+# schema's cost_basis enum is FROZEN at COST_BASES and widening it is a CP-SCHEMA
+# decision; a qualifier says how the basis was derived without touching the enum.
+# Closed list on purpose — an unrecognised qualifier is a manifest error, because a
+# free-text qualifier could smuggle an unreviewed costing claim into a summary.
+#   cache_blind_upper_bound — cache token classes were not measurable for this
+#   provider, so the figure prices all input at the full input rate and is an UPPER
+#   BOUND on real spend (human decision 2026-08-16; manifest notes
+#   gemini_cache_blindness; report/findings/vertex-token-metric-surface-2026-08-16.md).
+COST_BASIS_QUALIFIERS = ("cache_blind_upper_bound",)
+
 # Per-task offline subject image (batch-2 containerized posture; see
 # harness/container/README.md and manifest subject_isolation).
 SUBJECT_DOCKERFILE = os.path.join(REPO_ROOT, "harness", "container", "Dockerfile.subject")
@@ -143,6 +154,13 @@ def resolve_model(manifest: Dict[str, Any], model_ref: str, product: str) -> Res
     cost_basis = _require_resolved("cost_basis", entry.get("cost_basis"), model_ref)
     if cost_basis not in COST_BASES:
         raise RunnerError(f"{model_ref}.cost_basis {cost_basis!r} not in {COST_BASES}")
+    qualifier = _opt_str(entry.get("cost_basis_qualifier"))
+    if qualifier is not None and qualifier not in COST_BASIS_QUALIFIERS:
+        raise RunnerError(
+            f"{model_ref}.cost_basis_qualifier {qualifier!r} not in "
+            f"{COST_BASIS_QUALIFIERS}; a qualifier changes how a cost figure must be "
+            f"read, so a new one is a human decision, not a manifest free-text field"
+        )
     surface = entry.get("product_surface")
 
     region = entry.get("region")
@@ -156,6 +174,7 @@ def resolve_model(manifest: Dict[str, Any], model_ref: str, product: str) -> Res
             provider=provider, model_or_selector=model_id, model_id=model_id,
             cost_basis=cost_basis, product=product, product_surface=surface,
             region=region, model_confidence="authoritative", seat_allocation_usd=seat,
+            cost_basis_qualifier=qualifier,
         )
     if surface == "product_blackbox":
         selector = _require_resolved("selector_label", entry.get("selector_label"), model_ref)
@@ -168,6 +187,7 @@ def resolve_model(manifest: Dict[str, Any], model_ref: str, product: str) -> Res
             provider=provider, model_or_selector=selector, model_id=None,
             cost_basis=cost_basis, product=product, product_surface=surface,
             region=region, model_confidence="proxy_observed", seat_allocation_usd=seat,
+            cost_basis_qualifier=qualifier,
             product_version_pin=_opt_str(cond.get("agy_version")),
             print_timeout=_opt_str(cond.get("print_timeout")),
             effort_pin=_opt_str(cond.get("effort")),
@@ -777,14 +797,22 @@ def build_economics(legs: List[Dict[str, Any]], prices: Dict[str, Any],
     NOT get a single-basis aggregate placed beside incompatible bases — the top
     level is marked ``cost_unavailable`` and per-leg costs (precise, available)
     are the source of truth.
+
+    ``cost_basis_qualifier`` propagates UP, not sideways: if ANY leg's basis is
+    qualified, the run-level figure inherits the qualification, because a total
+    that contains one cache-blind upper bound is itself an upper bound. C5 is the
+    case that matters — a Claude conductor plus a cache-blind Gemini executor.
     """
     agg = cost_for_legs(legs, prices, leg_options=leg_options)
     per_leg_views = {v["leg_id"]: v for v in agg["legs"]}
 
     bases = {leg["cost_basis"] for leg in legs}
     uniform = next(iter(bases)) if len(bases) == 1 else None
+    qualifiers = sorted({q for leg in legs if (q := leg.get("cost_basis_qualifier"))})
 
     econ: Dict[str, Any] = {"pricing_snapshot": os.path.basename(pricing_snapshot)}
+    if qualifiers:
+        econ["cost_basis_qualifier"] = ",".join(qualifiers)
     if uniform:
         econ["cost_basis"] = uniform
         econ["marginal_operating_usd"] = agg["marginal_operating_usd"]

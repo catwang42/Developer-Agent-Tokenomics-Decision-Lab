@@ -112,6 +112,13 @@ class ResolvedModel:
     model_confidence: str = "authoritative"
     # Delivery-declared costing inputs (never invented; absent => cost unavailable).
     seat_allocation_usd: Optional[float] = None
+    # How the declared cost_basis was DERIVED, when that needs qualifying. The
+    # schema's cost_basis enum is frozen at four values, so a qualification like
+    # "cache_blind_upper_bound" (Product B this window: the provider meter emits no
+    # cache series for publisher=google, so cache classes stay unavailable and the
+    # figure prices all input at the full rate) rides here instead of overloading
+    # the enum. Additive: absent => the basis needs no qualification.
+    cost_basis_qualifier: Optional[str] = None
     # Pinned run CONDITIONS from the manifest entry's `conditions:` block. These are
     # part of the experimental condition, not tuning knobs: the adapter refuses to
     # run when the observed product version differs from product_version_pin, and
@@ -260,11 +267,16 @@ class Adapter:
 def leg_identity_payload(resolved: ResolvedModel) -> Dict[str, Any]:
     """The leg-identifying fields a ``model_call_completed`` event must carry so
     the deriver can attribute per-leg provider/model/cost_basis (SPEC 2.7)."""
-    return {
+    payload = {
         "provider": tiered(resolved.provider, "authoritative"),
         "model_or_selector": tiered(resolved.model_or_selector, resolved.model_confidence),
         "cost_basis": resolved.cost_basis,
     }
+    # Emitted only when the manifest declares one, so runs whose basis needs no
+    # qualification keep exactly the event shape they had before.
+    if resolved.cost_basis_qualifier:
+        payload["cost_basis_qualifier"] = resolved.cost_basis_qualifier
+    return payload
 
 
 def usage_field(value: Optional[int], confidence: str, reason: str = "") -> Dict[str, Any]:

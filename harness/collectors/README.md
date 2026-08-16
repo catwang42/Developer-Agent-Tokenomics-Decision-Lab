@@ -80,10 +80,45 @@ unseparable and must be recorded `unavailable`, not split by guesswork.
 Over 2026-07-17 → 2026-08-16 this project's Google-publisher series carried only
 `input` and `output` — zero cache-class series, and no `explicit_caching` label at
 all. The cache-class evidence that passed the SPEC §2.9 pre-build gate comes from
-**Anthropic** rows. Until a screening run demonstrates otherwise, Product-B Gemini
-costing is **cache-blind** and must be published under the declared cache-blind
-upper-bound basis, with cross-product cache comparisons out of scope. Full
-evidence and caveats: finding 2 of the findings doc linked above.
+**Anthropic** rows. Full evidence and caveats: finding 2 of the findings doc
+linked above.
+
+### The decision: Product-B costing this window is cache-blind
+
+**Human decision, 2026-08-16 — accepted, no probe run.** Product-B (Gemini)
+costing for the screening window is cache-blind. Every Gemini leg — solo
+C3/C3-med/C3-prev *and* the C5 executor — is declared
+
+```
+cost_basis:            marginal_api_cost        # frozen schema enum, unchanged
+cost_basis_qualifier:  cache_blind_upper_bound  # additive; how that basis was derived
+```
+
+pinned in `manifest/delivery-manifest.yaml` (`notes.gemini_cache_blindness`, and
+`cost_basis_qualifier` on each `PRODUCT_B_*` configuration). The runner stamps it
+onto every leg it appears on, and a run whose legs are mixed (C5) inherits the
+qualification at the run level — a total containing one upper bound is an upper
+bound.
+
+Three consequences to state wherever a Product-B figure appears:
+
+- **`cache_read_tokens` and `cache_creation_tokens` stay `unavailable`** on a
+  Gemini leg — no series exists to fill them. They are never `0` (CLAUDE.md
+  rule 3), and a cache-blind figure is not evidence that no caching occurred.
+- **The error has a known direction: the figure is an UPPER BOUND.** Implicit
+  provider-side caching, if it happens, bills the cached share at the cheaper
+  cache-read rate, so real Gemini spend can only be **lower** than computed —
+  never higher. The basis name says exactly this; do not restate a cache-blind
+  figure as an exact cost.
+- **Cross-product cache comparisons remain out of scope** (SPEC §2.9). A
+  Product-A vs Product-B cache-efficiency claim is not derivable from a
+  cache-blind Product-B figure and must not be made.
+
+`cost_basis` itself is unchanged because the telemetry schema's enum is frozen at
+four values; widening it is a CP-SCHEMA decision that has **not** been taken.
+`cost_basis_qualifier` is additive (`legs[]` and `economics` accept additional
+properties), and the runner only accepts qualifiers from a closed list
+(`run.py:COST_BASIS_QUALIFIERS`) so a new one stays a human decision.
 
 ## Serialization + quiet-window rule — CP-SPEND checklist line
 
