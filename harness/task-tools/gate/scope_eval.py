@@ -23,6 +23,19 @@ import sys
 
 TEST_SUFFIXES = (".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx",
                  ".test.js", ".spec.js")
+# pytest's default discovery: test_*.py or *_test.py (basename, not suffix).
+PY_TEST_PREFIX = "test_"
+PY_TEST_SUFFIX = "_test.py"
+
+
+def _is_test_file(path: str) -> bool:
+    """A file pytest or jest would collect as a test, by naming convention."""
+    if path.endswith(TEST_SUFFIXES):
+        return True
+    base = path.rsplit("/", 1)[-1]
+    return base.endswith(PY_TEST_SUFFIX) or (
+        base.startswith(PY_TEST_PREFIX) and base.endswith(".py")
+    )
 
 
 def _under(path: str, scope: str) -> bool:
@@ -45,7 +58,7 @@ def classify(porcelain: str, write_scope: str, target_paths):
         xy, path = raw[:2], raw[3:]
         if xy == "??":
             if _under(path, write_scope):
-                (test_files if path.endswith(TEST_SUFFIXES) else aux_files).append(path)
+                (test_files if _is_test_file(path) else aux_files).append(path)
             else:
                 violations.append(f"{path} (new file outside {write_scope})")
         else:

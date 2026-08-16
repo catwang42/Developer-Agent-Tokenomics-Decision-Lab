@@ -38,6 +38,26 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GATE_TYPE="$(task_field gate_type 2>/dev/null || echo solution)"
 BASELINE_PATTERN="$(task_field baseline_test_pattern)"
 mapfile -t TARGET_PATHS < <(task_list target_paths)
+# Paths restored to pristine before grading (anti-gaming). Default = the RealWorld
+# tests dir, so the pre-existing node tasks are unchanged.
+mapfile -t PROTECTED_TEST_PATHS < <(task_list protected_test_paths)
+[ "${#PROTECTED_TEST_PATHS[@]}" -gt 0 ] || PROTECTED_TEST_PATHS=(src/tests)
+
+# Installed dependency trees are vendor bytes, not participant edits, so they are
+# excluded from every diff-scope view. Most subject repos gitignore them (zarr and
+# sqlfluff both ignore .venv), but that is the repo's choice, not ours — take the
+# list from the stack driver so a non-ignored install dir can never be read as an
+# agent edit. Empty for the `none` stack, which installs nothing.
+SCOPE_EXCL=()
+while IFS= read -r keep; do
+  [ -n "$keep" ] && SCOPE_EXCL+=(":!$keep")
+done < <(stack_clean_keep)
+
+# `git status --porcelain -uall` over the participant tree, install dirs excluded.
+tree_status() {
+  git -C "$SUBJECT_DIR" -c core.quotepath=false status --porcelain \
+    --untracked-files=all -- "${SCOPE_EXCL[@]+"${SCOPE_EXCL[@]}"}" 2>/dev/null
+}
 
 ids=(); statuses=(); details=()
 record() { ids+=("$1"); statuses+=("$2"); details+=("$3"); }
@@ -58,8 +78,7 @@ if [ "$GATE_TYPE" = "test_generation" ]; then
 
   # T1 diff-scope FIRST, before we touch the tree. The only allowed change is NEW
   # files under WRITE_SCOPE; any tracked-file edit, or any out-of-scope add, fails.
-  scope_out="$(git -C "$SUBJECT_DIR" -c core.quotepath=false status --porcelain \
-                --untracked-files=all -- ':!node_modules' 2>/dev/null \
+  scope_out="$(tree_status \
               | pilot_python "$SCRIPT_DIR/scope_eval.py" "$WRITE_SCOPE" "${TARGET_PATHS[@]}")"
   scope_rc=$?
   graded=()
@@ -84,24 +103,18 @@ if [ "$GATE_TYPE" = "test_generation" ]; then
     mark T3-coverage "no agent test files under $WRITE_SCOPE" 1
     mark T4-tests-pass "no agent test files under $WRITE_SCOPE" 1
   else
-    prisma_generate
-    pattern="$(printf '%s|' "${graded[@]}" | sed 's/|$//')"
+    stack_post_patch
+    pattern="$(stack_selector "${graded[@]}")"
 
-    # T2 suite-green: hermetic DB-free baseline (includes the new tests via pattern).
-    run_jest --testPathPattern "$BASELINE_PATTERN" >/dev/null 2>&1
-    mark T2-suite-green "DB-free baseline suite ($BASELINE_PATTERN)" $?
+    # T2 suite-green: hermetic baseline (the new tests live inside its scope).
+    stack_baseline_tests
+    mark T2-suite-green "baseline suite ($BASELINE_PATTERN)" $?
 
     # T3 coverage: measure branch coverage of the target mappers achieved BY the
     # agent's tests; per-file thresholds evaluated by coverage_eval.py.
-    COV_DIR="$WORKDIR/.covrun"; rm -rf "$COV_DIR"
-    cov_from=()
-    while IFS= read -r cf; do
-      [ -n "$cf" ] && cov_from+=("--collectCoverageFrom=$cf")
-    done < <(coverage_files)
-    run_jest --testPathPattern "$pattern" --coverage "${cov_from[@]}" \
-      --coverageReporters=json-summary --coverageDirectory "$COV_DIR" >/dev/null 2>&1
-    cov_summary="$COV_DIR/coverage-summary.json"
-    if [ -f "$cov_summary" ]; then
+    COV_DIR="$WORKDIR/.covrun"
+    cov_summary="$(stack_coverage_summary "$pattern" "$COV_DIR")"
+    if [ -n "$cov_summary" ] && [ -f "$cov_summary" ]; then
       cov_detail="$(pilot_python "$SCRIPT_DIR/coverage_eval.py" "$cov_summary" "$TASK_YAML")"
       cov_rc=$?
     else
@@ -110,26 +123,31 @@ if [ "$GATE_TYPE" = "test_generation" ]; then
     mark T3-coverage "$cov_detail" "$cov_rc"
     rm -rf "$COV_DIR"
 
-    # T4 tests-pass: the agent's new tests pass against the pinned (pristine) mappers.
-    run_jest --testPathPattern "$pattern" >/dev/null 2>&1
-    mark T4-tests-pass "agent's new tests pass on pinned mappers" $?
+    # T4 tests-pass: the agent's new tests pass against the pinned (pristine) code.
+    stack_run_selected "$pattern"
+    mark T4-tests-pass "agent's new tests pass on the pinned target files" $?
   fi
 
 else
   # ===================== solution gate (P1–P6) =====================
   PUBLIC_TEST="$TASK_DIR/$(task_field public_test)"
-  PUBLIC_DST="$SUBJECT_DIR/src/tests/services/$(basename "$PUBLIC_TEST")"
+  # Where the public test is injected inside the subject tree (repo-relative dir).
+  PUBLIC_DST_DIR="$(task_field_opt public_test_dest src/tests/services)"
+  PUBLIC_DST_REL="${PUBLIC_DST_DIR%/}/$(basename "$PUBLIC_TEST")"
+  PUBLIC_DST="$SUBJECT_DIR/$PUBLIC_DST_REL"
+  # Extra files the public test needs in place to be collected (e.g. a package
+  # __init__.py that the upstream PR adds alongside its new test module).
+  mapfile -t PUBLIC_TEST_SUPPORT < <(task_list public_test_support)
   # Optional harness-owned type-compat shim (empty if the task declares none).
   COMPAT_PATCH_REL="$(task_field test_compat_patch 2>/dev/null || true)"
 
   echo "== public gate ($(task_field task_id)) =="
 
-  # Keep the generated Prisma client in step with the (possibly patched) schema.
-  prisma_generate
+  # Keep anything derived from source in step with the (possibly patched) tree.
+  stack_post_patch
 
   # P6 diff scope FIRST, before we inject any gate artifact into the tree.
-  changed="$(git -C "$SUBJECT_DIR" -c core.quotepath=false status --porcelain \
-              --untracked-files=all -- ':!node_modules' 2>/dev/null | awk '{print $2}' | sort -u)"
+  changed="$(tree_status | awk '{print $2}' | sort -u)"
   unexpected=""
   while IFS= read -r f; do
     [ -z "$f" ] && continue
@@ -148,8 +166,10 @@ else
   # tampering before grading. Restore tracked test files to the pinned version and
   # remove untracked ones (e.g. an agent-added test), so P1/P2/P3/P4 run against
   # tests the agent cannot influence.
-  git -C "$SUBJECT_DIR" checkout -q -- src/tests 2>/dev/null || true
-  git -C "$SUBJECT_DIR" clean -fdq -- src/tests 2>/dev/null || true
+  for p in "${PROTECTED_TEST_PATHS[@]}"; do
+    git -C "$SUBJECT_DIR" checkout -q -- "$p" 2>/dev/null || true
+    git -C "$SUBJECT_DIR" clean -fdq -- "$p" 2>/dev/null || true
+  done
   # Apply the type-compat shim (touches only *.test.ts) so the immutable baseline
   # suite compiles against a schema change. Not agent-authored, not agent-modifiable.
   if [ -n "$COMPAT_PATCH_REL" ] && [ -f "$TASK_DIR/$COMPAT_PATCH_REL" ]; then
@@ -159,35 +179,39 @@ else
 
   # P5 no leakage: no planted answer markers, and no stray patch files, in the tree.
   leak=0
-  if grep -rIl --exclude-dir=node_modules --exclude-dir=.git \
-       -e 'CANONICAL SOLUTION' -e 'PILOT-ANSWER' \
-       "$SUBJECT_DIR/src" >/dev/null 2>&1; then
-    leak=1
-  fi
-  if find "$SUBJECT_DIR" -path "$SUBJECT_DIR/node_modules" -prune -o -name '*.patch' -print \
-       2>/dev/null | grep -q .; then
-    leak=1
-  fi
+  leak_found && leak=1
   mark P5-no-leakage "no canonical patch / solution markers in tree" "$leak"
 
   # P3 type check.
-  ( cd "$SUBJECT_DIR" && npx tsc -p tsconfig.app.json --noEmit ) >/dev/null 2>&1
-  mark P3-typecheck "tsc -p tsconfig.app.json --noEmit" $?
+  stack_typecheck
+  mark P3-typecheck "$(stack_typecheck_detail)" $?
 
   # P4 build.
-  ( cd "$SUBJECT_DIR" && NX_DAEMON=false CI=true npx nx build --skip-nx-cache ) >/dev/null 2>&1
-  mark P4-build "nx build (app compiles)" $?
+  stack_build
+  mark P4-build "$(stack_build_detail)" $?
 
   # P1 public test: inject, run, then remove so it never pollutes the tree.
+  injected_public=("$PUBLIC_DST")
+  mkdir -p "$(dirname "$PUBLIC_DST")"
   cp "$PUBLIC_TEST" "$PUBLIC_DST"
-  run_jest --testPathPattern "$(basename "$PUBLIC_TEST")" >/dev/null 2>&1
+  # Any support file the upstream PR added alongside its new test module (e.g. a
+  # package __init__.py) is created empty if absent, and removed again after.
+  for sup in "${PUBLIC_TEST_SUPPORT[@]+"${PUBLIC_TEST_SUPPORT[@]}"}"; do
+    [ -n "$sup" ] || continue
+    if [ ! -e "$SUBJECT_DIR/$sup" ]; then
+      mkdir -p "$(dirname "$SUBJECT_DIR/$sup")"
+      : > "$SUBJECT_DIR/$sup"
+      injected_public+=("$SUBJECT_DIR/$sup")
+    fi
+  done
+  stack_run_selected "$(stack_selector "$PUBLIC_DST_REL")"
   public_rc=$?
-  rm -f "$PUBLIC_DST"
+  rm -f "${injected_public[@]}"
   mark P1-public-test "$(task_field public_test_desc)" "$public_rc"
 
-  # P2 regression: hermetic DB-free unit suites.
-  run_jest --testPathPattern "$BASELINE_PATTERN" >/dev/null 2>&1
-  mark P2-regression "DB-free unit suites ($BASELINE_PATTERN)" $?
+  # P2 regression: the hermetic baseline suite.
+  stack_baseline_tests
+  mark P2-regression "baseline suite ($BASELINE_PATTERN)" $?
 fi
 
 if [ -n "${GATE_REPORT:-}" ]; then
