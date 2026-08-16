@@ -38,6 +38,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import yaml
 
 from harness.adapters import REAL_ADAPTERS, ResolvedModel, StubAdapter
+from harness.adapters import agy as agy_adapter
 from harness.adapters.base import (
     SUBJECT_PROFILE_CONTAINER_AGENT,
     SUBJECT_PROFILE_CONTAINER_GATE,
@@ -45,6 +46,7 @@ from harness.adapters.base import (
     AttemptSpec,
     DelegatedLeg,
     DelegationPlan,
+    cli_version,
 )
 from harness.container import egress as egress_mod
 from harness.container.exec import (
@@ -1174,6 +1176,44 @@ def schema_configuration_ids() -> Tuple[str, ...]:
     return tuple(str(v) for v in enum)
 
 
+def preflight_product_versions(plan: RunPlan) -> None:
+    """Refuse to start a run whose product binary has drifted from the manifest pin.
+
+    The agy adapter already refuses on a version mismatch, but it does so *inside*
+    the attempt, after the run directory exists and the batch has begun. `agy`
+    self-updates, so the version on PATH can move between the CP-SPEND approval
+    that priced a batch and the run that spends against it — and a batch whose
+    later runs measure a different product build is not the experiment that was
+    approved. This check runs before anything is created or billed.
+
+    The HOST binary is checked in both isolation modes on purpose: under
+    ``--subject-isolation container`` the agent image is staged FROM the host
+    binary (harness/container/stage-agy.sh vendors it and the build asserts its
+    sha256), so host drift is exactly what would silently rebuild the image on a
+    different version. The adapter's in-container check still runs afterwards.
+
+    ``unavailable`` (binary absent or unrunnable) is a refusal too: a pin that
+    cannot be checked has not been satisfied.
+    """
+    for leg in plan.legs:
+        pin = leg.resolved.product_version_pin
+        if not pin:
+            continue
+        observed = cli_version("agy", None, env=agy_adapter.agy_env())
+        if observed != pin:
+            raise RunnerError(
+                f"pre-batch check: `agy --version` reports {observed!r} but the "
+                f"manifest pins {pin!r} (leg {leg.leg_id}, selector "
+                f"{leg.resolved.model_or_selector!r}). agy self-updates, so this is "
+                f"the expected drift mode; refusing to start before anything is "
+                f"created or billed. Re-pin the manifest with the drift recorded "
+                f"(subject_isolation.agent_leg.agy_version + agy_sha256 + every "
+                f"configurations.PRODUCT_B_*.conditions.agy_version, which "
+                f"tests/test_manifest_pricing.py keeps in agreement), or install "
+                f"the pinned version."
+            )
+
+
 def resolve_pricing(manifest: Dict[str, Any], plan: RunPlan) -> Tuple[Dict[str, Any], str]:
     """Load the pinned pricing snapshot for a plan (SPEC 1.4 / cache-protocol rule 3).
 
@@ -1372,6 +1412,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         task = load_task(args.task, manifest)
         plan = build_plan(args.config, manifest, task=task,
                           require_frozen=not args.dry_run)
+
+        # Pre-batch product-version check. Live runs only: --dry-run drives stub
+        # adapters and never touches the product binary, so probing it there would
+        # make an offline test depend on what is installed on the machine.
+        if not args.dry_run:
+            preflight_product_versions(plan)
 
         prices, pricing_snapshot = resolve_pricing(manifest, plan)
 

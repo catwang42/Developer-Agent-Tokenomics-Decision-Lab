@@ -160,6 +160,38 @@ class ProductBConditionTests(unittest.TestCase):
             with self.subTest(model_ref=ref):
                 self.assertIsNone(self.configs[ref].get("cost_basis_qualifier"))
 
+    def test_auto_update_is_a_pinned_condition_on_every_selector(self):
+        """agy self-updates, so "which product did we measure" is only answerable if
+        the updater state is a recorded condition rather than whatever the host did."""
+        expected = agy.AUTO_UPDATE_CONDITION
+        image = self.manifest["subject_isolation"]["agent_leg"]["agy_auto_update"]
+        self.assertEqual(image, expected)
+        for ref in ("PRODUCT_B_ECON_TIER", "PRODUCT_B_ECON_TIER_MED",
+                    "PRODUCT_B_ECON_TIER_PREV"):
+            with self.subTest(model_ref=ref):
+                self.assertEqual(self.configs[ref]["conditions"].get("auto_update"),
+                                 expected)
+
+    def test_the_version_drift_is_resolved_not_still_open(self):
+        """Left at pending_human, a CP-SPEND batch could start against an unsettled
+        pin — the whole point of the pin being a condition."""
+        drift = self.manifest["subject_isolation"]["agent_leg"]["agy_version_drift"]
+        self.assertNotEqual(drift["resolution"], "pending_human")
+        self.assertEqual(str(drift["host_today"]),
+                         str(self.manifest["subject_isolation"]["agent_leg"]["agy_version"]))
+
+    def test_the_recheck_covers_exactly_the_pinned_selector_labels(self):
+        """A version pin only means something if the labels it resolves are the ones
+        the manifest names; a recheck of some other set proves nothing."""
+        recheck = self.manifest["subject_isolation"]["agent_leg"]["agy_models_recheck"]
+        self.assertTrue(recheck["labels_unchanged"])
+        self.assertEqual(str(recheck["under_version"]),
+                         str(self.manifest["subject_isolation"]["agent_leg"]["agy_version"]))
+        pinned_labels = {self.configs[r]["selector_label"] for r in
+                         ("PRODUCT_B_ECON_TIER", "PRODUCT_B_ECON_TIER_MED",
+                          "PRODUCT_B_ECON_TIER_PREV")}
+        self.assertEqual(set(recheck["labels_verified"]), pinned_labels)
+
     def test_the_three_screening_selectors_are_distinct(self):
         labels = [self.configs[r]["selector_label"] for r in
                   ("PRODUCT_B_ECON_TIER", "PRODUCT_B_ECON_TIER_MED",

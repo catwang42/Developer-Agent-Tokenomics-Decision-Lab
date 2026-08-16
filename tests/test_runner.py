@@ -21,6 +21,7 @@ import yaml
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from harness.adapters import agy  # noqa: E402
 from harness.runner import run as runner  # noqa: E402
 from harness.telemetry.telemetry import validate  # noqa: E402
 
@@ -250,6 +251,94 @@ class ScreeningArms(unittest.TestCase):
                 resolved = runner.build_plan(config, manifest).legs[0].resolved
                 self.assertIsNone(resolved.model_id)
                 self.assertEqual(resolved.model_confidence, "proxy_observed")
+
+
+class ProductVersionPreflight(unittest.TestCase):
+    """Pre-batch product-version check (human decision 2026-08-16, decision 4).
+
+    agy self-updates, so the binary can move between the CP-SPEND approval that
+    priced a batch and the run that spends against it. The adapter's own check
+    fires inside the attempt, after the run directory exists; this one fires
+    before anything is created or billed.
+    """
+
+    def _plan(self, config: str = "C3-med"):
+        manifest = yaml.safe_load(open(SYNTH_MANIFEST, encoding="utf-8"))
+        return runner.build_plan(config, manifest)
+
+    def _with_version(self, version: str, plan) -> None:
+        seen = {}
+        original = runner.cli_version
+
+        def fake(binary, container=None, env=None):
+            seen["binary"], seen["env"] = binary, env
+            return version
+
+        runner.cli_version = fake
+        try:
+            runner.preflight_product_versions(plan)
+        finally:
+            runner.cli_version = original
+        self.seen = seen
+
+    def test_the_pinned_version_passes_and_the_probe_disables_auto_update(self) -> None:
+        plan = self._plan()
+        self.assertEqual(plan.legs[0].resolved.product_version_pin, "SYNTHETIC-0.0.0")
+        self._with_version("SYNTHETIC-0.0.0", plan)
+        self.assertEqual(self.seen["binary"], "agy")
+        # The probe itself must not be the invocation that lets an update land.
+        self.assertEqual(self.seen["env"].get(agy.AUTO_UPDATE_DISABLE_ENV), "1")
+
+    def test_a_drifted_version_refuses_to_start(self) -> None:
+        plan = self._plan()
+        with self.assertRaises(runner.RunnerError):
+            self._with_version("SYNTHETIC-9.9.9", plan)
+
+    def test_an_unreadable_version_refuses_too(self) -> None:
+        """A pin that cannot be checked has not been satisfied — unavailable != ok."""
+        plan = self._plan()
+        with self.assertRaises(runner.RunnerError):
+            self._with_version("unavailable", plan)
+
+    def test_an_unpinned_leg_is_not_probed(self) -> None:
+        """Product-A legs have no agy pin; probing for them would make a Claude-only
+        run depend on whether agy is installed at all."""
+        plan = self._plan("C1")
+        self.assertIsNone(plan.legs[0].resolved.product_version_pin)
+        self.seen = {}
+        self._with_version("SYNTHETIC-9.9.9", plan)   # would raise if probed
+        self.assertEqual(self.seen, {})
+
+    def test_dry_runs_do_not_probe_the_product_binary(self) -> None:
+        """--dry-run drives stub adapters and never touches agy; probing there would
+        make the offline suite depend on the host's installed product."""
+        called = []
+        original = runner.cli_version
+        runner.cli_version = lambda *a, **k: called.append(a) or "SYNTHETIC-9.9.9"
+        try:
+            rc, run_dir, _ = _run("C3-med")
+        finally:
+            runner.cli_version = original
+        self.assertEqual(rc, 0)
+        self.assertEqual(called, [])
+        ok, reasons = validate(run_dir)
+        self.assertTrue(ok, f"not audit-grade: {reasons}")
+
+
+class AutoUpdateKillSwitch(unittest.TestCase):
+    """The updater state is a pinned run condition, so it must actually be set."""
+
+    def test_the_adapter_env_carries_the_products_own_kill_switch(self) -> None:
+        env = agy.agy_env()
+        self.assertEqual(env[agy.AUTO_UPDATE_DISABLE_ENV], "1")
+        # ...and does not drop what agent_env() already provided.
+        for key, value in agy.agent_env().items():
+            self.assertEqual(env[key], value)
+
+    def test_the_condition_string_names_the_variable_it_sets(self) -> None:
+        """A condition recorded as a bare 'disabled' would not say how, and could not
+        be re-established by anyone reading the run record."""
+        self.assertIn(agy.AUTO_UPDATE_DISABLE_ENV, agy.AUTO_UPDATE_CONDITION)
 
 
 class StartupGuards(unittest.TestCase):

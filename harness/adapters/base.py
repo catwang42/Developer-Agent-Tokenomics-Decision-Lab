@@ -313,7 +313,7 @@ def agent_env() -> Dict[str, str]:
     return {k: v for k, v in os.environ.items() if k not in _HARNESS_ENV_KEYS}
 
 
-def cli_version(binary: str, container=None) -> str:
+def cli_version(binary: str, container=None, env: Optional[Dict[str, str]] = None) -> str:
     """Product/CLI version string for the invocation.txt artifact and identity.
 
     In CONTAINER mode the version comes from the launched image's pinned label
@@ -322,6 +322,10 @@ def cli_version(binary: str, container=None) -> str:
     ``<binary> --version`` (no model spend) and returns its first output line.
     Either way, ``"unavailable"`` when it cannot be established — never fabricated,
     never silently substituted from the other mode.
+
+    ``env`` overrides the probe's environment (``None`` inherits). A self-updating
+    product needs its updater switched off here too, or the probe itself can change
+    the version it is about to report.
     """
     if container is not None and getattr(container, "image", None):
         from harness.container.exec import image_cli_version
@@ -330,7 +334,7 @@ def cli_version(binary: str, container=None) -> str:
     try:
         proc = subprocess.run(  # noqa: S603 - fixed argv, no shell
             [binary, "--version"], capture_output=True, text=True,
-            check=False, timeout=15,
+            check=False, timeout=15, env=env,
         )
     except (OSError, subprocess.SubprocessError):
         return "unavailable"

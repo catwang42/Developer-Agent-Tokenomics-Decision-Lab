@@ -85,6 +85,7 @@ configurations:
     cost_basis_qualifier: cache_blind_upper_bound
     conditions:
       agy_version: "1.1.13"
+      auto_update: disabled_via_AGY_CLI_DISABLE_AUTO_UPDATE
       print_timeout: "15m0s"
       effort: High
   PRODUCT_B_ECON_TIER_MED:
@@ -96,6 +97,7 @@ configurations:
     cost_basis_qualifier: cache_blind_upper_bound
     conditions:
       agy_version: "1.1.13"
+      auto_update: disabled_via_AGY_CLI_DISABLE_AUTO_UPDATE
       print_timeout: "15m0s"
       effort: Medium
   PRODUCT_B_ECON_TIER_PREV:
@@ -107,6 +109,7 @@ configurations:
     cost_basis_qualifier: cache_blind_upper_bound
     conditions:
       agy_version: "1.1.13"
+      auto_update: disabled_via_AGY_CLI_DISABLE_AUTO_UPDATE
       print_timeout: "15m0s"
       effort: High
   # NOT re-pinned for the screening window and NOT priced by
@@ -225,23 +228,65 @@ subject_isolation:
     # build host by harness/container/stage-agy.sh and pinned by content hash. The
     # image build fails if the staged binary's sha256 or self-reported version differ.
     agy_sha256: 416b197e4b38c797c8661098f0af2bb4e1323ffe3c286d5e9b6408cf7d7ee920
-    # OPEN ITEM FOR THE HUMAN — agy version drift, deliberately NOT resolved silently.
+    # agy version drift — RESOLVED by human decision 2026-08-16: pin 1.1.13.
     # SPEC 2.9 records the drift 1.1.4 -> 1.1.7, and the 2026-07-26 smoke (the only
     # verified-invocation Product-B run) recorded product_version 1.1.7. The screening
-    # brief asked for a 1.1.7 pin. The binary on this host today self-reports 1.1.13
-    # (sha256 above matches it byte-for-byte), agy self-updates, and there is no
+    # brief asked for a 1.1.7 pin. The binary on this host self-reports 1.1.13
+    # (agy_sha256 above matches it byte-for-byte), agy self-updates, and there is no
     # verifiable public download URL from which 1.1.7 could be re-obtained or hashed.
     # Pinning 1.1.7 would therefore pin a version we cannot stage: the image build and
-    # every agy run would fail loudly at once. So the pin here is the version that is
-    # actually present and hash-verified (1.1.13), and the discrepancy is recorded
-    # rather than papered over. If 1.1.7 is required, the human must supply the binary
-    # (or authorise a downgrade path) and this pin + agy_sha256 change together.
+    # every agy run would fail loudly at once. The pin is the version that is actually
+    # present and hash-verified, and the discrepancy stays on the record below rather
+    # than being papered over. Re-pinning to 1.1.7 would need the human to supply the
+    # binary; this pin and agy_sha256 would change together.
     agy_version_drift:
       spec_2_9_recorded: "1.1.4 -> 1.1.7"
       last_run_observed: "1.1.7"        # results/smoke/...__C3__rep1__20260726T093603/invocation.txt
       host_today: "1.1.13"              # `agy --version`, 2026-08-16
       brief_requested: "1.1.7"
-      resolution: pending_human         # pinned to host_today meanwhile; see comment above
+      resolution: pinned_to_host_today  # human decision 2026-08-16; 1.1.7 unobtainable
+      resolved_date: 2026-08-16
+    # Selector-label re-check under the pinned version. The pins were read under an
+    # earlier invocation, so a version pin is only meaningful if the labels it
+    # resolves are the same ones the manifest names. Re-run of `agy models` under
+    # 1.1.13 (local listing, no spend, not logged in) printed all three pinned labels
+    # byte-for-byte unchanged; nothing was re-pinned as a result.
+    agy_models_recheck:
+      date: 2026-08-16
+      under_version: "1.1.13"
+      labels_unchanged: true
+      labels_verified:
+        - "Gemini 3.7 Flash (High)"
+        - "Gemini 3.7 Flash (Medium)"
+        - "Gemini 3.6 Flash (High)"
+      # Corroborates the collector's effort-attribution finding from the other side:
+      # agy's own slug column DOES carry the effort suffix (gemini-3.7-flash-high),
+      # while the billing plane's model_user_id does not — so the label separation
+      # exists in the product and is lost at the meter.
+      slug_column_carries_effort_suffix: true
+    # agy self-updates in-process (third_party/jetski/cli/updater/auto_updater.go).
+    # PINNED CONDITION for the screening window: the updater is disabled via the
+    # product's own env var, which the adapter sets on every invocation, so a batch
+    # cannot silently change product version mid-window. Recorded per selector as
+    # conditions.auto_update.
+    agy_auto_update: disabled_via_AGY_CLI_DISABLE_AUTO_UPDATE
+    # Evidence for that switch, stated at the strength it actually has. The env var
+    # name and its handler are read from the shipped binary, and the updater is
+    # observed running in a normal invocation; what is NOT yet on the record is a
+    # matched negative control (same invocation shape, var set, updater silent),
+    # because the only invocation observed to reach the updater is a live --print
+    # run and this session has no spend approval for another one. Treated as a
+    # belt-and-braces measure: the version pin, the pre-batch runner check and the
+    # in-adapter check are what actually enforce the condition, and all three fail
+    # loudly if an update lands anyway.
+    agy_auto_update_evidence:
+      env_var_and_handler_in_binary: true   # `strings`: "Auto-update disabled via environment variable %s"
+      updater_observed_active: "auto_updater.go:252 'skipping update (fast path)', 2026-08-16 14:59 live smoke"
+      matched_negative_control: not_yet_observed   # needs one live agy invocation
+      enforced_regardless_by:
+        - harness/runner/run.py preflight_product_versions  # refuses before anything is created
+        - harness/adapters/agy.py ProductVersionMismatch    # refuses before spend, per attempt
+        - harness/container/stage-agy.sh agy_sha256 assert  # image build fails on drift
     # Cross-check: configurations.PRODUCT_B_*.conditions.agy_version must equal
     # agy_version above, or a containerized run would enforce a different version
     # than the adapter checks. tests/test_manifest_pricing.py asserts the agreement.

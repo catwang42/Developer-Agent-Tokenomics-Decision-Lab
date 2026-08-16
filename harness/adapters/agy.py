@@ -42,6 +42,27 @@ EXIT_TIMEOUT = 41
 # a diagnosable product error, rather than this opaque kill truncating the evidence.
 DEFAULT_TIMEOUT_S = 1800
 
+# agy self-updates in-process: its shipped binary carries
+# third_party/jetski/cli/updater/auto_updater.go, the format string "Auto-update
+# disabled via environment variable %s", and this variable's name — and the updater
+# was observed running in a live invocation (auto_updater.go:252, 2026-08-16). What
+# we have NOT observed is the matched negative control (same invocation, var set,
+# updater silent), which needs a live agy run; see the manifest's
+# agy_auto_update_evidence. So this is belt-and-braces, not the enforcement: an
+# in-flight update would change the measured product mid-batch, and what actually
+# stops that is the version pin, checked here per attempt and again pre-batch in the
+# runner. The variable is set on EVERY invocation, including the `--version` probe
+# that checks the pin. Recorded as a pinned run condition
+# (manifest configurations.PRODUCT_B_*.conditions.auto_update); the value is the
+# product's own env var name, not a lab invention.
+AUTO_UPDATE_DISABLE_ENV = "AGY_CLI_DISABLE_AUTO_UPDATE"
+AUTO_UPDATE_CONDITION = f"disabled_via_{AUTO_UPDATE_DISABLE_ENV}"
+
+
+def agy_env() -> Dict[str, str]:
+    """:func:`agent_env` plus the updater kill-switch."""
+    return {**agent_env(), AUTO_UPDATE_DISABLE_ENV: "1"}
+
 
 class ProductVersionMismatch(RuntimeError):
     """The product on PATH is not the version pinned as a run condition."""
@@ -156,7 +177,7 @@ class AgyAdapter(Adapter):
         # programme, and agy self-updates). The manifest pins the version as a run
         # CONDITION, so a mismatch invalidates the condition and we refuse BEFORE
         # spending rather than quietly measuring a different product.
-        observed_version = cli_version("agy", self.container)
+        observed_version = cli_version("agy", self.container, env=agy_env())
         if r.product_version_pin and observed_version != r.product_version_pin:
             raise ProductVersionMismatch(
                 f"agy version {observed_version!r} does not match the manifest pin "
@@ -176,6 +197,7 @@ class AgyAdapter(Adapter):
             "leg": spec.leg_id, "role": spec.role,
             "product_version": observed_version,
             "product_version_pin": r.product_version_pin or "unpinned",
+            "auto_update": AUTO_UPDATE_CONDITION,
             "print_timeout": r.print_timeout or "product_default",
             "effort_pin": r.effort_pin or "unpinned",
             "argv": list(argv), "cwd": cwd,
@@ -184,7 +206,7 @@ class AgyAdapter(Adapter):
         try:
             proc = subprocess.run(  # noqa: S603 - workshop-owned command
                 argv, cwd=cwd, capture_output=True, text=True,
-                check=False, timeout=DEFAULT_TIMEOUT_S, env=agent_env(),  # FIX B
+                check=False, timeout=DEFAULT_TIMEOUT_S, env=agy_env(),  # FIX B
             )
             # Record the product's exit/output for invocation.txt (redacted by the
             # runner). For a black-box product this raw stdout is the only place its
