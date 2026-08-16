@@ -1,14 +1,59 @@
 workload_id: W3
 class: migration
-status: candidate
-repo: CHOOSE-AT-CP-SCREEN-PREREG   # candidate: JS->TS module conversion or framework version bump with test parity
-pinned_commit: PIN-BEFORE-PREREG
-contamination_tier: TBD-AT-PREREG   # depends on repo chosen at CP-SCREEN-PREREG; see tasks/WORKLOAD-SELECTION.md §2
-language: typescript
+status: pinned                      # was `candidate`; commit-mined and pinned 2026-08-16
+#
+# ============================ ESCALATION PROBE =============================
+# SPEC §5.1 names W6 the primary escalation-probe candidate and W3 the fallback.
+# For the screening batch the human designated W3 as THE probe: it was selected
+# because the economical tier is predicted to fail it. The prediction is registered
+# by the human in manifest/preregistrations/ BEFORE any run (CP-SCREEN-PREREG), and
+# the result is published either way.
+# ===========================================================================
+#
+# Source: sqlfluff/sqlfluff PR #7962, "refactor: extract reference/alias segment
+# methods into dialect-dispatched free functions", merged 2026-06-17T18:52:26Z
+# (squash, single parent).
+#   N    ee00054a89fe1850695601297d41d7e95559eb00   (canonical fix)
+#   N-1  7700446fdb424ba56a2b1963a624d3747df53744   (pinned_commit; agent start)
+# Mining rationale and the full 8-candidate register:
+#   tasks/proposals/2026-08-commit-mined-candidates.md (C5)
+# Task definition and gate wiring: task.yaml.
+repo: https://github.com/sqlfluff/sqlfluff
+pinned_commit: 7700446fdb424ba56a2b1963a624d3747df53744
+contamination_tier: post_cutoff     # merged 2026-06-17; model-relative, tasks/WORKLOAD-SELECTION.md §2
+license: MIT
+stars_at_mining: 9855               # recorded 2026-08-16 via the GitHub API
+language: python
+task_dir: tasks/suite/W3-migration
 prompt: |
-  DRAFT — finalize before pre-registration. Convert <module> to TypeScript strict; zero behavior change; all tests green; lint clean.
-gate: {public: gate/check-public.sh, hidden: recorded-by-hash-at-run, reset: reset.sh}
+  FINALIZED in task.yaml (`prompt:`) — that is the single source of truth for the
+  participant-visible text. Summary: migrate reference/alias resolution off the
+  dialect segment classes into nine dialect-dispatched free functions in
+  sqlfluff.core.dialects.common, keep every migrated method as a thin deprecated
+  wrapper that delegates and warns, rewrite the in-tree call sites to use the free
+  functions, and change no behaviour. Twelve source files; no test file may change.
+gate:
+  public: gate/check-public.sh      # P1-P6; P1 is upstream's own new test module
+  hidden: recorded-by-hash-at-run   # sealed pytest module(s), human-held under hidden/
+  reset: reset.sh
+pass_condition: >
+  P1-P6 green (upstream's test/core/dialects/common_test.py passes; the hermetic
+  baseline stays green; only the twelve declared source files changed) AND the sealed
+  test passes. Measured with the canonical applied: 9 passed on the public test;
+  996 passed / 28 skipped and 449 passed on the two baseline scopes, zero failures.
 expected_wallclock_s: null
 configurations: [C1, C2, C3, C5]
 reps_screening: 3
-preregistration: TBD
+class_claim_note: >
+  One task = screening signal only. A workload-class claim requires a second,
+  materially different task from this class at tier obscure or post_cutoff
+  (tasks/WORKLOAD-SELECTION.md §3, extending SPEC §5.2); commit mining preferred (§4).
+  W3 currently has ONE task, so any W3 result is a screening signal about THIS task,
+  never a claim about migration as a workload class. Deferred candidate C6
+  (open-telemetry/opentelemetry-python #5277) was mined for this slot and REJECTED as
+  a weak discriminator; a second W3 task still has to be found.
+preregistration: TBD                # register the failure prediction before any run
+human_authored_pending:
+  - hidden/*_sealed_test.py         # note the suffix: pytest is configured python_files = "*_test.py"
+  - hidden/VERSION
+  # Instructions: tasks/suite/W3-migration/hidden/README-FOR-HUMAN.md

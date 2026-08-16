@@ -19,5 +19,13 @@ reps_screening: 3
 # Class-level W4 claims still require a SECOND, materially different task at tier
 # obscure or post_cutoff (SPEC §5.2 / WORKLOAD-SELECTION §3) — this famous task is
 # a screening signal only. Preferred sourcing: commit-mine a post-cutoff PR (§4).
-second_task_for_class_claim: REQUIRED-obscure-or-post_cutoff-CHOOSE-AT-CP-SCREEN-PREREG
+#
+# SATISFIED 2026-08-16: W4b, commit-mined from zarr-developers/zarr-python#4227
+# (merged 2026-08-02, tier post_cutoff, MIT), 10-point validated at 9 pass /
+# 1 awaiting_human / 0 failed. Materially different on every axis that matters:
+# Python vs TypeScript, a 30k-line array library vs a 2k-line Express app, an
+# ordering/grouping bug requiring non-local reasoning vs a one-line Prisma `select`
+# omission. W4b carries no workload.yaml of its own — it is a second TASK of this
+# workload, not a second workload.
+second_task_for_class_claim: tasks/suite/W4b-zarr-consolidated-order   # post_cutoff
 preregistration: TBD

@@ -1,0 +1,184 @@
+diff --git a/tests/test_block_mask_properties.py b/tests/test_block_mask_properties.py
+new file mode 100644
+index 0000000..aecf9ef
+--- /dev/null
++++ b/tests/test_block_mask_properties.py
+@@ -0,0 +1,178 @@
++"""CANONICAL reference solution for W1b — property tests for block & mask indexing.
++
++PROVENANCE. Derived from the upstream PR this task is mined from,
++zarr-developers/zarr-python#4054 (merge commit
++96a62b51f8fe86eeb056eee1684eef94b4114e35). Upstream split its change across two
++files: the ``block_indices`` composite strategy went into
++``src/zarr/testing/strategies.py`` (+61) and ``test_mask_indexing`` /
++``test_block_indexing`` into ``tests/test_properties.py`` (+61).
++
++DELTA, and why. The test-generation contract (SPEC 2.6; gate check T1) allows the
++agent to ADD new files under ``agent_write_scope`` and nothing else — it may not
++edit ``src/zarr/testing/strategies.py`` or ``tests/test_properties.py``, both of
++which are tracked at the pin. So this canonical is ONE new file that inlines the
++strategy next to the two tests. Every assertion, strategy body, filter predicate,
++oracle and ``settings``/``filterwarnings`` decorator below is upstream's, byte for
++byte; what is new is only:
++
++  * this docstring,
++  * the import block (upstream's tests inherit theirs from the surrounding module),
++  * the ``_enable_rectilinear_chunks`` autouse fixture, copied verbatim from
++    ``tests/test_properties.py`` at the pin, because ``test_mask_indexing`` draws
++    from ``rectilinear_arrays()`` and upstream gets that fixture from the module
++    it lives in.
++
++This file is the reference the 10-point validator grades (check 7's canonical half
++and the T1-T4 public gate). It is NOT shown to the agent.
++"""
++
++from collections.abc import Callable, Generator
++from typing import Any
++
++import numpy as np
++import pytest
++from numpy.testing import assert_array_equal
++
++import zarr
++
++pytest.importorskip("hypothesis")
++
++import hypothesis.extra.numpy as npst
++import hypothesis.strategies as st
++from hypothesis import assume, given, settings
++
++from zarr.testing.strategies import (
++    basic_indices,
++    np_array_and_chunks,
++    numpy_arrays,
++    rectilinear_arrays,
++    simple_arrays,
++    stores,
++)
++
++
++@pytest.fixture(autouse=True)
++def _enable_rectilinear_chunks() -> Generator[None, None, None]:
++    """Enable rectilinear chunks for all property tests since strategies may generate them."""
++    with zarr.config.set({"array.rectilinear_chunks": True}):
++        yield
++
++
++@st.composite
++def block_indices(
++    draw: st.DrawFn, *, chunk_grid_shape: tuple[int, ...], chunks: tuple[int, ...]
++) -> tuple[tuple[int | slice, ...], tuple[slice, ...]]:
++    """
++    Strategy for block-selection indexers over a *regular* chunk grid.
++
++    Block indexing is basic indexing applied to the block grid (the grid of
++    chunks), so each axis is drawn with ``basic_indices`` over that axis's chunk
++    count from ``chunk_grid_shape`` (e.g. ``Array.cdata_shape``), mirroring how
++    ``orthogonal_indices`` reuses ``basic_indices`` per axis. Block indexing only
++    supports integers and step-1 slices whose start references an existing chunk,
++    so strided slices and slices starting at the grid edge are filtered out. The
++    array-space translation assumes a regular (uniform) chunk grid; an over-long
++    stop into a smaller last chunk is left for numpy to clamp when the oracle is
++    applied.
++
++    Returns
++    -------
++    block_indexer
++        A per-axis tuple of ints / step-1 slices addressing whole chunks,
++        suitable for ``Array.blocks`` / ``get_block_selection`` / ``set_block_selection``.
++    array_indexer
++        The equivalent array-space selection (a tuple of slices) for indexing
++        the corresponding numpy array, used as the comparison oracle.
++    """
++
++    def supported(nchunks: int) -> Callable[[tuple[Any, ...]], bool]:
++        # Block indexing only accepts step-1 slices whose start references an
++        # existing chunk (a slice starting at nchunks raises, unlike numpy).
++        def predicate(value: tuple[Any, ...]) -> bool:
++            dim_sel = value[0]
++            if isinstance(dim_sel, slice):
++                if dim_sel.step not in (None, 1):
++                    return False
++                start = dim_sel.start or 0
++                return 0 <= (start + nchunks if start < 0 else start) < nchunks
++            return True
++
++        return predicate
++
++    block_indexer: list[int | slice] = []
++    array_indexer: list[slice] = []
++    for chunk, nchunks in zip(chunks, chunk_grid_shape, strict=True):
++        (dim_sel,) = draw(
++            basic_indices(min_dims=1, shape=(nchunks,), allow_ellipsis=False)
++            # normalize bare ints / slices to a 1-tuple, skip the empty tuple
++            .map(lambda x: (x,) if not isinstance(x, tuple) else x)
++            .filter(bool)
++            .filter(supported(nchunks))
++        )
++        block_indexer.append(dim_sel)
++        if isinstance(dim_sel, slice):
++            start, stop, _ = dim_sel.indices(nchunks)
++            array_indexer.append(slice(start * chunk, stop * chunk))
++        else:
++            block = dim_sel % nchunks
++            array_indexer.append(slice(block * chunk, (block + 1) * chunk))
++    return tuple(block_indexer), tuple(array_indexer)
++
++
++@settings(deadline=None)
++@pytest.mark.filterwarnings("ignore::zarr.core.dtype.common.UnstableSpecificationWarning")
++@given(data=st.data())
++def test_mask_indexing(data: st.DataObject) -> None:
++    zarray = data.draw(st.one_of(simple_arrays(), rectilinear_arrays()))
++    nparray = zarray[:]
++    mask = data.draw(npst.arrays(dtype=np.bool_, shape=st.just(nparray.shape)))
++
++    expected = nparray[mask]
++
++    # sync get, via both the dedicated method and the vindex interface
++    assert_array_equal(expected, zarray.get_mask_selection(mask))
++    assert_array_equal(expected, zarray.vindex[mask])
++
++    # sync set, via both interfaces
++    assume(zarray.shards is None)  # GH2834
++    new_data = data.draw(numpy_arrays(shapes=st.just(expected.shape), dtype=nparray.dtype))
++    nparray[mask] = new_data
++    zarray.set_mask_selection(mask, new_data)
++    assert_array_equal(nparray, zarray[:])
++
++    zarray.vindex[mask] = new_data
++    assert_array_equal(nparray, zarray[:])
++
++
++@settings(deadline=None)
++@pytest.mark.filterwarnings("ignore::zarr.core.dtype.common.UnstableSpecificationWarning")
++@given(data=st.data())
++def test_block_indexing(data: st.DataObject) -> None:
++    # Block indexing addresses whole chunks on a regular grid; the array-space
++    # oracle in block_indices() assumes regular, unsharded chunks, so build the
++    # array directly from a regular chunking rather than drawing one that might
++    # be rectilinear or sharded.
++    nparray, chunks = data.draw(
++        np_array_and_chunks(arrays=numpy_arrays(shapes=npst.array_shapes(max_dims=4, min_side=1)))
++    )
++    store = data.draw(stores)
++    zarray = zarr.create_array(store=store, shape=nparray.shape, chunks=chunks, dtype=nparray.dtype)
++    zarray[...] = nparray
++
++    block_indexer, array_indexer = data.draw(
++        block_indices(chunk_grid_shape=zarray.cdata_shape, chunks=chunks)
++    )
++    expected = nparray[array_indexer]
++
++    # sync get, via both the .blocks interface and the dedicated method
++    assert_array_equal(expected, zarray.blocks[block_indexer])
++    assert_array_equal(expected, zarray.get_block_selection(block_indexer))
++
++    # sync set, via both interfaces
++    new_data = data.draw(numpy_arrays(shapes=st.just(expected.shape), dtype=nparray.dtype))
++    nparray[array_indexer] = new_data
++    zarray.blocks[block_indexer] = new_data
++    assert_array_equal(nparray, zarray[:])
++
++    zarray.set_block_selection(block_indexer, new_data)
++    assert_array_equal(nparray, zarray[:])

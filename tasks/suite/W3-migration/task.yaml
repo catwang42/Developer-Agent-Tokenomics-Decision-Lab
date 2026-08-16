@@ -1,0 +1,162 @@
+# W3 migration task definition (SPEC §2.8 checks; SPEC §5.1 workload class W3).
+#
+# ============================ ESCALATION PROBE =============================
+# This task is the DESIGNATED ESCALATION PROBE for the screening batch (SPEC §5.1,
+# which names W6 primary and W3 fallback; for this roster the human selected W3).
+# It was chosen BECAUSE the economical tier is predicted to fail it, not because it
+# is expected to pass. Consequences that must be honoured:
+#
+#   * The failure prediction is registered by the HUMAN in manifest/preregistrations/
+#     BEFORE any run of this task (CP-SCREEN-PREREG). Nothing here records or
+#     anticipates a result.
+#   * The result is published either way. A pass refutes the prediction and is
+#     reported as such; a fail is reported without being retro-fitted into a
+#     vendor-superiority or capability claim (CLAUDE.md rule 4, claims register).
+#   * A single task is a screening signal about THIS task, never a claim about the
+#     migration workload class (tasks/WORKLOAD-SELECTION.md §3).
+# ===========================================================================
+#
+# Volatile pins are the source of truth in manifest/delivery-manifest.yaml (w3_task);
+# this file mirrors them and adds gate wiring. Driven by the shared harness:
+#   TASK_DIR=tasks/suite/W3-migration bash harness/task-tools/validate.sh
+task_id: w3-sqlfluff-segment-method-migration
+manifest_key: w3_task
+task_suite_version: screening-v1
+class: migration
+gate_type: solution
+
+# Source (commit-mined, tasks/WORKLOAD-SELECTION.md §4). The agent starts at N-1 and
+# must reproduce the EFFECT of the merged PR at N; the PR's own tests seal the gate,
+# so pre-modification failure is free by construction.
+#   PR:     https://github.com/sqlfluff/sqlfluff/pull/7962
+#           "refactor: extract reference/alias segment methods into dialect-dispatched
+#            free functions"
+#   merged: 2026-06-17T18:52:26Z (squash merge, single parent)
+#   N       ee00054a89fe1850695601297d41d7e95559eb00  (canonical_fix_commit)
+#   N-1     7700446fdb424ba56a2b1963a624d3747df53744  (pinned_commit)
+repo: https://github.com/sqlfluff/sqlfluff
+pinned_commit: 7700446fdb424ba56a2b1963a624d3747df53744
+canonical_fix_commit: ee00054a89fe1850695601297d41d7e95559eb00
+license: MIT
+contamination_tier: post_cutoff   # merged 2026-06-17; model-relative (WORKLOAD-SELECTION §2)
+
+# --- Environment --------------------------------------------------------------
+# Upstream requirements_dev.txt is fully UNPINNED, so it cannot pin an environment.
+# env/requirements.lock.txt holds exact versions frozen from the venv that produced
+# every measurement in this file. See the header of that file before regenerating.
+stack: python
+dependency_manifests: [pyproject.toml, requirements_dev.txt]
+stack_cmds:
+  install: >-
+    uv venv --python 3.12 .venv &&
+    uv pip install --python .venv/bin/python -q -r "$TASK_DIR/env/requirements.lock.txt" &&
+    uv pip install --python .venv/bin/python -q --no-deps -e . -e plugins/sqlfluff-plugin-example
+  deps_probe: .venv/bin/python -c 'import sqlfluff, pytest'
+  # Hermetic: no network, no database, no dbt plugin. Two invocations because the
+  # rules suite is filtered to the rules this migration reaches; the whole suite is
+  # 2387 tests / ~25 min serial, which is too slow to run per gate.
+  baseline: >-
+    .venv/bin/python -m pytest test/core test/utils test/dialects/bigquery_test.py
+    -q -p no:cacheprovider -n 2 &&
+    .venv/bin/python -m pytest test/rules -q -p no:cacheprovider -n 2
+    -k 'AL05 or RF01 or RF02 or RF03 or ST05 or ST09 or ST11'
+  select: .venv/bin/python -m pytest {SEL} -q -p no:cacheprovider
+  build: .venv/bin/python -c 'import sqlfluff, sqlfluff.core.dialects.common'
+
+# --- Participant-visible prompt ------------------------------------------------
+# Describes the REQUIRED BEHAVIOUR, not the upstream implementation. It names the
+# public surface the sealed and public tests import (they must be able to find it)
+# and the back-compat contract, and leaves dispatch design, helper decomposition and
+# call-site rewriting to the participant.
+prompt: |
+  Reference and alias resolution currently lives as methods on dialect segment
+  classes (ObjectReferenceSegment and friends in src/sqlfluff/dialects/dialect_ansi.py,
+  overridden in src/sqlfluff/dialects/dialect_bigquery.py). Rules and analysis
+  utilities call those methods, which couples rule logic to the dialect class
+  hierarchy. Migrate that logic into dialect-dispatched free functions, with no
+  change in behaviour.
+
+  1. In src/sqlfluff/core/dialects/common.py, expose these free functions and types.
+     Names, and the fact that they are importable from that module, are part of the
+     contract:
+
+       ObjectReferenceLevel                      - enum of reference levels
+       iter_raw_references(segment, dialect_name)
+       is_qualified(segment, dialect_name)
+       qualification(segment, dialect_name)
+       extract_possible_references(segment, level, dialect_name)
+       extract_possible_multipart_references(segment, levels, dialect_name)
+       get_from_expression_element_alias(segment, dialect_name)
+       get_join_clause_aliases(segment, dialect_name)
+       get_from_clause_aliases(segment, dialect_name)
+
+     Each must select dialect-specific behaviour from the dialect name it is given.
+     BigQuery's existing overrides (multipart/hyphenated table references, its
+     column-reference variants) must keep working through this path.
+
+  2. Keep every migrated segment method as a thin deprecated wrapper that delegates
+     to the free function and returns exactly what the free function returns. Each
+     wrapper must emit a DeprecationWarning when called. Existing third-party code
+     calling the methods must keep working unchanged.
+
+  3. Rewrite the in-tree call sites to use the free functions directly, so they emit
+     no DeprecationWarning: src/sqlfluff/rules/aliasing/AL05.py,
+     src/sqlfluff/rules/references/RF01.py, RF02.py, RF03.py,
+     src/sqlfluff/rules/structure/ST05.py, ST09.py, ST11.py, and
+     src/sqlfluff/utils/analysis/query.py, select.py.
+
+  4. Behaviour parity is the acceptance bar: the existing test suite must stay green,
+     including the linting rules above and the BigQuery dialect tests. Do not change
+     any file under test/.
+
+# --- Gate ----------------------------------------------------------------------
+canonical_patch: canonical/migrate-segment-methods-to-free-functions.patch
+# The PR's own new test module, taken byte for byte from upstream (only a provenance
+# comment header is prepended). Every test asserts BOTH halves of the contract: the
+# deprecated wrapper warns, AND it returns exactly what the free function returns.
+public_test: tests/common_test.py
+public_test_dest: test/core/dialects
+public_test_desc: >-
+  upstream's test/core/dialects/common_test.py — 9 tests over the free functions and
+  their deprecated wrappers (ansi + bigquery)
+public_test_kind: pr_own_tests
+# test/core/dialects/ does not exist at the pin, so the package __init__.py upstream
+# adds alongside the new module is created empty by the gate and removed afterwards.
+public_test_support: [test/core/dialects/__init__.py]
+
+# Files the participant may change. Everything else — including all of test/ —
+# failing P6 diff-scope. Same 12 files the real fix touched.
+target_paths:
+  - src/sqlfluff/core/dialects/common.py
+  - src/sqlfluff/dialects/dialect_ansi.py
+  - src/sqlfluff/dialects/dialect_bigquery.py
+  - src/sqlfluff/rules/aliasing/AL05.py
+  - src/sqlfluff/rules/references/RF01.py
+  - src/sqlfluff/rules/references/RF02.py
+  - src/sqlfluff/rules/references/RF03.py
+  - src/sqlfluff/rules/structure/ST05.py
+  - src/sqlfluff/rules/structure/ST09.py
+  - src/sqlfluff/rules/structure/ST11.py
+  - src/sqlfluff/utils/analysis/query.py
+  - src/sqlfluff/utils/analysis/select.py
+protected_test_paths: [test]
+tests_dir: test
+# sqlfluff sets python_files = "*_test.py" in [tool.pytest.ini_options], so a sealed
+# module named test_*.py would silently NOT be collected. The glob enforces the
+# suffix form; see hidden/README-FOR-HUMAN.md.
+hidden_test_glob: ["*_sealed_test.py"]
+hidden_test_dest: test/core/dialects
+source_root: src
+
+baseline_test_scope: hermetic_no_db_no_dbt
+baseline_test_pattern: "test/core + test/utils + test/dialects/bigquery_test.py + test/rules[AL05,RF01,RF02,RF03,ST05,ST09,ST11]"
+static_checks: [build]
+
+expected_wallclock_s: null       # measured at run time; never fabricated
+
+# Config declarations (SPEC §2.3; ENFORCED by tests/test_tasks.py). Screening task:
+# never run in feasibility, so it carries the screening set from workload.yaml.
+task_phase: screening
+configurations: [C1, C2, C3, C5]
+companion_configurations: []
+reps_screening: 3

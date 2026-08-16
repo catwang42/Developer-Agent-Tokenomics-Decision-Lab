@@ -1,0 +1,93 @@
+# W6 code-review task definition (SPEC 2.8 rules; SPEC 5.1 workload class W6).
+#
+# The participant READS a diff and reports the defects it finds. Nothing is
+# installed, compiled or executed in the subject tree (`stack: none`), so the SPEC
+# 2.8 checks that exist to prove an EXECUTION environment — 2 deps, 4 clean
+# install, 5 baseline tests, 9 clean build — have no referent and are recorded
+# `not_applicable` WITH a reason rather than passed vacuously
+# (harness/task-tools/stacks/none.sh).
+#
+# Volatile pins are the source of truth in manifest/delivery-manifest.yaml
+# (w6_task); this file mirrors them and adds gate wiring. Driven by the shared
+# harness: TASK_DIR=tasks/suite/W6-pr-review bash harness/task-tools/validate.sh
+task_id: w6-hono-router-review
+manifest_key: w6_task
+task_suite_version: screening-v1
+class: code_review
+gate_type: pr_review
+
+# Source (commit-mined, WORKLOAD-SELECTION.md §4). Unlike the other mined tasks the
+# agent does not re-implement anything: the two pins exist to GENERATE the review
+# artifact deterministically.
+#   PR:     https://github.com/honojs/hono/pull/5171
+#           "feat(reg-exp-router): throw UnsupportedPathError during route registration"
+#   merged: 2026-08-03T21:18:54Z (squash merge, single parent)
+#   N       8a0b18fd9b4d64dd2eb1d7f18e3536fc06cb54b2  (canonical_fix_commit)
+#   N-1     3feb3551d46de1f633e82253f12cf1117316be93  (pinned_commit)
+repo: https://github.com/honojs/hono
+pinned_commit: 3feb3551d46de1f633e82253f12cf1117316be93
+canonical_fix_commit: 8a0b18fd9b4d64dd2eb1d7f18e3536fc06cb54b2
+license: MIT
+contamination_tier: post_cutoff   # merged 2026-08-03; tier is model-relative (WORKLOAD-SELECTION §2)
+
+stack: none
+
+# --- The review artifact ------------------------------------------------------
+# base_diff is the REAL upstream diff, committed here: src files only, generated as
+#   git diff <pinned_commit> <canonical_fix_commit> -- <target_paths>
+# `src/router/reg-exp-router/router.test.ts` (+194 upstream) is DELIBERATELY
+# WITHHELD from the review artifact: a reviewer who can read the PR's own tests has
+# an oracle for the seeded defects, which would make the gate measure reading
+# comprehension of a test file rather than review skill.
+#
+# review_diff is what the AGENT actually sees: base_diff with k defects seeded into
+# it by the human. It is SEALED (gitignored, human-held) and lives beside the map —
+# publishing it next to the committed base_diff would let anyone recover the defect
+# locations with a two-way diff, which is the same as publishing the map.
+base_diff: review/base-diff.patch
+review_diff: hidden/review-diff.patch        # SEALED — see hidden/README-FOR-HUMAN.md
+target_paths:
+  - src/router/reg-exp-router/node.ts
+  - src/router/reg-exp-router/router.ts
+  - src/router/reg-exp-router/trie.ts
+withheld_paths:
+  - src/router/reg-exp-router/router.test.ts
+tests_dir: src/router/reg-exp-router
+
+prompt: |
+  Review the following diff to Hono's RegExpRouter and report every defect you can
+  justify FROM THE DIFF: correctness bugs, security problems, and regression risks.
+
+  For each defect, report exactly one line in this form:
+
+      <path>:<line> — <one-sentence description>
+
+  where <path> is the file path as it appears in the diff and <line> is the line
+  number in the NEW (post-diff) file. Report only defects you can justify from the
+  diff itself. Do not report style preferences, naming, formatting, or missing
+  tests. An issue you report that is not a real defect counts against you.
+
+  (The prompt must never ask the model to report its own token usage — SPEC/CLAUDE
+  rule 2. It does not.)
+
+# --- Gate ---------------------------------------------------------------------
+# Deterministic matcher over the sealed seeded-defect map, by file + line +
+# defect-id (SPEC 2.6: the generating model is never the verifier). The harness
+# never reads the map; check-hidden.sh's pr_review branch only DISCOVERS and
+# invokes the human-authored executable runner hidden/check.sh and honours its exit
+# contract (0 accept · 1 reject · 2 awaiting/unavailable).
+pass_condition: >
+  Detects >= k-1 of the k seeded defects AND reports zero fabricated issues (any
+  reported defect that matches no seeded defect and lies outside a declared
+  tolerance window counts as a fabrication). k is recorded in the sealed map at
+  pre-registration, not here.
+line_match_tolerance: 3   # +/- lines; a defect-id match within the window counts
+
+expected_wallclock_s: null       # measured at run time; never fabricated
+
+# Config declarations (SPEC §2.3; ENFORCED by tests/test_tasks.py). Screening task:
+# never run in feasibility, so it carries the screening set from workload.yaml.
+task_phase: screening
+configurations: [C1, C2, C3, C5]
+companion_configurations: []
+reps_screening: 3

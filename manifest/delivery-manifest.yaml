@@ -390,3 +390,94 @@ w1_task:
     sha256: sha256:6fa4aea042b3614850768da600af1d2771b9e6d1649bd45cd6a49c49cb9d89f5
     status: frozen
     frozen_date: 2026-08-16   # human FREEZE APPROVED; hash verified against the file
+
+# --- Phase-4 SCREENING ROSTER (added 2026-08-16) ------------------------------
+# Four commit-mined tasks added to break the batch-3 ceiling effect (27/27 accepted,
+# zero escalations — the three existing tasks do not separate configurations on
+# quality). Sourcing follows tasks/WORKLOAD-SELECTION.md §4: the agent starts at the
+# PARENT of a real merged PR's merge commit and must reproduce the PR's effect.
+#
+# PROVENANCE: every SHA below was resolved against the GitHub API and re-verified in
+# a local blobless clone; for each pair, `git cat-file` resolves BOTH commits and the
+# merge commit's parents[0] is exactly the pinned_commit (all four are squash merges,
+# single parent). Candidate register with the full mining record, including the four
+# deferred/rejected candidates: tasks/proposals/2026-08-commit-mined-candidates.md.
+#
+# NO SPEND HAS OCCURRED against these tasks. They are pinned and validated only;
+# running them requires CP-SCREEN-PREREG (pre-registration) then CP-SPEND.
+
+# W4b — W4's SECOND complex_bugfix task, the one that can carry a CLASS claim
+# (WORKLOAD-SELECTION §3 requires it at tier obscure or post_cutoff; W4 itself is
+# famous). Order-dependence in consolidated-metadata nesting.
+#   PR https://github.com/zarr-developers/zarr-python/pull/4227 merged 2026-08-02
+w4b_task:
+  task_id: w4b-zarr-consolidated-order
+  repo: https://github.com/zarr-developers/zarr-python
+  pinned_commit: a994a4fc972fed428eab6a26d4f14bb95d22c144   # parent of the fix; bug present pre-modification
+  canonical_fix_commit: 24f9ad19430dc88bc1d92b5e1936ac6b3e20f4fe   # upstream "fix: order-independent flat_to_nested"
+  license: MIT
+  contamination_tier: post_cutoff   # merged 2026-08-02; tier is model-relative (WORKLOAD-SELECTION §2)
+  baseline_test_scope: hermetic_local_store   # remote-store suites excluded (network); see task.yaml
+  stack: python
+  sealed_hidden_test:
+    status: awaiting_human   # NOT yet authored; no version, no hash — never invent one
+    spec: tasks/suite/W4b-zarr-consolidated-order/hidden/README-FOR-HUMAN.md
+  validated: see tasks/suite/W4b-zarr-consolidated-order/.work/validation-report.json
+
+# W3 — the migration workload, and the DESIGNATED ESCALATION PROBE (SPEC §5.1: a
+# workload selected BECAUSE the economical tier is predicted to fail; SPEC names W6
+# primary and W3 fallback). Behaviour-parity refactor of segment methods into free
+# functions across 12 source files, with deprecation shims.
+#   PR https://github.com/sqlfluff/sqlfluff/pull/7962 merged 2026-06-17
+w3_task:
+  task_id: w3-sqlfluff-dialect-common-migration
+  repo: https://github.com/sqlfluff/sqlfluff
+  pinned_commit: 7700446fdb424ba56a2b1963a624d3747df53744
+  canonical_fix_commit: ee00054a89fe1850695601297d41d7e95559eb00
+  license: MIT
+  contamination_tier: post_cutoff   # merged 2026-06-17
+  baseline_test_scope: hermetic_offline   # sqlfluff parses SQL text; no engine, no network
+  stack: python
+  escalation_probe: true   # SPEC §5.1; the failure prediction is pre-registered separately
+  sealed_hidden_test:
+    status: awaiting_human
+    spec: tasks/suite/W3-migration/hidden/README-FOR-HUMAN.md
+  validated: see tasks/suite/W3-migration/.work/validation-report.json
+
+# W1b — W1's SECOND test_generation task, materially harder than the RealWorld mapper
+# task: property-based tests over an indexing module, in a repo the agent must first
+# understand. Carries the W1 class claim (W1 itself is famous).
+#   PR https://github.com/zarr-developers/zarr-python/pull/4054 merged 2026-06-09
+w1b_task:
+  task_id: w1b-zarr-block-mask-properties
+  repo: https://github.com/zarr-developers/zarr-python
+  pinned_commit: b9d396460da369bea86f4bd978d3746f7a41076b
+  canonical_fix_commit: 96a62b51f8fe86eeb056eee1684eef94b4114e35
+  license: MIT
+  contamination_tier: post_cutoff   # merged 2026-06-09
+  baseline_test_scope: hermetic_local_store
+  stack: python
+  gate_type: test_generation
+  sealed_hidden_test:
+    status: awaiting_human   # mutation-catch runner (hidden/check.sh), as for w1_task
+    spec: tasks/suite/W1b-zarr-block-mask-properties/hidden/README-FOR-HUMAN.md
+  validated: see tasks/suite/W1b-zarr-block-mask-properties/.work/validation-report.json
+
+# W6 — code review against a SEALED, HUMAN-AUTHORED seeded-defect map. The subject
+# code is never executed: the participant reads a diff and reports defects, scored by
+# a deterministic file+line/defect-id matcher. Base diff generated from the two pins.
+#   PR https://github.com/honojs/hono/pull/5171 merged 2026-08-03
+w6_task:
+  task_id: w6-hono-router-review
+  repo: https://github.com/honojs/hono
+  pinned_commit: 3feb3551d46de1f633e82253f12cf1117316be93
+  canonical_fix_commit: 8a0b18fd9b4d64dd2eb1d7f18e3536fc06cb54b2   # source of the base diff, NOT a solution patch
+  license: MIT
+  contamination_tier: post_cutoff   # merged 2026-08-03
+  baseline_test_scope: not_applicable   # review task: nothing is installed, built, or run
+  stack: none
+  gate_type: pr_review
+  sealed_defect_map:
+    status: awaiting_human   # k, the seeded defects, and their file+line are human-held
+    spec: tasks/suite/W6-pr-review/hidden/README-FOR-HUMAN.md
+  validated: see tasks/suite/W6-pr-review/.work/validation-report.json

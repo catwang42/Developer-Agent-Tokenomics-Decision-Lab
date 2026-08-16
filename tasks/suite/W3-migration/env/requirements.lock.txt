@@ -1,0 +1,81 @@
+# W3 (sqlfluff) test environment — EXACT pins, frozen 2026-08-16 from the venv that
+# produced every measurement recorded in task.yaml and README.md.
+#
+# WHY this file exists: upstream requirements_dev.txt is completely unpinned ("ruff",
+# "pytest", "mypy[mypyc]", ...), so installing from it resolves to whatever PyPI serves
+# that day. That is fine for a project CI and fatal for a benchmark task: the pinned
+# commit would no longer imply a pinned environment, and SPEC 2.8 checks 4/5/9 would be
+# measuring a moving target. These pins were produced by `uv pip freeze`, not authored.
+#
+# Regenerate deliberately, never silently:
+#   uv pip freeze --python .venv/bin/python | grep -v '^-e '
+# The two local editables are installed separately by stack_cmds.install (--no-deps):
+#   -e .   and   -e plugins/sqlfluff-plugin-example  (test/core/plugin_test.py needs it)
+anyio==4.14.2
+ast-serialize==0.8.0
+cachetools==7.1.7
+certifi==2026.7.22
+chardet==7.6.0
+charset-normalizer==3.5.1
+click==8.4.2
+colorama==0.4.6
+coverage==7.15.4
+diff-cover==10.5.0
+distlib==0.4.3
+doc8==2.0.0
+docutils==0.21.2
+execnet==2.1.2
+fastcore==2.2.12
+fastspec==0.2.1
+fasttransport==0.0.1
+filelock==3.32.3
+ghapi==2.1.2
+grimp==3.15
+h11==0.16.0
+httpcore2==2.10.0
+httpx2==2.10.0
+hypothesis==6.165.9
+idna==3.18
+import-linter==2.13
+iniconfig==2.3.0
+jinja2==3.1.6
+librt==0.15.0
+markdown-it-py==4.2.0
+markupsafe==3.0.3
+mdurl==0.1.2
+mypy==2.3.1
+mypy-extensions==1.1.0
+packaging==26.3
+pathspec==1.1.1
+platformdirs==4.11.3
+pluggy==1.6.0
+pygments==2.20.0
+pyproject-api==1.11.0
+pytest==9.1.1
+pytest-cov==7.1.0
+pytest-xdist==3.8.0
+python-discovery==1.5.2
+pyyaml==6.0.3
+regex==2026.7.19
+requests==2.34.2
+restructuredtext-lint==2.0.2
+rich==15.0.0
+ruff==0.16.3
+setuptools==84.0.0
+sortedcontainers==2.4.0
+stevedore==5.9.0
+tblib==3.2.2
+tomli-w==1.2.0
+tox==4.60.0
+tqdm==4.70.0
+truststore==0.10.4
+types-appdirs==1.4.3.5
+types-chardet==5.0.4.6
+types-colorama==0.4.15.20260508
+types-pyyaml==6.0.12.20260815
+types-regex==2026.7.19.20260720
+types-tqdm==4.70.0.20260805
+typing-extensions==4.16.0
+urllib3==2.7.0
+virtualenv==21.7.4
+yamllint==1.38.0

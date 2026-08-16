@@ -1,9 +1,17 @@
-> **STATUS: CANDIDATE REGISTER — awaiting human selection.** Nothing here is in
-> `tasks/suite/`, nothing is pinned in the delivery manifest, nothing may be run.
-> Every SHA below was resolved against the GitHub REST API on 2026-08-16. Every
-> *gate plan*, *difficulty rationale* and *setup estimate* is a **proposal that has
-> not been executed** — no repository was cloned, no test was run, no model was
-> billed while producing this file.
+> **STATUS: CANDIDATE REGISTER — SELECTION MADE 2026-08-16.** C4, C5, C7 and C8 were
+> selected and are now scaffolded under `tasks/suite/` and pinned in the delivery
+> manifest (see *Selection outcome* below). C6 is rejected. C1, C2 and C3 are
+> **deferred, not rejected** — their verified SHAs are kept here for a later batch.
+> Every SHA below was resolved against the GitHub REST API on 2026-08-16 and
+> re-verified locally against a clone.
+>
+> **Read the table's *gate plan*, *difficulty rationale* and *setup estimate* columns
+> as they were written: pre-scaffolding proposals.** For the four selected candidates
+> they have since been executed and, where measurement disagreed with the proposal,
+> the *task's own* `task.yaml` / `README.md` is authoritative — not this file. This
+> register is append-only; its rows are the mining record, not a live spec.
+>
+> No model was billed while producing this file or while scaffolding from it.
 
 # Commit-mined candidates for a discriminating screening roster (2026-08-16)
 
