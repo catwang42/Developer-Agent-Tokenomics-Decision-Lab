@@ -2,8 +2,8 @@
 # Deterministic reset (SPEC 2.8, check 10): restore the subject repo working tree
 # to the pinned commit, discarding any agent/gate modifications, and print the
 # canonical tree hash so idempotency can be proven (two runs -> identical hash).
-# node_modules and the generated Prisma client are preserved (gitignored and
-# reproducible). Parameterized by TASK_DIR.
+# Installed dependency trees are preserved (gitignored and reproducible) — which
+# paths those are is declared by the stack driver. Parameterized by TASK_DIR.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,7 +18,13 @@ fi
 PIN="$(manifest_task pinned_commit)"
 
 git -C "$SUBJECT_DIR" -c advice.detachedHead=false checkout --quiet --force "$PIN"
-git -C "$SUBJECT_DIR" clean -ffd -e node_modules >/dev/null
+# Installed, reproducible, gitignored trees are preserved (node_modules, .venv…);
+# which ones is the stack driver's call.
+clean_excludes=()
+while IFS= read -r keep; do
+  [ -n "$keep" ] && clean_excludes+=(-e "$keep")
+done < <(stack_clean_keep)
+git -C "$SUBJECT_DIR" clean -ffd "${clean_excludes[@]+"${clean_excludes[@]}"}" >/dev/null
 
 git -C "$SUBJECT_DIR" add -A
 TREE_HASH="$(git -C "$SUBJECT_DIR" write-tree)"

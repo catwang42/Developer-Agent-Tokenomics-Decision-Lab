@@ -30,7 +30,11 @@ if ! git -C "$SUBJECT_DIR" cat-file -e "${PIN}^{commit}" 2>/dev/null; then
 fi
 
 git -C "$SUBJECT_DIR" -c advice.detachedHead=false checkout --quiet --force "$PIN"
-git -C "$SUBJECT_DIR" clean -ffd -e node_modules >/dev/null
+clean_excludes=()
+while IFS= read -r keep; do
+  [ -n "$keep" ] && clean_excludes+=(-e "$keep")
+done < <(stack_clean_keep)
+git -C "$SUBJECT_DIR" clean -ffd "${clean_excludes[@]+"${clean_excludes[@]}"}" >/dev/null
 
 HEAD_SHA="$(git -C "$SUBJECT_DIR" rev-parse HEAD)"
 if [ "$HEAD_SHA" != "$PIN" ]; then
@@ -39,14 +43,13 @@ if [ "$HEAD_SHA" != "$PIN" ]; then
 fi
 echo "  ok    SHA verified: $HEAD_SHA"
 
-if [ ! -d "$SUBJECT_DIR/node_modules" ] || [ "${1:-}" = "--reinstall" ]; then
-  echo "  -> npm ci (clean install from lockfile)"
-  ( cd "$SUBJECT_DIR" && npm ci --no-audit --no-fund )
+if ! stack_installed_ok || [ "${1:-}" = "--reinstall" ]; then
+  echo "  -> installing deps ($TASK_STACK stack)"
+  stack_install
 else
-  echo "  ok    node_modules present (skip reinstall; use --reinstall to force)"
+  echo "  ok    deps present (skip reinstall; use --reinstall to force)"
 fi
 
-echo "  -> prisma generate"
-prisma_generate
+stack_post_patch
 
 echo "  ok    setup complete"

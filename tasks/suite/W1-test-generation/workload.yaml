@@ -11,6 +11,18 @@ gate: {public: gate/check-public.sh, hidden: recorded-by-hash-at-run, reset: res
 expected_wallclock_s: null
 configurations: [C1, C2, C3, C5]
 reps_screening: 3
+# Class-level W1 claims require a SECOND, materially different task at tier obscure
+# or post_cutoff (SPEC §5.2 / WORKLOAD-SELECTION §3) — the task pinned above is tier
+# `famous` and reused from feasibility, so on its own it is a screening signal only.
+#
+# SATISFIED 2026-08-16: W1b, commit-mined from zarr-developers/zarr-python#4054
+# (merged 2026-06-09, tier post_cutoff, MIT), 10-point validated at 9 pass /
+# 1 awaiting_human / 0 failed. Materially different on every axis that matters:
+# Python vs TypeScript, Hypothesis property tests with a numpy oracle vs example-based
+# unit tests, a 30k-line array library vs two 20-line mappers, and post_cutoff vs
+# famous. W1b carries no workload.yaml of its own — it is a second TASK of this
+# workload, not a second workload.
+second_task_for_class_claim: tasks/suite/W1b-zarr-block-mask-properties   # post_cutoff
 preregistration: TBD
 
 # Feasibility-reuse disclosure (methodology/feasibility-protocol.md; SPEC §2.3).

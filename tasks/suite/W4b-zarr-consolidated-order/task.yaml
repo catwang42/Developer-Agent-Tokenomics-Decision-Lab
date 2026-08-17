@@ -1,0 +1,92 @@
+# W4b complex-bugfix task definition (SPEC 2.8 rules; SPEC 5.1 workload class W4).
+#
+# W4's SECOND task. tasks/WORKLOAD-SELECTION.md §3 (extending SPEC §5.2): promoting
+# a screening signal to a workload-CLASS claim needs a second, materially different
+# task from that class at tier `obscure` or `post_cutoff`. W4 (RealWorld) is
+# `famous` and Node; this is `post_cutoff` and Python, in a large library tree.
+#
+# Volatile pins are the source of truth in manifest/delivery-manifest.yaml
+# (w4b_task); this file mirrors them and adds gate wiring. Manifest wins on
+# disagreement (tests/test_tasks.py enforces consistency). Driven by the shared
+# harness: TASK_DIR=tasks/suite/W4b-zarr-consolidated-order bash harness/task-tools/validate.sh
+task_id: w4b-zarr-consolidated-order
+manifest_key: w4b_task
+task_suite_version: screening-v1
+class: complex_bugfix
+
+# Source (commit-mined, WORKLOAD-SELECTION.md §4). The agent starts at the PARENT
+# of the merge commit (N-1) and must reproduce the effect of the merged PR (N).
+#   PR:     https://github.com/zarr-developers/zarr-python/pull/4227
+#   merged: 2026-08-02T13:09:12Z (squash merge, single parent)
+#   N       24f9ad19430dc88bc1d92b5e1936ac6b3e20f4fe  (canonical_fix_commit)
+#   N-1     a994a4fc972fed428eab6a26d4f14bb95d22c144  (pinned_commit, agent start)
+repo: https://github.com/zarr-developers/zarr-python
+pinned_commit: a994a4fc972fed428eab6a26d4f14bb95d22c144
+canonical_fix_commit: 24f9ad19430dc88bc1d92b5e1936ac6b3e20f4fe
+license: MIT
+# post_cutoff is MODEL-RELATIVE (WORKLOAD-SELECTION.md §2): the merge date is what
+# is recorded here; the cutoff basis per subject product is recorded per run.
+contamination_tier: post_cutoff
+
+# Toolchain (harness/task-tools/stacks/README.md).
+stack: python
+dependency_manifests: [pyproject.toml, uv.lock]
+stack_cmds:
+  install: uv sync --frozen --no-default-groups --group test
+  deps_probe: .venv/bin/python -c "import zarr, pytest"
+  baseline: .venv/bin/python -m pytest tests/test_metadata -q -p no:cacheprovider
+  select: .venv/bin/python -m pytest {SEL} -q -p no:cacheprovider
+  # No separate compile step for a pure-Python package; importing the patched tree
+  # is the honest analogue of "it builds" and is what check 9 / P4 assert.
+  build: .venv/bin/python -c "import zarr; import zarr.core.group"
+
+prompt: |
+  `ConsolidatedMetadata` rebuilds a nested node tree from a FLAT mapping of
+  slash-separated keys to node metadata. The mapping's key order is arbitrary —
+  it is whatever order the keys were persisted in.
+
+  Nesting is currently order-dependent: for some key orders, children are dropped
+  from their parent's consolidated metadata and linger as bogus slash-containing
+  keys at the top level, so those nodes cannot be reached through the consolidated
+  metadata at all. The most visible symptom is sibling groups whose names differ
+  only by case.
+
+  Find the root cause and fix it so the reconstructed tree is identical for every
+  permutation of the same key set. Change only what is necessary; do not introduce
+  unrelated diffs, and do not change any test.
+
+# Acceptance gate (SPEC 2.6 deterministic-first; hidden test is authoritative).
+canonical_patch: canonical/fix-flat-to-nested-order.patch
+public_test: tests/test_consolidated_order_public.py
+public_test_dest: tests/test_metadata
+public_test_desc: consolidated-metadata nesting is order-independent (upstream PR repro)
+public_test_kind: repro
+target_paths:
+  - src/zarr/core/group.py
+
+# Tests the agent must not influence: restored to pristine before grading.
+protected_test_paths: [tests]
+tests_dir: tests
+
+# Sealed hidden tests (SPEC 2.6) — human-authored, human-held, gitignored.
+# pytest collects test_*.py / *_test.py; the sealed files are named so they cannot
+# collide with an upstream module in the same directory.
+hidden_test_glob: ["test_*_sealed.py"]
+hidden_test_dest: tests/test_metadata
+
+# Baseline is the metadata test package — hermetic, in-process, no network store
+# (the remote-store suites live behind the `remote-tests` dependency group, which
+# this task deliberately does not install).
+baseline_test_scope: hermetic_local_store
+baseline_test_pattern: "tests/test_metadata"
+static_checks: [build]
+
+expected_wallclock_s: null       # measured at run time; never fabricated
+
+# Config declarations (SPEC §2.3; ENFORCED by tests/test_tasks.py). This is a
+# SCREENING task: it has never been run in feasibility, so it carries the screening
+# set from workload.yaml rather than the P0/C2/P1 controlled feasibility set.
+task_phase: screening
+configurations: [C1, C2, C3, C5]
+companion_configurations: []
+reps_screening: 3

@@ -15,6 +15,12 @@
 #     fields do not exist yet on the unmodified repo (SPEC 2.8 feature-task
 #     interpretation). Either way the public gate must FAIL before modification.
 #
+# Toolchain-specific steps (install, test, build, coverage) come from the stack
+# driver named by task.yaml `stack:` — see harness/task-tools/stacks/README.md.
+# A stack may declare a check to have no referent (a review task installs and
+# builds nothing); those are recorded `not_applicable` WITH a reason, never
+# silently passed.
+#
 # Emits validation-report.json + a human summary. Runs end-to-end in the clean
 # container (harness/task-tools/Dockerfile). Exit 0 iff no check FAILED (checks
 # awaiting the human-held hidden tests are reported awaiting_human, not failed).
@@ -29,20 +35,31 @@ PIN="$(manifest_task pinned_commit)"
 REPO_URL="$(manifest_task repo)"
 TASK_ID="$(task_field task_id)"
 CANONICAL_PATCH="$TASK_DIR/$(task_field canonical_patch)"
-BASELINE_PATTERN="$(task_field baseline_test_pattern)"
 mapfile -t TARGET_PATHS < <(task_list target_paths)
 GATE_TYPE="$(task_field gate_type 2>/dev/null || echo solution)"
 # The public check that must FAIL pre-modification, per gate type: the solution
 # gate's public test, or the test-generation gate's coverage check (no agent tests
 # yet -> 0% coverage). The tests dir that must exist (check 3): the agent's write
-# scope for test-generation, else the conventional services dir.
-if [ "$GATE_TYPE" = "test_generation" ]; then
-  PREMOD_CHECK_ID="T3-coverage"
-  TESTS_DIR="$(task_field agent_write_scope)"
-else
-  PREMOD_CHECK_ID="P1-public-test"
-  TESTS_DIR="src/tests/services"
-fi
+# scope for test-generation, else the task's declared tests dir (RealWorld default).
+case "$GATE_TYPE" in
+  test_generation)
+    PREMOD_CHECK_ID="T3-coverage"
+    TESTS_DIR="$(task_field agent_write_scope)" ;;
+  pr_review)
+    # No public gate can run before the sealed defect map exists (see below).
+    PREMOD_CHECK_ID="R1-defect-recall"
+    TESTS_DIR="$(task_field_opt tests_dir .)" ;;
+  *)
+    PREMOD_CHECK_ID="P1-public-test"
+    TESTS_DIR="$(task_field_opt tests_dir src/tests/services)" ;;
+esac
+
+# Checks the stack declares to have no referent (see stacks/none.sh). Recorded
+# not_applicable WITH a reason — never silently passed, never counted as failed.
+declare -A NA_REASON=()
+while IFS=$'\t' read -r na_id na_why; do
+  [ -n "$na_id" ] && NA_REASON["$na_id"]="$na_why"
+done < <(stack_na_checks)
 
 nums=(); ids=(); specs=(); statuses=(); details=()
 HIDDEN_HASH="null"; HIDDEN_VERSION="null"
@@ -53,6 +70,11 @@ mark() { # num id spec code detail  (code: 0 pass, 2 awaiting_human, else fail)
   local st
   case "$4" in 0) st=pass ;; 2) st=awaiting_human ;; *) st=fail ;; esac
   record "$1" "$2" "$3" "$st" "$5"
+}
+# True (and records the check) when this stack declares the check inapplicable.
+na() { # num id spec
+  [ -n "${NA_REASON[$2]:-}" ] || return 1
+  record "$1" "$2" "$3" not_applicable "${NA_REASON[$2]}"
 }
 
 reset_tree() { bash "$SCRIPT_DIR/reset.sh" >/dev/null 2>&1; }
@@ -74,46 +96,53 @@ else
 fi
 
 # 2. deps/ORM at commit
-if [ -f "$SUBJECT_DIR/package.json" ] && [ -f "$SUBJECT_DIR/package-lock.json" ] \
-   && [ -f "$SUBJECT_DIR/src/prisma/schema.prisma" ] \
-   && [ -d "$SUBJECT_DIR/node_modules/@prisma/client" ]; then
-  mark 2 deps-orm "SPEC-2.8" 0 "package.json+lockfile, Prisma schema, generated @prisma/client"
-else
-  mark 2 deps-orm "SPEC-2.8" 1 "missing deps/lockfile/Prisma schema/generated client"
+if ! na 2 deps-orm "SPEC-2.8"; then
+  if stack_deps_ok; then
+    mark 2 deps-orm "SPEC-2.8" 0 "$(stack_deps_detail)"
+  else
+    mark 2 deps-orm "SPEC-2.8" 1 "missing/uninstalled dependency manifest for the $TASK_STACK stack"
+  fi
 fi
 
-# 3. paths exist (each declared target path + test dir + jest config)
-paths_ok=1
-for t in "${TARGET_PATHS[@]}"; do [ -e "$SUBJECT_DIR/$t" ] || paths_ok=0; done
-[ -d "$SUBJECT_DIR/${TESTS_DIR%/}" ] && [ -f "$SUBJECT_DIR/jest.config.ts" ] || paths_ok=0
+# 3. paths exist (each declared target path + test dir + the stack's config files)
+paths_ok=1; missing=""
+for t in "${TARGET_PATHS[@]}"; do
+  [ -e "$SUBJECT_DIR/$t" ] || { paths_ok=0; missing="$missing $t"; }
+done
+[ -d "$SUBJECT_DIR/${TESTS_DIR%/}" ] || { paths_ok=0; missing="$missing ${TESTS_DIR%/}/"; }
+while IFS= read -r cfg; do
+  [ -n "$cfg" ] || continue
+  [ -e "$SUBJECT_DIR/$cfg" ] || { paths_ok=0; missing="$missing $cfg"; }
+done < <(stack_config_paths)
 if [ "$paths_ok" -eq 1 ]; then
-  mark 3 paths-exist "SPEC-2.8" 0 "target path(s), src/tests/services/, jest.config.ts"
+  mark 3 paths-exist "SPEC-2.8" 0 "${#TARGET_PATHS[@]} target path(s), ${TESTS_DIR%/}/, $(stack_config_paths | tr '\n' ' ')"
 else
-  mark 3 paths-exist "SPEC-2.8" 1 "expected task paths missing"
+  mark 3 paths-exist "SPEC-2.8" 1 "expected task paths missing:$missing"
 fi
 
 # 4. clean install
-if [ "$setup_rc" -eq 0 ] && [ -d "$SUBJECT_DIR/node_modules" ]; then
-  mark 4 clean-install "SPEC-2.8" 0 "npm ci from committed lockfile succeeded"
-else
-  mark 4 clean-install "SPEC-2.8" 1 "clean install failed (setup rc=$setup_rc)"
+if ! na 4 clean-install "SPEC-2.8"; then
+  if [ "$setup_rc" -eq 0 ] && stack_installed_ok; then
+    mark 4 clean-install "SPEC-2.8" 0 "$(stack_install_detail)"
+  else
+    mark 4 clean-install "SPEC-2.8" 1 "clean install failed (setup rc=$setup_rc)"
+  fi
 fi
 
 reset_tree
 
 # 5. baseline tests pass
-if run_jest --testPathPattern "$BASELINE_PATTERN" >/dev/null 2>&1; then
-  mark 5 baseline-tests "SPEC-2.8" 0 "DB-free unit suites green ($BASELINE_PATTERN)"
-else
-  mark 5 baseline-tests "SPEC-2.8" 1 "baseline suites did not pass"
+if ! na 5 baseline-tests "SPEC-2.8"; then
+  if stack_baseline_tests; then
+    mark 5 baseline-tests "SPEC-2.8" 0 "$(stack_baseline_detail)"
+  else
+    mark 5 baseline-tests "SPEC-2.8" 1 "baseline suites did not pass"
+  fi
 fi
 
 # 8. no leakage
 leak_rc=0
-grep -rIl --exclude-dir=node_modules --exclude-dir=.git \
-  -e 'CANONICAL SOLUTION' -e 'PILOT-ANSWER' "$SUBJECT_DIR/src" >/dev/null 2>&1 && leak_rc=1
-find "$SUBJECT_DIR" -path "$SUBJECT_DIR/node_modules" -prune -o -name '*.patch' -print \
-  2>/dev/null | grep -q . && leak_rc=1
+if leak_found; then leak_rc=1; fi
 if [ "$leak_rc" -eq 0 ]; then
   mark 8 no-leakage "SPEC-2.8" 0 "no planted solution/markers/patches in participant tree"
 else
@@ -121,15 +150,26 @@ else
 fi
 
 # 9. clean-container build
-if ( cd "$SUBJECT_DIR" && NX_DAEMON=false CI=true npx nx build --skip-nx-cache ) >/dev/null 2>&1; then
-  in_ctr="host"; [ "${TASK_IN_CONTAINER:-0}" = "1" ] && in_ctr="container"
-  mark 9 clean-build "SPEC-2.8" 0 "nx build succeeds on clean pinned tree ($in_ctr)"
-else
-  mark 9 clean-build "SPEC-2.8" 1 "nx build failed on clean pinned tree"
+if ! na 9 clean-build "SPEC-2.8"; then
+  if stack_build; then
+    in_ctr="host"; [ "${TASK_IN_CONTAINER:-0}" = "1" ] && in_ctr="container"
+    mark 9 clean-build "SPEC-2.8" 0 "$(stack_build_detail) on clean pinned tree ($in_ctr)"
+  else
+    mark 9 clean-build "SPEC-2.8" 1 "build failed on clean pinned tree"
+  fi
 fi
 
 # 6. pre-modification failure (public gate must FAIL on the unmodified task)
 reset_tree
+if [ "$GATE_TYPE" = "pr_review" ]; then
+  # A review task's only gate is the matcher over the SEALED defect map: with no
+  # map there is no gate to fail, and an empty review cannot be scored. This is
+  # awaiting_human, not a pass — see hidden/README-FOR-HUMAN.md.
+  mark 6 premod-failure "SPEC-2.8" 2 \
+    "review gate needs the sealed defect map to score an empty review ($TASK_DIR/hidden/)"
+  mark 7 canonical-hidden "SPEC-2.8/2.6" 2 \
+    "review gate needs the sealed defect map ($TASK_DIR/hidden/)"
+else
 premod_report="$WORKDIR/gate-premod.json"
 GATE_REPORT="$premod_report" bash "$SCRIPT_DIR/gate/check-public.sh" >/dev/null 2>&1
 premod_gate_rc=$?
@@ -148,9 +188,18 @@ fi
 
 # 7. hidden-test pass on canonical patch (also: public gate accepts the canonical fix)
 reset_tree
+if [ ! -f "$CANONICAL_PATCH" ] && [ "${TASK_IN_CONTAINER:-0}" = "1" ]; then
+  # .dockerignore excludes canonical/ from the validation images on purpose
+  # (subject isolation, FIX D): the answer patch must not be readable from a tree
+  # the agent leg can reach. So a containerized run genuinely CANNOT perform
+  # check 7 — that is not_applicable-with-reason, not a failure and not a pass.
+  # Check 7 is verified on the host, where canonical/ is present.
+  record 7 canonical-hidden "SPEC-2.8/2.6" not_applicable \
+    "canonical/ excluded from the container image by .dockerignore (subject isolation); check 7 is host-verified"
+else
 canon_rc=0
 git -C "$SUBJECT_DIR" apply "$CANONICAL_PATCH" || canon_rc=1
-prisma_generate
+stack_post_patch
 if [ "$canon_rc" -eq 0 ] && bash "$SCRIPT_DIR/gate/check-public.sh" >/dev/null 2>&1; then
   hidden_report="$WORKDIR/gate-hidden.json"
   HIDDEN_REPORT="$hidden_report" bash "$SCRIPT_DIR/gate/check-hidden.sh" >/dev/null 2>&1
@@ -167,6 +216,8 @@ if [ "$canon_rc" -eq 0 ] && bash "$SCRIPT_DIR/gate/check-public.sh" >/dev/null 2
 else
   mark 7 canonical-hidden "SPEC-2.8/2.6" 1 "canonical patch did not apply / public gate rejected it"
 fi
+fi   # end: canonical patch present (or host run)
+fi   # end: gate types with an executable public gate
 reset_tree
 
 # 10. deterministic reset
@@ -179,12 +230,13 @@ else
 fi
 
 # --- Emit report -------------------------------------------------------------
-passed=0; failed=0; awaiting=0
+passed=0; failed=0; awaiting=0; not_applicable=0
 for st in "${statuses[@]}"; do
   case "$st" in
     pass) passed=$((passed + 1)) ;;
     fail) failed=$((failed + 1)) ;;
     awaiting_human) awaiting=$((awaiting + 1)) ;;
+    not_applicable) not_applicable=$((not_applicable + 1)) ;;
   esac
 done
 total=${#statuses[@]}
@@ -197,6 +249,7 @@ V_DETAILS="$(printf '%s\n' "${details[@]}")" \
 TASK_ID="$TASK_ID" REPO_URL="$REPO_URL" PIN="$PIN" STAMP="$STAMP" \
 HIDDEN_HASH="$HIDDEN_HASH" HIDDEN_VERSION="$HIDDEN_VERSION" \
 PASSED="$passed" FAILED="$failed" AWAITING="$awaiting" TOTAL="$total" \
+NOT_APPLICABLE="$not_applicable" TASK_STACK="$TASK_STACK" GATE_TYPE="$GATE_TYPE" \
 pilot_python - "$REPORT_PATH" <<'PY'
 import json, os, sys
 z = zip(os.environ["V_NUMS"].splitlines(), os.environ["V_IDS"].splitlines(),
@@ -209,10 +262,14 @@ report = {
     "repo": os.environ["REPO_URL"],
     "pinned_commit": os.environ["PIN"],
     "generated_utc": os.environ["STAMP"],
+    "stack": os.environ["TASK_STACK"],
+    "gate_type": os.environ["GATE_TYPE"],
     "hidden_test_hash": None if os.environ["HIDDEN_HASH"] == "null" else os.environ["HIDDEN_HASH"],
     "hidden_test_version": None if os.environ["HIDDEN_VERSION"] == "null" else os.environ["HIDDEN_VERSION"],
     "summary": {"passed": int(os.environ["PASSED"]), "failed": int(os.environ["FAILED"]),
-                "awaiting_human": int(os.environ["AWAITING"]), "total": int(os.environ["TOTAL"])},
+                "awaiting_human": int(os.environ["AWAITING"]),
+                "not_applicable": int(os.environ["NOT_APPLICABLE"]),
+                "total": int(os.environ["TOTAL"])},
     "checks": checks,
 }
 with open(sys.argv[1], "w", encoding="utf-8") as fh:
@@ -221,7 +278,7 @@ print(json.dumps(report, indent=2))
 PY
 
 echo "==================================================================="
-echo " RESULT: $passed passed, $awaiting awaiting-human, $failed failed (of $total)"
+echo " RESULT: $passed passed, $awaiting awaiting-human, $not_applicable n/a, $failed failed (of $total)"
 echo " report: $REPORT_PATH"
 echo "==================================================================="
 [ "$failed" -eq 0 ]

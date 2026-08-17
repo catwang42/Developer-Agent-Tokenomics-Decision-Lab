@@ -5,43 +5,79 @@ One parameterized engine drives the SPEC §2.8 10-point validation and the SPEC
 `TASK_DIR` at a task directory and the same scripts run it:
 
 ```bash
-TASK_DIR=tasks/pilot-realworld            bash harness/task-tools/validate.sh
-TASK_DIR=tasks/suite/W4-complex-bugfix    bash harness/task-tools/validate.sh
+TASK_DIR=tasks/pilot-realworld                       bash harness/task-tools/validate.sh
+TASK_DIR=tasks/suite/W4-complex-bugfix               bash harness/task-tools/validate.sh
+TASK_DIR=tasks/suite/W3-migration                    bash harness/task-tools/validate.sh
+TASK_DIR=tasks/suite/W1b-zarr-block-mask-properties  bash harness/task-tools/validate.sh
 ```
 
 This is the foundation for the 11-task expanded suite (SPEC §2.3): tasks add data,
 not code.
 
+## Stacks and gate types
+
+Two axes, both declared in `task.yaml`, both resolved at run time — no branch in
+the engine is per-task.
+
+- **`stack:`** picks a toolchain driver from `stacks/` (`node` · `python` · `none`).
+  The driver owns install, dependency probe, baseline, selected-test run, coverage
+  and build; the task supplies the commands via `stack_cmds`. Contract:
+  [`stacks/README.md`](stacks/README.md).
+- **`gate_type:`** picks what "accepted" means: `solution` (P1–P6, the default),
+  `test_generation` (T1 diff-scope · T2 suite-green · T3 coverage · T4 tests-pass,
+  authoritative check = a sealed mutation-catch runner), or `pr_review` (a
+  deterministic matcher over a sealed seeded-defect map).
+
+Checks a stack genuinely cannot perform are reported `not_applicable` **with a
+reason**, never silently skipped and never counted as passes (SPEC §2.8).
+
 ## Scripts
 
 | Script | Role |
 |---|---|
-| `lib.sh` | Paths, `task.yaml` + manifest readers, hermetic jest, prisma generate |
-| `setup.sh` | Clone subject repo at the pinned commit, verify SHA, `npm ci`, generate |
+| `lib.sh` | Paths, `task.yaml` + manifest readers, stack dispatch, leak scan |
+| `stacks/{node,python,none}.sh` | Per-toolchain drivers behind `task.yaml stack:` |
+| `setup.sh` | Clone subject repo at the pinned commit, verify SHA, stack install |
 | `reset.sh` | Deterministic reset; prints canonical working-tree hash |
-| `gate/check-public.sh` | Visible deterministic-first gate (P1–P6) |
+| `gate/check-public.sh` | Visible deterministic-first gate (P1–P6 / T1–T4 / review) |
 | `gate/check-hidden.sh` | Sealed hidden gate; records `sha256` version+hash |
+| `gate/covpy_to_summary.py` | `coverage.py` JSON → the gate's coverage summary shape |
+| `gate/scope_eval.py` | Diff-scope evaluation for the test-generation gate |
 | `validate.sh` | 10-point validation → `validation-report.json` + summary |
-| `Dockerfile` | Clean-container validation env (subject repo cloned at runtime) |
+| `Dockerfile` | Clean-container validation env, `stack: node` |
+| `Dockerfile.python` | Clean-container validation env, `stack: python` (uv-based) |
+
+Both images carry tooling + harness only and clone the subject repo at the pinned
+commit at run time. `stack: none` tasks run under either.
 
 ## What a task directory must provide
 
 ```
 tasks/<task>/
 ├── task.yaml            # task definition (see fields below)
-├── canonical/<x>.patch  # canonical solution patch — PRODUCT code only
-├── tests/<x>.test.ts    # PUBLIC test (repro for bugfix; feature-spec for feature)
-├── gate/test-compat.patch  # OPTIONAL harness-owned type-compat shim (*.test.ts only)
-├── hidden/              # gitignored, human-held sealed tests (+ README-FOR-HUMAN.md)
+├── canonical/<x>.patch  # canonical patch — PRODUCT code only (solution gate);
+│                        #   NEW TEST FILES only (test_generation); absent (pr_review)
+├── tests/<x>            # PUBLIC test, solution gate only (*.test.ts / *_test.py)
+├── env/                 # OPTIONAL task-owned dependency lock, when upstream is unpinned
+├── gate/test-compat.patch  # OPTIONAL harness-owned type-compat shim (test files only)
+├── hidden/              # gitignored, human-held sealed material (+ README-FOR-HUMAN.md)
 └── README.md
 ```
 
 `task.yaml` fields the harness reads: `task_id`, `manifest_key` (which
-`manifest/delivery-manifest.yaml` entry holds `repo`/`pinned_commit`),
-`canonical_patch` (PRODUCT code only), `public_test`, `public_test_desc`,
-`public_test_kind` (`repro`|`feature`), `target_paths` (list of PRODUCT files, for
-diff-scope), `baseline_test_pattern`, `baseline_test_scope`, `contamination_tier`,
-and optional `test_compat_patch` (harness-owned type-compat shim, `*.test.ts` only).
+`manifest/delivery-manifest.yaml` entry holds `repo`/`pinned_commit`), `stack`,
+`stack_cmds`, `gate_type`, `canonical_patch` (PRODUCT code only), `public_test`,
+`public_test_dest`, `public_test_support`, `public_test_desc`, `public_test_kind`
+(`repro` | `feature` | `pr_own_tests`), `target_paths` (list of PRODUCT files, for
+diff-scope), `protected_test_paths`, `baseline_test_pattern`, `baseline_test_scope`,
+`contamination_tier`, and optional `test_compat_patch` (harness-owned type-compat
+shim, test files only). Test-generation adds `agent_write_scope`, `coverage_target`
+and `hidden_test_glob`.
+
+`public_test_kind: pr_own_tests` is the commit-mining default (`tasks/
+WORKLOAD-SELECTION.md` §4): the public test is the upstream PR's own test file
+lifted verbatim, so the gate is sealed by construction and pre-modification
+failure is free — nobody on this side chose what "correct" means.
 
 ## Test integrity — an agent cannot pass by editing tests
 

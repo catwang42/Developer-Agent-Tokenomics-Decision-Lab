@@ -1,23 +1,36 @@
 workload_id: W6
 class: code_review
-status: candidate
+status: pinned                      # was `candidate`; commit-mined and pinned 2026-08-16
 # Added before CP-SCREEN-PREREG per SPEC §5 anti-bias protocol (pre-register the
 # task set before running; publish all classes including null/negative findings).
-repo: CHOOSE-AT-CP-SCREEN-PREREG   # candidate: a diff/PR with k defects seeded by us on a pinned base commit
-pinned_commit: PIN-BEFORE-PREREG
-contamination_tier: TBD-AT-PREREG   # depends on repo chosen at CP-SCREEN-PREREG; see tasks/WORKLOAD-SELECTION.md §2
+#
+# Source: honojs/hono PR #5171, "feat(reg-exp-router): throw UnsupportedPathError
+# during route registration", merged 2026-08-03T21:18:54Z (squash, single parent).
+#   N    8a0b18fd9b4d64dd2eb1d7f18e3536fc06cb54b2   (the merged fix; base_diff head)
+#   N-1  3feb3551d46de1f633e82253f12cf1117316be93   (pinned_commit; base_diff base)
+# Mining rationale and the full 8-candidate register:
+#   tasks/proposals/2026-08-commit-mined-candidates.md (C8)
+# Task definition and gate wiring: task.yaml.
+repo: https://github.com/honojs/hono
+pinned_commit: 3feb3551d46de1f633e82253f12cf1117316be93
+contamination_tier: post_cutoff     # merged 2026-08-03; model-relative, see tasks/WORKLOAD-SELECTION.md §2
+license: MIT
+stars_at_mining: 31686              # recorded 2026-08-16 via the GitHub API
 language: typescript
+task_dir: tasks/suite/W6-pr-review
 prompt: |
-  DRAFT — finalize before pre-registration. Review the following diff and report the
-  defects you find (correctness, security, and regression risks), each with file and
-  line. Report only defects you can justify from the diff.
-  (MUST NOT ask the model to report its own tokens.)
+  FINALIZED in task.yaml (`prompt:`) — that is the single source of truth for the
+  participant-visible text. Summary: review the pinned RegExpRouter diff and report
+  every defect justifiable FROM THE DIFF, one per line as
+  `<path>:<line> — <one-sentence description>`; style/naming/missing-tests are out
+  of scope; a reported issue that is not a real defect counts against you.
+  (MUST NOT ask the model to report its own tokens — it does not.)
 gate:
   # Deterministic scoring against a sealed map of the k seeded defects. Detection is
   # matched by file+line/defect-id, NOT by model judgment — this is a deterministic
   # gate over a known ground truth, consistent with SPEC §2.6.
   public: gate/check-public.sh
-  hidden: recorded-by-hash-at-run     # sealed seeded-defect map + evaluator, human-held under tasks/hidden/
+  hidden: recorded-by-hash-at-run     # sealed seeded-defect map + evaluator, human-held under hidden/
   reset: reset.sh
 pass_condition: >
   Detects >= k-1 of the k seeded defects AND reports zero fabricated issues
@@ -30,4 +43,17 @@ class_claim_note: >
   One task = screening signal only. A workload-class claim requires a second,
   materially different task from this class at tier obscure or post_cutoff
   (tasks/WORKLOAD-SELECTION.md §3, extending SPEC §5.2); commit mining preferred (§4).
-preregistration: TBD
+  W6 currently has ONE task, so any W6 result is a screening signal about THIS task,
+  never a claim about code review as a workload class.
+escalation_probe_note: >
+  SPEC §5.1 names W6 the primary escalation-probe candidate and W3 the fallback. For
+  the screening batch the DESIGNATED probe is W3 (tasks/suite/W3-migration), which
+  carries the registered failure prediction. W6 may additionally carry a prediction;
+  if so it must be registered in manifest/preregistrations/ before any run.
+preregistration: TBD                # register k + the defect-map hash before any run
+human_authored_pending:
+  - hidden/review-diff.patch        # base-diff with k defects seeded
+  - hidden/defect-map.json          # ground truth
+  - hidden/check.sh                 # deterministic matcher (exit 0/1/2)
+  - hidden/VERSION
+  # Instructions: tasks/suite/W6-pr-review/hidden/README-FOR-HUMAN.md

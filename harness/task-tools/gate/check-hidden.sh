@@ -7,8 +7,9 @@
 #
 # Two shapes, dispatched by task.yaml `gate_type` (default `solution`):
 #
-#   solution        — sealed *.test.ts / *.spec.ts are injected under
-#                     src/tests/services and run with jest.
+#   solution        — sealed test files (task.yaml `hidden_test_glob`, default
+#                     *.test.ts / *.spec.ts) are injected under the task's
+#                     `hidden_test_dest` and run through the stack's test runner.
 #
 #   test_generation — the sealed artifact is an EXECUTABLE runner (convention:
 #                     check.sh) that mutation-tests the AGENT's produced tests. We
@@ -16,6 +17,11 @@
 #                     human-held), invoke it with SUBJECT_DIR exported, surface its
 #                     stderr (per-mutant caught / NOT-caught) into the gate log, and
 #                     honor its exit contract verbatim.
+#
+#   pr_review       — same executable-runner shape as test_generation: the sealed
+#                     artifact is the seeded-defect map plus a matcher (check.sh)
+#                     that scores the agent's review report against it. The harness
+#                     never reads the map.
 #
 # Exit codes (both shapes): 0 accept · 1 reject · 2 hidden unavailable / awaiting human.
 set -uo pipefail
@@ -66,7 +72,7 @@ PY
 # ---------------------------------------------------------------------------
 # test_generation — executable sealed runner (mutation-catch). See header.
 # ---------------------------------------------------------------------------
-if [ "$GATE_TYPE" = "test_generation" ]; then
+if [ "$GATE_TYPE" = "test_generation" ] || [ "$GATE_TYPE" = "pr_review" ]; then
   ENTRYPOINT="$HIDDEN_DIR/check.sh"    # convention; human-authored, human-held
   if [ ! -x "$ENTRYPOINT" ]; then
     echo "  AWAITING_HUMAN — no executable sealed runner at $HIDDEN_DIR/check.sh"
@@ -114,8 +120,15 @@ fi
 # ---------------------------------------------------------------------------
 # solution (default) — sealed jest tests injected under src/tests/services.
 # ---------------------------------------------------------------------------
+hidden_find=()
+while IFS= read -r pat; do
+  [ -n "$pat" ] || continue
+  [ "${#hidden_find[@]}" -eq 0 ] && hidden_find=(-name "$pat") || hidden_find+=(-o -name "$pat")
+done < <(task_list hidden_test_glob)
+[ "${#hidden_find[@]}" -gt 0 ] || hidden_find=(-name '*.test.ts' -o -name '*.spec.ts')
+
 mapfile -t hidden_files < <(
-  find "$HIDDEN_DIR" -type f \( -name '*.test.ts' -o -name '*.spec.ts' \) 2>/dev/null | sort
+  find "$HIDDEN_DIR" -type f \( "${hidden_find[@]}" \) 2>/dev/null | sort
 )
 
 if [ "${#hidden_files[@]}" -eq 0 ]; then
@@ -130,9 +143,10 @@ HIDDEN_VERSION="$(cat "$HIDDEN_DIR/VERSION" 2>/dev/null || echo "unversioned")"
 echo "  version: $HIDDEN_VERSION"
 echo "  hash:    $HIDDEN_HASH"
 
-# Keep Prisma client in step with the (patched) schema before running.
-prisma_generate
+# Keep anything derived from source in step with the (patched) tree before running.
+stack_post_patch
 
+HIDDEN_DST_DIR="$(task_field_opt hidden_test_dest src/tests/services)"
 injected=()
 # Invoked only via `trap cleanup EXIT`, so shellcheck sees it as unreachable.
 # SC2317 (shellcheck 0.9.x, what CI ships) and SC2329 (0.11.x, its successor)
@@ -143,15 +157,15 @@ cleanup() { for f in "${injected[@]}"; do rm -f "$f"; done; }
 trap cleanup EXIT
 
 names=()
+mkdir -p "$SUBJECT_DIR/${HIDDEN_DST_DIR%/}"
 for src in "${hidden_files[@]}"; do
   base="$(basename "$src")"
-  cp "$src" "$SUBJECT_DIR/src/tests/services/$base"
-  injected+=("$SUBJECT_DIR/src/tests/services/$base")
-  names+=("$base")
+  cp "$src" "$SUBJECT_DIR/${HIDDEN_DST_DIR%/}/$base"
+  injected+=("$SUBJECT_DIR/${HIDDEN_DST_DIR%/}/$base")
+  names+=("${HIDDEN_DST_DIR%/}/$base")
 done
 
-pattern="$(printf '%s|' "${names[@]}" | sed 's/|$//')"
-run_jest --testPathPattern "$pattern" >/dev/null 2>&1
+stack_run_selected "$(stack_selector "${names[@]}")"
 rc=$?
 
 write_hidden_report "$([ "$rc" -eq 0 ] && echo pass || echo fail)" "$HIDDEN_HASH" "$HIDDEN_VERSION"

@@ -1,0 +1,149 @@
+# W1b task definition — TEST-GENERATION gate type (SPEC §2.6/§2.8).
+#
+# W1's SECOND task. tasks/WORKLOAD-SELECTION.md §3 (extending SPEC §5.2): a screening
+# signal only becomes a WORKLOAD-CLASS claim when a second, materially different task
+# from the same class, at tier `obscure` or `post_cutoff`, agrees. W1 is
+# tasks/suite/W1-test-generation (RealWorld mappers, tier `famous`, hand-authored);
+# W1b is commit-mined from a real merged PR at tier `post_cutoff`, in a different
+# language, ecosystem and testing style (Hypothesis property tests over a 30k-line
+# array library vs. example-based unit tests over two 20-line mappers). W1b does NOT
+# carry its own workload.yaml — it is named by W1's `second_task_for_class_claim`.
+#
+# Volatile pins are the source of truth in manifest/delivery-manifest.yaml (w1b_task);
+# this file mirrors them and adds gate wiring. Driven by the shared harness:
+#   TASK_DIR=tasks/suite/W1b-zarr-block-mask-properties bash harness/task-tools/validate.sh
+task_id: w1b-zarr-block-mask-properties
+manifest_key: w1b_task
+task_suite_version: screening-v1
+class: test_generation
+gate_type: test_generation
+
+# Source (commit-mined, tasks/WORKLOAD-SELECTION.md §4).
+#   PR:     https://github.com/zarr-developers/zarr-python/pull/4054
+#           "Add property tests for block and mask indexing"
+#   merged: 2026-06-09T02:27:00Z (squash merge, single parent)
+#   N       96a62b51f8fe86eeb056eee1684eef94b4114e35  (canonical_fix_commit)
+#   N-1     b9d396460da369bea86f4bd978d3746f7a41076b  (pinned_commit)
+# Shares the zarr toolchain image and uv cache with W4b (different pin, different
+# checkout); `uv sync` against a warm shared cache is ~4 s.
+repo: https://github.com/zarr-developers/zarr-python
+pinned_commit: b9d396460da369bea86f4bd978d3746f7a41076b
+canonical_fix_commit: 96a62b51f8fe86eeb056eee1684eef94b4114e35
+license: MIT
+contamination_tier: post_cutoff   # merged 2026-06-09; model-relative (WORKLOAD-SELECTION §2)
+
+# --- Environment --------------------------------------------------------------
+stack: python
+dependency_manifests: [pyproject.toml, uv.lock]
+stack_cmds:
+  install: uv sync --frozen --no-default-groups --group test
+  deps_probe: .venv/bin/python -c 'import zarr, pytest, hypothesis'
+  # HYPOTHESIS_PROFILE=ci selects zarr's own derandomize=True profile
+  # (tests/conftest.py). Without it Hypothesis reseeds per run and neither the
+  # pass/fail result nor the T3 coverage number is reproducible — a coverage
+  # THRESHOLD over a randomised strategy is not a gate. Verified: two consecutive
+  # derandomized runs of the canonical produced byte-identical coverage
+  # (250/800 statements, 86/252 branches, both runs).
+  #
+  # `tests/test_*_properties.py` is the agent's new file (the prompt requires that
+  # name shape); `nullglob` makes the baseline collapse to test_indexing.py alone
+  # at the pin, where no such file exists yet, so SPEC §2.8 check 5 is meaningful.
+  # Note `test_properties.py`, zarr's own module, does NOT match the glob.
+  baseline: >-
+    shopt -s nullglob;
+    HYPOTHESIS_PROFILE=ci .venv/bin/python -m pytest
+    tests/test_indexing.py tests/test_*_properties.py -q -p no:cacheprovider
+  select: HYPOTHESIS_PROFILE=ci .venv/bin/python -m pytest {SEL} -q -p no:cacheprovider
+  coverage: >-
+    HYPOTHESIS_PROFILE=ci .venv/bin/python -m pytest {SEL} -q -p no:cacheprovider
+    --cov=zarr.core.indexing --cov-branch --cov-report=json:{COV_OUT}
+  build: .venv/bin/python -c 'import zarr, zarr.core.indexing, zarr.testing.strategies'
+
+# --- Participant-visible prompt ------------------------------------------------
+# Test-GENERATION: the agent writes TESTS, not product code.
+prompt: |
+  Block indexing (`Array.blocks[...]`, `get_block_selection`, `set_block_selection`)
+  and mask indexing (`get_mask_selection`, `set_mask_selection`, `Array.vindex[mask]`)
+  are covered only by hand-picked examples. Add Hypothesis property tests for both.
+
+  - Add exactly ONE new file, `tests/test_<something>_properties.py` (the
+    `_properties.py` suffix is required so the test runner picks it up). Do not
+    modify any existing file: not `src/zarr/core/indexing.py`, not
+    `src/zarr/testing/strategies.py`, not `tests/test_properties.py`, not conftest.
+  - Use the strategies already published by `zarr.testing.strategies` (for example
+    `simple_arrays`, `rectilinear_arrays`, `numpy_arrays`, `np_array_and_chunks`,
+    `basic_indices`, `stores`) rather than building arrays by hand.
+  - Each property must compare zarr against a NUMPY ORACLE: perform the same
+    selection on the equivalent numpy array and assert the results are equal. A test
+    that only asserts a shape, a dtype, or that the call did not raise does not
+    count.
+  - Cover BOTH directions for both indexing modes: reading a selection and writing a
+    selection, and for each, both the dedicated method and the indexer property
+    (`.blocks[...]` / `.vindex[...]`).
+  - Block indexing is basic indexing over the grid of chunks, and it is stricter than
+    numpy: only integers and step-1 slices whose start references an existing chunk
+    are supported. Your generator must respect that; do not weaken the property to
+    accommodate inputs zarr does not support.
+  - Rectilinear (non-uniform) chunk grids are behind a config flag; if your
+    strategies can produce them, enable it.
+  - The existing suite must stay green.
+
+# --- Gate ----------------------------------------------------------------------
+# The AGENT authors tests; the gate grades the tests, not a feature.
+target_paths:                     # product files the agent must NOT change
+  - src/zarr/core/indexing.py
+agent_write_scope: tests/         # the agent may only ADD test files here
+canonical_patch: canonical/block-mask-property-tests.patch
+protected_test_paths: [tests]
+tests_dir: tests
+hidden_test_glob: ["test_*_sealed.py"]
+hidden_test_dest: tests
+source_root: src
+
+# T3 coverage gate. Metric `branches` because it discriminates and `statements` does
+# not. Both endpoints are MEASURED, not chosen:
+#
+#   naive floor  26.19% branches (26.90% statements) — a 10-line smoke test that
+#                calls every one of the six interfaces once and asserts shapes.
+#   canonical    34.13% branches (31.94% statements) — canonical/, measured twice
+#                under HYPOTHESIS_PROFILE=ci with byte-identical results.
+#
+# 30% sits inside that 8-point band with ~4 points of headroom on each side. The
+# absolute number is low because zarr.core.indexing is one 800-statement module
+# serving every indexing mode, and this task targets two of them — the honest
+# ceiling here is not 100%, exactly as in W1 (report/findings/w1-coverage-analysis.md).
+# T3 is a COARSE NECESSARY-CONDITION filter; the sealed mutation-catch check is the
+# authoritative meaningfulness test (SPEC §2.6). Evaluator:
+# harness/task-tools/gate/coverage_eval.py, fed by gate/covpy_to_summary.py.
+coverage_target:
+  metric: branches
+  files:
+    - path: src/zarr/core/indexing.py
+      min_pct: 30
+# Public checks (deterministic, no sealed data):
+#   T1 diff-scope  : ONLY new files under agent_write_scope changed; no product/test edits
+#   T2 suite-green : tests/test_indexing.py + the agent's new tests pass together
+#   T3 coverage    : branch coverage of zarr.core.indexing >= min_pct
+#   T4 tests-pass  : the agent's new tests pass against the pinned (pristine) product
+public_checks: [T1-diff-scope, T2-suite-green, T3-coverage, T4-tests-pass]
+
+# HIDDEN (sealed, human-authored, human-held) — the MEANINGFULNESS check, and the
+# authoritative one (SPEC §2.6). Mutation-based: seeded mutants of the block/mask
+# code paths in src/zarr/core/indexing.py are dropped in and the agent's tests must
+# FAIL (catch) each. A high-coverage-but-oracle-free suite passes T1–T4 and fails
+# here. See hidden/README-FOR-HUMAN.md. Recorded by hash at run time; never committed.
+hidden_test: mutation-catch (sealed; hash recorded at run)
+
+baseline_test_scope: hermetic_local_store
+baseline_test_pattern: "tests/test_indexing.py + tests/test_*_properties.py"
+static_checks: [build]
+
+expected_wallclock_s: null       # measured at run time; never fabricated
+
+# Config declarations (SPEC §2.3; ENFORCED by tests/test_tasks.py). Screening task:
+# never run in feasibility, so it carries W1's SCREENING set from
+# tasks/suite/W1-test-generation/workload.yaml.
+task_phase: screening
+configurations: [C1, C2, C3, C5]
+companion_configurations: []
+reps_screening: 3

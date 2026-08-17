@@ -1,0 +1,56 @@
+# Clean-container environment for the 10-point validation (SPEC 2.8) of tasks
+# whose task.yaml declares `stack: python` (harness/task-tools/stacks/python.sh).
+# Sibling of ./Dockerfile, which serves `stack: node`. Same contract: the image
+# carries only tooling + the task harness, and the subject repo is cloned fresh at
+# the pinned commit inside the container, so reproducibility is proven from
+# scratch rather than baked into a pre-built tree.
+#
+# Build from the repository root:
+#   docker build -f harness/task-tools/Dockerfile.python -t task-validate-py .
+# Run a task's validation end-to-end (needs network to clone + resolve deps):
+#   docker run --rm --network=host \
+#     -e TASK_DIR=/lab/tasks/suite/W4b-zarr-consolidated-order  task-validate-py
+#   docker run --rm --network=host \
+#     -e TASK_DIR=/lab/tasks/suite/W1b-zarr-block-mask-properties task-validate-py
+#   docker run --rm --network=host \
+#     -e TASK_DIR=/lab/tasks/suite/W3-migration                  task-validate-py
+#
+# `stack: none` tasks (W6) need no language toolchain and run under either image.
+#
+# Cache note: the two zarr tasks (W4b, W1b) resolve the same uv workspace at two
+# different pins. Mount a shared cache to avoid re-downloading wheels per run:
+#   -v "$HOME/.cache/uv:/root/.cache/uv"
+FROM python:3.12-slim-bookworm
+
+# git      — the harness clones the subject repo at the pinned commit
+# curl     — fetches the uv installer
+# ca-certs — HTTPS for both of the above
+# python3-yaml is NOT apt-installed here: the base image's pip provides PyYAML,
+# which harness/task-tools/lib.sh needs to read task.yaml.
+RUN apt-get update -qq \
+    && apt-get install -y --no-install-recommends git ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir --root-user-action=ignore pyyaml
+
+# uv drives every python-stack install (`uv venv` / `uv pip` / `uv sync`).
+# Pinned: an unpinned installer would make the "clean container" a moving target.
+# 0.12.5 is the version every host-side measurement in this roster was taken with.
+ENV UV_VERSION=0.12.5
+RUN curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | env UV_INSTALL_DIR=/usr/local/bin sh \
+    && uv --version
+
+WORKDIR /lab
+
+COPY manifest/ /lab/manifest/
+COPY tasks/ /lab/tasks/
+COPY harness/task-tools/ /lab/harness/task-tools/
+
+ENV TASK_WORKDIR=/tmp/task-work
+ENV CI=true TASK_IN_CONTAINER=1
+# Selects zarr's derandomize=True Hypothesis profile (tests/conftest.py). Harmless
+# for repos that define no such profile; required for W1b's coverage threshold to
+# be a gate rather than a coin flip.
+ENV HYPOTHESIS_PROFILE=ci
+ENV TASK_DIR=/lab/tasks/suite/W4b-zarr-consolidated-order
+
+ENTRYPOINT ["bash", "/lab/harness/task-tools/validate.sh"]
