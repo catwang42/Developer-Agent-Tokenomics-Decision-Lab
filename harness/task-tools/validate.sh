@@ -34,9 +34,16 @@ REPORT_PATH="${VALIDATION_REPORT:-$WORKDIR/validation-report.json}"
 PIN="$(manifest_task pinned_commit)"
 REPO_URL="$(manifest_task repo)"
 TASK_ID="$(task_field task_id)"
-CANONICAL_PATCH="$TASK_DIR/$(task_field canonical_patch)"
 mapfile -t TARGET_PATHS < <(task_list target_paths)
 GATE_TYPE="$(task_field gate_type 2>/dev/null || echo solution)"
+# A review task has no canonical patch to apply — its canonical reference IS the
+# sealed defect map (see check 7). Reading the key anyway would abort task_field and
+# spray "canonical_patch is missing" onto stderr on every W6 validation.
+if [ "$GATE_TYPE" = "pr_review" ]; then
+  CANONICAL_PATCH=""
+else
+  CANONICAL_PATCH="$TASK_DIR/$(task_field canonical_patch)"
+fi
 # The public check that must FAIL pre-modification, per gate type: the solution
 # gate's public test, or the test-generation gate's coverage check (no agent tests
 # yet -> 0% coverage). The tests dir that must exist (check 3): the agent's write
@@ -162,13 +169,62 @@ fi
 # 6. pre-modification failure (public gate must FAIL on the unmodified task)
 reset_tree
 if [ "$GATE_TYPE" = "pr_review" ]; then
-  # A review task's only gate is the matcher over the SEALED defect map: with no
-  # map there is no gate to fail, and an empty review cannot be scored. This is
-  # awaiting_human, not a pass — see hidden/README-FOR-HUMAN.md.
-  mark 6 premod-failure "SPEC-2.8" 2 \
-    "review gate needs the sealed defect map to score an empty review ($TASK_DIR/hidden/)"
-  mark 7 canonical-hidden "SPEC-2.8/2.6" 2 \
-    "review gate needs the sealed defect map ($TASK_DIR/hidden/)"
+  # A review task's only gate is the matcher over the SEALED defect map. Until a
+  # human authors that map's runner there is nothing to score, and both checks are
+  # awaiting_human. ONCE IT EXISTS, BOTH BECOME REAL — awaiting_human was a
+  # placeholder for the unauthored state, never a property of review tasks, and
+  # hidden/README-FOR-HUMAN.md holds the harness to it ("after you author: 6 pass,
+  # 0 awaiting-human"). Hardcoding the placeholder meant a review task could never
+  # reach a validated state no matter what the human delivered.
+  #
+  # Nothing below reads, prints or copies sealed material: the harness checks that
+  # check.sh is executable, invokes it through the same gate the real run uses, and
+  # records the fingerprint that gate computes. The map itself is never opened.
+  REVIEW_HIDDEN_DIR="${HIDDEN_TESTS_DIR:-$TASK_DIR/hidden}"
+  if [ -x "$REVIEW_HIDDEN_DIR/check.sh" ]; then
+    # 6. pre-modification failure, review-task form: the gate must REJECT an empty
+    # review. The reset above already removed every untracked file, so the subject
+    # tree carries no review artifact; drop it by name as well so the premise is
+    # stated rather than inherited from reset.sh's behaviour.
+    REVIEW_ARTIFACT="$(task_field_opt review_report review-report.txt)"
+    rm -f "$SUBJECT_DIR/${REVIEW_ARTIFACT#/}"
+    review_premod_report="$WORKDIR/gate-hidden-premod.json"
+    HIDDEN_REPORT="$review_premod_report" bash "$SCRIPT_DIR/gate/check-hidden.sh" >/dev/null 2>&1
+    empty_review_rc=$?
+    # Fingerprint + version come from the gate's own report, so check 7 cites the
+    # exact bytes the gate hashed rather than a second, driftable computation.
+    if [ -f "$review_premod_report" ]; then
+      HIDDEN_HASH="$(pilot_python -c 'import json,sys;print(json.load(open(sys.argv[1])).get("hash") or "null")' "$review_premod_report")"
+      HIDDEN_VERSION="$(pilot_python -c 'import json,sys;print(json.load(open(sys.argv[1])).get("version") or "null")' "$review_premod_report")"
+    fi
+    case "$empty_review_rc" in
+      1) mark 6 premod-failure "SPEC-2.8" 0 \
+           "sealed review gate rejects an empty review (no $REVIEW_ARTIFACT in the subject tree; runner exit 1)" ;;
+      0) mark 6 premod-failure "SPEC-2.8" 1 \
+           "sealed review gate ACCEPTED an empty review (runner exit 0): it does not fail pre-modification, so it cannot distinguish a review from silence" ;;
+      2) mark 6 premod-failure "SPEC-2.8" 1 \
+           "sealed review gate reported itself unavailable while scoring an empty review (runner exit 2)" ;;
+      *) mark 6 premod-failure "SPEC-2.8" 1 \
+           "sealed review gate errored while scoring an empty review (runner exit $empty_review_rc)" ;;
+    esac
+
+    # 7. canonical-hidden, review-task form. There is no canonical patch to apply:
+    # the sealed defect map is itself the canonical reference, so what check 7 can
+    # establish is that the map is present and pinned — recorded by fingerprint +
+    # version so every result can cite which sealed set judged it.
+    if [ "$HIDDEN_HASH" != "null" ] && [ -n "$HIDDEN_HASH" ]; then
+      mark 7 canonical-hidden "SPEC-2.8/2.6" 0 \
+        "review task has no canonical patch; the sealed defect map is the canonical reference — sealed set fingerprinted $HIDDEN_HASH (VERSION $HIDDEN_VERSION)"
+    else
+      mark 7 canonical-hidden "SPEC-2.8/2.6" 1 \
+        "sealed runner is executable but the gate recorded no fingerprint for the sealed set"
+    fi
+  else
+    mark 6 premod-failure "SPEC-2.8" 2 \
+      "review gate needs the sealed defect map to score an empty review ($REVIEW_HIDDEN_DIR/)"
+    mark 7 canonical-hidden "SPEC-2.8/2.6" 2 \
+      "review gate needs the sealed defect map ($REVIEW_HIDDEN_DIR/)"
+  fi
 else
 premod_report="$WORKDIR/gate-premod.json"
 GATE_REPORT="$premod_report" bash "$SCRIPT_DIR/gate/check-public.sh" >/dev/null 2>&1

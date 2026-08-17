@@ -13,7 +13,10 @@
 # The remaining checks are real and are still enforced: 1 commit exists, 3 paths
 # exist (every file named by the review diff is present at the pin), 8 no leakage
 # (the participant-visible diff carries no answer markers), 10 deterministic reset.
-# Checks 6 and 7 need the human-held defect map and report awaiting_human.
+# Checks 6 and 7 need the human-held defect map: they report awaiting_human only
+# until its runner exists, then become real — 6 scores an EMPTY review through the
+# sealed runner and expects a rejection, 7 fingerprints the sealed set (a review
+# task has no canonical patch; the map is the canonical reference). See validate.sh.
 #
 # shellcheck shell=bash
 
