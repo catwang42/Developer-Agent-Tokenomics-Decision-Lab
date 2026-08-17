@@ -18,6 +18,19 @@ nav:
   - Exercises:
       - exercises/index.md
   - Sealed Evaluation: sealed-evaluation.md
+  - "Screening Report (renderer — no data until CP-FINDINGS)": screening-report.md
   - Cheatsheet: cheatsheet.md
   - Facilitator Guide: facilitator.md
 markdown_extensions: [admonition, tables, attr_list, pymdownx.details, pymdownx.superfences]
+# The screening renderer. Both assets no-op on every other page: the script only draws
+# when it finds the #decision-report mount point.
+extra_css:
+  - assets/decision-report.css
+extra_javascript:
+  - assets/decision-report.js
+# docs/assets/data/ holds hand-copied decision tables for local review; the directory is
+# gitignored so no real figure is committed, and CP-PUBLISH gates any deploy that would
+# carry one. Its README explains that to repo readers and is not a site page, so it is
+# excluded from the build rather than left to become a stray URL.
+exclude_docs: |
+  assets/data/README.md

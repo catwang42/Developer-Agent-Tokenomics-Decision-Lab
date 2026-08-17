@@ -19,3 +19,8 @@ results/cohort/
 # sha256 recorded in manifest/delivery-manifest.yaml and asserted at image build.
 vendor/*
 !vendor/.gitkeep
+# Decision tables rendered by docs/screening-report.md are copied here by hand for
+# local review. Real figures are gated by CP-FINDINGS and must never be committed or
+# published, so the directory is tracked but its data contents are not.
+docs/assets/data/*
+!docs/assets/data/README.md
