@@ -1,0 +1,500 @@
+# SYNTHETIC FIXTURE — NOT A PIN, NOT TELEMETRY, NEVER USED BY A LIVE RUN.
+# A copy of manifest/delivery-manifest.yaml in which the four PENDING-FREEZE
+# sealed artifacts carry SYNTHETIC placeholder versions and hashes, so that
+# scripts/screening-batch1-driver.sh --dry-run can exercise the preflights that
+# sit BEHIND the sealed-artifact gate before the human freezes the real ones.
+# The hashes below are literal zeros with a SYNTHETIC marker: they match no file
+# and grade nothing. The driver refuses --manifest without --dry-run.
+# Generated 2026-08-17 by hand from the real manifest; regenerate the same way
+# if the roster changes.
+# Dated delivery manifest — the ONLY place volatile names/prices resolve (SPEC 1.4)
+# Originally resolved for the Phase 3 feasibility batch-1 delivery.
+#
+# RE-PINNED 2026-08-16 for the PHASE-4 SCREENING WINDOW. The model pins and the
+# pricing snapshot below now describe screening, NOT the feasibility batches.
+# Batch 1/2/3 data remains valid for ITS OWN pins: every run summary records the
+# model/selector it actually used and the pricing snapshot it was costed under
+# (economics.pricing_snapshot), so re-pinning here cannot retro-price old runs.
+# Never pool a screening-window run with a batch-3 run on the strength of a shared
+# configuration_id — the tier behind C1/C2/C3 changed on this date.
+delivery_date: 2026-07-19        # original feasibility delivery
+repin_date: 2026-08-16           # screening-window re-pin (this file's current state)
+cohort: pilot
+pricing_snapshot: pricing/prices-2026-08-16.json
+# Loaded engineer cost per minute — HEAC input for the human-effort rubric
+# (report/batch3/human-effort-rubric.md; metrics.md HEAC). This is a DECLARED org
+# input, NOT a measurement, and is never converted to headcount/FTE (SPEC 1.2).
+loaded_rate_per_minute:
+  value: 1.60            # sample loaded engineer rate ÷ 60
+  currency: USD
+  basis: "declared input, not a measurement — org loaded cost per engineer-minute"
+  source: "average salary for engineers"
+  date: 2026-07-26
+task_suite_commit: 17b9990106f3379e1d3df78137b2adb8ef10e798   # batch-1 run commit (pinned at CP-SPEND execution 2026-07-19)
+configurations:
+  # Controlled API (Product A = Claude Code) on Google Vertex, project
+  # vital-octagon-19612. model_id values are the EXACT Vertex publisher model IDs
+  # verified available & GA on 2026-07-19 via the Vertex REST publisher-models
+  # endpoint (GET publishers/anthropic/models/<id>): 200 + launchStage GA on BOTH
+  # the global and us-central1 endpoints; a bogus id returns 404, so the 200 is
+  # meaningful. region = global to match the runtime endpoint (the Claude Code CLI
+  # here runs with CLOUD_ML_REGION=global), which is exactly the global-endpoint
+  # list-rate basis in the approved pricing snapshot (the us-central1 +10% premium
+  # stays a per-model sensitivity note, not the billed rate).
+  # NOTE: neither claude-opus-5 nor claude-sonnet-4-6 exposes a dated snapshot on
+  # this project — both publish only the floating '@default' alias (verified
+  # 2026-08-16 via GET publishers/anthropic/models: versionId=default, launchStage
+  # GA for both; claude-haiku-4-5 does publish @20251001, so the absence is a
+  # per-model fact, not a query artefact). Reproducibility caveat per SPEC 6.3: the
+  # routed build behind @default is not guaranteed stable across the window.
+  # MITIGATION (unchanged): every run records the concrete resolved model version
+  # from the product JSON `modelUsage` keys (the concrete metered model ids) into
+  # identity.model_or_selector (authoritative), pinning per-run reproducibility
+  # despite the floating alias (claude_code.resolved_model_version).
+  # Evidence: report/findings/model-pin-resolution-2026-08-16.md.
+  STRONG_MODEL_A:
+    provider: google_vertex
+    product_surface: controlled_api
+    model_id: claude-opus-5@default          # re-pinned 2026-08-16 (was claude-sonnet-4-6@default)
+    region: global
+    cost_basis: marginal_api_cost
+  ECONOMICAL_MODEL_A:
+    provider: google_vertex
+    product_surface: controlled_api
+    model_id: claude-sonnet-4-6@default      # re-pinned 2026-08-16 (was claude-haiku-4-5@20251001)
+    region: global
+    cost_basis: marginal_api_cost
+  # Product B (Antigravity CLI, `agy`) black-box. selector_label recorded VERBATIM;
+  # backend model_id NEVER inferred (SPEC 6.3). Marginal PAYG priced via the mapped
+  # Gemini published rates in the pricing snapshot, keyed by the verbatim label.
+  # All three labels below were read from `agy models` on 2026-08-16 (a local
+  # listing; no inference, no spend) and are byte-for-byte what it printed.
+  #
+  # `conditions` are PINNED RUN CONDITIONS, recorded per selector because that is
+  # the unit a run is planned in. The runner passes them to the agy adapter, which
+  # REFUSES TO RUN if the observed agy version differs from agy_version (loud fail,
+  # before any spend) and passes print_timeout to `agy --print-timeout`.
+  # effort: the reasoning-effort tier is pinned as the SELECTOR SUFFIX, not via
+  # agy's separate `--effort low|medium|high` flag — one mechanism only, so a run's
+  # effort is unambiguous from the label we record verbatim. The adapter never
+  # passes --effort. See notes.effort_rule.
+  #
+  # cost_basis_qualifier: cache_blind_upper_bound — human decision 2026-08-16, see
+  # notes.gemini_cache_blindness. cost_basis stays marginal_api_cost (the frozen
+  # schema enum; widening it is a CP-SCHEMA decision, not taken here); the
+  # qualifier is the additive field that records HOW that marginal cost was
+  # derived. It rides on every Gemini leg — solo C3/C3-med/C3-prev and the C5
+  # executor — because the C5 executor resolves through PRODUCT_B_ECON_TIER.
+  PRODUCT_B_ECON_TIER:
+    provider: google
+    product_surface: product_blackbox
+    selector_label: "Gemini 3.7 Flash (High)"    # re-pinned 2026-08-16 (was Gemini 3.5 Flash (High))
+    model_id: null
+    cost_basis: marginal_api_cost
+    cost_basis_qualifier: cache_blind_upper_bound
+    conditions:
+      agy_version: "1.1.13"
+      auto_update: disabled_via_AGY_CLI_DISABLE_AUTO_UPDATE
+      print_timeout: "15m0s"
+      effort: High
+  PRODUCT_B_ECON_TIER_MED:
+    provider: google
+    product_surface: product_blackbox
+    selector_label: "Gemini 3.7 Flash (Medium)"  # new 2026-08-16: the C3-med effort arm
+    model_id: null
+    cost_basis: marginal_api_cost
+    cost_basis_qualifier: cache_blind_upper_bound
+    conditions:
+      agy_version: "1.1.13"
+      auto_update: disabled_via_AGY_CLI_DISABLE_AUTO_UPDATE
+      print_timeout: "15m0s"
+      effort: Medium
+  PRODUCT_B_ECON_TIER_PREV:
+    provider: google
+    product_surface: product_blackbox
+    selector_label: "Gemini 3.6 Flash (High)"    # new 2026-08-16: the C3-prev generation arm
+    model_id: null
+    cost_basis: marginal_api_cost
+    cost_basis_qualifier: cache_blind_upper_bound
+    conditions:
+      agy_version: "1.1.13"
+      auto_update: disabled_via_AGY_CLI_DISABLE_AUTO_UPDATE
+      print_timeout: "15m0s"
+      effort: High
+  # NOT re-pinned for the screening window and NOT priced by
+  # pricing/prices-2026-08-16.json. C4 (the only config referencing it) is out of
+  # scope this window; running it would need a pricing amendment first, and
+  # tests/test_manifest_pricing.py enforces that this exclusion stays declared
+  # rather than becoming a silent KeyError at run time.
+  PRODUCT_B_STRONG_TIER:
+    provider: google
+    product_surface: product_blackbox
+    selector_label: "Gemini 3.1 Pro (High)"
+    model_id: null
+    cost_basis: marginal_api_cost
+    screening_scope: out_of_scope_this_window
+notes: >
+  record selector labels verbatim; never infer unguaranteed backend model IDs
+  (SPEC 6.3). Claude billed via Vertex (project vital-octagon-19612); prices in the
+  snapshot are global-endpoint list rates, with the us-central1 regional +10%
+  premium recorded as a per-model sensitivity. C5 executor uses PRODUCT_B_ECON_TIER.
+  Product B token telemetry is partial: unexposed usage -> unavailable (never 0),
+  so a C3/C5 leg may be cost_unavailable at runtime; the provider-side collector
+  (harness/collectors/) is what turns that into counts, at derived attribution.
+  C2's semantics changed this window: the Product-A economical tier is now
+  claude-sonnet-4-6 (it was the strong tier through batch 3). Product-B costing
+  this window is CACHE-BLIND — see gemini_cache_blindness.
+gemini_cache_blindness: >
+  HUMAN DECISION 2026-08-16 (accepted; no probe run). Product-B (Gemini) costing
+  for the screening window is CACHE-BLIND, and every Gemini leg — solo C3/C3-med/
+  C3-prev and the C5 executor — carries cost_basis_qualifier
+  cache_blind_upper_bound. Basis for the decision: the provider-side token metric
+  (aiplatform.googleapis.com/publisher/online_serving/token_count) emits only
+  type=input and type=output for publisher="google" on this project, and the
+  explicit_caching label appears on zero google series, while the anthropic series
+  carry cache_read_input / cache_write_input / cache_write_1h_input. Evidence:
+  report/findings/vertex-token-metric-surface-2026-08-16.md finding 2. So a Gemini
+  leg's cache_read_tokens / cache_creation_tokens have no provider-side series to
+  fill them; they stay unavailable (never 0), and any Gemini cost derived from
+  input+output alone prices every input token at the full input rate.
+  DIRECTION OF THE ERROR: implicit provider-side caching, if it happens, can only
+  make real Gemini spend LOWER than the computed figure (cached input bills at the
+  cheaper cache-read rate) — hence "upper bound". The basis name says so; do not
+  restate a cache-blind figure as an exact cost.
+  SCOPE: cross-product cache comparisons stay OUT OF SCOPE this window (SPEC 2.9).
+  A Product-A vs Product-B cache-efficiency claim is not derivable from a
+  cache-blind Product-B figure and must not be made.
+  MECHANISM NOTE: cost_basis itself remains marginal_api_cost. The telemetry
+  schema's cost_basis enum is frozen at four values and widening it is a CP-SCHEMA
+  decision that has NOT been taken; cost_basis_qualifier is an additive field
+  (legs[] and economics accept additional properties) that records how the
+  marginal cost was derived without touching the frozen enum.
+effort_rule: >
+  Effort level is a within-product arm, never mixed with routing. ALL C5 executor
+  legs are pinned to a "(High)" selector; the effort-level comparison is C3 vs
+  C3-med ONLY, and both are SOLO arms. A C5 run that used a "(Medium)" executor
+  would confound routing with effort and must not be planned. Effort changes token
+  CONSUMPTION, not the per-token rate — the (High) and (Medium) rate-card rows in
+  pricing/prices-2026-08-16.json are deliberately identical and deliberately
+  separate keys.
+print_timeout_basis: >
+  15m0s, raised from agy's 5m0s default (`agy --help`: "--print-timeout Timeout for
+  print mode wait (default 5m0s)"). Grounded in the batch-3-era wallclocks, and
+  stated as a BOUND rather than an estimate because the only Product-B datapoint is
+  right-censored: the 2026-07-26 verified-invocation smoke (results/smoke/, agy
+  1.1.7) ran 360.1s agent-leg wallclock and ended in agy's own "Error: timeout
+  waiting for response" (exit 1) at the 5-minute default — so Product B needs MORE
+  than 5 minutes on the pilot task and we do not know how much more. The batch-1/2
+  C3 runs (0.4-1.0s) are the bogus-`run`-token defect, not evidence. For scale, the
+  slowest Product-A leg ever observed on the same task is 213.1s (batch-3 P1
+  economical attempt), with batch-3 medians under 90s. 900s is 3x the default and
+  >4x the slowest observed Product-A leg, while staying well under the adapter's
+  own 1800s subprocess kill (agy.DEFAULT_TIMEOUT_S) so the product's timeout always
+  fires first and yields a diagnosable product error instead of an opaque harness
+  kill. Re-estimate from the first screening batch's completed runs.
+
+# Subject sandbox posture (SPEC 1.3; human decision 2026-07-19, cp-spend-batch2-plan
+# §3.1). Recorded per run in identity.permission_profile + identity.network_policy
+# (authoritative; the runner stamps the mode it launched). Batch 1/revalidation used
+# the HOST posture; batch 2 uses CONTAINER. Implemented as a NO-SPEND harness change
+# (containerization before pre-mod validation, so validation runs under the SAME
+# posture as the batch it validates for — no posture delta).
+subject_isolation:
+  # Posture is recorded verbatim per run in identity.permission_profile +
+  # identity.network_policy (CP-SPEND 2026-07-20, decision 4 + containerization-gap
+  # finding). BATCH 2/3 (historical): the deterministic GATE was containerized +
+  # offline, while the live AGENT leg ran HOST because the containerized agent leg
+  # was unimplemented (no claude/agy/creds in Dockerfile.subject; resolve_spawn
+  # passed no egress/creds). Those runs' stamps say so and remain accurate.
+  # PHASE 4: the containerized agent leg + endpoint-allowlist egress are HARD
+  # REQUIREMENTS for the screening CP-SPEND; they are built (see agent_leg below).
+  gate_posture: container       # deterministic gate: docker run --network=none (offline)
+  agent_leg_posture: host       # batch-2/3 live agent leg (historical; see agent_leg)
+  batch2_network_policy: no-network-policy   # host agent leg; recorded verbatim per run
+  network_policy: none          # graded gate runs fully offline (docker run --network=none)
+  image: per-task baked         # harness/container/Dockerfile.subject; deps baked at BUILD time
+  gate_verified_offline: w1-2026-07-19   # W1 public gate ran offline in-container (pre-mod FAIL; canonical PASS)
+  batch1_posture: host          # skip-all-tools; cwd-confined; dev-vm; no-container (superseded)
+
+  # --- Phase-4 screening prerequisite: the containerized agent leg (SPEC §6 item 1).
+  # Built 2026-08-16, no spend. Supersedes agent_leg_egress: deferred_to_phase4.
+  # `--subject-isolation container` now runs the AGENT in its own image on an
+  # egress-allowlist network and grades its edits in the offline gate image;
+  # `--subject-isolation host` remains available as the feasibility fallback.
+  agent_leg:
+    posture: container_available   # host remains the fallback (--subject-isolation host)
+    image_target: subject-agent    # harness/container/Dockerfile.subject
+    gate_image_target: subject-gate
+    task_material_in_agent_image: none   # build-asserted (assert-no-task-material /)
+    credentials: adc_read_only     # host gcloud config mounted ro at /creds/gcloud
+    handoff: named_volume          # agent edits reach the gate container via a per-run volume
+    # Product CLI versions BAKED INTO the agent image and asserted at build time.
+    # These are the versions that actually run; the host's are irrelevant to a
+    # containerized leg, and identity.product_version is read from the image label.
+    claude_cli_version: 2.1.233
+    agy_version: 1.1.13
+    # agy has no verifiable public download URL, so the binary is vendored from the
+    # build host by harness/container/stage-agy.sh and pinned by content hash. The
+    # image build fails if the staged binary's sha256 or self-reported version differ.
+    agy_sha256: 416b197e4b38c797c8661098f0af2bb4e1323ffe3c286d5e9b6408cf7d7ee920
+    # agy version drift — RESOLVED by human decision 2026-08-16: pin 1.1.13.
+    # SPEC 2.9 records the drift 1.1.4 -> 1.1.7, and the 2026-07-26 smoke (the only
+    # verified-invocation Product-B run) recorded product_version 1.1.7. The screening
+    # brief asked for a 1.1.7 pin. The binary on this host self-reports 1.1.13
+    # (agy_sha256 above matches it byte-for-byte), agy self-updates, and there is no
+    # verifiable public download URL from which 1.1.7 could be re-obtained or hashed.
+    # Pinning 1.1.7 would therefore pin a version we cannot stage: the image build and
+    # every agy run would fail loudly at once. The pin is the version that is actually
+    # present and hash-verified, and the discrepancy stays on the record below rather
+    # than being papered over. Re-pinning to 1.1.7 would need the human to supply the
+    # binary; this pin and agy_sha256 would change together.
+    agy_version_drift:
+      spec_2_9_recorded: "1.1.4 -> 1.1.7"
+      last_run_observed: "1.1.7"        # results/smoke/...__C3__rep1__20260726T093603/invocation.txt
+      host_today: "1.1.13"              # `agy --version`, 2026-08-16
+      brief_requested: "1.1.7"
+      resolution: pinned_to_host_today  # human decision 2026-08-16; 1.1.7 unobtainable
+      resolved_date: 2026-08-16
+    # Selector-label re-check under the pinned version. The pins were read under an
+    # earlier invocation, so a version pin is only meaningful if the labels it
+    # resolves are the same ones the manifest names. Re-run of `agy models` under
+    # 1.1.13 (local listing, no spend, not logged in) printed all three pinned labels
+    # byte-for-byte unchanged; nothing was re-pinned as a result.
+    agy_models_recheck:
+      date: 2026-08-16
+      under_version: "1.1.13"
+      labels_unchanged: true
+      labels_verified:
+        - "Gemini 3.7 Flash (High)"
+        - "Gemini 3.7 Flash (Medium)"
+        - "Gemini 3.6 Flash (High)"
+      # Corroborates the collector's effort-attribution finding from the other side:
+      # agy's own slug column DOES carry the effort suffix (gemini-3.7-flash-high),
+      # while the billing plane's model_user_id does not — so the label separation
+      # exists in the product and is lost at the meter.
+      slug_column_carries_effort_suffix: true
+    # agy self-updates in-process (third_party/jetski/cli/updater/auto_updater.go).
+    # PINNED CONDITION for the screening window: the updater is disabled via the
+    # product's own env var, which the adapter sets on every invocation, so a batch
+    # cannot silently change product version mid-window. Recorded per selector as
+    # conditions.auto_update.
+    agy_auto_update: disabled_via_AGY_CLI_DISABLE_AUTO_UPDATE
+    # Evidence for that switch, stated at the strength it actually has. The env var
+    # name and its handler are read from the shipped binary, and the updater is
+    # observed running in a normal invocation; what is NOT yet on the record is a
+    # matched negative control (same invocation shape, var set, updater silent),
+    # because the only invocation observed to reach the updater is a live --print
+    # run and this session has no spend approval for another one. Treated as a
+    # belt-and-braces measure: the version pin, the pre-batch runner check and the
+    # in-adapter check are what actually enforce the condition, and all three fail
+    # loudly if an update lands anyway.
+    agy_auto_update_evidence:
+      env_var_and_handler_in_binary: true   # `strings`: "Auto-update disabled via environment variable %s"
+      updater_observed_active: "auto_updater.go:252 'skipping update (fast path)', 2026-08-16 14:59 live smoke"
+      matched_negative_control: not_yet_observed   # needs one live agy invocation
+      enforced_regardless_by:
+        - harness/runner/run.py preflight_product_versions  # refuses before anything is created
+        - harness/adapters/agy.py ProductVersionMismatch    # refuses before spend, per attempt
+        - harness/container/stage-agy.sh agy_sha256 assert  # image build fails on drift
+    # Cross-check: configurations.PRODUCT_B_*.conditions.agy_version must equal
+    # agy_version above, or a containerized run would enforce a different version
+    # than the adapter checks. tests/test_manifest_pricing.py asserts the agreement.
+    agy_source: vendored_from_build_host   # no verifiable public install URL exists
+  agent_leg_egress:
+    policy_file: harness/container/egress/allowlist-model-api.txt
+    policy_sha256: ce78aa16d5450d44486ba80d12ee8f465a1e1b0d83d2dbbd30653fcc27475e2c
+    policy_name: model-api-v1
+    mechanism: internal_docker_network_plus_deny_by_default_proxy
+    host_patterns: 9
+    connect_ports: [443]
+    # Enforcement verified with no model spend (harness/container/verify-egress.sh,
+    # 2026-08-16): no route without the proxy; allowlisted host reachable;
+    # non-allowlisted host refused 403; non-443 CONNECT refused.
+    enforcement_verified: 2026-08-16
+    # SUFFICIENCY for a live agentic run is NOT established and cannot be without
+    # spend. The Product-B entries in particular are sourced from binary strings,
+    # not from an observed agy run. First CP-SPEND screening run is the test; the
+    # proxy log names any refused host.
+    sufficiency_verified: unavailable
+  gate_egress: none               # the deterministic gate is always docker run --network=none
+
+# Routing-policy pins (SPEC 2.1c). Only policies whose registry row requires a pin
+# appear here; P0/P1/P2 pin differently (P0/P1 resolve their models through this
+# manifest; P2's pin is the per-task split hash under <task>.delegation_split).
+# The hash is over the RAW policy-file bytes, comments included; the runner
+# (run.py:resolve_config_policy) refuses a run whose policy file has drifted from
+# its pin. status frozen == human-reviewed; SPEC §2.1c requires P3's hash before any
+# C5 run is cited in workshop material.
+routing_policies:
+  P3:
+    path: harness/policies/p3-policy-delegation.yaml
+    sha256: sha256:68ba37376b39dc2dd6108a17bd5940098fab3920194eecbf2089daaa19434e29
+    status: frozen
+    frozen_date: 2026-08-16   # human FREEZE APPROVED; hash verified against the file
+    governs: [C5]
+    extracted_from: harness/configurations/C5.yaml   # rules verbatim; commit d900358
+
+# Pinned benchmark tasks (Phase 2). Concrete SHAs live here only; task dirs mirror
+# these and add gate wiring (tests/test_tasks.py enforces agreement).
+
+# Pilot = the SPEC 2.8 RealWorld *feature* task (Draft articles). Authored feature
+# (not commit-mined): the feature does not exist at pinned_commit.
+pilot_task:
+  task_id: pilot-realworld-draft-articles
+  repo: https://github.com/gothinkster/node-express-realworld-example-app
+  pinned_commit: 30b68e1e881462b2f4164ea09ab4c4f5699c7b0b   # RealWorld HEAD; Draft feature absent
+  license: MIT
+  contamination_tier: famous   # see tasks/pilot-realworld/README.md; SPEC 5.2 / WORKLOAD-SELECTION 2
+  baseline_test_scope: hermetic_db_free   # upstream auth suite needs a live DB (import-order bug)
+  sealed_hidden_test:   # human-authored, human-held (gitignored); CP-TASK approved 2026-07-19
+    version: sealed-pilot-v1
+    sha256: sha256:105c24189877b52fe57b1e453f53f73366ad3c7fa1a611a8a2a63042b667abe2
+    validated: 10/10   # host run with sealed test present; clean container = 9 pass + 1 awaiting
+  # P2 scripted-delegation split (SPEC 2.1c: P2's manifest pin is the split-file hash
+  # per task). status frozen == human-reviewed; the runner refuses a LIVE P2 run on a
+  # draft split and allows --dry-run, so the harness is testable before the freeze.
+  delegation_split:
+    path: tasks/pilot-realworld/split.yaml
+    sha256: sha256:6e33c4c13588b7d71f8cced82a0baba1518ee7e892540314631a84ebadd69929
+    status: frozen
+    frozen_date: 2026-08-16   # human FREEZE APPROVED; hash verified against the file
+
+# W4 complex-bugfix / F2 feasibility bugfix. Commit-mined per WORKLOAD-SELECTION 4:
+# re-implement the change in canonical_fix_commit starting from pinned_commit (its
+# parent, where the bug is present). Our first commit-mining exemplar.
+w4_task:
+  task_id: w4-realworld-missing-user-id
+  repo: https://github.com/gothinkster/node-express-realworld-example-app
+  pinned_commit: 88b258ce54aaf54ff52511ba26edd52e36df201e   # parent of the fix; bug present pre-modification
+  canonical_fix_commit: 30b68e1e881462b2f4164ea09ab4c4f5699c7b0b   # upstream "fix: missing user id"
+  license: MIT
+  contamination_tier: famous   # see tasks/suite/W4-complex-bugfix/README.md
+  baseline_test_scope: hermetic_db_free
+  sealed_hidden_test:   # human-authored, human-held (gitignored); CP-TASK approved 2026-07-19
+    version: sealed-w4-v2
+    sha256: sha256:3d6f804981cb28f1823a91e349be923431e09a206ef9cdb8636e3bc3871886c2
+    validated: 10/10
+
+# W1 test-generation / F3 feasibility (third gate type). Same RealWorld repo + pin as
+# the pilot (Draft feature irrelevant here; targets the untested article/author
+# mappers). Third gate type = test_generation (F1=feature, F2=bugfix). Runs only in
+# feasibility BATCH 2 after 10-point validation with the human-authored sealed
+# mutation test (manifest/cp-spend-batch2-plan.md §3.2).
+w1_task:
+  task_id: w1-realworld-mapper-tests
+  repo: https://github.com/gothinkster/node-express-realworld-example-app
+  pinned_commit: 30b68e1e881462b2f4164ea09ab4c4f5699c7b0b   # same pin as pilot
+  license: MIT
+  contamination_tier: famous   # same repo as pilot; disclose reuse at CP-SCREEN-PREREG
+  baseline_test_scope: hermetic_db_free   # auth suite excluded (needs a live DB)
+  gate_type: test_generation
+  sealed_hidden_test:   # human-authored, human-held (gitignored); mutation-catch runner (hidden/check.sh)
+    version: "sealed-w1-v1 2026-07-20 6-mutants"
+    sha256: sha256:37f3acd685fd03e0624a98f328e38edffe8faef5179263e502035c707c51f4e9
+    validated: 10/10   # all six seeded mutants caught; canonical accepted, pre-mod fails (test_generation gate)
+  # P2 scripted-delegation split (SPEC 2.1c). See pilot_task.delegation_split for the
+  # frozen-status rule; W1's writes are confined to src/tests/ (agent_write_scope).
+  delegation_split:
+    path: tasks/suite/W1-test-generation/split.yaml
+    sha256: sha256:6fa4aea042b3614850768da600af1d2771b9e6d1649bd45cd6a49c49cb9d89f5
+    status: frozen
+    frozen_date: 2026-08-16   # human FREEZE APPROVED; hash verified against the file
+
+# --- Phase-4 SCREENING ROSTER (added 2026-08-16) ------------------------------
+# Four commit-mined tasks added to break the batch-3 ceiling effect (27/27 accepted,
+# zero escalations — the three existing tasks do not separate configurations on
+# quality). Sourcing follows tasks/WORKLOAD-SELECTION.md §4: the agent starts at the
+# PARENT of a real merged PR's merge commit and must reproduce the PR's effect.
+#
+# PROVENANCE: every SHA below was resolved against the GitHub API and re-verified in
+# a local blobless clone; for each pair, `git cat-file` resolves BOTH commits and the
+# merge commit's parents[0] is exactly the pinned_commit (all four are squash merges,
+# single parent). Candidate register with the full mining record, including the four
+# deferred/rejected candidates: tasks/proposals/2026-08-commit-mined-candidates.md.
+#
+# NO SPEND HAS OCCURRED against these tasks. They are pinned and validated only;
+# running them requires CP-SCREEN-PREREG (pre-registration) then CP-SPEND.
+
+# W4b — W4's SECOND complex_bugfix task, the one that can carry a CLASS claim
+# (WORKLOAD-SELECTION §3 requires it at tier obscure or post_cutoff; W4 itself is
+# famous). Order-dependence in consolidated-metadata nesting.
+#   PR https://github.com/zarr-developers/zarr-python/pull/4227 merged 2026-08-02
+w4b_task:
+  task_id: w4b-zarr-consolidated-order
+  repo: https://github.com/zarr-developers/zarr-python
+  pinned_commit: a994a4fc972fed428eab6a26d4f14bb95d22c144   # parent of the fix; bug present pre-modification
+  canonical_fix_commit: 24f9ad19430dc88bc1d92b5e1936ac6b3e20f4fe   # upstream "fix: order-independent flat_to_nested"
+  license: MIT
+  contamination_tier: post_cutoff   # merged 2026-08-02; tier is model-relative (WORKLOAD-SELECTION §2)
+  baseline_test_scope: hermetic_local_store   # remote-store suites excluded (network); see task.yaml
+  stack: python
+  sealed_hidden_test:
+    version: SYNTHETIC-w4b-v0
+    sha256: SYNTHETIC0000000000000000000000000000000000000000000000000000000
+    status: SYNTHETIC-not-frozen
+    spec: tasks/suite/W4b-zarr-consolidated-order/hidden/README-FOR-HUMAN.md
+  validated: see tasks/suite/W4b-zarr-consolidated-order/.work/validation-report.json
+
+# W3 — the migration workload, and the DESIGNATED ESCALATION PROBE (SPEC §5.1: a
+# workload selected BECAUSE the economical tier is predicted to fail; SPEC names W6
+# primary and W3 fallback). Behaviour-parity refactor of segment methods into free
+# functions across 12 source files, with deprecation shims.
+#   PR https://github.com/sqlfluff/sqlfluff/pull/7962 merged 2026-06-17
+w3_task:
+  task_id: w3-sqlfluff-dialect-common-migration
+  repo: https://github.com/sqlfluff/sqlfluff
+  pinned_commit: 7700446fdb424ba56a2b1963a624d3747df53744
+  canonical_fix_commit: ee00054a89fe1850695601297d41d7e95559eb00
+  license: MIT
+  contamination_tier: post_cutoff   # merged 2026-06-17
+  baseline_test_scope: hermetic_offline   # sqlfluff parses SQL text; no engine, no network
+  stack: python
+  escalation_probe: true   # SPEC §5.1; the failure prediction is pre-registered separately
+  sealed_hidden_test:
+    version: SYNTHETIC-w3-v0
+    sha256: SYNTHETIC0000000000000000000000000000000000000000000000000000000
+    status: SYNTHETIC-not-frozen
+    spec: tasks/suite/W3-migration/hidden/README-FOR-HUMAN.md
+  validated: see tasks/suite/W3-migration/.work/validation-report.json
+
+# W1b — W1's SECOND test_generation task, materially harder than the RealWorld mapper
+# task: property-based tests over an indexing module, in a repo the agent must first
+# understand. Carries the W1 class claim (W1 itself is famous).
+#   PR https://github.com/zarr-developers/zarr-python/pull/4054 merged 2026-06-09
+w1b_task:
+  task_id: w1b-zarr-block-mask-properties
+  repo: https://github.com/zarr-developers/zarr-python
+  pinned_commit: b9d396460da369bea86f4bd978d3746f7a41076b
+  canonical_fix_commit: 96a62b51f8fe86eeb056eee1684eef94b4114e35
+  license: MIT
+  contamination_tier: post_cutoff   # merged 2026-06-09
+  baseline_test_scope: hermetic_local_store
+  stack: python
+  gate_type: test_generation
+  sealed_hidden_test:
+    version: SYNTHETIC-w1b-v0
+    sha256: SYNTHETIC0000000000000000000000000000000000000000000000000000000
+    status: SYNTHETIC-not-frozen
+    spec: tasks/suite/W1b-zarr-block-mask-properties/hidden/README-FOR-HUMAN.md
+  validated: see tasks/suite/W1b-zarr-block-mask-properties/.work/validation-report.json
+
+# W6 — code review against a SEALED, HUMAN-AUTHORED seeded-defect map. The subject
+# code is never executed: the participant reads a diff and reports defects, scored by
+# a deterministic file+line/defect-id matcher. Base diff generated from the two pins.
+#   PR https://github.com/honojs/hono/pull/5171 merged 2026-08-03
+w6_task:
+  task_id: w6-hono-router-review
+  repo: https://github.com/honojs/hono
+  pinned_commit: 3feb3551d46de1f633e82253f12cf1117316be93
+  canonical_fix_commit: 8a0b18fd9b4d64dd2eb1d7f18e3536fc06cb54b2   # source of the base diff, NOT a solution patch
+  license: MIT
+  contamination_tier: post_cutoff   # merged 2026-08-03
+  baseline_test_scope: not_applicable   # review task: nothing is installed, built, or run
+  stack: none
+  gate_type: pr_review
+  sealed_defect_map:
+    version: SYNTHETIC-w6-v0
+    sha256: SYNTHETIC0000000000000000000000000000000000000000000000000000000
+    status: SYNTHETIC-not-frozen
+    spec: tasks/suite/W6-pr-review/hidden/README-FOR-HUMAN.md
+  validated: see tasks/suite/W6-pr-review/.work/validation-report.json

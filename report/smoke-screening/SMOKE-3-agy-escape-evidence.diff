@@ -1,0 +1,41 @@
+diff --git a/src/app/routes/article/article.service.ts b/src/app/routes/article/article.service.ts
+index c8fdc0c..910fb92 100644
+--- a/src/app/routes/article/article.service.ts
++++ b/src/app/routes/article/article.service.ts
+@@ -68,6 +68,7 @@ const buildFindAllQuery = (query: any, id: number | undefined) => {
+ 
+ export const getArticles = async (query: any, id?: number) => {
+   const andQueries = buildFindAllQuery(query, id);
++  andQueries.push({ draft: false });
+   const articlesCount = await prisma.article.count({
+     where: {
+       AND: andQueries,
+@@ -160,7 +161,7 @@ export const getFeed = async (offset: number, limit: number, id: number) => {
+ };
+ 
+ export const createArticle = async (article: any, id: number) => {
+-  const { title, description, body, tagList } = article;
++  const { title, description, body, tagList, draft } = article;
+   const tags = Array.isArray(tagList) ? tagList : [];
+ 
+   if (!title) {
+@@ -200,6 +201,7 @@ export const createArticle = async (article: any, id: number) => {
+       description,
+       body,
+       slug,
++      draft: Boolean(draft),
+       tagList: {
+         connectOrCreate: tags.map((tag: string) => ({
+           create: { name: tag },
+diff --git a/src/prisma/schema.prisma b/src/prisma/schema.prisma
+index 3d767b7..f61c834 100644
+--- a/src/prisma/schema.prisma
++++ b/src/prisma/schema.prisma
+@@ -14,6 +14,7 @@ model Article {
+   title       String
+   description String
+   body        String
++  draft       Boolean   @default(false)
+   createdAt   DateTime  @default(now())
+   updatedAt   DateTime  @default(now())
+   tagList     Tag[]

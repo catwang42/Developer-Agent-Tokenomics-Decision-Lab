@@ -19,6 +19,7 @@ dataset. Keeping them lets any number in a superseded report be traced to its ex
 | `feasibility-warm-series/` | standing warm-cache evidence (3 runs), **standalone — NOT pooled with batch 3** | `report/batch3/telemetry-completeness.md` §4.4 |
 | `revalidation/` | one-off no-write-fix verification (4 runs) | `report/batch3/` appendix |
 | `smoke/` | one-off Antigravity (Product B) invocation verification (1 run) | `report/batch3/telemetry-completeness.md` §4 |
+| `smoke-screening/` | screening smoke (8 completed + 1 aborted), **harness evidence, NOT measurements** — first live test of the containerized agent leg and the provider-side collector; found 3 blocking defects | `report/smoke-screening/` |
 | `pilot-reference/` | empty until CP-FINDINGS (≥5 reps/cell; write-protected; human merges only) | — (populated at CP-FINDINGS) |
 | `screening/` | empty until Phase 4 (hypothesis-seeking positioning evidence, SPEC §5) | — (populated in Phase 4) |
 | `screening-batchN/` | **not yet created** — Phase-4 screening batches (W1–W7 × configurations); one directory per batch, same append-only rule as feasibility | `report/screening-batchN/` (pairs by name; `decision-table.{json,md}` from `harness/telemetry/summarize.py`) |
