@@ -200,8 +200,26 @@ AGENT_ENV_PASSTHROUGH: Tuple[str, ...] = (
 #: mounted READ-ONLY inside the agent container.
 CONTAINER_GCLOUD_DIR = "/creds/gcloud"
 CONTAINER_ADC_PATH = f"{CONTAINER_GCLOUD_DIR}/application_default_credentials.json"
-#: Product B's auth/config state, mounted read-only when present.
-CONTAINER_AGY_DIR = "/creds/gemini"
+
+#: Product B's credentials, mounted read-only as INDIVIDUAL FILES (SMOKE-2).
+#:
+#: The earlier posture mounted the whole host ``~/.gemini`` at ``/creds/gemini``,
+#: which was wrong twice over. It did nothing useful — agy resolves its store from
+#: ``$HOME/.gemini/antigravity-cli/`` and has no config-dir override, so a tree
+#: parked anywhere else is invisible to it, and the smoke's Product-B leg fell
+#: through to an interactive OAuth prompt it could not answer. And it was too
+#: wide: that tree also holds ``brain/`` (prior-session workspace memory naming
+#: this repo's absolute path on the host) and a ``settings.json``
+#: ``trustedWorkspaces`` entry doing the same — the SMOKE-3 material. Three files
+#: cross the boundary now, and ``agy-headless.sh`` seeds a throwaway per-run HOME
+#: from them inside the container.
+CONTAINER_AGY_CRED_DIR = "/creds/agy"
+CONTAINER_AGY_TOKEN = f"{CONTAINER_AGY_CRED_DIR}/antigravity-oauth-token"
+CONTAINER_AGY_SETTINGS = f"{CONTAINER_AGY_CRED_DIR}/settings.json"
+CONTAINER_AGY_INSTALL_ID = f"{CONTAINER_AGY_CRED_DIR}/installation_id"
+
+#: Host location of Product B's state, relative to the operator's home.
+HOST_AGY_STATE_REL = os.path.join(".gemini", "antigravity-cli")
 
 
 def host_gcloud_dir() -> Optional[str]:
@@ -212,10 +230,15 @@ def host_gcloud_dir() -> Optional[str]:
         os.path.join(base, "application_default_credentials.json")) else None
 
 
-def host_agy_dir() -> Optional[str]:
-    """Product B's host auth/config dir, or ``None`` if absent."""
-    path = os.path.join(os.path.expanduser("~"), ".gemini")
-    return path if os.path.isdir(path) else None
+def host_agy_state_dir() -> str:
+    """Where Product B keeps its state on the host (may not exist)."""
+    return os.path.join(os.path.expanduser("~"), HOST_AGY_STATE_REL)
+
+
+def host_agy_file(name: str) -> Optional[str]:
+    """One file from Product B's host state dir, or ``None`` if it is not there."""
+    path = os.path.join(host_agy_state_dir(), name)
+    return path if os.path.isfile(path) else None
 
 
 def agent_credential_mounts() -> List[Tuple[str, str, str]]:
@@ -225,15 +248,34 @@ def agent_credential_mounts() -> List[Tuple[str, str, str]]:
     token on disk will fail rather than write. That failure is visible and
     diagnosable; a benchmark run silently mutating the operator's credential store
     is not. If a product turns out to require write access, that is a finding to
-    record at CP-SPEND, not something to pre-emptively grant here.
+    record at CP-SPEND, not something to pre-emptively grant here. Product B is
+    handed a writable COPY of its token in a per-run temp HOME by
+    ``agy-headless.sh``, so read-only here costs it nothing.
+
+    What each grant is, exactly:
+      * gcloud config dir — application-default credentials; mints Vertex tokens
+        for the operator's project. Product A's Vertex path needs it.
+      * ``antigravity-oauth-token`` — Product B's OAuth token
+        (``auth_method: gcp``); it is the whole of Product B's ability to call the
+        provider. Absent it, ``agy-headless.sh`` refuses (exit 42).
+      * ``settings.json`` — read ONLY for its ``gcp`` {project, location} block, so
+        the run bills the project the operator actually configured rather than one
+        this harness guessed. Its ``trustedWorkspaces`` is discarded in-container.
+      * ``installation_id`` — a non-secret install identifier; keeps a measured run
+        from looking like a first-ever launch.
     """
     mounts: List[Tuple[str, str, str]] = []
     gcloud = host_gcloud_dir()
     if gcloud:
         mounts.append((gcloud, CONTAINER_GCLOUD_DIR, "ro"))
-    agy = host_agy_dir()
-    if agy:
-        mounts.append((agy, CONTAINER_AGY_DIR, "ro"))
+    for name, dst in (
+        ("antigravity-oauth-token", CONTAINER_AGY_TOKEN),
+        ("settings.json", CONTAINER_AGY_SETTINGS),
+        ("installation_id", CONTAINER_AGY_INSTALL_ID),
+    ):
+        src = host_agy_file(name)
+        if src:
+            mounts.append((src, dst, "ro"))
     return mounts
 
 
@@ -272,6 +314,47 @@ def image_labels(tag: str) -> Dict[str, str]:
     except json.JSONDecodeError:
         return {}
     return {str(k): str(v) for k, v in (labels or {}).items()}
+
+
+def image_subject_uid(tag: str) -> Optional[int]:
+    """The uid the agent image drops to, from its label, or ``None`` if unlabelled."""
+    raw = image_labels(tag).get("lab.image.subject_uid", "").strip()
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def assert_image_uid_matches_host(tag: str) -> None:
+    """Refuse an agent image whose non-root user cannot read this host's credentials.
+
+    Both products authenticate from 0600 files owned by the invoking user, and a
+    bind mount hands the container the host's numeric owner untranslated — so the
+    container user's uid must equal the host user's or every provider call fails with
+    a permission error that surfaces as an opaque auth failure mid-run. The image tag
+    pins task + commit, not the builder, so an image built under another account is a
+    legal cache hit; this check is what makes that loud instead of silent.
+
+    Raises ``PermissionError`` (the runner turns it into a RunnerError) rather than
+    proceeding, because the alternative is burning a live, billed run to discover it.
+    """
+    uid = image_subject_uid(tag)
+    host_uid = os.getuid()
+    if uid == host_uid:
+        return
+    if uid is None:
+        raise PermissionError(
+            f"agent image {tag} carries no lab.image.subject_uid label — it predates "
+            f"the SMOKE-1/SMOKE-2 fix. Rebuild it: "
+            f"bash harness/container/build-subject-image.sh <task_dir> agent"
+        )
+    raise PermissionError(
+        f"agent image {tag} runs as uid {uid}, but this host's user is uid {host_uid}. "
+        f"The read-only credential mounts (ADC, antigravity-oauth-token) are mode 0600 "
+        f"owned by {host_uid}, so uid {uid} cannot read them and both products would "
+        f"fail to authenticate. Rebuild the image as this user: "
+        f"bash harness/container/build-subject-image.sh <task_dir> agent"
+    )
 
 
 def image_cli_version(tag: str, product: str) -> str:

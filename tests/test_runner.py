@@ -948,5 +948,45 @@ class InvocationRecord(unittest.TestCase):
             self.assertIn("argv:", fh.read())
 
 
+class ProductBIsolationRefusal(unittest.TestCase):
+    """SMOKE-3: container is the only admissible isolation for a Product-B leg.
+
+    In the screening smoke a host-mode Product-B run exited 0 with an empty
+    ``agent-solution.diff`` while its edits landed in the lab's own
+    ``tasks/pilot-realworld/.work/repo`` — destroying that run's evidence and
+    contaminating the next run's staged input. The refusal fires on the PLAN, so
+    it is checkable here without a daemon, a product or a dollar.
+    """
+
+    def _plan(self, config: str):
+        manifest = yaml.safe_load(open(SYNTH_MANIFEST, encoding="utf-8"))
+        return runner.build_plan(config, manifest)
+
+    def test_host_mode_is_refused_for_a_product_b_arm(self) -> None:
+        with self.assertRaises(runner.RunnerError) as ctx:
+            runner.assert_product_b_isolation(self._plan("C3"), "host", "C3")
+        message = str(ctx.exception)
+        self.assertIn("SMOKE-3", message)
+        self.assertIn("host", message)
+
+    def test_container_mode_is_allowed(self) -> None:
+        runner.assert_product_b_isolation(self._plan("C3"), "container", "C3")
+
+    def test_product_a_arms_are_unaffected(self) -> None:
+        # The refusal is scoped to the product that escaped; P0 in host mode is
+        # still the recorded feasibility posture.
+        runner.assert_product_b_isolation(self._plan("P0"), "host", "P0")
+        self.assertEqual(runner.product_b_legs(self._plan("P0")), [])
+
+    def test_a_mixed_arm_is_refused_for_its_product_b_leg_alone(self) -> None:
+        # C5's conductor is Product A and its executor Product B: one Product-B leg
+        # is enough to make host mode inadmissible for the whole run.
+        plan = self._plan("C5")
+        self.assertEqual(runner.product_b_legs(plan), ["executor"])
+        with self.assertRaises(runner.RunnerError) as ctx:
+            runner.assert_product_b_isolation(plan, "host", "C5")
+        self.assertIn("executor", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

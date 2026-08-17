@@ -96,11 +96,19 @@ PY
   else
     AGY_REQUIRED=1
   fi
+  # The agent user is created at the INVOKING operator's uid/gid. It has to be
+  # non-root (SMOKE-1: Product A refuses --dangerously-skip-permissions under uid 0)
+  # and it has to be able to read 0600 credential files bind-mounted from this host
+  # (SMOKE-2), and a bind mount passes the host's numeric owner through untranslated.
+  # Any fixed uid satisfies only the first. The tag does not encode this, so the
+  # image records it as a label and the runner refuses a mismatched one.
   BUILD_ARGS+=(
     --build-arg "CLAUDE_CLI_VERSION=$CLAUDE_CLI_VERSION"
     --build-arg "AGY_VERSION=$AGY_VERSION"
     --build-arg "AGY_SHA256=$AGY_SHA256"
     --build-arg "AGY_REQUIRED=$AGY_REQUIRED"
+    --build-arg "SUBJECT_UID=$(id -u)"
+    --build-arg "SUBJECT_GID=$(id -g)"
   )
 fi
 
@@ -109,6 +117,9 @@ echo "  task:       $TASK_DIR_REL"
 echo "  target:     $TARGET"
 echo "  tag:        $TAG"
 echo "  dockerfile: $DOCKERFILE"
+if [ "$ROLE" = "agent" ]; then
+  echo "  run_as:     lab (uid $(id -u), gid $(id -g)) — non-root, host-matched"
+fi
 
 docker build \
   -f "$DOCKERFILE" \

@@ -191,10 +191,24 @@ declared, not inferred):
     {"run_dir": "results/screening-batch4/run-0001",
      "legs": {"main": "gemini-3.7-flash"}},
     {"run_dir": "results/screening-batch4/run-0002",
-     "legs": {"conductor": "claude-opus-5", "executor": "gemini-3.7-flash"}}
+     "legs": {"conductor": {"model_user_id": "claude-opus-5", "publisher": "anthropic"},
+              "executor": "gemini-3.7-flash"}}
   ]
 }
 ```
+
+A leg is either a bare `model_user_id` string — publisher defaults to `google` —
+or an object naming the publisher too. **A mixed-publisher run (C5: Anthropic
+conductor, Google executor) must use the object form for its Anthropic leg**;
+the publisher is declared by the operator, never inferred from the model name
+(SPEC §6.3). Both spellings of this were broken until 2026-08-17 and are now
+regression-tested:
+
+- the multi-model filter emitted `one_of("a" OR "b")`, which Cloud Monitoring
+  rejects with **HTTP 400 "Could not parse filter"** — the correct syntax is
+  comma-separated, so *every* multi-model collection failed outright; and
+- `publisher` was fixed at `google`, so the Anthropic conductor series above
+  could never match — silently, returning nothing rather than erroring.
 
 `start`/`end` may be given per run; the default is the run's first and last event
 timestamp. Then:

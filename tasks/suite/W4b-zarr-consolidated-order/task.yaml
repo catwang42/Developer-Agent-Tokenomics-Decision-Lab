@@ -84,9 +84,10 @@ static_checks: [build]
 expected_wallclock_s: null       # measured at run time; never fabricated
 
 # Config declarations (SPEC §2.3; ENFORCED by tests/test_tasks.py). This is a
-# SCREENING task: it has never been run in feasibility, so it carries the screening
-# set from workload.yaml rather than the P0/C2/P1 controlled feasibility set.
+# SCREENING task: it has never been run in feasibility. The arms are the registered
+# matrix of cp-screen-prereg.md §4, per TASK — not the workload-level list, which
+# cannot express that W4 and W4b differ.
 task_phase: screening
-configurations: [C1, C2, C3, C5]
+configurations: [P0, C2, C3, C3-med, C3-prev, C5]
 companion_configurations: []
 reps_screening: 3

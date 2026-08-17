@@ -78,7 +78,8 @@ SUBJECT_PROFILE_CONTAINER_AGENT = (
     "fs-namespace-confined; no-canonical|hidden|task.yaml-in-image(build-asserted); "
     "cwd-confined-/subject; harness-env-pointers-scrubbed; "
     "credentials-mounted-read-only; product-CLIs-baked-at-pinned-versions; "
-    "egress-allowlisted-see-network_policy; root-in-container"
+    "egress-allowlisted-see-network_policy; "
+    "non-root-in-container(uid-matched-to-host-operator)"
 )
 
 # Back-compat alias. Historical runs stamped one CONTAINER profile covering the gate

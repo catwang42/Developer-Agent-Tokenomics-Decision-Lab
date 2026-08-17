@@ -86,8 +86,11 @@ line_match_tolerance: 3   # +/- lines; a defect-id match within the window count
 expected_wallclock_s: null       # measured at run time; never fabricated
 
 # Config declarations (SPEC §2.3; ENFORCED by tests/test_tasks.py). Screening task:
-# never run in feasibility, so it carries the screening set from workload.yaml.
+# never run in feasibility. The arms are the registered matrix of cp-screen-prereg.md
+# §4. W6 is the ONLY task without C5: it is a review task with no executor
+# deliverable to delegate, so the cell is a design exclusion fixed before any run —
+# never a dropped result (prereg §4, "Why C5 is not run on W6").
 task_phase: screening
-configurations: [C1, C2, C3, C5]
+configurations: [P0, C2, C3, C3-med, C3-prev]
 companion_configurations: []
 reps_screening: 3

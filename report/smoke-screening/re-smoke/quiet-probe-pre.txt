@@ -1,0 +1,20 @@
+# FIX-5 quiet probe, pre-re-smoke (verbatim)
+probe at: 2026-08-17T03:49:59Z
+  gemini-3.7-flash     input            123054  2026-08-17T03:46:41Z
+  gemini-3.7-flash     input            118558  2026-08-17T03:45:41Z
+  gemini-3.7-flash     input            119923  2026-08-17T03:42:41Z
+  gemini-3.7-flash     input            236703  2026-08-17T03:41:41Z
+  gemini-3.7-flash     input            117493  2026-08-17T03:40:41Z
+  gemini-3.7-flash     output              850  2026-08-17T03:46:59Z
+  gemini-3.7-flash     output              922  2026-08-17T03:45:59Z
+  gemini-3.7-flash     output             1128  2026-08-17T03:42:59Z
+  gemini-3.7-flash     output             2152  2026-08-17T03:41:59Z
+  gemini-3.7-flash     output              285  2026-08-17T03:40:59Z
+NOISY 721068 tokens in the last 10m
+FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+WINDOW 2026-08-17T03:39:59.304559+00:00 .. 2026-08-17T03:49:59.304559+00:00
+
+# FIX-5 quiet probe, immediately before the container-mode C3 leg
+probe at: 2026-08-17T04:08:11Z
+QUIET 0 tokens in the last 10m
+WINDOW 2026-08-17T03:58:11.217907+00:00 .. 2026-08-17T04:08:11.217907+00:00

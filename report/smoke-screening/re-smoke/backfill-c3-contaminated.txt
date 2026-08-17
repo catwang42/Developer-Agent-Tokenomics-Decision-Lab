@@ -1,0 +1,92 @@
+========================================================================
+CONTAMINATED WINDOW — 1 run(s) NOT backfilled. The meter readings are real; they are not these runs'.
+  pilot-realworld-draft-articles__C3__rep1__20260817T024401
+    - gemini-3.7-flash: 10993105 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 — the window is carrying traffic this run cannot have produced
+    - pre-run baseline window 2026-08-17T02:38:10.209613Z..2026-08-17T02:43:10.209612Z is NOT quiet: 5 point(s), {'gemini-3.7-flash': {'input': 176672, 'output': 4554}} — traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run
+    - post-run baseline window 2026-08-17T02:54:08.765064Z..2026-08-17T02:59:08.765063Z is NOT quiet: 6 point(s), {'gemini-3.7-flash': {'input': 1274568, 'output': 13846}} — traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run
+  -> nothing was written; their Product-B usage stays 'unavailable', not zero.
+  -> re-collect only if the window can be shown to have been quiet; widening a filter to make a number appear is fabrication.
+========================================================================
+{
+  "attribution": {
+    "counts_confidence": "authoritative",
+    "method": "time_window_serialized_runs",
+    "per_run_attribution_confidence": "derived"
+  },
+  "collected_at": "2026-08-17T04:14:15.582101Z",
+  "collector": "vertex_token_collector",
+  "contamination_guard": {
+    "baseline_probe_seconds": 300,
+    "input_side_ceiling_tokens": 3000000,
+    "on_trip": "nothing is written; the run is stamped contaminated_window and its usage stays unavailable",
+    "runs_refused": [
+      "results/smoke-screening/pilot-realworld-draft-articles__C3__rep1__20260817T024401"
+    ]
+  },
+  "economics_note": "Usage only. This collector does not recompute economics: costs stay as the runner recorded them. Re-cost with harness/runner/run.py's build_economics against the pinned pricing snapshot once usage is filled.",
+  "guard_seconds": 60,
+  "metric_type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "project": "vital-octagon-19612",
+  "report": "provider-side token backfill",
+  "runs": [
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "input": 1274568,
+                    "output": 13846
+                  }
+                },
+                "end": "2026-08-17T02:59:08.765063Z",
+                "points": 6,
+                "start": "2026-08-17T02:54:08.765064Z"
+              },
+              "pre": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "input": 176672,
+                    "output": 4554
+                  }
+                },
+                "end": "2026-08-17T02:43:10.209612Z",
+                "points": 5,
+                "start": "2026-08-17T02:38:10.209613Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 10993105
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 10993105 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+          "pre-run baseline window 2026-08-17T02:38:10.209613Z..2026-08-17T02:43:10.209612Z is NOT quiet: 5 point(s), {'gemini-3.7-flash': {'input': 176672, 'output': 4554}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+          "post-run baseline window 2026-08-17T02:54:08.765064Z..2026-08-17T02:59:08.765063Z is NOT quiet: 6 point(s), {'gemini-3.7-flash': {'input': 1274568, 'output': 13846}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 10993105 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced; pre-run baseline window 2026-08-17T02:38:10.209613Z..2026-08-17T02:43:10.209612Z is NOT quiet: 5 point(s), {'gemini-3.7-flash': {'input': 176672, 'output': 4554}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run; post-run baseline window 2026-08-17T02:54:08.765064Z..2026-08-17T02:59:08.765063Z is NOT quiet: 6 point(s), {'gemini-3.7-flash': {'input': 1274568, 'output': 13846}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/smoke-screening/pilot-realworld-draft-articles__C3__rep1__20260817T024401",
+      "run_id": "pilot-realworld-draft-articles__C3__rep1__20260817T024401",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-17T02:54:08.765063Z",
+        "guard_seconds": 60,
+        "start": "2026-08-17T02:43:10.209613Z"
+      }
+    }
+  ],
+  "status_counts": {
+    "contaminated_window": 1
+  },
+  "unmapped_types_note": "Type labels with no mapping to a schema usage field. They are recorded verbatim in each run's event log and are NOT counted in any token class. A thinking/reasoning-flavoured type appearing here is a finding, not noise: it is the thinking share of the bill and must be mapped or reported explicitly before any Product-B cost is published.",
+  "unmapped_types_observed": {}
+}

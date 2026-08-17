@@ -19,6 +19,12 @@ The weaker of the two is what the summary field carries (``derived``); the
 provenance — metric type, window, ``model_user_id``, and the authoritative-count
 claim — is written into the event log, which is where an auditor should look.
 
+Attribution has a precondition, and the collector now CHECKS it rather than
+assuming it: before writing anything it runs a contamination guard (a per-run
+plausibility ceiling plus a baseline probe either side of the window). If the
+window cannot support a per-run number, nothing is written and the run is stamped
+``contaminated_window`` with its evidence. See the guard section below.
+
 Never fabricate, never zero-fill: a token class with no points in the window is
 simply absent from the backfill event, so the deriver records it *unavailable*.
 An observed ``type`` label this module does not know how to map is never dropped
@@ -108,27 +114,50 @@ def format_ts(dt: datetime) -> str:
 # --------------------------------------------------------------------------- #
 # Query construction (pure)
 # --------------------------------------------------------------------------- #
-def build_filter(model_user_ids: Iterable[str], publisher: str = DEFAULT_PUBLISHER) -> str:
+def _label_clause(label: str, values: Iterable[str]) -> str:
+    """``label = "v"`` for one value, ``label = one_of("a","b")`` for several.
+
+    ``one_of`` takes a COMMA-separated list. Writing it with ``OR`` between the
+    quoted values is not a laxer spelling of the same thing — the Monitoring API
+    rejects the whole filter with HTTP 400 ("Could not parse filter"), so a run
+    whose legs span two models used to fail collection outright. Observed live
+    against project vital-octagon-19612 on 2026-08-17; regression-tested in
+    tests/test_vertex_collector.py.
+    """
+    vals = sorted({str(v).strip() for v in values if str(v).strip()})
+    if not vals:
+        raise CollectorError(f"no {label} declared — refusing an unfiltered query")
+    if len(vals) == 1:
+        return f'{label} = "{vals[0]}"'
+    return f"{label} = one_of({','.join(chr(34) + v + chr(34) for v in vals)})"
+
+
+def build_filter(model_user_ids: Iterable[str],
+                 publisher: Any = DEFAULT_PUBLISHER) -> str:
     """Cloud Monitoring filter for one run's declared subject models.
 
     Restricting to the declared models is also the quiet-window escape hatch: an
     unrelated Gemini-calling workload in the same project (e.g. the ta-daily
     Cloud Run job) is excluded here as long as it uses a different model.
+
+    ``publisher`` accepts one publisher or several. Several is not a widening of
+    the query — every model is still named explicitly — it is what makes a
+    MIXED-PUBLISHER run collectable at all: a C5 run's conductor is an Anthropic
+    publisher model and its executor a Google one, and a filter pinned to
+    ``publisher = "google"`` silently returns nothing for the conductor. The
+    publisher is DECLARED per leg in the plan, never inferred from the model
+    name (SPEC 6.3).
     """
     ids = [str(m).strip() for m in model_user_ids if str(m).strip()]
     if not ids:
         raise CollectorError("no model_user_id declared — refusing an unfiltered query")
-    clauses = [
+    publishers = [publisher] if isinstance(publisher, str) else list(publisher)
+    return " AND ".join([
         f'metric.type = "{METRIC_TYPE}"',
         f'resource.type = "{MONITORED_RESOURCE}"',
-        f'resource.labels.publisher = "{publisher}"',
-    ]
-    if len(ids) == 1:
-        clauses.append(f'resource.labels.model_user_id = "{ids[0]}"')
-    else:
-        joined = " OR ".join(f'"{m}"' for m in sorted(set(ids)))
-        clauses.append(f"resource.labels.model_user_id = one_of({joined})")
-    return " AND ".join(clauses)
+        _label_clause("resource.labels.publisher", publishers),
+        _label_clause("resource.labels.model_user_id", ids),
+    ])
 
 
 def build_window(start: str, end: str,
@@ -372,6 +401,154 @@ def usage_fields(totals_by_type: Dict[str, int]) -> Tuple[Dict[str, int], Dict[s
 
 
 # --------------------------------------------------------------------------- #
+# Contamination guard (never write a number the window cannot support)
+# --------------------------------------------------------------------------- #
+# Time-window attribution is only sound while the subject run is the ONLY thing
+# calling the model in the project. That premise broke in the screening smoke: a
+# ~10-minute Product-B run's window returned 10,993,105 input tokens, three orders
+# of magnitude above anything the run could have produced, because an unrelated
+# interactive workload was hitting the same publisher model. The number was
+# authoritative as a meter reading and worthless as a per-run measurement, and
+# nothing in the collector would have stopped it being written into telemetry.
+#
+# Two independent checks now run BEFORE any write, because they fail on different
+# shapes of contamination:
+#   (a) a per-run plausibility CEILING catches a big overlapping burst;
+#   (b) BASELINE traffic in the windows immediately before and after the run
+#       catches a steady background stream, which no ceiling can distinguish from
+#       a genuinely long run.
+# Either trips and the run is stamped `contaminated_window` with its evidence and
+# nothing is written. A refusal is not a failure of the collector: it is the
+# collector doing the one thing that keeps `unavailable` honest (CLAUDE.md rule 3).
+
+#: Input-side tokens one run may plausibly have consumed. 3M is deliberately loose
+#: — roughly two orders of magnitude above the input side of the observed smoke
+#: runs — so it fires on contamination, not on a long or repetitive agent loop.
+#: Configurable per invocation (``--ceiling-input-tokens``; 0 disables).
+DEFAULT_CEILING_INPUT_TOKENS = 3_000_000
+
+#: How far either side of the attribution window to probe for background traffic.
+#: The window already carries ``guard_seconds`` of slack, so these probe strictly
+#: outside it. Configurable (``--baseline-seconds``; 0 disables).
+DEFAULT_BASELINE_SECONDS = 300
+
+CONTAMINATED_STATUS = "contaminated_window"
+
+#: Metric ``type`` labels that count toward the input-side ceiling.
+_INPUT_SIDE_TYPES = ("input", "cache_read_input", "cache_write_1h_input")
+
+
+@dataclass
+class ContaminationVerdict:
+    """Whether a run's window can support a per-run attribution at all."""
+    contaminated: bool = False
+    reasons: List[str] = field(default_factory=list)
+    evidence: Dict[str, Any] = field(default_factory=dict)
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {"contaminated": self.contaminated, "reasons": list(self.reasons),
+                "evidence": self.evidence}
+
+
+def input_side_tokens(totals_by_type: Dict[str, int]) -> int:
+    """Sum of the input-side type labels (plain, cache-read and cache-write).
+
+    All three are counted: a contaminated window can arrive entirely as
+    ``cache_read_input``, and checking only ``input`` would wave it through.
+    """
+    return sum(int(v) for t, v in totals_by_type.items() if t in _INPUT_SIDE_TYPES)
+
+
+def check_ceiling(collection: Collection,
+                  ceiling: int = DEFAULT_CEILING_INPUT_TOKENS) -> ContaminationVerdict:
+    """Trip when any model's input-side total in the window exceeds ``ceiling``."""
+    verdict = ContaminationVerdict()
+    if ceiling <= 0:
+        verdict.evidence["ceiling"] = "disabled"
+        return verdict
+    observed = {mid: input_side_tokens(t.totals_by_type)
+                for mid, t in collection.by_model.items()}
+    verdict.evidence["ceiling"] = {
+        "input_side_tokens_ceiling": ceiling,
+        "observed_input_side_tokens": dict(sorted(observed.items())),
+    }
+    for mid, total in sorted(observed.items()):
+        if total > ceiling:
+            verdict.contaminated = True
+            verdict.reasons.append(
+                f"{mid}: {total} input-side tokens in the window exceeds the "
+                f"per-run plausibility ceiling of {ceiling} — the window is "
+                f"carrying traffic this run cannot have produced"
+            )
+    return verdict
+
+
+def probe_baseline(client: MonitoringClient, project: str, filter_str: str,
+                   window: Tuple[datetime, datetime],
+                   baseline_seconds: int = DEFAULT_BASELINE_SECONDS,
+                   ) -> ContaminationVerdict:
+    """Trip when the same models carry traffic just before or just after the run.
+
+    Probes ``[lo - baseline, lo)`` and ``(hi, hi + baseline]`` — strictly outside
+    the attribution window, whose guard band already absorbs alignment-period
+    spill from the run's own first and last calls. Any tokens there mean something
+    other than this run is calling these models right now, which is exactly the
+    premise time-window attribution rests on.
+
+    A probe that ERRORS is treated as contaminated, not as quiet: an unverifiable
+    quiet window is not a quiet window.
+    """
+    verdict = ContaminationVerdict()
+    if baseline_seconds <= 0:
+        verdict.evidence["baseline"] = "disabled"
+        return verdict
+    lo, hi = window
+    span = timedelta(seconds=baseline_seconds)
+    tick = timedelta(microseconds=1)
+    probes = {"pre": (lo - span, lo - tick), "post": (hi + tick, hi + span)}
+    evidence: Dict[str, Any] = {"baseline_seconds": baseline_seconds, "windows": {}}
+    for name, probe_window in probes.items():
+        entry: Dict[str, Any] = {
+            "start": format_ts(probe_window[0]), "end": format_ts(probe_window[1])}
+        try:
+            series = client.list_time_series(project, filter_str, probe_window)
+            found = aggregate_series(series, probe_window, guard_seconds=0)
+        except CollectorError as exc:
+            entry["error"] = str(exc)
+            verdict.contaminated = True
+            verdict.reasons.append(
+                f"{name}-run baseline probe failed ({exc}) — an unverifiable quiet "
+                f"window is not a quiet window")
+            evidence["windows"][name] = entry
+            continue
+        totals = {mid: dict(sorted(t.totals_by_type.items()))
+                  for mid, t in sorted(found.by_model.items())}
+        entry["points"] = found.points_in_window
+        entry["by_model"] = totals
+        evidence["windows"][name] = entry
+        if found.points_in_window:
+            verdict.contaminated = True
+            verdict.reasons.append(
+                f"{name}-run baseline window {entry['start']}..{entry['end']} is "
+                f"NOT quiet: {found.points_in_window} point(s), {totals} — traffic "
+                f"on the subject models outside the run means points inside the "
+                f"run's window cannot be attributed to the run"
+            )
+    verdict.evidence["baseline"] = evidence
+    return verdict
+
+
+def merge_verdicts(*verdicts: ContaminationVerdict) -> ContaminationVerdict:
+    """Combine independent checks; contaminated if ANY of them tripped."""
+    merged = ContaminationVerdict()
+    for v in verdicts:
+        merged.contaminated = merged.contaminated or v.contaminated
+        merged.reasons.extend(v.reasons)
+        merged.evidence.update(v.evidence)
+    return merged
+
+
+# --------------------------------------------------------------------------- #
 # Run windows
 # --------------------------------------------------------------------------- #
 def run_window_from_events(run_dir: str) -> Tuple[str, str]:
@@ -395,14 +572,45 @@ class RunPlan:
     legs: Dict[str, str]                 # leg_id -> model_user_id
     start: Optional[str] = None          # default: first event ts
     end: Optional[str] = None            # default: last event ts
+    #: leg_id -> publisher, DECLARED (never inferred from the model name). A leg
+    #: that does not declare one is DEFAULT_PUBLISHER, which keeps every existing
+    #: single-product Gemini plan valid unchanged.
+    publishers: Dict[str, str] = field(default_factory=dict)
+
+    def publisher_for(self, leg_id: str) -> str:
+        return self.publishers.get(leg_id, DEFAULT_PUBLISHER)
 
     @staticmethod
     def from_dict(raw: Dict[str, Any]) -> "RunPlan":
-        legs = raw.get("legs") or {}
-        if not isinstance(legs, dict) or not legs:
+        """Parse one plan entry.
+
+        A leg value is either a bare ``model_user_id`` string (publisher defaults
+        to google) or an object ``{"model_user_id": ..., "publisher": ...}``. The
+        object form exists for mixed-publisher runs such as C5, whose conductor is
+        an Anthropic publisher model — the publisher is stated by the operator,
+        not guessed from the id.
+        """
+        raw_legs = raw.get("legs") or {}
+        if not isinstance(raw_legs, dict) or not raw_legs:
             raise CollectorError(f"plan entry for {raw.get('run_dir')!r} declares no legs")
-        return RunPlan(run_dir=raw["run_dir"], legs={str(k): str(v) for k, v in legs.items()},
-                       start=raw.get("start"), end=raw.get("end"))
+        legs: Dict[str, str] = {}
+        publishers: Dict[str, str] = {}
+        for leg_id, spec in raw_legs.items():
+            leg_id = str(leg_id)
+            if isinstance(spec, dict):
+                model = spec.get("model_user_id")
+                if not model:
+                    raise CollectorError(
+                        f"plan entry for {raw.get('run_dir')!r} leg {leg_id!r} declares "
+                        f"no model_user_id")
+                legs[leg_id] = str(model)
+                if spec.get("publisher"):
+                    publishers[leg_id] = str(spec["publisher"])
+            else:
+                legs[leg_id] = str(spec)
+        return RunPlan(run_dir=raw["run_dir"], legs=legs,
+                       start=raw.get("start"), end=raw.get("end"),
+                       publishers=publishers)
 
 
 def _leg_model_map(plan: RunPlan) -> Dict[str, str]:
@@ -460,7 +668,8 @@ def build_backfill_event(leg_id: str, model_user_id: str, collection: Collection
 class BackfillOutcome:
     run_dir: str
     run_id: str
-    status: str                                   # backfilled | skipped | no_data | error
+    #: backfilled | skipped | no_data | dry_run | contaminated_window | error
+    status: str
     detail: str = ""
     legs_filled: Dict[str, Dict[str, int]] = field(default_factory=dict)
     unmapped_types: Dict[str, Dict[str, int]] = field(default_factory=dict)
@@ -468,6 +677,9 @@ class BackfillOutcome:
     window: Optional[Dict[str, Any]] = None
     validated: Optional[bool] = None
     validation_reasons: List[str] = field(default_factory=list)
+    #: The contamination guard's verdict and its evidence. Present on every run the
+    #: guard examined, so a clean run records WHY it was considered clean.
+    contamination: Optional[Dict[str, Any]] = None
 
     def as_dict(self) -> Dict[str, Any]:
         return {k: v for k, v in self.__dict__.items() if v not in (None, [], {})} | {
@@ -513,9 +725,51 @@ def _rewrite_summary(run_dir: str, events: List[Dict[str, Any]]) -> Dict[str, An
     return merged
 
 
+def write_refusal_marker(run_dir: str, run_id: str, collection: Collection,
+                         verdict: ContaminationVerdict, collected_at: str) -> str:
+    """Record a refusal next to the run — evidence only, no measurement.
+
+    The run's telemetry is left untouched (its usage stays *unavailable*, which is
+    the truth), but a refusal that exists only in a batch report is a refusal
+    nobody reading the run will ever see. This file carries the window, the guard's
+    reasons and the raw totals it refused to attribute, and it is deliberately NOT
+    a telemetry artifact: nothing derives from it and no number in it is a
+    measurement of this run.
+    """
+    path = os.path.join(run_dir, "PROVIDER-BACKFILL-REFUSED.json")
+    payload = {
+        "refusal": CONTAMINATED_STATUS,
+        "collector": COLLECTOR_ID,
+        "metric_type": METRIC_TYPE,
+        "run_id": run_id,
+        "collected_at": collected_at,
+        "note": ("The provider meter for this window could not be attributed to "
+                 "this run, so NOTHING was written to events.jsonl or summary.json "
+                 "and the run's Product-B usage remains 'unavailable' (not zero). "
+                 "The totals below are what the window contained; they are NOT this "
+                 "run's usage."),
+        "window_totals_refused": collection.as_dict(),
+        "guard": verdict.as_dict(),
+    }
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2, sort_keys=True)
+        fh.write("\n")
+    os.replace(tmp, path)
+    return path
+
+
 def backfill_run(plan: RunPlan, collection: Collection, collected_at: str,
-                 dry_run: bool = False) -> BackfillOutcome:
-    """Append provider-side usage to one run and re-derive its summary."""
+                 dry_run: bool = False,
+                 contamination: Optional[ContaminationVerdict] = None,
+                 ) -> BackfillOutcome:
+    """Append provider-side usage to one run and re-derive its summary.
+
+    ``contamination`` is the guard's verdict for this run's window. When it says
+    the window is contaminated NOTHING is written, whatever the meter returned:
+    the counts are real, but they are not this run's, and a real number attributed
+    to the wrong run is a fabricated measurement (CLAUDE.md rule 1).
+    """
     events_path = os.path.join(plan.run_dir, "events.jsonl")
     summary_path = os.path.join(plan.run_dir, "summary.json")
     for required in (events_path, summary_path):
@@ -524,6 +778,19 @@ def backfill_run(plan: RunPlan, collection: Collection, collected_at: str,
     events = list(read_events(events_path))
     with open(summary_path, encoding="utf-8") as fh:
         run_id = json.load(fh).get("run_id", "")
+
+    if contamination is not None and contamination.contaminated:
+        outcome = BackfillOutcome(
+            plan.run_dir, run_id, CONTAMINATED_STATUS,
+            detail="; ".join(contamination.reasons),
+            window={"start": collection.window_start, "end": collection.window_end,
+                    "guard_seconds": collection.guard_seconds},
+            contamination=contamination.as_dict(),
+        )
+        if not dry_run:
+            write_refusal_marker(plan.run_dir, run_id, collection, contamination,
+                                 collected_at)
+        return outcome
 
     done = already_backfilled(events)
     if done:
@@ -536,7 +803,9 @@ def backfill_run(plan: RunPlan, collection: Collection, collected_at: str,
     outcome = BackfillOutcome(plan.run_dir, run_id, "no_data",
                               window={"start": collection.window_start,
                                       "end": collection.window_end,
-                                      "guard_seconds": collection.guard_seconds})
+                                      "guard_seconds": collection.guard_seconds},
+                              contamination=(contamination.as_dict()
+                                             if contamination is not None else None))
     new_events: List[Dict[str, Any]] = []
     for leg_id, model_user_id in sorted(_leg_model_map(plan).items()):
         event = build_backfill_event(leg_id, model_user_id, collection, collected_at)
@@ -578,7 +847,9 @@ def backfill_run(plan: RunPlan, collection: Collection, collected_at: str,
 # Report
 # --------------------------------------------------------------------------- #
 def build_report(project: str, collected_at: str, guard_seconds: int,
-                 outcomes: List[BackfillOutcome]) -> Dict[str, Any]:
+                 outcomes: List[BackfillOutcome],
+                 ceiling: int = DEFAULT_CEILING_INPUT_TOKENS,
+                 baseline_seconds: int = DEFAULT_BASELINE_SECONDS) -> Dict[str, Any]:
     """Machine-readable backfill report. Unmapped types sit at the top, on purpose."""
     unmapped: Dict[str, Dict[str, int]] = {}
     for out in outcomes:
@@ -609,6 +880,14 @@ def build_report(project: str, collected_at: str, guard_seconds: int,
             "per_run_attribution_confidence": "derived",
             "method": "time_window_serialized_runs",
         },
+        "contamination_guard": {
+            "input_side_ceiling_tokens": ceiling,
+            "baseline_probe_seconds": baseline_seconds,
+            "on_trip": ("nothing is written; the run is stamped "
+                        f"{CONTAMINATED_STATUS} and its usage stays unavailable"),
+            "runs_refused": sorted(out.run_dir for out in outcomes
+                                   if out.status == CONTAMINATED_STATUS),
+        },
         "economics_note": (
             "Usage only. This collector does not recompute economics: costs stay as "
             "the runner recorded them. Re-cost with harness/runner/run.py's "
@@ -620,6 +899,20 @@ def build_report(project: str, collected_at: str, guard_seconds: int,
 
 
 def _print_report(report: Dict[str, Any]) -> None:
+    refused = [r for r in report["runs"] if r.get("status") == CONTAMINATED_STATUS]
+    if refused:
+        print("=" * 72)
+        print(f"CONTAMINATED WINDOW — {len(refused)} run(s) NOT backfilled. The meter "
+              f"readings are real; they are not these runs'.")
+        for run in refused:
+            print(f"  {run.get('run_id') or run['run_dir']}")
+            for reason in (run.get("contamination") or {}).get("reasons", []):
+                print(f"    - {reason}")
+        print("  -> nothing was written; their Product-B usage stays 'unavailable', "
+              "not zero.")
+        print("  -> re-collect only if the window can be shown to have been quiet; "
+              "widening a filter to make a number appear is fabrication.")
+        print("=" * 72)
     unmapped = report["unmapped_types_observed"]
     if unmapped:
         print("=" * 72)
@@ -647,27 +940,53 @@ def load_plan(path: str) -> Tuple[str, List[RunPlan]]:
     return str(project), runs
 
 
-def collect_for_run(client: MonitoringClient, project: str, plan: RunPlan,
-                    guard_seconds: int) -> Collection:
+def plan_query(plan: RunPlan, guard_seconds: int
+               ) -> Tuple[Tuple[datetime, datetime], str]:
+    """The ``(window, filter)`` one run is collected with. Pure but for the events."""
     start = plan.start or run_window_from_events(plan.run_dir)[0]
     end = plan.end or run_window_from_events(plan.run_dir)[1]
     window = build_window(start, end, guard_seconds)
-    series = client.list_time_series(
-        project, build_filter(sorted(set(plan.legs.values()))), window)
+    publishers = {plan.publisher_for(leg_id) for leg_id in plan.legs}
+    return window, build_filter(sorted(set(plan.legs.values())), publishers)
+
+
+def collect_for_run(client: MonitoringClient, project: str, plan: RunPlan,
+                    guard_seconds: int) -> Collection:
+    window, filter_str = plan_query(plan, guard_seconds)
+    series = client.list_time_series(project, filter_str, window)
     return aggregate_series(series, window, guard_seconds)
+
+
+def guard_run(client: MonitoringClient, project: str, plan: RunPlan,
+              collection: Collection, guard_seconds: int,
+              ceiling: int = DEFAULT_CEILING_INPUT_TOKENS,
+              baseline_seconds: int = DEFAULT_BASELINE_SECONDS,
+              ) -> ContaminationVerdict:
+    """Run both contamination checks over one run's window."""
+    window, filter_str = plan_query(plan, guard_seconds)
+    return merge_verdicts(
+        check_ceiling(collection, ceiling),
+        probe_baseline(client, project, filter_str, window, baseline_seconds),
+    )
 
 
 def run_backfill(client: MonitoringClient, project: str, plans: List[RunPlan],
                  collected_at: str, guard_seconds: int = DEFAULT_GUARD_SECONDS,
-                 dry_run: bool = False) -> Dict[str, Any]:
+                 dry_run: bool = False,
+                 ceiling: int = DEFAULT_CEILING_INPUT_TOKENS,
+                 baseline_seconds: int = DEFAULT_BASELINE_SECONDS) -> Dict[str, Any]:
     outcomes: List[BackfillOutcome] = []
     for plan in plans:
         try:
             collection = collect_for_run(client, project, plan, guard_seconds)
-            outcomes.append(backfill_run(plan, collection, collected_at, dry_run=dry_run))
+            verdict = guard_run(client, project, plan, collection, guard_seconds,
+                                ceiling=ceiling, baseline_seconds=baseline_seconds)
+            outcomes.append(backfill_run(plan, collection, collected_at,
+                                         dry_run=dry_run, contamination=verdict))
         except CollectorError as exc:
             outcomes.append(BackfillOutcome(plan.run_dir, "", "error", str(exc)))
-    return build_report(project, collected_at, guard_seconds, outcomes)
+    return build_report(project, collected_at, guard_seconds, outcomes,
+                        ceiling=ceiling, baseline_seconds=baseline_seconds)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -677,6 +996,16 @@ def main(argv: Optional[List[str]] = None) -> int:
                         help="JSON plan: {project, runs:[{run_dir, legs:{leg: model_user_id}}]}")
     parser.add_argument("--project", help="override the plan's project")
     parser.add_argument("--guard-seconds", type=int, default=DEFAULT_GUARD_SECONDS)
+    parser.add_argument("--ceiling-input-tokens", type=int,
+                        default=DEFAULT_CEILING_INPUT_TOKENS,
+                        help="per-run plausibility ceiling on input-side tokens "
+                             "(input + cache read + cache write). A window over it "
+                             "is refused, not written. 0 disables the check.")
+    parser.add_argument("--baseline-seconds", type=int,
+                        default=DEFAULT_BASELINE_SECONDS,
+                        help="probe this many seconds before and after each run's "
+                             "window for traffic on the same models; any traffic "
+                             "there refuses the run. 0 disables the check.")
     parser.add_argument("--collected-at",
                         help="RFC3339 collection timestamp (default: now, UTC)")
     parser.add_argument("--report", help="write the JSON report here as well as stdout")
@@ -693,13 +1022,20 @@ def main(argv: Optional[List[str]] = None) -> int:
     collected_at = args.collected_at or format_ts(datetime.now(timezone.utc))
 
     report = run_backfill(GcloudMonitoringClient(), project, plans, collected_at,
-                          guard_seconds=args.guard_seconds, dry_run=args.dry_run)
+                          guard_seconds=args.guard_seconds, dry_run=args.dry_run,
+                          ceiling=args.ceiling_input_tokens,
+                          baseline_seconds=args.baseline_seconds)
     _print_report(report)
     if args.report:
         with open(args.report, "w", encoding="utf-8") as fh:
             json.dump(report, fh, indent=2, sort_keys=True)
             fh.write("\n")
-    return 1 if report["status_counts"].get("error") else 0
+    # 1 = something errored; 4 = nothing errored but the guard refused at least one
+    # run. Distinct codes because they need different responses: an error is a bug
+    # or an outage to fix, a refusal is a window to re-establish.
+    if report["status_counts"].get("error"):
+        return 1
+    return 4 if report["status_counts"].get(CONTAMINATED_STATUS) else 0
 
 
 if __name__ == "__main__":

@@ -71,17 +71,33 @@ def _gate_type(task: dict) -> str:
 
 
 # --- Configuration-declaration enforcement (SPEC §2.3; FIX 4) ---------------- #
-VALID_CONFIGS = {"C1", "C2", "C3", "C4", "C5", "P0", "P1"}
-# Run dir convention: <task_id>__<CONFIG>__rep<N>__<UTCstamp>
-_RUN_DIR_RE = re.compile(r"^(?P<tid>[a-z0-9-]+)__(?P<cfg>[A-Z0-9]+)__rep\d+__")
+# Must stay a superset of harness/telemetry/schema-v2.json's configuration_id enum;
+# test_valid_configs_covers_the_schema_enum below is what holds the two together.
+# C3-med, C3-prev and P2 were added 2026-08-17: the schema had them since the
+# 2026-08-16 widening, these lists did not, so a run in one of those arms was
+# silently invisible to every check here.
+VALID_CONFIGS = {"C1", "C2", "C3", "C3-med", "C3-prev", "C4", "C5", "P0", "P1", "P2"}
+# Run dir convention: <task_id>__<CONFIG>__rep<N>__<UTCstamp>. The config token must
+# admit an internal hyphen (C3-med, C3-prev) — the old [A-Z0-9]+ matched neither, so
+# those run dirs did not merely fail the checks, they were skipped by them. The
+# leading [A-Z] keeps the token from swallowing part of the task id, which is
+# lowercase; `__` is the real delimiter.
+_RUN_DIR_RE = re.compile(r"^(?P<tid>[a-z0-9-]+)__(?P<cfg>[A-Z][A-Za-z0-9-]*)__rep\d+__")
 
 
-def _declared_configs_by_task() -> dict:
-    """task_id -> set(configurations ∪ companion_configurations) from each task.yaml."""
+def _declared_configs_by_task(key: str = "configurations") -> dict:
+    """task_id -> set(<key> ∪ companion_configurations) from each task.yaml.
+
+    ``key`` selects which declaration governs: ``configurations`` is the CURRENT
+    registered set (the screening matrix), ``feasibility_configurations`` is the
+    frozen record of what a feasibility batch was planned to run. They are separate
+    fields so that registering a new arm cannot retroactively legitimise a run that
+    was out of plan when it happened.
+    """
     out: dict = {}
     for d in TASK_DIRS:
         t = _yaml(d / "task.yaml")
-        out[t["task_id"]] = (set(t.get("configurations") or [])
+        out[t["task_id"]] = (set(t.get(key) or [])
                              | set(t.get("companion_configurations") or []))
     return out
 
@@ -98,9 +114,10 @@ def _runs_by_task(results_root: pathlib.Path):
             yield m.group("tid"), m.group("cfg")
 
 
-def undeclared_runs(results_root: pathlib.Path) -> set:
+def undeclared_runs(results_root: pathlib.Path,
+                    key: str = "configurations") -> set:
     """Configs run against a task that are NOT declared for it (SPEC §2.3 breach)."""
-    declared = _declared_configs_by_task()
+    declared = _declared_configs_by_task(key)
     return {(tid, cfg) for tid, cfg in _runs_by_task(results_root)
             if cfg not in declared.get(tid, set())}
 
@@ -122,9 +139,14 @@ class TaskInvariants(unittest.TestCase):
             self.assertTrue((d / "task.yaml").exists(), f"missing task.yaml in {d}")
 
     def test_manifest_entry_agrees_with_task(self) -> None:
+        # task_id is compared here as of 2026-08-17: it is the FIRST field of every
+        # run directory name, so a disagreement does not fail loudly — it silently
+        # splits one task's results across two join keys. W3 carried exactly that
+        # split (manifest `…-dialect-common-…` vs task.yaml `…-segment-method-…`)
+        # and no test caught it.
         for d, task in self._tasks():
             entry = self.manifest[task["manifest_key"]]
-            for key in ("repo", "pinned_commit"):
+            for key in ("task_id", "repo", "pinned_commit"):
                 self.assertEqual(entry[key], task[key],
                                  f"{d.name}: manifest.{task['manifest_key']}.{key} != task.yaml")
 
@@ -318,6 +340,22 @@ class ConfigurationDeclarations(unittest.TestCase):
 
     BATCH2 = ROOT / "results" / "feasibility-batch2"
 
+    # The registered screening matrix, cp-screen-prereg.md §4, transcribed by task
+    # dir. This table IS the enforcement: the prereg document is authoritative and a
+    # task.yaml that drifts from it is the failure this class exists to catch.
+    #   five solo arms on all seven · C5 everywhere but W6 (no executor deliverable)
+    #   · P1 on W3 only (escalation probe) · P2 on F1 and F3 only (frozen split.yaml)
+    SOLO = {"P0", "C2", "C3", "C3-med", "C3-prev"}
+    REGISTERED_ARMS = {
+        "pilot-realworld": SOLO | {"C5", "P2"},
+        "W4-complex-bugfix": SOLO | {"C5"},
+        "W1-test-generation": SOLO | {"C5", "P2"},
+        "W4b-zarr-consolidated-order": SOLO | {"C5"},
+        "W3-migration": SOLO | {"C5", "P1"},
+        "W1b-zarr-block-mask-properties": SOLO | {"C5"},
+        "W6-pr-review": SOLO,
+    }
+
     def test_declared_fields_are_valid(self) -> None:
         for d in TASK_DIRS:
             t = _yaml(d / "task.yaml")
@@ -325,35 +363,55 @@ class ConfigurationDeclarations(unittest.TestCase):
             comp = t.get("companion_configurations", [])
             self.assertIsInstance(comp, list,
                                   f"{d.name}: companion_configurations must be a list")
-            for c in list(t["configurations"]) + list(comp):
+            for c in (list(t["configurations"]) + list(comp)
+                      + list(t.get("feasibility_configurations") or [])):
                 self.assertIn(c, VALID_CONFIGS, f"{d.name}: unknown config id {c!r}")
 
-    def test_configurations_is_the_controlled_feasibility_set(self) -> None:
-        # Convention for FEASIBILITY tasks: task.yaml `configurations` is the SPEC
-        # §2.3 controlled set (P0/C2/P1); companions go in
-        # companion_configurations; the screening arms live in workload.yaml.
-        # Guards against the old F2 screening-framing regression.
+    def test_valid_configs_covers_the_schema_enum(self) -> None:
+        # The lists in this file drifted behind the schema's 2026-08-16 widening for a
+        # day; C3-med/C3-prev/P2 runs were skipped rather than checked. Pinning the
+        # relationship means the next widening cannot repeat it silently.
+        with open(SCHEMA, encoding="utf-8") as fh:
+            enum = set(json.load(fh)["properties"]["configuration_id"]["enum"])
+        self.assertTrue(
+            enum <= VALID_CONFIGS,
+            f"schema configuration_id enum has ids VALID_CONFIGS lacks: "
+            f"{sorted(enum - VALID_CONFIGS)}",
+        )
+        for cfg in enum:
+            self.assertRegex(f"some-task__{cfg}__rep1__20260817T000000", _RUN_DIR_RE,
+                             f"_RUN_DIR_RE does not match a {cfg} run directory")
+
+    def test_configurations_are_the_registered_screening_arms(self) -> None:
+        # Was: feasibility tasks assert P0/C2/P1 and screening tasks assert
+        # C1/C2/C3/C5. Neither set is the registered matrix, and the split by phase
+        # no longer holds — F1/F2/F3 are reused in screening (prereg §8), so all
+        # seven tasks are governed by the same table.
+        for d in TASK_DIRS:
+            t = _yaml(d / "task.yaml")
+            self.assertEqual(
+                set(t["configurations"]), self.REGISTERED_ARMS[d.name],
+                f"{d.name}: configurations must be the arms registered for this task "
+                f"in cp-screen-prereg.md §4",
+            )
+
+    def test_feasibility_history_is_preserved_and_unchanged(self) -> None:
+        # `configurations` now describes the screening plan, so the controlled set
+        # each feasibility task actually ran has its own frozen key. Without it, the
+        # batch-2 conformance check below would join on the new plan and quietly
+        # report zero violations. Screening tasks never ran in feasibility and must
+        # NOT carry the key.
         for d in FEASIBILITY_TASK_DIRS:
             t = _yaml(d / "task.yaml")
             self.assertEqual(
-                set(t["configurations"]), {"P0", "C2", "P1"},
-                f"{d.name}: configurations must be the controlled feasibility set "
-                f"P0/C2/P1 (screening configs belong in workload.yaml)",
+                set(t.get("feasibility_configurations") or ()), {"P0", "C2", "P1"},
+                f"{d.name}: feasibility_configurations is the frozen controlled set "
+                f"P0/C2/P1 that batch 2 ran — it records history, not a plan",
             )
-
-    def test_screening_configurations_are_the_screening_arms(self) -> None:
-        # The screening roster is not part of the feasibility dataset: those tasks
-        # were commit-mined FOR screening, are named in no feasibility batch, and
-        # carry no workload.yaml of their own in two of four cases (W1b, W4b are
-        # second TASKS of W1/W4). So their task.yaml is the only place the arms can
-        # be declared, and they declare the screening set — C1/C2/C3/C5 — matching
-        # the workload.yaml of the workload they belong to.
         for d in SCREENING_TASK_DIRS:
             t = _yaml(d / "task.yaml")
-            self.assertEqual(
-                set(t["configurations"]), {"C1", "C2", "C3", "C5"},
-                f"{d.name}: screening task must declare the screening arms C1/C2/C3/C5",
-            )
+            self.assertNotIn("feasibility_configurations", t,
+                             f"{d.name}: screening tasks never ran in feasibility")
             self.assertEqual(
                 t.get("companion_configurations", []), [],
                 f"{d.name}: screening tasks run no companions",
@@ -363,11 +421,15 @@ class ConfigurationDeclarations(unittest.TestCase):
         """The check flags batch-2's out-of-plan runs and ONLY those: F1·C3 and F1·C5
         (product/hybrid companions dropped from the re-collection). That F2/F3 (and
         F1's C1/C2/P0/P1) raise no violation also confirms their declarations match
-        what batch 2 actually ran — i.e. what the re-collection will run."""
+        what batch 2 actually ran.
+
+        Joins on `feasibility_configurations`, not `configurations`: C3 and C5 are
+        registered SCREENING arms for F1 now, and joining on the current plan would
+        turn this assertion green by erasing the finding rather than by fixing it."""
         if not self.BATCH2.is_dir():
             self.skipTest("batch-2 dataset not present")
         self.assertEqual(
-            undeclared_runs(self.BATCH2),
+            undeclared_runs(self.BATCH2, key="feasibility_configurations"),
             {("pilot-realworld-draft-articles", "C3"),
              ("pilot-realworld-draft-articles", "C5")},
         )

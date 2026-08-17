@@ -1,0 +1,74 @@
+{
+  "attribution": {
+    "counts_confidence": "authoritative",
+    "method": "time_window_serialized_runs",
+    "per_run_attribution_confidence": "derived"
+  },
+  "collected_at": "2026-08-17T04:13:58.887865Z",
+  "collector": "vertex_token_collector",
+  "contamination_guard": {
+    "baseline_probe_seconds": 300,
+    "input_side_ceiling_tokens": 3000000,
+    "on_trip": "nothing is written; the run is stamped contaminated_window and its usage stays unavailable",
+    "runs_refused": []
+  },
+  "economics_note": "Usage only. This collector does not recompute economics: costs stay as the runner recorded them. Re-cost with harness/runner/run.py's build_economics against the pinned pricing snapshot once usage is filled.",
+  "guard_seconds": 60,
+  "metric_type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "project": "vital-octagon-19612",
+  "report": "provider-side token backfill",
+  "runs": [
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-17T04:19:33.992301Z",
+                "points": 0,
+                "start": "2026-08-17T04:14:33.992302Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-17T04:07:22.023200Z",
+                "points": 0,
+                "start": "2026-08-17T04:02:22.023201Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1253485
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1253485,
+          "output_tokens": 17379
+        }
+      },
+      "run_dir": "results/smoke-screening/pilot-realworld-draft-articles__C3__rep1__20260817T040821",
+      "run_id": "pilot-realworld-draft-articles__C3__rep1__20260817T040821",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-17T04:14:33.992301Z",
+        "guard_seconds": 60,
+        "start": "2026-08-17T04:07:22.023201Z"
+      }
+    }
+  ],
+  "status_counts": {
+    "backfilled": 1
+  },
+  "unmapped_types_note": "Type labels with no mapping to a schema usage field. They are recorded verbatim in each run's event log and are NOT counted in any token class. A thinking/reasoning-flavoured type appearing here is a finding, not noise: it is the thinking share of the bill and must be mapped or reported explicitly before any Product-B cost is published.",
+  "unmapped_types_observed": {}
+}

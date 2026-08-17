@@ -42,7 +42,10 @@ pass_condition: >
   test passes. Measured with the canonical applied: 9 passed on the public test;
   996 passed / 28 skipped and 449 passed on the two baseline scopes, zero failures.
 expected_wallclock_s: null
-configurations: [C1, C2, C3, C5]
+# Arms: the AUTHORITY is each task's task.yaml, because arms are registered per
+# TASK, not per workload (cp-screen-prereg.md §4). This line is the union over
+# W3 only — the escalation probe, the sole P1 task, kept in sync for readability only.
+configurations: [P0, C2, C3, C3-med, C3-prev, C5, P1]
 reps_screening: 3
 class_claim_note: >
   One task = screening signal only. A workload-class claim requires a second,
