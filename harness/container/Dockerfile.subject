@@ -118,6 +118,35 @@ ARG AGY_VERSION=unavailable
 ARG AGY_SHA256=unavailable
 ARG AGY_REQUIRED=0
 
+# The agent runs NON-ROOT (SMOKE-1). Product A's CLI refuses
+# `--dangerously-skip-permissions` under uid 0 — "cannot be used with root/sudo
+# privileges for security reasons" — so every container-mode Product-A leg failed
+# before it made a single call.
+#
+# The uid is a BUILD ARG set to the invoking operator's uid by
+# build-subject-image.sh, not a fixed 1001. Non-root and credential access pull in
+# opposite directions: both products' credentials are 0600 files owned by the host
+# user, and a bind mount carries the host's numeric owner through unchanged, so a
+# container user at any other uid gets EACCES on the ADC file and on
+# antigravity-oauth-token — SMOKE-2's refusal, reintroduced by SMOKE-1's fix.
+# Matching the uid is the only way to have both without loosening the host modes or
+# copying secrets to a world-readable staging dir.
+#
+# The image tag does not encode the uid (it pins task + commit), so a tree built
+# under a different account would be silently reused; exec.assert_image_uid_matches_host
+# reads the label below and refuses before any run. The default 1001 is for builds
+# with no operator context (CI smoke of the Dockerfile itself); it is not usable for
+# a credentialed run and the label will say so.
+ARG SUBJECT_UID=1001
+ARG SUBJECT_GID=1001
+RUN groupadd --gid "${SUBJECT_GID}" lab \
+    && useradd --uid "${SUBJECT_UID}" --gid "${SUBJECT_GID}" \
+               --create-home --shell /bin/bash lab
+# Both CLIs write config/state under $HOME. Root's /root is not writable by `lab`,
+# and a CLI that cannot write its config dir fails in a way that looks like an API
+# error, so the home is set explicitly rather than inherited.
+ENV HOME=/home/lab
+
 RUN npm install -g "@anthropic-ai/claude-code@${CLAUDE_CLI_VERSION}" \
     && npm cache clean --force
 
@@ -129,6 +158,14 @@ RUN got="$(claude --version 2>&1 | head -1)"; \
       *) echo "FAIL: claude CLI reports '$got', expected ${CLAUDE_CLI_VERSION}" >&2; exit 1 ;; \
     esac
 
+# Product B's headless entry point (SMOKE-2 credentials, SMOKE-3 state isolation).
+# It takes the name `agy` on PATH and execs the vendored binary, which is installed
+# OFF PATH below — so there is no invocation route that skips it, including the
+# version probe two steps down, which is also how the build proves the wrapper is
+# transparent for `--version`.
+COPY harness/container/agy-headless.sh /usr/local/bin/agy
+RUN chmod 0755 /usr/local/bin/agy
+
 # vendor/ always exists in the context (vendor/.gitkeep is committed) so this COPY
 # never fails; whether it holds agy is what the next step decides.
 COPY vendor/ /opt/lab-vendor/
@@ -138,7 +175,7 @@ RUN set -e; \
       if [ "$AGY_SHA256" != "unavailable" ] && [ "$got_sha" != "$AGY_SHA256" ]; then \
         echo "FAIL: vendored agy sha256 $got_sha != pinned $AGY_SHA256" >&2; exit 1; \
       fi; \
-      install -m 0755 /opt/lab-vendor/agy /usr/local/bin/agy; \
+      install -D -m 0755 /opt/lab-vendor/agy /usr/local/lib/lab/agy.real; \
       got_ver="$(agy --version 2>&1 | tr -d '\r' | head -1)"; \
       if [ "$AGY_VERSION" != "unavailable" ] && [ "$got_ver" != "$AGY_VERSION" ]; then \
         echo "FAIL: agy reports '$got_ver', expected '$AGY_VERSION'" >&2; exit 1; \
@@ -152,10 +189,17 @@ RUN set -e; \
     fi; \
     rm -rf /opt/lab-vendor
 
-# The subject repo, and nothing else, from the scrubbed export stage.
-COPY --from=subject-export /export/subject /subject
+# The subject repo, and nothing else, from the scrubbed export stage. Owned by the
+# non-root agent: Docker seeds the per-run named volume from this path preserving
+# ownership, so the agent can write its solution without a runtime chown.
+COPY --from=subject-export --chown=lab:lab /export/subject /subject
 
 ENV NX_DAEMON=false NX_CLOUD_ACCESS_TOKEN='' CI=true TASK_IN_CONTAINER=1
+# The adapter sets this on the docker CLI's environment, not the container's, so
+# without it here the pinned condition would not be in force inside the container.
+# The agy wrapper exports it too (belt and braces); the version pin, checked per
+# attempt, is what actually enforces "same product all batch".
+ENV AGY_CLI_DISABLE_AUTO_UPDATE=1
 WORKDIR /subject
 
 # The assertion. Scans the WHOLE filesystem for canonical/, hidden/ and task.yaml —
@@ -170,8 +214,15 @@ RUN assert-no-task-material /
 LABEL lab.image.role="subject-agent" \
       lab.image.network_posture="egress-allowlist; set per run and recorded verbatim in identity.network_policy" \
       lab.image.task_material="none — asserted by assert-no-task-material / at build time" \
+      lab.image.run_as="lab (uid ${SUBJECT_UID}) — non-root; SMOKE-1" \
+      lab.image.subject_uid="${SUBJECT_UID}" \
+      lab.image.subject_gid="${SUBJECT_GID}" \
       lab.cli.claude.version="${CLAUDE_CLI_VERSION}" \
       lab.cli.agy.version="${AGY_VERSION}" \
       lab.cli.agy.sha256="${AGY_SHA256}"
+
+# Last, so every RUN above (the npm install, the pin asserts, the task-material
+# assertion) still runs as root and the image content is fixed before the drop.
+USER lab
 
 CMD ["bash", "-lc", "echo 'subject agent image ready; pass a command to docker run'"]

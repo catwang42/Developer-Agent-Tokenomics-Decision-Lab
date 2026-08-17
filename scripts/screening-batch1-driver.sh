@@ -41,10 +41,14 @@ ISOLATION="container"
 EGRESS="allowlist"
 PROJECT="vital-octagon-19612"
 QUIET_LOOKBACK_MIN=15        # background-traffic window checked before the batch
+QUIET_PROBE_MIN=10           # trailing window checked before each Gemini-bearing run
+QUIET_RETRIES=3              # retries after a noisy probe, then the arm is deferred
+QUIET_RETRY_SLEEP=300        # 5 minutes between retries
 DRY_RUN=0
 WITH_P2=0                    # the two OPTIONAL P2 cells (F1, F3); off => 126 runs
 START_AT=1                   # 1-based index into the plan; for resuming a halted batch
 KILL_SWITCH="$BATCH_DIR/HALT"
+DEFERRED_LOG="$BATCH_DIR/deferred-contaminated.tsv"
 
 usage() {
   cat <<'USAGE'
@@ -82,6 +86,34 @@ done
 
 log()  { printf '%s  %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 fail() { printf '%s  REFUSING: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >&2; exit 2; }
+
+# --------------------------------------------------------------------------- #
+# Quiet-window probe. Time is the ONLY thing separating a subject run's tokens
+# from anyone else's on the same publisher model, so this is the measurement's
+# load-bearing precondition, not a nicety. Prints one of:
+#   QUIET <n> tokens ... | NOISY <n> tokens ... | UNKNOWN <error>
+# UNKNOWN is never treated as quiet — an unverifiable quiet window is not one.
+# --------------------------------------------------------------------------- #
+quiet_probe() {  # quiet_probe <lookback-minutes>
+  "$PY" - "$PROJECT" "$1" <<'PYEOF' 2>/dev/null || echo "UNKNOWN collector query failed"
+import datetime, sys
+from harness.collectors.vertex_token_collector import GcloudMonitoringClient, build_filter
+project, minutes = sys.argv[1], int(sys.argv[2])
+models = ["gemini-3.7-flash", "gemini-3.6-flash"]
+now = datetime.datetime.now(datetime.timezone.utc)
+start = now - datetime.timedelta(minutes=minutes)
+flt = build_filter(models, ["google"])
+try:
+    series = GcloudMonitoringClient().list_time_series(project, flt, (start, now))
+except Exception as exc:                                    # noqa: BLE001
+    print(f"UNKNOWN {exc}")                                 # unknown is NOT quiet
+    raise SystemExit(0)
+total = sum(int(p["value"].get("int64Value") or p["value"].get("doubleValue") or 0)
+            for ts in series for p in ts.get("points", []))
+print(f"{'QUIET' if total == 0 else 'NOISY'} {total} tokens in the last {minutes}m")
+print(f"FILTER {flt}")
+PYEOF
+}
 
 # --------------------------------------------------------------------------- #
 # The registered arm map (cp-screen-prereg.md §4)
@@ -243,25 +275,7 @@ log "ok   docker reachable"
 # 8. Quiet window. Nothing but the time window separates a subject run from a
 #    background job on the same model, so background traffic on a subject model is
 #    a hard stop: it would be attributed to our runs.
-QUIET="$("$PY" - "$PROJECT" "$QUIET_LOOKBACK_MIN" <<'PYEOF'
-import datetime, sys
-from harness.collectors.vertex_token_collector import GcloudMonitoringClient, build_filter
-project, minutes = sys.argv[1], int(sys.argv[2])
-models = ["gemini-3.7-flash", "gemini-3.6-flash"]
-now = datetime.datetime.now(datetime.timezone.utc)
-start = now - datetime.timedelta(minutes=minutes)
-flt = build_filter(models, ["google"])
-try:
-    series = GcloudMonitoringClient().list_time_series(project, flt, (start, now))
-except Exception as exc:                                    # noqa: BLE001
-    print(f"UNKNOWN {exc}")                                 # unknown is NOT quiet
-    raise SystemExit(0)
-total = sum(int(p["value"].get("int64Value") or p["value"].get("doubleValue") or 0)
-            for ts in series for p in ts.get("points", []))
-print(f"{'QUIET' if total == 0 else 'NOISY'} {total} tokens in the last {minutes}m")
-print(f"FILTER {flt}")
-PYEOF
-)" || QUIET="UNKNOWN collector query failed"
+QUIET="$(quiet_probe "$QUIET_LOOKBACK_MIN")"
 printf '%s\n' "$QUIET" | sed 's/^/       /'
 case "$QUIET" in
   QUIET*) log "ok   quiet window: no background traffic on the subject models" ;;
@@ -281,10 +295,38 @@ log "ok   kill switch armed: touch $KILL_SWITCH to halt between runs"
 log "=== preflight passed: $TOTAL runs, cap \$$SPEND_CAP_USD, $BATCH_DIR ==="
 
 # --------------------------------------------------------------------------- #
+# Per-run quiet window (the batch-level check above is a snapshot; contamination
+# can start at any point in a multi-hour batch)
+#
+# A Gemini-bearing arm has NO usable telemetry except the provider meter, and the
+# meter can only be attributed by time window. Launching one into a noisy window
+# spends money to produce a number the collector will later refuse — so the check
+# moves to just before the run, where it can still prevent the spend. Noisy =>
+# wait and retry; still noisy after the retries => the arm is DEFERRED, recorded,
+# and the batch moves on. Deferring one cell is cheap; halting a 126-run batch
+# because a background job woke up is not.
+# --------------------------------------------------------------------------- #
+GEMINI_ARMS="C3 C3-med C3-prev C5"   # arms with at least one Google-metered leg
+
+await_quiet() {  # await_quiet <label>; 0 = quiet, 1 = still not quiet after retries
+  local attempt=0 out
+  while :; do
+    out="$(quiet_probe "$QUIET_PROBE_MIN")"
+    printf '%s\n' "$out" | sed 's/^/       /'
+    case "$out" in QUIET*) return 0 ;; esac
+    attempt=$((attempt + 1))
+    if [ "$attempt" -gt "$QUIET_RETRIES" ]; then return 1; fi
+    log "quiet window not established for $1 (probe $attempt/$QUIET_RETRIES) — waiting ${QUIET_RETRY_SLEEP}s"
+    sleep "$QUIET_RETRY_SLEEP"
+  done
+}
+
+# --------------------------------------------------------------------------- #
 # Execute — serial, halt on any nonzero exit, cost checkpoint every N runs
 # --------------------------------------------------------------------------- #
 idx=0
 completed=0
+deferred=0
 HALT_REASON=""
 while read -r task arm rep; do
   [ -n "$task" ] || continue
@@ -297,6 +339,19 @@ while read -r task arm rep; do
   fi
 
   log "--- [$idx/$TOTAL] $task $arm rep$rep ---"
+
+  if [ "$DRY_RUN" -eq 0 ] && contains_word "$arm" "$GEMINI_ARMS"; then
+    if ! await_quiet "$task $arm rep$rep"; then
+      deferred=$((deferred + 1))
+      printf '%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        "$idx" "$task" "$arm" "rep$rep" >> "$DEFERRED_LOG"
+      log "DEFERRED-CONTAMINATED [$idx/$TOTAL] $task $arm rep$rep — background traffic"
+      log "  on the subject models after $((QUIET_RETRIES + 1)) probes; arm NOT run, nothing billed."
+      log "  Recorded in $DEFERRED_LOG; the batch continues."
+      continue
+    fi
+  fi
+
   set -- --task "$task" --config "$arm" --rep "$rep" \
          --manifest "$MANIFEST" --phase "$PHASE" --out-root "$OUT_ROOT" \
          --cache-state "$CACHE_STATE" --spend-cap-usd "$SPEND_CAP_USD" \
@@ -334,8 +389,14 @@ PYEOF
   fi
 done <<< "$PLAN"
 
-log "=== execution finished: $completed/$TOTAL runs completed ==="
+log "=== execution finished: $completed/$TOTAL runs completed, $deferred deferred ==="
 [ -n "$HALT_REASON" ] && log "HALTED: $HALT_REASON"
+if [ "$deferred" -gt 0 ]; then
+  log "DEFERRED-CONTAMINATED cells (never ran, no cost, NOT a result):"
+  sed 's/^/       /' "$DEFERRED_LOG"
+  log "  Re-run them with --start-at once the window is quiet; a deferred cell is a"
+  log "  HOLE in the registered matrix and must be reported as one, never averaged over."
+fi
 
 # --------------------------------------------------------------------------- #
 # Backfill — Product B has no machine-readable headless usage, so its tokens only
@@ -386,10 +447,21 @@ PYEOF
 
 REPORT_DIR="report/$PHASE"
 mkdir -p "$REPORT_DIR"
+# The guard values are passed explicitly rather than left to defaults so the
+# batch's log records the exact thresholds the collector refused (or did not
+# refuse) under.
 "$PY" -m harness.collectors.vertex_token_collector \
-  --plan "$PLAN_JSON" --guard-seconds 60 --report "$REPORT_DIR/backfill.json"
+  --plan "$PLAN_JSON" --guard-seconds 60 \
+  --ceiling-input-tokens 3000000 --baseline-seconds 300 \
+  --report "$REPORT_DIR/backfill.json"
 backfill_rc=$?
-[ "$backfill_rc" -eq 0 ] || log "WARNING: backfill exited $backfill_rc — inspect $REPORT_DIR/backfill.json before treating any Product-B figure as collected"
+case "$backfill_rc" in
+  0) ;;
+  4) log "CONTAMINATION GUARD REFUSED at least one run — nothing was written for it."
+     log "  Its Product-B usage stays 'unavailable' (never zero). Evidence per run:"
+     log "  $REPORT_DIR/backfill.json and PROVIDER-BACKFILL-REFUSED.json in the run dir." ;;
+  *) log "WARNING: backfill exited $backfill_rc — inspect $REPORT_DIR/backfill.json before treating any Product-B figure as collected" ;;
+esac
 
 log "=== final cost accounting ==="
 "$PY" - "$BATCH_DIR" "$SPEND_CAP_USD" <<'PYEOF' | sed 's/^/       /'
@@ -411,6 +483,9 @@ NEXT (human):
   3. Write report/$PHASE/ with a STATUS banner and add the dataset row to
      results/README.md (CLAUDE.md rule 8). No number enters docs/site/report
      before CP-FINDINGS.
+  4. Account for the $deferred deferred-contaminated cell(s) and for any run the
+     collector refused: both are HOLES in the registered matrix. Report them as
+     missing cells; never fill them by widening a window or a filter.
 EOF
 
 [ -n "$HALT_REASON" ] && exit 1

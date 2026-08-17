@@ -40,6 +40,12 @@ in their own folders — this is a decision, not an omission:**
 - **revalidation** (`results/revalidation/`) → batch 3 report **appendix**
 - **smoke** (`results/smoke/`) → batch 3 report **§4**
 
+The one exception is the **screening smoke**, which does get its own folder because it is
+not batch-3-era and not a telemetry dataset at all: `report/smoke-screening/` documents
+`results/smoke-screening/` — the smoke itself in `smoke-report.md`, and the verification
+of the fixes it forced in `re-smoke/re-smoke-report.md` (append-only, not a rewrite).
+Both are **harness evidence, not measurements**.
+
 They are small, single-purpose datasets tied to batch-3-era conclusions; giving each its
 own `report/` folder would fragment the record without adding clarity.
 
@@ -90,9 +96,12 @@ report/
   batch2/human-effort-rubric.md      (SUPERSEDED — never completed)
   batch3/telemetry-completeness.md   (AUTHORITATIVE)
   batch3/human-effort-rubric.md      (PENDING — active criterion-6 instrument)
+  smoke-screening/smoke-report.md         (AUTHORITATIVE — the screening smoke)
+  smoke-screening/re-smoke/re-smoke-report.md
+                                     (AUTHORITATIVE — verification of the smoke's fixes)
   findings/                      ← cross-cutting, non-dataset-scoped investigations
   workshop-dashboard/            ← dashboard spec
 ```
 
 Only `README.md` and `REPORT-SPEC.md` live directly in `report/`; everything else is under
-`batchN/`, `findings/`, or `workshop-dashboard/`.
+`batchN/`, `smoke-screening/`, `findings/`, or `workshop-dashboard/`.

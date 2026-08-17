@@ -58,6 +58,7 @@ from harness.container.exec import (
     agent_credential_mounts,
     agent_image_tag,
     agent_volume_name,
+    assert_image_uid_matches_host,
     build_subject_image,
     create_volume,
     image_exists,
@@ -404,6 +405,48 @@ def build_plan(config_id: str, manifest: Dict[str, Any], task: Optional["Task"] 
     return RunPlan(cfg.get("adapter", "claude_code"), [LegPlan("main", "solver", r)], "static")
 
 
+def product_b_legs(plan: RunPlan) -> List[str]:
+    """Leg ids in ``plan`` billed to Product B (declared, never name-inferred)."""
+    return [leg.leg_id for leg in plan.legs
+            if leg.resolved.product == _PRODUCT_LABELS["PRODUCT_B"]]
+
+
+def assert_product_b_isolation(plan: RunPlan, subject_isolation: str,
+                               config_id: str = "") -> None:
+    """Container is the ONLY admissible isolation for a Product-B leg (SMOKE-3).
+
+    In the screening smoke a host-mode Product-B leg exited 0 with an empty
+    ``agent-solution.diff`` while its actual edits landed in the lab's own
+    ``tasks/pilot-realworld/.work/repo`` — outside the staged subject tree, inside
+    the repository, and in the exact directory the NEXT run stages from. Two runs
+    were destroyed: the one with no output, and the one that started from a tree
+    already carrying the previous run's solution.
+
+    Host mode cannot be made safe for this product by patching a path: the agent
+    runs same-uid with no filesystem namespace, and the product carries
+    cross-session workspace memory of absolute host paths (its ``brain/``
+    directory), so it can address the lab repo directly no matter where its cwd is.
+    The container is what removes those paths from existence. So this is a refusal,
+    not a warning, and it fires before anything is staged or spent.
+
+    ``--dry-run`` is exempt: it drives the stub adapter, never launches the
+    product, and is how the plan/telemetry path is tested offline.
+    """
+    legs = product_b_legs(plan)
+    if not legs or subject_isolation == "container":
+        return
+    where = f" ({config_id})" if config_id else ""
+    raise RunnerError(
+        f"--subject-isolation {subject_isolation!r} is REFUSED for Product-B "
+        f"leg(s) {legs}{where}: SMOKE-3 — in host mode this product wrote its "
+        f"solution into the lab repo's task working tree instead of the staged "
+        f"subject, silently producing an empty diff and contaminating the next "
+        f"run's input. Container isolation is the only admissible mode for "
+        f"Product B; re-run with --subject-isolation container (or --dry-run, "
+        f"which never launches the product)."
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Task
 # --------------------------------------------------------------------------- #
@@ -690,7 +733,13 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
     archived = {"done": False}
 
     def archive_pre_gate() -> None:
-        if not dry_run and subject_dir and not archived["done"]:
+        if dry_run or archived["done"]:
+            return
+        if launch is not None and launch.agent_volume:
+            # Container mode: the tree is in a Docker volume, not on the host.
+            _archive_agent_diff_container(launch, task, run_dir)
+            archived["done"] = True
+        elif subject_dir:
             _archive_agent_diff(subject_dir, run_dir)  # agent-solution.diff (pre-gate)
             archived["done"] = True
 
@@ -917,6 +966,51 @@ def _archive_agent_diff(subject_dir: str, run_dir: str,
         pass
 
 
+def _archive_agent_diff_container(launch: ContainerLaunch, task: "Task", run_dir: str,
+                                  filename: str = "agent-solution.diff") -> None:
+    """Same snapshot as ``_archive_agent_diff``, taken INSIDE the gate container.
+
+    In container mode the agent's edits live in a named Docker volume, not in any
+    host directory, so the host-side ``git -C subject_dir`` produced nothing and the
+    run landed with no provenance diff at all — the gate verdict was the only
+    evidence the agent had changed anything. The gate image (task material present,
+    ``--network=none``) already mounts that volume to grade it, so the diff is taken
+    there, with the same pre-gate timing (Fix 5) as the host path.
+
+    Written from the container's stdout rather than by the container itself: the
+    gate image runs as root and would leave a root-owned file in the operator's
+    results dir.
+    """
+    if not launch.agent_volume:
+        return
+    repo_c = f"{CONTAINER_LAB_ROOT}/{task.task_dir_rel}/.work/repo"
+    script = (
+        'git diff -- ":!node_modules"; '
+        'u="$(git ls-files --others --exclude-standard -- ":!node_modules")"; '
+        'if [ -n "$u" ]; then '
+        '  echo; echo "# untracked files (agent-created), full content below:"; '
+        '  echo "$u" | while IFS= read -r p; do '
+        '    [ -n "$p" ] && git diff --no-index -- /dev/null "$p" || true; '
+        '  done; '
+        'fi'
+    )
+    res = ContainerExecutor(launch.image).run(
+        ["bash", "-lc", script],
+        mounts=[(launch.agent_volume, repo_c, "rw")], network="none", workdir=repo_c,
+        # The volume is owned by the agent's uid and this image runs as root, so
+        # git's safe.directory guard refuses the repo and every command returns
+        # empty. Trust this one path by env (never by writing a gitconfig) — the
+        # same guard check-public.sh's G0 makes.
+        env={"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "safe.directory",
+             "GIT_CONFIG_VALUE_0": repo_c},
+    )
+    try:
+        with open(os.path.join(run_dir, filename), "w", encoding="utf-8") as fh:
+            fh.write(res.stdout)
+    except OSError:
+        pass
+
+
 # Env-var names whose VALUES may carry a credential — redacted in invocation.txt.
 # Matched as case-insensitive substrings of the key, so ANTHROPIC_API_KEY,
 # CLAUDE_CODE_OAUTH_TOKEN, AWS_SECRET_ACCESS_KEY, *_CREDENTIALS, etc. all mask.
@@ -1080,6 +1174,12 @@ def _ensure_agent_launch(
     _require_pin(task)
     tag = agent_image_tag(task.task_id, task.pinned_commit)
     _ensure_image(task, tag, TARGET_AGENT)
+    # Before anything can spend: the container user must be able to read the
+    # credential mounts. See exec.assert_image_uid_matches_host.
+    try:
+        assert_image_uid_matches_host(tag)
+    except PermissionError as exc:
+        raise RunnerError(str(exc)) from exc
 
     if policy is not None:
         egress_mod.ensure_proxy(policy)
@@ -1355,7 +1455,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                          "credentials read-only, egress per --subject-egress) and the "
                          "gate grades its edits in the subject-gate image offline. "
                          "Recorded authoritatively in identity.permission_profile + "
-                         "identity.network_policy.")
+                         "identity.network_policy. host is REFUSED for any "
+                         "Product-B leg (SMOKE-3: the product wrote outside the "
+                         "staged subject tree and into the lab repo).")
     ap.add_argument("--subject-egress", choices=("none", "allowlist"), default="none",
                     help="agent-leg egress under --subject-isolation container. none: "
                          "--network=none (no model API reachable; container path "
@@ -1417,6 +1519,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         # adapters and never touches the product binary, so probing it there would
         # make an offline test depend on what is installed on the machine.
         if not args.dry_run:
+            # SMOKE-3, checked before the version probe and before anything is
+            # staged: a host-mode Product-B leg is refused outright.
+            assert_product_b_isolation(plan, args.subject_isolation, args.config)
             preflight_product_versions(plan)
 
         prices, pricing_snapshot = resolve_pricing(manifest, plan)

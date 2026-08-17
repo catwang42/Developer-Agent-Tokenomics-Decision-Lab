@@ -1,0 +1,7 @@
+{
+  "project": "vital-octagon-19612",
+  "runs": [
+    {"run_dir": "results/smoke-screening/pilot-realworld-draft-articles__C3__rep1__20260817T040821",
+     "legs": {"main": "gemini-3.7-flash"}}
+  ]
+}

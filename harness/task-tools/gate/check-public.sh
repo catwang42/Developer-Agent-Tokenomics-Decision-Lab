@@ -71,6 +71,53 @@ mark() { # id detail exit-code
   fi
 }
 
+# Write the JSON report of whatever has been marked so far. A function, not a
+# trailing block, so an early abort still leaves a report naming the reason — a
+# missing report reads as "the harness broke", which is the wrong diagnosis.
+emit_report() {
+  [ -n "${GATE_REPORT:-}" ] || return 0
+  [ "${#ids[@]}" -gt 0 ] || return 0
+  GR_IDS="$(printf '%s\n' "${ids[@]}")" \
+  GR_STATUSES="$(printf '%s\n' "${statuses[@]}")" \
+  GR_DETAILS="$(printf '%s\n' "${details[@]}")" \
+  pilot_python - "$GATE_REPORT" <<'PY'
+import json, os, sys
+ids = os.environ["GR_IDS"].splitlines()
+statuses = os.environ["GR_STATUSES"].splitlines()
+details = os.environ["GR_DETAILS"].splitlines()
+checks = [{"id": i, "status": s, "detail": d}
+          for i, s, d in zip(ids, statuses, details)]
+with open(sys.argv[1], "w", encoding="utf-8") as fh:
+    json.dump({"gate": "public", "checks": checks}, fh, indent=2)
+PY
+}
+
+# --- G0: git must be able to READ the subject repo -----------------------------
+# Every diff-scope judgement below, and every "restore to pristine" that keeps an
+# agent from grading itself, is a git call whose stderr was discarded. When git
+# refuses the repo those calls return EMPTY, which is indistinguishable from a
+# clean tree: P6/T1 pass vacuously and the restores silently do nothing. That is
+# not hypothetical — under container isolation the tree is a Docker volume owned
+# by the agent's uid while this gate runs as root, and git's safe.directory guard
+# refuses it ("detected dubious ownership"). So: trust this specific path (the
+# harness mounted it; ownership is the harness's own doing) via env, never by
+# writing to the operator's gitconfig, and if git STILL cannot read the repo, fail
+# the gate loudly rather than grading a tree we cannot see.
+if ! git -C "$SUBJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  export GIT_CONFIG_COUNT=1
+  export GIT_CONFIG_KEY_0=safe.directory
+  export GIT_CONFIG_VALUE_0="$SUBJECT_DIR"
+fi
+if git -C "$SUBJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  mark G0-subject-readable "git can read the subject tree (diff-scope is meaningful)" 0
+else
+  why="$(git -C "$SUBJECT_DIR" rev-parse --is-inside-work-tree 2>&1 | head -1)"
+  mark G0-subject-readable "git cannot read $SUBJECT_DIR: $why" 1
+  emit_report
+  echo "== public gate: FAIL (subject tree unreadable; nothing was graded) =="
+  exit 1
+fi
+
 if [ "$GATE_TYPE" = "test_generation" ]; then
   # ===================== test-generation gate (T1–T4) =====================
   WRITE_SCOPE="$(task_field agent_write_scope)"
@@ -214,21 +261,7 @@ else
   mark P2-regression "baseline suite ($BASELINE_PATTERN)" $?
 fi
 
-if [ -n "${GATE_REPORT:-}" ]; then
-  GR_IDS="$(printf '%s\n' "${ids[@]}")" \
-  GR_STATUSES="$(printf '%s\n' "${statuses[@]}")" \
-  GR_DETAILS="$(printf '%s\n' "${details[@]}")" \
-  pilot_python - "$GATE_REPORT" <<'PY'
-import json, os, sys
-ids = os.environ["GR_IDS"].splitlines()
-statuses = os.environ["GR_STATUSES"].splitlines()
-details = os.environ["GR_DETAILS"].splitlines()
-checks = [{"id": i, "status": s, "detail": d}
-          for i, s, d in zip(ids, statuses, details)]
-with open(sys.argv[1], "w", encoding="utf-8") as fh:
-    json.dump({"gate": "public", "checks": checks}, fh, indent=2)
-PY
-fi
+emit_report
 
 echo "== public gate: $([ "$overall" -eq 0 ] && echo PASS || echo FAIL) =="
 exit "$overall"

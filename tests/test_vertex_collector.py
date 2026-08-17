@@ -10,6 +10,8 @@ unmapped-type flagging, and — the load-bearing one — that a class nobody rep
 stays *unavailable* rather than becoming 0.
 """
 
+import contextlib
+import io
 import json
 import os
 import shutil
@@ -420,6 +422,239 @@ class WindowFromEventsTests(RunDirMixin, unittest.TestCase):
         self.addCleanup(shutil.rmtree, empty, True)
         with self.assertRaises(vtc.CollectorError):
             vtc.run_window_from_events(empty)
+
+
+# --------------------------------------------------------------------------- #
+# Contamination guard
+#
+# The defect these tests exist for: a ~10-minute Product-B run's window returned
+# 10,993,105 input tokens because an unrelated interactive workload was hitting
+# the same publisher model. The counts were authoritative and the attribution was
+# nonsense, and nothing in the collector would have stopped the write.
+# --------------------------------------------------------------------------- #
+def _series(model, type_label, tokens, end_ts):
+    """One SYNTHETIC time series with a single point."""
+    return {
+        "resource": {"labels": {"model_user_id": model, "publisher": "google"}},
+        "metric": {"labels": {"type": type_label}},
+        "points": [{"interval": {"endTime": end_ts},
+                    "value": {"int64Value": str(tokens)}}],
+    }
+
+
+class WindowedFakeClient(vtc.MonitoringClient):
+    """Returns only the series whose point falls in the requested interval.
+
+    The plain fake replays one fixture for every query, which cannot express "the
+    run window is busy but the minutes either side are quiet" — the exact
+    distinction the baseline probe is built on.
+    """
+
+    def __init__(self, series):
+        self.series = series
+        self.windows = []
+
+    def list_time_series(self, project, filter_str, window):
+        lo, hi = window
+        self.windows.append((vtc.format_ts(lo), vtc.format_ts(hi)))
+        out = []
+        for s in self.series:
+            points = [p for p in s["points"]
+                      if lo <= vtc.parse_ts(p["interval"]["endTime"]) <= hi]
+            if points:
+                out.append({**s, "points": points})
+        return out
+
+
+class ContaminationCeilingTests(unittest.TestCase):
+
+    def test_a_window_over_the_ceiling_is_contaminated(self):
+        collection = vtc.aggregate_series(
+            [_series(GEMINI, "input", 10_993_105, "2026-08-16T10:02:00Z")],
+            vtc.build_window(RUN_START, RUN_END), vtc.DEFAULT_GUARD_SECONDS)
+        verdict = vtc.check_ceiling(collection, 3_000_000)
+        self.assertTrue(verdict.contaminated)
+        self.assertIn("10993105", verdict.reasons[0])
+        self.assertIn("ceiling", verdict.evidence)
+
+    def test_a_plausible_window_passes(self):
+        verdict = vtc.check_ceiling(_aggregate("two_models"), 3_000_000)
+        self.assertFalse(verdict.contaminated)
+        self.assertEqual(verdict.reasons, [])
+
+    def test_cache_read_counts_toward_the_ceiling(self):
+        # A contaminated window can arrive entirely as cache reads; checking only
+        # the plain input class would wave it through.
+        collection = vtc.aggregate_series(
+            [_series(GEMINI, "cache_read_input", 9_000_000, "2026-08-16T10:02:00Z")],
+            vtc.build_window(RUN_START, RUN_END), vtc.DEFAULT_GUARD_SECONDS)
+        self.assertTrue(vtc.check_ceiling(collection, 3_000_000).contaminated)
+
+    def test_output_tokens_do_not_trip_the_input_side_ceiling(self):
+        collection = vtc.aggregate_series(
+            [_series(GEMINI, "output", 9_000_000, "2026-08-16T10:02:00Z")],
+            vtc.build_window(RUN_START, RUN_END), vtc.DEFAULT_GUARD_SECONDS)
+        self.assertFalse(vtc.check_ceiling(collection, 3_000_000).contaminated)
+
+    def test_zero_disables_the_check_and_says_so(self):
+        verdict = vtc.check_ceiling(_aggregate("two_models"), 0)
+        self.assertFalse(verdict.contaminated)
+        self.assertEqual(verdict.evidence["ceiling"], "disabled")
+
+
+class BaselineProbeTests(unittest.TestCase):
+
+    def _probe(self, series, baseline=300):
+        window = vtc.build_window(RUN_START, RUN_END)
+        client = WindowedFakeClient(series)
+        return client, vtc.probe_baseline(client, "SYNTHETIC-project",
+                                          vtc.build_filter([GEMINI]), window, baseline)
+
+    def test_a_quiet_run_window_passes(self):
+        _, verdict = self._probe([_series(GEMINI, "input", 1500, "2026-08-16T10:02:00Z")])
+        self.assertFalse(verdict.contaminated)
+        self.assertEqual(verdict.evidence["baseline"]["windows"]["pre"]["points"], 0)
+        self.assertEqual(verdict.evidence["baseline"]["windows"]["post"]["points"], 0)
+
+    def test_traffic_before_the_run_contaminates_it(self):
+        # Steady background traffic is invisible to any ceiling: it looks exactly
+        # like a long run. Only the quiet-either-side check catches it.
+        _, verdict = self._probe([
+            _series(GEMINI, "input", 1500, "2026-08-16T10:02:00Z"),
+            _series(GEMINI, "input", 800, "2026-08-16T09:57:00Z"),
+        ])
+        self.assertTrue(verdict.contaminated)
+        self.assertIn("pre-run baseline window", verdict.reasons[0])
+
+    def test_traffic_after_the_run_contaminates_it(self):
+        _, verdict = self._probe([
+            _series(GEMINI, "input", 1500, "2026-08-16T10:02:00Z"),
+            _series(GEMINI, "input", 800, "2026-08-16T10:08:00Z"),
+        ])
+        self.assertTrue(verdict.contaminated)
+        self.assertTrue(any("post-run" in r for r in verdict.reasons))
+
+    def test_the_probes_sit_outside_the_guarded_window(self):
+        client, _ = self._probe([_series(GEMINI, "input", 1500, "2026-08-16T10:02:00Z")])
+        lo, hi = vtc.build_window(RUN_START, RUN_END)
+        (pre_lo, pre_hi), (post_lo, post_hi) = client.windows
+        self.assertLess(vtc.parse_ts(pre_hi), lo + vtc.timedelta(seconds=1))
+        self.assertGreater(vtc.parse_ts(post_lo), hi - vtc.timedelta(seconds=1))
+        self.assertLess(vtc.parse_ts(pre_lo), vtc.parse_ts(pre_hi))
+        self.assertLess(vtc.parse_ts(post_lo), vtc.parse_ts(post_hi))
+
+    def test_an_unverifiable_probe_is_not_a_quiet_window(self):
+        class Broken(vtc.MonitoringClient):
+            def list_time_series(self, project, filter_str, window):
+                raise vtc.CollectorError("SYNTHETIC monitoring outage")
+
+        verdict = vtc.probe_baseline(Broken(), "SYNTHETIC-project",
+                                     vtc.build_filter([GEMINI]),
+                                     vtc.build_window(RUN_START, RUN_END), 300)
+        self.assertTrue(verdict.contaminated)
+        self.assertIn("SYNTHETIC monitoring outage", verdict.reasons[0])
+
+    def test_zero_disables_the_probe_and_says_so(self):
+        verdict = vtc.probe_baseline(WindowedFakeClient([]), "SYNTHETIC-project",
+                                     vtc.build_filter([GEMINI]),
+                                     vtc.build_window(RUN_START, RUN_END), 0)
+        self.assertFalse(verdict.contaminated)
+        self.assertEqual(verdict.evidence["baseline"], "disabled")
+
+
+class ContaminationRefusalTests(RunDirMixin, unittest.TestCase):
+    """A contaminated window writes NOTHING. That is the whole point."""
+
+    CONTAMINATED = [_series(GEMINI, "input", 10_993_105, "2026-08-16T10:02:00Z")]
+
+    def _backfill(self, run_dir, series):
+        client = WindowedFakeClient(series)
+        plan = vtc.RunPlan(run_dir=run_dir, legs={"main": GEMINI},
+                           start=RUN_START, end=RUN_END)
+        return vtc.run_backfill(client, "SYNTHETIC-project", [plan], COLLECTED_AT)
+
+    def test_an_over_ceiling_window_is_refused_and_nothing_is_written(self):
+        run_dir = self.make_run()
+        events_path = os.path.join(run_dir, "events.jsonl")
+        with open(events_path, encoding="utf-8") as fh:
+            before = fh.read()
+
+        report = self._backfill(run_dir, self.CONTAMINATED)
+
+        self.assertEqual(report["status_counts"], {vtc.CONTAMINATED_STATUS: 1})
+        with open(events_path, encoding="utf-8") as fh:
+            self.assertEqual(fh.read(), before, "no event may be appended")
+        after = self.summary_of(run_dir)
+        self.assertIsNone(after["usage"]["input_tokens"]["value"],
+                          "usage stays unavailable, never the contaminated number")
+        self.assertEqual(after["usage"]["input_tokens"]["confidence"], "unavailable")
+
+    def test_the_refusal_and_its_evidence_are_recorded_beside_the_run(self):
+        run_dir = self.make_run()
+        report = self._backfill(run_dir, self.CONTAMINATED)
+        marker = os.path.join(run_dir, "PROVIDER-BACKFILL-REFUSED.json")
+        self.assertTrue(os.path.isfile(marker))
+        with open(marker, encoding="utf-8") as fh:
+            payload = json.load(fh)
+        self.assertEqual(payload["refusal"], vtc.CONTAMINATED_STATUS)
+        self.assertTrue(payload["guard"]["contaminated"])
+        self.assertIn("NOT this run's usage", payload["note"])
+        # The refused totals are kept as evidence, clearly labelled as not-a-measurement.
+        self.assertEqual(payload["window_totals_refused"]["by_model"][GEMINI]["input"],
+                         10_993_105)
+        run = report["runs"][0]
+        self.assertEqual(run["status"], vtc.CONTAMINATED_STATUS)
+        self.assertTrue(run["contamination"]["contaminated"])
+
+    def test_a_dry_run_refusal_writes_no_marker_either(self):
+        run_dir = self.make_run()
+        client = WindowedFakeClient(self.CONTAMINATED)
+        plan = vtc.RunPlan(run_dir, {"main": GEMINI}, RUN_START, RUN_END)
+        vtc.run_backfill(client, "SYNTHETIC-project", [plan], COLLECTED_AT, dry_run=True)
+        self.assertFalse(os.path.isfile(
+            os.path.join(run_dir, "PROVIDER-BACKFILL-REFUSED.json")))
+
+    def test_a_clean_window_still_backfills_and_records_why_it_was_clean(self):
+        run_dir = self.make_run()
+        report = self._backfill(
+            run_dir, [_series(GEMINI, "input", 1500, "2026-08-16T10:02:00Z"),
+                      _series(GEMINI, "output", 300, "2026-08-16T10:02:00Z")])
+        self.assertEqual(report["status_counts"], {"backfilled": 1}, report["runs"])
+        self.assertEqual(self.summary_of(run_dir)["usage"]["input_tokens"]["value"], 1500)
+        guard = report["runs"][0]["contamination"]
+        self.assertFalse(guard["contaminated"])
+        self.assertIn("baseline", guard["evidence"])
+        self.assertIn("ceiling", guard["evidence"])
+
+    def test_the_report_names_the_refused_runs_and_the_thresholds(self):
+        run_dir = self.make_run()
+        report = self._backfill(run_dir, self.CONTAMINATED)
+        guard = report["contamination_guard"]
+        self.assertEqual(guard["runs_refused"], [run_dir])
+        self.assertEqual(guard["input_side_ceiling_tokens"],
+                         vtc.DEFAULT_CEILING_INPUT_TOKENS)
+        self.assertEqual(guard["baseline_probe_seconds"], vtc.DEFAULT_BASELINE_SECONDS)
+
+    def test_refusal_exits_nonzero_with_its_own_code(self):
+        # The driver must be able to tell "guard refused" from "collector broke":
+        # one needs a quiet window, the other needs a fix.
+        run_dir = self.make_run()
+        plan_path = os.path.join(run_dir, "SYNTHETIC-plan.json")
+        with open(plan_path, "w", encoding="utf-8") as fh:
+            json.dump({"project": "SYNTHETIC-project",
+                       "runs": [{"run_dir": run_dir, "legs": {"main": GEMINI},
+                                 "start": RUN_START, "end": RUN_END}]}, fh)
+        client = WindowedFakeClient(self.CONTAMINATED)
+        original = vtc.GcloudMonitoringClient
+        vtc.GcloudMonitoringClient = lambda *a, **k: client
+        printed = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(printed):
+                rc = vtc.main(["--plan", plan_path, "--collected-at", COLLECTED_AT])
+        finally:
+            vtc.GcloudMonitoringClient = original
+        self.assertEqual(rc, 4)
+        self.assertIn("CONTAMINATED WINDOW", printed.getvalue())
 
 
 if __name__ == "__main__":

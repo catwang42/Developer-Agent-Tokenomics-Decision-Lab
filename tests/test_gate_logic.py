@@ -18,6 +18,7 @@ import json
 import pathlib
 import subprocess
 import sys
+import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -199,6 +200,62 @@ class ScopeEvalTest(unittest.TestCase):
         usage = subprocess.run([sys.executable, str(GATE / "scope_eval.py")],
                                capture_output=True, text=True)
         self.assertEqual(usage.returncode, 2)
+
+
+class SubjectReadableGuardTest(unittest.TestCase):
+    """G0: the gate must never grade a tree git cannot read.
+
+    Every diff-scope judgement and every restore-to-pristine is a git call whose
+    stderr the gate discards. When git refuses the repo those return EMPTY, which
+    reads exactly like a clean tree — so P6/T1 passed vacuously and the
+    anti-gaming restores silently did nothing. Observed for real under container
+    isolation: the subject tree is a Docker volume owned by the agent's uid while
+    the gate image runs as root, and git's safe.directory guard refuses it.
+    """
+
+    PILOT = ROOT / "tasks" / "pilot-realworld"
+
+    def _run(self, workdir: pathlib.Path):
+        report = workdir / "gate-public.json"
+        proc = subprocess.run(
+            ["bash", str(GATE / "check-public.sh")],
+            env={"PATH": "/usr/bin:/bin", "HOME": str(workdir),
+                 "TASK_DIR": str(self.PILOT), "TASK_WORKDIR": str(workdir),
+                 "GATE_REPORT": str(report)},
+            capture_output=True, text=True,
+        )
+        payload = json.loads(report.read_text(encoding="utf-8")) if report.exists() else None
+        return proc, payload
+
+    def test_an_unreadable_tree_fails_the_gate_instead_of_passing_it(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = pathlib.Path(tmp)
+            (work / "repo").mkdir()
+            (work / "repo" / "x.txt").write_text("not a git repo\n", encoding="utf-8")
+            proc, payload = self._run(work)
+
+        self.assertNotEqual(proc.returncode, 0, proc.stdout)
+        self.assertIn("nothing was graded", proc.stdout)
+        # A report is still written — a missing one reads as "the harness broke".
+        self.assertIsNotNone(payload)
+        ids = [c["id"] for c in payload["checks"]]
+        self.assertEqual(ids, ["G0-subject-readable"],
+                         "no check may run against a tree the gate cannot see")
+        self.assertEqual(payload["checks"][0]["status"], "fail")
+
+    def test_the_guard_runs_before_any_diff_scope_judgement(self) -> None:
+        # Ordering is the whole property: a G0 placed after P6 would let the
+        # vacuous pass be recorded first.
+        text = (GATE / "check-public.sh").read_text(encoding="utf-8")
+        self.assertLess(text.index("G0-subject-readable"), text.index("tree_status |"))
+        self.assertLess(text.index("G0-subject-readable"), text.index("T1-diff-scope"))
+
+    def test_ownership_is_trusted_by_env_not_by_the_operators_gitconfig(self) -> None:
+        # Writing safe.directory into ~/.gitconfig would silence the same guard for
+        # every repo on the machine, well outside this gate's remit.
+        text = (GATE / "check-public.sh").read_text(encoding="utf-8")
+        self.assertIn("GIT_CONFIG_VALUE_0=\"$SUBJECT_DIR\"", text)
+        self.assertNotIn("git config --global", text)
 
 
 class SyntheticFixtureLabelingTest(unittest.TestCase):
