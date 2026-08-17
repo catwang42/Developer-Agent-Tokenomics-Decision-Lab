@@ -108,27 +108,50 @@ def format_ts(dt: datetime) -> str:
 # --------------------------------------------------------------------------- #
 # Query construction (pure)
 # --------------------------------------------------------------------------- #
-def build_filter(model_user_ids: Iterable[str], publisher: str = DEFAULT_PUBLISHER) -> str:
+def _label_clause(label: str, values: Iterable[str]) -> str:
+    """``label = "v"`` for one value, ``label = one_of("a","b")`` for several.
+
+    ``one_of`` takes a COMMA-separated list. Writing it with ``OR`` between the
+    quoted values is not a laxer spelling of the same thing — the Monitoring API
+    rejects the whole filter with HTTP 400 ("Could not parse filter"), so a run
+    whose legs span two models used to fail collection outright. Observed live
+    against project vital-octagon-19612 on 2026-08-17; regression-tested in
+    tests/test_vertex_collector.py.
+    """
+    vals = sorted({str(v).strip() for v in values if str(v).strip()})
+    if not vals:
+        raise CollectorError(f"no {label} declared — refusing an unfiltered query")
+    if len(vals) == 1:
+        return f'{label} = "{vals[0]}"'
+    return f"{label} = one_of({','.join(chr(34) + v + chr(34) for v in vals)})"
+
+
+def build_filter(model_user_ids: Iterable[str],
+                 publisher: Any = DEFAULT_PUBLISHER) -> str:
     """Cloud Monitoring filter for one run's declared subject models.
 
     Restricting to the declared models is also the quiet-window escape hatch: an
     unrelated Gemini-calling workload in the same project (e.g. the ta-daily
     Cloud Run job) is excluded here as long as it uses a different model.
+
+    ``publisher`` accepts one publisher or several. Several is not a widening of
+    the query — every model is still named explicitly — it is what makes a
+    MIXED-PUBLISHER run collectable at all: a C5 run's conductor is an Anthropic
+    publisher model and its executor a Google one, and a filter pinned to
+    ``publisher = "google"`` silently returns nothing for the conductor. The
+    publisher is DECLARED per leg in the plan, never inferred from the model
+    name (SPEC 6.3).
     """
     ids = [str(m).strip() for m in model_user_ids if str(m).strip()]
     if not ids:
         raise CollectorError("no model_user_id declared — refusing an unfiltered query")
-    clauses = [
+    publishers = [publisher] if isinstance(publisher, str) else list(publisher)
+    return " AND ".join([
         f'metric.type = "{METRIC_TYPE}"',
         f'resource.type = "{MONITORED_RESOURCE}"',
-        f'resource.labels.publisher = "{publisher}"',
-    ]
-    if len(ids) == 1:
-        clauses.append(f'resource.labels.model_user_id = "{ids[0]}"')
-    else:
-        joined = " OR ".join(f'"{m}"' for m in sorted(set(ids)))
-        clauses.append(f"resource.labels.model_user_id = one_of({joined})")
-    return " AND ".join(clauses)
+        _label_clause("resource.labels.publisher", publishers),
+        _label_clause("resource.labels.model_user_id", ids),
+    ])
 
 
 def build_window(start: str, end: str,
@@ -395,14 +418,45 @@ class RunPlan:
     legs: Dict[str, str]                 # leg_id -> model_user_id
     start: Optional[str] = None          # default: first event ts
     end: Optional[str] = None            # default: last event ts
+    #: leg_id -> publisher, DECLARED (never inferred from the model name). A leg
+    #: that does not declare one is DEFAULT_PUBLISHER, which keeps every existing
+    #: single-product Gemini plan valid unchanged.
+    publishers: Dict[str, str] = field(default_factory=dict)
+
+    def publisher_for(self, leg_id: str) -> str:
+        return self.publishers.get(leg_id, DEFAULT_PUBLISHER)
 
     @staticmethod
     def from_dict(raw: Dict[str, Any]) -> "RunPlan":
-        legs = raw.get("legs") or {}
-        if not isinstance(legs, dict) or not legs:
+        """Parse one plan entry.
+
+        A leg value is either a bare ``model_user_id`` string (publisher defaults
+        to google) or an object ``{"model_user_id": ..., "publisher": ...}``. The
+        object form exists for mixed-publisher runs such as C5, whose conductor is
+        an Anthropic publisher model — the publisher is stated by the operator,
+        not guessed from the id.
+        """
+        raw_legs = raw.get("legs") or {}
+        if not isinstance(raw_legs, dict) or not raw_legs:
             raise CollectorError(f"plan entry for {raw.get('run_dir')!r} declares no legs")
-        return RunPlan(run_dir=raw["run_dir"], legs={str(k): str(v) for k, v in legs.items()},
-                       start=raw.get("start"), end=raw.get("end"))
+        legs: Dict[str, str] = {}
+        publishers: Dict[str, str] = {}
+        for leg_id, spec in raw_legs.items():
+            leg_id = str(leg_id)
+            if isinstance(spec, dict):
+                model = spec.get("model_user_id")
+                if not model:
+                    raise CollectorError(
+                        f"plan entry for {raw.get('run_dir')!r} leg {leg_id!r} declares "
+                        f"no model_user_id")
+                legs[leg_id] = str(model)
+                if spec.get("publisher"):
+                    publishers[leg_id] = str(spec["publisher"])
+            else:
+                legs[leg_id] = str(spec)
+        return RunPlan(run_dir=raw["run_dir"], legs=legs,
+                       start=raw.get("start"), end=raw.get("end"),
+                       publishers=publishers)
 
 
 def _leg_model_map(plan: RunPlan) -> Dict[str, str]:
@@ -652,8 +706,9 @@ def collect_for_run(client: MonitoringClient, project: str, plan: RunPlan,
     start = plan.start or run_window_from_events(plan.run_dir)[0]
     end = plan.end or run_window_from_events(plan.run_dir)[1]
     window = build_window(start, end, guard_seconds)
+    publishers = {plan.publisher_for(leg_id) for leg_id in plan.legs}
     series = client.list_time_series(
-        project, build_filter(sorted(set(plan.legs.values()))), window)
+        project, build_filter(sorted(set(plan.legs.values())), publishers), window)
     return aggregate_series(series, window, guard_seconds)
 
 

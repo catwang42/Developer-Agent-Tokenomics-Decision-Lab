@@ -117,6 +117,42 @@ class QueryConstructionTests(unittest.TestCase):
         self.assertIn(f'"{CLAUDE}"', f)
         self.assertIn(f'"{GEMINI}"', f)
 
+    def test_one_of_is_comma_separated_not_or_separated(self):
+        """Regression, observed live 2026-08-17.
+
+        ``one_of("a" OR "b")`` is not a laxer spelling of ``one_of("a","b")`` —
+        the Monitoring API rejects the entire filter with HTTP 400 "Could not
+        parse filter", so every multi-model run (i.e. every C5) failed collection
+        outright. The old assertions passed on the broken form because they only
+        checked for substrings, so this test pins the separator itself.
+        """
+        f = vtc.build_filter([CLAUDE, GEMINI])
+        self.assertIn(f'one_of("{CLAUDE}","{GEMINI}")', f)
+        self.assertNotIn(" OR ", f)
+
+    def test_a_mixed_publisher_run_queries_both_publishers(self):
+        """A C5 conductor is an Anthropic publisher model and its executor a
+        Google one. Pinning the filter to publisher="google" returns nothing for
+        the conductor — silently, which is the dangerous kind of nothing."""
+        f = vtc.build_filter([CLAUDE, GEMINI], {"anthropic", "google"})
+        self.assertIn('resource.labels.publisher = one_of("anthropic","google")', f)
+
+    def test_a_publisher_is_declared_per_leg_and_never_inferred(self):
+        plan = vtc.RunPlan.from_dict({
+            "run_dir": "results/x/run",
+            "legs": {"conductor": {"model_user_id": CLAUDE, "publisher": "anthropic"},
+                     "executor": GEMINI},
+        })
+        self.assertEqual(plan.legs, {"conductor": CLAUDE, "executor": GEMINI})
+        self.assertEqual(plan.publisher_for("conductor"), "anthropic")
+        # a bare string leg keeps the historical default rather than guessing
+        self.assertEqual(plan.publisher_for("executor"), vtc.DEFAULT_PUBLISHER)
+
+    def test_a_leg_object_without_a_model_is_refused(self):
+        with self.assertRaises(vtc.CollectorError):
+            vtc.RunPlan.from_dict({"run_dir": "results/x/run",
+                                   "legs": {"main": {"publisher": "google"}}})
+
     def test_an_unfiltered_query_is_refused(self):
         """Without a model filter the query would sweep up every workload in the
         project — the exact failure the quiet-window rule exists to prevent."""
