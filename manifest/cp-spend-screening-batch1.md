@@ -146,10 +146,22 @@ batch end, both write into that pair.
    Product-B leg in this batch — 63 of 132 runs — is uncostable**, and the batch's
    own spend accounting is blind to half its arms (§4.1). The driver refuses on a
    noisy window.
-3. **Isolation posture unresolved** — §7.
-4. **Task declarations diverge from the registered matrix**
+3. ~~**Isolation posture unresolved** — §7.~~ **CLEARED 2026-08-17**: the five
+   human-directed fixes were implemented and verified live by a four-run re-smoke —
+   both products complete in container mode, 7/7 public gate checks each, no write
+   escaping the staged tree. Evidence:
+   `report/smoke-screening/re-smoke/re-smoke-report.md`. §7's table below is left as
+   written; it records what the smoke found and is not rewritten after the fact.
+4. ~~**Task declarations diverge from the registered matrix**
    (`cp-screen-prereg.md` §7.2) and **W3's `task_id` disagrees with the manifest**
-   (§7.1). Both are fixed on approval, not before; the driver refuses on either.
+   (§7.1).~~ **CLEARED 2026-08-17** (human-directed): all seven declarations carry
+   their registered arms, the config lists admit `C3-med`/`C3-prev`/`P2`, and the
+   canonical id is `w3-sqlfluff-segment-method-migration`. See `cp-screen-prereg.md`
+   §7.1/§7.2 for what changed and why that direction.
+
+**Only blocker 1 (the four `PENDING-FREEZE` sealed artifacts) and the quiet window
+remain.** The driver still refuses to start: preflight 3 fails on the unfrozen
+artifacts, as designed.
 
 ## 7. Isolation posture — the open question this package cannot answer
 
@@ -181,20 +193,41 @@ was explicitly not allowed to attempt the fix.
   only; refused live) → preflights 1–3 pass, preflight 4 refuses and names the
   §7.2 divergence: `tasks/pilot-realworld: declares ['C2','P0','P1'] but the
   registered matrix needs ['C3','C3-med','C3-prev','C5']`.
+
+**Re-verified 2026-08-17 after the declaration fix.** The same dry run now clears
+preflight 4 — `ok 7 tasks: task_id matches the manifest, declared arms cover the
+registered matrix` — and completes the **full 132-run plan** end to end on stub
+adapters, every run `validate: PASS`, 0 deferred. The per-task arms the driver emits
+are exactly §4's: five solo arms on all seven, C5 on six (not W6), P1 on W3, P2 on F1
+and F3. Two notes from that exercise:
+
+- The dry run had been writing its stub run dirs into `results/` itself — `run.py`
+  honours `--phase` only on a live run and uses `--out-root` verbatim otherwise, and
+  the driver passed the real root. Stub output under `results/`, outside any dataset
+  directory, breaks CLAUDE.md rules 1 and 8. Fixed: a dry run now goes to a `mktemp`
+  root, named in the log, and both modes write where the driver's own spend tally
+  reads.
+- The dry run reports a `$4.5882` "known spend floor over 130 runs". That is
+  **stub-adapter arithmetic, not money** — nothing was billed and no model was
+  contacted. It is exercising the cost-checkpoint path, not estimating the batch.
 - Preflights 5–8 verified standalone: agy `1.1.13` == pin; egress allowlist sha256 ==
   pin; docker reachable; quiet window correctly reports **NOISY, 6,591,081 tokens in
   15 minutes** — the guard working, and blocker 2 restated.
 - `shellcheck -x` clean.
 
 The execution loop is not reachable end to end until blockers 1 and 4 clear, which is
-the intended design: every guard fires in order before anything bills.
+the intended design: every guard fires in order before anything bills. *(Blocker 4
+cleared 2026-08-17; blocker 1 — the four unfrozen sealed artifacts — still stops the
+real-manifest dry run at preflight 3, as it should.)*
 
 ## 9. Sequence & downstream gates
 
-1. **(human)** freeze the four sealed artifacts; decide the §7 posture; stop the
-   third Gemini consumer.
-2. **(me, no spend)** fill `cp-screen-prereg.md` §3 and §6; sync task declarations and
-   `tests/test_tasks.py` to the approved matrix; resolve the W3 `task_id`.
+1. **(human)** freeze the four sealed artifacts; ~~decide the §7 posture~~ *(posture
+   resolved 2026-08-17 — the five fixes are verified live)*; stop the third Gemini
+   consumer.
+2. ~~**(me, no spend)** fill `cp-screen-prereg.md` §3 and §6; sync task declarations and
+   `tests/test_tasks.py` to the approved matrix; resolve the W3 `task_id`.~~
+   **DONE 2026-08-17**, human-directed.
 3. **CP-SCREEN-PREREG**, then **CP-SPEND (screening batch 1)** ⬅ this package.
 4. **(me)** run the batch under `--spend-cap-usd 75`; validate every run; collector
    backfill at batch end.

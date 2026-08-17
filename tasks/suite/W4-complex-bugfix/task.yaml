@@ -39,14 +39,20 @@ static_checks: [typecheck, build]
 expected_wallclock_s: null
 
 # Config declarations (SPEC §2.3; ENFORCED by tests/test_tasks.py
-# ConfigurationDeclarations). task.yaml carries the FEASIBILITY framing (this task is
-# feasibility F2). The Phase-4 SCREENING set for W4 lives in workload.yaml
-# ([C1,C2,C3,C5], reps_screening) — declared at CP-SCREEN-PREREG, NOT run here. A
-# configuration run against this task in feasibility MUST appear in one of the lists.
-#   configurations           = controlled feasibility cells (SPEC §2.3 "27"): P0/C2/P1.
+# ConfigurationDeclarations). A configuration run against this task MUST appear in the
+# list that governs the phase it ran in.
+#
+# `configurations` is the CURRENT registered arm set — the screening matrix of
+# cp-screen-prereg.md §4 since 2026-08-17. This task is F2: five solo arms plus C5/P3.
+# No P2: that arm needs a frozen split.yaml, which only F1 and F3 have.
+#
+# `feasibility_configurations` is FROZEN HISTORY — the controlled set batch 2 actually
+# ran (SPEC §2.3 "27"); the batch-2 conformance check joins on it. It is a separate key
+# precisely so that widening `configurations` cannot retroactively legitimise a run
+# that was out of plan at the time.
 #   companion_configurations = SPEC §2.3 companion feasibility runs (none for F2).
-# (Previously this field wrongly held the screening set [C1,C2,C3,C5] + reps_screening,
-#  which duplicated workload.yaml and did not match what feasibility actually ran.)
-configurations: [P0, C2, P1]     # feasibility controlled set (F2); batch-2 ran exactly these
+configurations: [P0, C2, C3, C3-med, C3-prev, C5]   # registered screening matrix (prereg §4)
+feasibility_configurations: [P0, C2, P1]   # frozen: batch-2 ran exactly these; do not edit
 companion_configurations: []     # F2 had no companion runs in batch 2
 reps_feasibility: 3
+reps_screening: 3

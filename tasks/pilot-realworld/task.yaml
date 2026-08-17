@@ -64,15 +64,26 @@ static_checks: [typecheck, build]
 expected_wallclock_s: null       # measured in Phase 3; never fabricated
 
 # Config declarations (SPEC §2.3; ENFORCED by tests/test_tasks.py
-# ConfigurationDeclarations). A configuration run against this task MUST appear in one
-# of the two lists below, or the enforcement test fails. This is how batch-2's
-# out-of-plan F1·C3 / F1·C5 companion runs are now caught: they are dropped from the
-# re-collection and intentionally NOT declared.
-#   configurations           = controlled feasibility cells (SPEC §2.3 "27"): P0/C2/P1.
-#   companion_configurations = SPEC §2.3 companion feasibility runs against THIS task
-#                              (warm-series C1; product C3/C4; hybrid C5) — NOT controlled.
-# (Pilot is the feasibility pilot, not a Phase-4 screening workload, so it has no
-#  workload.yaml / screening set.)
-configurations: [P0, C2, P1]
+# ConfigurationDeclarations). A configuration run against this task MUST appear in the
+# list that governs the phase it ran in, or the enforcement test fails.
+#
+# `configurations` is the CURRENT registered arm set — since 2026-08-17 that is the
+# screening matrix of manifest/cp-screen-prereg.md §4, which is authoritative. This
+# task is F1: five solo arms, C5/P3, and the optional P2 (F1 and F3 are the only two
+# tasks with a frozen split.yaml, which is what P2 requires).
+#
+# `feasibility_configurations` is FROZEN HISTORY, not a plan: the controlled set
+# batch 2 actually ran (SPEC §2.3 "27"). It is kept as its own key rather than
+# overwritten, because the batch-2 conformance check joins on it — that check is what
+# catches the out-of-plan F1·C3 / F1·C5 companion runs, which were dropped from the
+# re-collection and are deliberately absent from it. Folding it into
+# `configurations` would have made those two violations disappear the moment C3 and
+# C5 became registered screening arms.
+#
+# `companion_configurations` = SPEC §2.3 companion feasibility runs against THIS task
+# (warm-series C1) — not controlled, and also history.
+configurations: [P0, C2, C3, C3-med, C3-prev, C5, P2]   # registered screening matrix (prereg §4)
+feasibility_configurations: [P0, C2, P1]   # frozen: what batch 2 ran; do not edit
 companion_configurations: [C1]   # cache warm-series companion; C3/C5 dropped from re-collection
 reps_feasibility: 3
+reps_screening: 3

@@ -37,7 +37,10 @@ pass_condition: >
   (any reported defect not in the seeded map counts as a fabrication). k recorded
   in the sealed map at pre-registration.
 expected_wallclock_s: null
-configurations: [C1, C2, C3, C5]
+# Arms: the AUTHORITY is each task's task.yaml, because arms are registered per
+# TASK, not per workload (cp-screen-prereg.md §4). This line is the union over
+# W6 only — no C5: a review task has no executor deliverable, kept in sync for readability only.
+configurations: [P0, C2, C3, C3-med, C3-prev]
 reps_screening: 3
 class_claim_note: >
   One task = screening signal only. A workload-class claim requires a second,

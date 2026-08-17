@@ -323,3 +323,10 @@ Deliberately carried into the checkpoint packages rather than patched pre-approv
 4. Four `PENDING-FREEZE` sealed artifacts.
 
 Each blocks the screening batch and each is a human decision, not a fix to make quietly.
+
+**Update 2026-08-17, same branch:** the human directed items 1–3 to be cleared, and they
+were — canonical id `w3-sqlfluff-segment-method-migration`, all seven `configurations:`
+lists synced to the registered matrix, and `VALID_CONFIGS`/`_RUN_DIR_RE` widened. Item 4
+(the four `PENDING-FREEZE` artifacts) remains the human's and still stops the driver at
+preflight 3. Details in `manifest/cp-screen-prereg.md` §7.1/§7.2; nothing in this
+report's own findings changed.

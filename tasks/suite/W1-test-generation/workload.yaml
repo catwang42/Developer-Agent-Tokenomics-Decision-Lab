@@ -9,7 +9,10 @@ prompt: |
   DRAFT — finalize before pre-registration. Raise branch coverage of <module> from X% to >=Y% with meaningful assertions; all existing tests stay green.
 gate: {public: gate/check-public.sh, hidden: recorded-by-hash-at-run, reset: reset.sh}
 expected_wallclock_s: null
-configurations: [C1, C2, C3, C5]
+# Arms: the AUTHORITY is each task's task.yaml, because arms are registered per
+# TASK, not per workload (cp-screen-prereg.md §4). This line is the union over
+# W1 (P2) and W1b (no P2), kept in sync for readability only.
+configurations: [P0, C2, C3, C3-med, C3-prev, C5, P2]
 reps_screening: 3
 # Class-level W1 claims require a SECOND, materially different task at tier obscure
 # or post_cutoff (SPEC §5.2 / WORKLOAD-SELECTION §3) — the task pinned above is tier

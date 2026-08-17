@@ -85,15 +85,25 @@ static_checks: [typecheck]
 expected_wallclock_s: null               # measured in batch 2; never fabricated
 
 # Config declarations (SPEC §2.3; ENFORCED by tests/test_tasks.py
-# ConfigurationDeclarations). task.yaml carries the FEASIBILITY framing (this task is
-# feasibility F3). The Phase-4 SCREENING set for W1 lives in workload.yaml
-# ([C1,C2,C3,C5], reps_screening) — declared at CP-SCREEN-PREREG, NOT run here. A
-# configuration run against this task in feasibility MUST appear in one of the lists.
-#   configurations           = controlled feasibility cells (SPEC §2.3 "27"): P0/C2/P1.
+# ConfigurationDeclarations). A configuration run against this task MUST appear in the
+# list that governs the phase it ran in.
+#
+# `configurations` is the CURRENT registered arm set. Until 2026-08-17 that was the
+# feasibility set and the screening arms lived only in workload.yaml; the arms are now
+# per-TASK (W1 and W1b are one workload but different arm sets — only W1 takes P2), so
+# the workload-level list can no longer be the authority. This task is F3: five solo
+# arms, C5/P3, and the optional P2 (F1 and F3 are the only tasks with a frozen
+# split.yaml, which is what P2 requires). Source: cp-screen-prereg.md §4.
+#
+# `feasibility_configurations` is FROZEN HISTORY — the controlled set batch 2 actually
+# ran (SPEC §2.3 "27"); the batch-2 conformance check joins on it. Do not edit it to
+# match a plan.
 #   companion_configurations = SPEC §2.3 companion feasibility runs (none for F3).
-configurations: [P0, C2, P1]             # feasibility controlled set (F3); batch-2 ran exactly these
+configurations: [P0, C2, C3, C3-med, C3-prev, C5, P2]   # registered screening matrix (prereg §4)
+feasibility_configurations: [P0, C2, P1]   # frozen: batch-2 ran exactly these; do not edit
 companion_configurations: []             # F3 had no companion runs in batch 2
 reps_feasibility: 3
+reps_screening: 3
 
 # Feasibility-reuse: this task is F3; screening reuse disclosed at CP-SCREEN-PREREG
 # (see workload.yaml feasibility_reuse). Runs only after 10-point validation with the

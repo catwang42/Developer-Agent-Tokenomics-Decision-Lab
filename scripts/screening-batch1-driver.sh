@@ -87,6 +87,18 @@ done
 log()  { printf '%s  %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 fail() { printf '%s  REFUSING: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >&2; exit 2; }
 
+# A dry run drives STUB adapters, so every run dir it produces is stub output. That
+# must never land under results/: run.py honours --phase only on a live run and puts a
+# dry run straight into --out-root, so passing the real root wrote stub run dirs into
+# results/ itself — outside any dataset directory, and unlisted in results/README.md
+# (CLAUDE.md rule 1, rule 8). Dry runs go to a temp root instead, named in the log.
+if [ "$DRY_RUN" -eq 1 ]; then
+  OUT_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/lab-dryrun-batch1.XXXXXXXX")"
+  BATCH_DIR="$OUT_ROOT/$PHASE"
+  KILL_SWITCH="$BATCH_DIR/HALT"
+  DEFERRED_LOG="$BATCH_DIR/deferred-contaminated.tsv"
+fi
+
 # --------------------------------------------------------------------------- #
 # Quiet-window probe. Time is the ONLY thing separating a subject run's tokens
 # from anyone else's on the same publisher model, so this is the measurement's
@@ -352,8 +364,11 @@ while read -r task arm rep; do
     fi
   fi
 
+  # --out-root is BATCH_DIR, not OUT_ROOT: a live run ignores it and derives
+  # results/<phase> itself (identical path), while a dry run uses it verbatim. Passing
+  # the batch dir keeps both modes writing where the driver's own tally reads.
   set -- --task "$task" --config "$arm" --rep "$rep" \
-         --manifest "$MANIFEST" --phase "$PHASE" --out-root "$OUT_ROOT" \
+         --manifest "$MANIFEST" --phase "$PHASE" --out-root "$BATCH_DIR" \
          --cache-state "$CACHE_STATE" --spend-cap-usd "$SPEND_CAP_USD" \
          --subject-isolation "$ISOLATION" --subject-egress "$EGRESS"
   [ "$DRY_RUN" -eq 1 ] && set -- "$@" --dry-run

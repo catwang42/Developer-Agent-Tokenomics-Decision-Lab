@@ -441,7 +441,7 @@ w4b_task:
 # functions across 12 source files, with deprecation shims.
 #   PR https://github.com/sqlfluff/sqlfluff/pull/7962 merged 2026-06-17
 w3_task:
-  task_id: w3-sqlfluff-dialect-common-migration
+  task_id: w3-sqlfluff-segment-method-migration
   repo: https://github.com/sqlfluff/sqlfluff
   pinned_commit: 7700446fdb424ba56a2b1963a624d3747df53744
   canonical_fix_commit: ee00054a89fe1850695601297d41d7e95559eb00

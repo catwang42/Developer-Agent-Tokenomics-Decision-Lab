@@ -9,8 +9,16 @@ spend whatsoever** — spend is gated separately by `manifest/cp-spend-screening
 nothing runs before the human writes `CHECKPOINT APPROVED: CP-SCREEN-PREREG`.
 
 **Status:** **NOT APPROVABLE AS IT STANDS.** Four sealed artifacts are `PENDING-FREEZE`
-(§3) and three repo-side prerequisites are open (§7). Prepared 2026-08-17 on branch
-`feat/screening-launch`. No model spend occurred in preparing it.
+(§3). Prepared 2026-08-17 on branch `feat/screening-launch`. No model spend occurred in
+preparing it.
+
+**Update 2026-08-17 (human-directed, same branch).** Three of the four repo-side
+prerequisites are cleared: §7.1 (W3 `task_id`), §7.2 (declared arms) and §7.4 (isolation
+posture). §7.5 — the four `PENDING-FREEZE` artifacts — remains open and is the human's.
+**The registration in §2–§6 is unchanged**; §4's matrix was not edited, it was
+transcribed into the declarations and into the test that now enforces it. That direction
+matters: the document is the authority and the code was moved to match it, never the
+reverse.
 
 **Package contents:**
 - Roster + sealed-artifact status: §3 (7 tasks; 4 artifacts `PENDING-FREEZE`).
@@ -53,7 +61,7 @@ sealed artifact is human-authored and human-held under `tasks/**/hidden/` (gitig
 | F2 | `w4-realworld-missing-user-id` | `tasks/suite/W4-complex-bugfix` | complex_bugfix / solution | famous | `sealed-w4-v2` `sha256:3d6f8049…871886c2` | **FROZEN** (10/10) |
 | F3 | `w1-realworld-mapper-tests` | `tasks/suite/W1-test-generation` | test_generation | famous | `sealed-w1-v1` `sha256:37f3acd6…c707c51f4e9` | **FROZEN** (10/10) |
 | W4b | `w4b-zarr-consolidated-order` | `tasks/suite/W4b-zarr-consolidated-order` | complex_bugfix / solution | post_cutoff | sealed hidden test | **PENDING-FREEZE** |
-| W3 | *see §7.1 — task_id conflict* | `tasks/suite/W3-migration` | migration / solution · **escalation probe** | post_cutoff | sealed hidden test | **PENDING-FREEZE** |
+| W3 | `w3-sqlfluff-segment-method-migration` | `tasks/suite/W3-migration` | migration / solution · **escalation probe** | post_cutoff | sealed hidden test | **PENDING-FREEZE** |
 | W1b | `w1b-zarr-block-mask-properties` | `tasks/suite/W1b-zarr-block-mask-properties` | test_generation | post_cutoff | sealed mutation-catch runner | **PENDING-FREEZE** |
 | W6 | `w6-hono-router-review` | `tasks/suite/W6-pr-review` | code_review / pr_review | post_cutoff | sealed **seeded-defect map** (+ `k`) | **PENDING-FREEZE** |
 
@@ -211,7 +219,7 @@ Full evidence: `report/smoke-screening/smoke-report.md`.
 
 ## 7. Blocking prerequisites — open at the time of writing
 
-### 7.1 W3's `task_id` disagrees between the manifest and the task
+### 7.1 W3's `task_id` disagrees between the manifest and the task — **RESOLVED 2026-08-17**
 - `manifest/delivery-manifest.yaml:433` → `w3-sqlfluff-dialect-common-migration`
 - `tasks/suite/W3-migration/task.yaml:22` → `w3-sqlfluff-segment-method-migration`
 
@@ -221,7 +229,18 @@ directory name (`<task_id>__<CONFIG>__rep<N>__<stamp>`) and therefore the key ev
 downstream aggregation joins on. **Human decides which spelling is canonical**; the other
 is corrected and the test extended to compare `task_id` too.
 
-### 7.2 Declared arms do not match the registered matrix
+**Resolution.** Canonical id: **`w3-sqlfluff-segment-method-migration`** (the task.yaml
+spelling). The manifest and `tests/fixtures/manifest-screening-SYNTHETIC.yaml` were
+corrected to it. Three reasons for that direction: it is the only spelling that has ever
+named anything at run time (the runner reads `task.yaml`, so the manifest spelling has
+never appeared in a run-dir name); it names the *change* — segment methods → free
+functions, matching PR #7962's title — where the other names only the destination
+module; and it leaves the task dir, README and gate untouched. **No data exists under
+either spelling** — W3 has never been run — so this is reversible with one commit if the
+human prefers the other. `tests/test_tasks.py::test_manifest_entry_agrees_with_task` now
+compares `task_id` alongside `repo` and `pinned_commit`, so the two cannot drift again.
+
+### 7.2 Declared arms do not match the registered matrix — **RESOLVED 2026-08-17**
 All four screening tasks declare `configurations: [C1, C2, C3, C5]` in `task.yaml`, and
 `tests/test_tasks.py::test_screening_configurations_are_the_screening_arms` asserts
 *exactly* that set. The three feasibility tasks declare `[P0, C2, P1]`. The registered
@@ -234,6 +253,28 @@ match `C3-med` — run dirs for those arms would be silently skipped by the resu
 enforces them would encode this matrix as settled before the human has approved it. On
 approval, §4 is synced into the declarations, `VALID_CONFIGS` and `_RUN_DIR_RE` are
 widened, and the test asserts the registered per-task sets.
+
+**Resolution (human-directed 2026-08-17).** Done exactly as described above.
+
+- All seven `task.yaml` files declare their §4 arms: five solo arms everywhere; `C5`
+  everywhere but W6; `P1` on W3 only; `P2` on F1 and F3 only.
+- `VALID_CONFIGS` gained `C3-med`, `C3-prev` and `P2`, and `_RUN_DIR_RE`'s config token
+  became `[A-Z][A-Za-z0-9-]*` so a hyphenated arm matches. A new test asserts
+  `VALID_CONFIGS ⊇` the schema's `configuration_id` enum **and** that every enum member
+  matches the run-dir regex, so the next additive widening cannot leave these lists
+  behind — which is exactly how `C3-med`/`C3-prev`/`P2` runs came to be skipped rather
+  than checked.
+- `test_screening_configurations_are_the_screening_arms` and
+  `test_configurations_is_the_controlled_feasibility_set` are replaced by one test over
+  all seven tasks, driven by a table transcribed from §4.
+
+**One thing this exposed.** `configurations` was doing two jobs: declaring the plan, and
+recording what a feasibility batch actually ran. The batch-2 conformance check joins on
+it to catch the out-of-plan F1·C3 and F1·C5 companion runs — so overwriting it with the
+screening matrix (which *registers* C3 and C5 for F1) would have turned that check green
+by erasing the finding. The historical set now lives in its own frozen key,
+`feasibility_configurations: [P0, C2, P1]`, on F1/F2/F3 only, and the batch-2 check joins
+on that. It still reports exactly `{F1·C3, F1·C5}`.
 
 ### 7.3 The quiet window is not yet established
 A third `gemini-3.7-flash` consumer — principal `catwangzz@google.com`, method
@@ -248,8 +289,17 @@ about 200× plausible, and $8.24 at the pinned rate on an arm the runner recorde
 subject model carries an identical label set with an empty `model_version_id` and no
 caller, job or session dimension. Evidence: `report/smoke-screening/smoke-report.md` §5.
 
-### 7.4 The isolation posture does not currently work for either product
+### 7.4 The isolation posture does not currently work for either product — **RESOLVED 2026-08-17**
 See §6's posture table. This is the largest of the four and is the human's decision.
+
+**Resolution.** The human directed five fixes (SMOKE-1 non-root agent, SMOKE-2 read-only
+credential mounts with a headless-or-refuse wrapper, SMOKE-3 container-only for Product B
+plus per-run state, the collector contamination guard, the driver's quiet-window probe),
+and a four-run re-smoke verified them live: **both products completed in container mode**,
+all seven public gate checks passed on each, and no write escaped the staged tree. The
+registered posture in §6 therefore now works and stands unchanged. Evidence:
+`report/smoke-screening/re-smoke/re-smoke-report.md`. §6's posture table is left as
+written — it records the smoke result of 2026-08-17 and is not rewritten after the fact.
 
 ### 7.5 Four sealed artifacts `PENDING-FREEZE` (§3)
 The driver refuses to start while any remain.

@@ -14,7 +14,10 @@ prompt: |
   root cause so the id flows to the response and token. No unrelated diffs.
 gate: {public: harness/task-tools/gate/check-public.sh, hidden: recorded-by-hash-at-run, reset: harness/task-tools/reset.sh}
 expected_wallclock_s: null
-configurations: [C1, C2, C3, C5]
+# Arms: the AUTHORITY is each task's task.yaml, because arms are registered per
+# TASK, not per workload (cp-screen-prereg.md §4). This line is the union over
+# W4 and W4b (identical arms), kept in sync for readability only.
+configurations: [P0, C2, C3, C3-med, C3-prev, C5]
 reps_screening: 3
 # Class-level W4 claims still require a SECOND, materially different task at tier
 # obscure or post_cutoff (SPEC §5.2 / WORKLOAD-SELECTION §3) — this famous task is

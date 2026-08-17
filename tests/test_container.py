@@ -318,10 +318,14 @@ class AgentImageUidMatchesHost(unittest.TestCase):
                          os.getuid())
 
     def test_a_foreign_uid_is_refused_with_both_uids_named(self) -> None:
-        self._with_labels({"lab.image.subject_uid": "1001"})
+        # Derived from the running uid, never hardcoded: a literal 1001 is the CI
+        # runner's own uid, so this test passed locally and vacuously self-matched
+        # in CI (no PermissionError, because the "foreign" uid was the host's).
+        foreign = str(os.getuid() + 1)
+        self._with_labels({"lab.image.subject_uid": foreign})
         with self.assertRaises(PermissionError) as ctx:
             container_exec.assert_image_uid_matches_host("SYNTHETIC-image")
-        self.assertIn("1001", str(ctx.exception))
+        self.assertIn(foreign, str(ctx.exception))
         self.assertIn(str(os.getuid()), str(ctx.exception))
         self.assertIn("build-subject-image.sh", str(ctx.exception))
 
@@ -374,15 +378,23 @@ class AgyHeadlessWrapper(unittest.TestCase):
         os.path.dirname(__file__), "..", "harness", "container", "agy-headless.sh"))
 
     def _fake_product(self, tmp: str) -> str:
-        """A stand-in that reports the environment it was exec'd with."""
+        """A stand-in that reports the environment it was exec'd with.
+
+        The two state dumps are best-effort and the script always exits 0: on the
+        --version path the wrapper execs BEFORE seeding a state dir, so $HOME is
+        whatever the operator's is. Letting `ls` set the exit code made the result
+        depend on whether the machine running the tests happens to have an agy
+        store — green on a developer box, exit 2 in CI.
+        """
         path = os.path.join(tmp, "agy.real")
         with open(path, "w", encoding="utf-8") as fh:
             fh.write('#!/bin/sh\n'
                      'echo "HOME=$HOME"\n'
                      'echo "AUTOUPDATE=$AGY_CLI_DISABLE_AUTO_UPDATE"\n'
                      'echo "ARGS=$*"\n'
-                     'cat "$HOME/.gemini/antigravity-cli/settings.json"\n'
-                     'ls "$HOME/.gemini/antigravity-cli"\n')
+                     'cat "$HOME/.gemini/antigravity-cli/settings.json" 2>/dev/null\n'
+                     'ls "$HOME/.gemini/antigravity-cli" 2>/dev/null\n'
+                     'exit 0\n')
         os.chmod(path, 0o755)
         return path
 

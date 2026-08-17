@@ -1427,7 +1427,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description="Controlled harness runner (SPEC 2.1–2.3, 2.7)")
     ap.add_argument("--task", required=True, help="task dir (e.g. tasks/pilot-realworld)")
     ap.add_argument("--config", required=True,
-                    help="configuration or policy id: C1|C2|C3|C4|C5|P0|P1|P2. P2 is "
+                    help="configuration or policy id: "
+                         "C1|C2|C3|C3-med|C3-prev|C4|C5|P0|P1|P2. P2 is "
                          "scripted delegation (B3): it needs the task's pinned, frozen "
                          "split.yaml (a live run is refused on a draft split)")
     ap.add_argument("--manifest", default=os.path.join(REPO_ROOT, "manifest", "delivery-manifest.yaml"))
