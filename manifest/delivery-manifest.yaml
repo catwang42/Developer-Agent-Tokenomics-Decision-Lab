@@ -420,7 +420,11 @@ w4b_task:
   baseline_test_scope: hermetic_local_store   # remote-store suites excluded (network); see task.yaml
   stack: python
   sealed_hidden_test:
-    status: awaiting_human   # NOT yet authored; no version, no hash — never invent one
+    version: "sealed-w4b-v1 2026-08-17 permutation+depth3"
+    sha256: sha256:acb4b0a0b50bf30e1bd1e093cabc296397ca86688c1eae5556afada57d932ce7
+    status: frozen
+    frozen_date: 2026-08-17   # human FREEZE APPROVED (CP-SCREEN-PREREG 2026-08-17)
+    validated: 10/10
     spec: tasks/suite/W4b-zarr-consolidated-order/hidden/README-FOR-HUMAN.md
   validated: see tasks/suite/W4b-zarr-consolidated-order/.work/validation-report.json
 
@@ -440,6 +444,20 @@ w3_task:
   stack: python
   escalation_probe: true   # SPEC §5.1; the failure prediction is pre-registered separately
   sealed_hidden_test:
+    # HASH DISCREPANCY — NOT FROZEN. The freeze direction of 2026-08-17 supplied
+    #   c3df221212ddbc72fcfa3c1749d2b88fa305b50ff894d713c01a43cb1d42bf4b
+    # for this key. The gate's own hidden_content_hash, re-run against the sealed set
+    # on this host at 2026-08-17T14:50:22Z (10/10 pass), produces
+    #   sha256:84b81c1ea152c7f68574188a2d6b0c49de06bcefc6eefb5f352d4d84141ff344
+    # and a whole-directory hash of the same tree produces
+    #   sha256:b9cfe8fd2c3700be347e64ee5a0372d401e71a56eee2c38df971cda12fc4050a
+    # — neither is the supplied value. W4b, W1b and W6 all matched their supplied
+    # hashes exactly against the same fresh run, so this is specific to W3.
+    # run.py stamps this field into every run record as provenance and never
+    # re-verifies it against the live sealed set (harness/runner/run.py:485,892), so a
+    # value that cannot be reproduced here would silently mislabel all 18 W3 runs.
+    # Left awaiting_human rather than guessing which value is canonical
+    # (CLAUDE.md rule 1). Resolve, then this is a one-line freeze.
     status: awaiting_human
     spec: tasks/suite/W3-migration/hidden/README-FOR-HUMAN.md
   validated: see tasks/suite/W3-migration/.work/validation-report.json
@@ -458,8 +476,12 @@ w1b_task:
   baseline_test_scope: hermetic_local_store
   stack: python
   gate_type: test_generation
-  sealed_hidden_test:
-    status: awaiting_human   # mutation-catch runner (hidden/check.sh), as for w1_task
+  sealed_hidden_test:   # mutation-catch runner (hidden/check.sh), as for w1_task
+    version: "sealed-w1b-v1 2026-08-17 m=8 (M6=control)"
+    sha256: sha256:f380d1424f796166353bf959939eb552492140edaf92d87c76e896d4eaa12fb6
+    status: frozen
+    frozen_date: 2026-08-17   # human FREEZE APPROVED (CP-SCREEN-PREREG 2026-08-17)
+    validated: 10/10
     spec: tasks/suite/W1b-zarr-block-mask-properties/hidden/README-FOR-HUMAN.md
   validated: see tasks/suite/W1b-zarr-block-mask-properties/.work/validation-report.json
 
@@ -478,6 +500,10 @@ w6_task:
   stack: none
   gate_type: pr_review
   sealed_defect_map:
-    status: awaiting_human   # k, the seeded defects, and their file+line are human-held
+    version: "sealed-w6-v1 2026-08-17 k=6"
+    sha256: sha256:350bf452c631dec30b413b422b871c4d974fa4df19adc9668b1d10266b4d1002
+    status: frozen
+    frozen_date: 2026-08-17   # human FREEZE APPROVED (CP-SCREEN-PREREG 2026-08-17)
+    validated: 6/10 pass, 0 awaiting-human, 4 n/a   # review task: 4 execution checks have no referent (stacks/none.sh)
     spec: tasks/suite/W6-pr-review/hidden/README-FOR-HUMAN.md
   validated: see tasks/suite/W6-pr-review/.work/validation-report.json
