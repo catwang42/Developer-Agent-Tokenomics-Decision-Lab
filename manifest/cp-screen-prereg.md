@@ -8,20 +8,23 @@ the data. **Approving this checkpoint registers the design in §2–§6 and auth
 spend whatsoever** — spend is gated separately by `manifest/cp-spend-screening-batch1.md`;
 nothing runs before the human writes `CHECKPOINT APPROVED: CP-SCREEN-PREREG`.
 
-**Status:** **NOT APPROVABLE AS IT STANDS.** Four sealed artifacts are `PENDING-FREEZE`
-(§3). Prepared 2026-08-17 on branch `feat/screening-launch`. No model spend occurred in
-preparing it.
+**Status:** **ZERO ITEMS PENDING.** All four screening sealed artifacts — W4b, W3, W1b
+and W6 — were frozen on 2026-08-17 with version + `sha256` in the manifest, each hash
+reproduced from a validator run against the merged #18 validator on this host (§3,
+§7.5). No row reads `PENDING-FREEZE`. Prepared 2026-08-17 on branch
+`feat/screening-launch`; frozen 2026-08-17 on `fix/sealed-hashes`. No model spend
+occurred in preparing it.
 
 **Update 2026-08-17 (human-directed, same branch).** Three of the four repo-side
 prerequisites are cleared: §7.1 (W3 `task_id`), §7.2 (declared arms) and §7.4 (isolation
-posture). §7.5 — the four `PENDING-FREEZE` artifacts — remains open and is the human's.
+posture). §7.5 — the four `PENDING-FREEZE` artifacts — is cleared: all four are frozen.
 **The registration in §2–§6 is unchanged**; §4's matrix was not edited, it was
 transcribed into the declarations and into the test that now enforces it. That direction
 matters: the document is the authority and the code was moved to match it, never the
 reverse.
 
 **Package contents:**
-- Roster + sealed-artifact status: §3 (7 tasks; 4 artifacts `PENDING-FREEZE`).
+- Roster + sealed-artifact status: §3 (7 tasks; 7 **FROZEN**, 0 `PENDING-FREEZE`).
 - Arm matrix and run count: §4 (44 cells, **132 runs** at 3 reps; 126 without optional P2).
 - Registered hypotheses: §5 (both referenced by commit hash).
 - Pinned run conditions: §6.
@@ -60,22 +63,29 @@ sealed artifact is human-authored and human-held under `tasks/**/hidden/` (gitig
 | F1 | `pilot-realworld-draft-articles` | `tasks/pilot-realworld` | feature / solution | famous | `sealed-pilot-v1` `sha256:105c2418…b667abe2` | **FROZEN** (10/10) |
 | F2 | `w4-realworld-missing-user-id` | `tasks/suite/W4-complex-bugfix` | complex_bugfix / solution | famous | `sealed-w4-v2` `sha256:3d6f8049…871886c2` | **FROZEN** (10/10) |
 | F3 | `w1-realworld-mapper-tests` | `tasks/suite/W1-test-generation` | test_generation | famous | `sealed-w1-v1` `sha256:37f3acd6…c707c51f4e9` | **FROZEN** (10/10) |
-| W4b | `w4b-zarr-consolidated-order` | `tasks/suite/W4b-zarr-consolidated-order` | complex_bugfix / solution | post_cutoff | sealed hidden test | **PENDING-FREEZE** |
-| W3 | `w3-sqlfluff-segment-method-migration` | `tasks/suite/W3-migration` | migration / solution · **escalation probe** | post_cutoff | sealed hidden test | **PENDING-FREEZE** |
-| W1b | `w1b-zarr-block-mask-properties` | `tasks/suite/W1b-zarr-block-mask-properties` | test_generation | post_cutoff | sealed mutation-catch runner | **PENDING-FREEZE** |
-| W6 | `w6-hono-router-review` | `tasks/suite/W6-pr-review` | code_review / pr_review | post_cutoff | sealed **seeded-defect map** (+ `k`) | **PENDING-FREEZE** |
+| W4b | `w4b-zarr-consolidated-order` | `tasks/suite/W4b-zarr-consolidated-order` | complex_bugfix / solution | post_cutoff | `sealed-w4b-v1` `sha256:acb4b0a0…d932ce7` | **FROZEN** (10/10) |
+| W3 | `w3-sqlfluff-segment-method-migration` | `tasks/suite/W3-migration` | migration / solution · **escalation probe** | post_cutoff | `sealed-w3-v1` `sha256:84b81c1e…141ff344` | **FROZEN** (10/10) |
+| W1b | `w1b-zarr-block-mask-properties` | `tasks/suite/W1b-zarr-block-mask-properties` | test_generation | post_cutoff | `sealed-w1b-v1` `sha256:f380d142…eaa12fb6` | **FROZEN** (10/10) |
+| W6 | `w6-hono-router-review` | `tasks/suite/W6-pr-review` | code_review / pr_review | post_cutoff | `sealed-w6-v1` `sha256:350bf452…6b4d1002` | **FROZEN** (6 pass, 4 n/a) |
 
 **`PENDING-FREEZE` means exactly this:** the manifest records
 `sealed_hidden_test.status: awaiting_human` with **no version and no hash**. No hash has
-been invented, guessed or placeholder-filled (CLAUDE.md rule 1). The human authors the
-four artifacts and fills `version` + `sha256`; this package becomes approvable only when
-zero rows read `PENDING-FREEZE`, and `scripts/screening-batch1-driver.sh` refuses to
-start while any remain (§7.4).
+been invented, guessed or placeholder-filled (CLAUDE.md rule 1). This package becomes
+approvable only when zero rows read `PENDING-FREEZE`, and
+`scripts/screening-batch1-driver.sh` refuses to start while any remain (§7.4).
 
-*Note on the count:* the brief anticipated **three** pending artifacts. Four rows are
-pending because W6's artifact is a sealed **seeded-defect map**, not a sealed hidden
-test — the manifest carries it under a different key (`sealed_defect_map`). All four are
-listed rather than three; if W6's map is already authored, freeze it and the row clears.
+**Freeze of 2026-08-17.** All four artifacts are authored and frozen. Each `version` +
+`sha256` above was taken from a validator run against the merged #18 validator on this
+host (2026-08-17T14:50–15:14Z); W4b, W1b and W6 reproduced the hash supplied in the
+freeze direction exactly, and W3's was reconciled by the human to the
+validator-reproduced value after the supplied one did not reproduce here (§7.5). The
+hashes are `hidden_content_hash` fingerprints of the sealed set: they identify the bytes
+without disclosing them, which is why they are recorded in a public file (SPEC §2.6).
+
+*Note on the count:* the brief anticipated **three** pending artifacts; four rows were
+listed because W6's artifact is a sealed **seeded-defect map**, not a sealed hidden test,
+and the manifest carries it under a different key (`sealed_defect_map`). W6's map was
+already authored and is now frozen under that key.
 
 **Class-claim pairing (SPEC §5.2).** Two classes carry the required second, materially
 different task: W4 (famous) ↔ W4b (post_cutoff, Python/zarr), and W1 (famous) ↔ W1b
@@ -301,8 +311,32 @@ registered posture in §6 therefore now works and stands unchanged. Evidence:
 `report/smoke-screening/re-smoke/re-smoke-report.md`. §6's posture table is left as
 written — it records the smoke result of 2026-08-17 and is not rewritten after the fact.
 
-### 7.5 Four sealed artifacts `PENDING-FREEZE` (§3)
-The driver refuses to start while any remain.
+### 7.5 Four sealed artifacts `PENDING-FREEZE` (§3) — **CLEARED 2026-08-17**
+The driver refuses to start while any remain. None remain.
+
+**Frozen.** W4b (`sealed-w4b-v1 2026-08-17 permutation+depth3`, 10/10), W3
+(`sealed-w3-v1 2026-08-17`, 10/10), W1b (`sealed-w1b-v1 2026-08-17 m=8 (M6=control)`,
+10/10) and W6 (`sealed-w6-v1 2026-08-17 k=6`, 6 pass / 4 n/a — the four execution checks
+have no referent for a review task, `stacks/none.sh`). Every hash was re-derived on this
+host from a validator run against the merged #18 validator, not copied forward from an
+earlier report.
+
+**W3 hash reconciliation (recorded, not erased).** The first freeze direction supplied
+`c3df221212ddbc72fcfa3c1749d2b88fa305b50ff894d713c01a43cb1d42bf4b` for
+`w3_task.sealed_hidden_test`. That value did not reproduce here: the gate's own
+`hidden_content_hash` over the sealed set on this host yields
+`sha256:84b81c1ea152c7f68574188a2d6b0c49de06bcefc6eefb5f352d4d84141ff344` (validator run
+2026-08-17T14:50:22Z, 10/10 pass), and a whole-directory hash of the same tree yields
+`sha256:b9cfe8fd2c3700be347e64ee5a0372d401e71a56eee2c38df971cda12fc4050a`. W4b, W1b and
+W6 matched their supplied hashes exactly under the identical procedure, so the divergence
+was specific to W3, not to the hashing method. The entry was held at `awaiting_human`
+rather than defaulted (CLAUDE.md rule 1) because `run.py` stamps this field into every
+run record as provenance and never re-verifies it against the live sealed set
+(`harness/runner/run.py:485`, `:892`) — an unreproducible value would have mislabelled
+all 18 W3 cells with no downstream check to catch it. The human reconciled it the same
+day to the validator-reproduced hash, which is what the manifest now records. The
+discrepancy is documented here rather than dropped so the freeze provenance stays
+auditable.
 
 ## 8. Disclosures
 
@@ -323,8 +357,9 @@ The driver refuses to start while any remain.
 
 ## 9. What this package does NOT do
 
-Authorizes no spend (that is `manifest/cp-spend-screening-batch1.md`). Freezes no sealed
-artifact — four remain `PENDING-FREEZE`. Fixes no result in docs, site or report: every
+Authorizes no spend (that is `manifest/cp-spend-screening-batch1.md`). The freeze of
+2026-08-17 is recorded in §3/§7.5 and in the manifest, not conferred by this section.
+Fixes no result in docs, site or report: every
 number from this batch is gated by **CP-FINDINGS**, and anything external-facing by
 **CP-PUBLISH**. Makes no comparative or vendor-superiority claim, and promotes nothing to
 a workload-class claim.
