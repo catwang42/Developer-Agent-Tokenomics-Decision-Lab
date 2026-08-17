@@ -20,7 +20,12 @@ TASK_YAML="$TASK_DIR/task.yaml"
 WORKDIR="${TASK_WORKDIR:-$TASK_DIR/.work}"
 SUBJECT_DIR="$WORKDIR/repo"
 
-MANIFEST="$REPO_ROOT/manifest/delivery-manifest.yaml"
+# The delivery manifest holds the volatile pins (repo URL, pinned commit). It is
+# overridable for the same reason TASK_WORKDIR and HIDDEN_TESTS_DIR are: so the
+# harness can be driven end-to-end against a throwaway task in a test, without a
+# clone and without adding test-only entries to the real manifest. Production
+# callers never set it.
+MANIFEST="${DELIVERY_MANIFEST:-$REPO_ROOT/manifest/delivery-manifest.yaml}"
 VENV_PY="$REPO_ROOT/.venv/bin/python"
 
 # Prefer the project venv python; fall back to python3 (containers without .venv).
