@@ -211,6 +211,7 @@ RESUME=$((1 - NO_RESUME))
 RESUME_DIR="results/$PHASE"
 RESUME_TSV="$RESUME_DIR/deferred-contaminated.tsv"
 SETTLED=""          # newline-separated "<task_id>|<ARM>|<rep>|<why>"
+RESUME_REPORT=""    # human-readable summary, printed by the caller
 
 TASK_ID_MAP=""
 for task in $ROSTER; do
@@ -261,17 +262,26 @@ for name in sorted(os.listdir(batch_dir)):
 PYEOF
 }
 
+# Sets SETTLED and RESUME_REPORT; prints NOTHING. It must run in the caller's
+# shell — piping it (`build_resume_index | sed ...`) would run it in a subshell and
+# SETTLED would come back empty, which silently means "resume found nothing" and
+# re-buys the whole batch. Print "$RESUME_REPORT" afterwards instead.
 build_resume_index() {
   local kind task_id arm rep why n_ok=0 n_bad=0 n_def=0
   SETTLED=""
-  [ "$RESUME" -eq 1 ] || { echo "resume disabled (--no-resume): every plan cell will run"; return 0; }
+  RESUME_REPORT=""
+  if [ "$RESUME" -ne 1 ]; then
+    RESUME_REPORT="resume disabled (--no-resume): every plan cell will run"
+    return 0
+  fi
 
   while IFS='|' read -r kind task_id arm rep why; do
     [ -n "$kind" ] || continue
     case "$kind" in
       OK)  SETTLED="$SETTLED$task_id|$arm|$rep|completed
 "; n_ok=$((n_ok + 1)) ;;
-      BAD) echo "     warn NOT settled, will re-run: $why"; n_bad=$((n_bad + 1)) ;;
+      BAD) RESUME_REPORT="${RESUME_REPORT}warn NOT settled, will re-run: $why
+"; n_bad=$((n_bad + 1)) ;;
     esac
   done <<< "$(scan_completed)"
 
@@ -287,7 +297,7 @@ build_resume_index() {
     done < "$RESUME_TSV"
   fi
 
-  echo "     $n_ok completed+validated, $n_def deferred-contaminated (holes, not retried)$([ "$n_bad" -gt 0 ] && echo ", $n_bad unvalidated dir(s) to re-run")"
+  RESUME_REPORT="${RESUME_REPORT}$n_ok completed+validated, $n_def deferred-contaminated (holes, not retried)$([ "$n_bad" -gt 0 ] && echo ", $n_bad unvalidated dir(s) to re-run")"
 }
 
 settled_why() {  # settled_why <task_dir> <arm> <rep>; echoes the reason, or nothing
@@ -300,7 +310,8 @@ settled_why() {  # settled_why <task_dir> <arm> <rep>; echoes the reason, or not
 }
 
 if [ "$LIST_ONLY" -eq 1 ]; then
-  build_resume_index >/dev/null
+  build_resume_index
+  printf '%s\n' "$RESUME_REPORT"
   pending=0
   printf '%s\n' "$PLAN" | nl -ba | while read -r n task arm rep; do
     why="$(settled_why "$task" "$arm" "$rep")"
@@ -440,7 +451,8 @@ log "ok   kill switch armed: touch $KILL_SWITCH to halt between runs"
 #     never re-validates the dataset, and BEFORE the loop so the pending count is
 #     visible in the log before the first cell is billed.
 log "=== resume index (source: $RESUME_DIR) ==="
-build_resume_index | sed 's/^/       /'
+build_resume_index
+printf '%s\n' "$RESUME_REPORT" | sed 's/^/       /'
 PENDING_CELLS="$(printf '%s\n' "$PLAN" | while read -r task arm rep; do
   [ -n "$task" ] || continue
   [ -n "$(settled_why "$task" "$arm" "$rep")" ] || echo x
