@@ -1,5 +1,8 @@
 site_name: Measure Before You Route
-site_description: Developer-Agent Economics Decision Lab
+site_description: The unit-economics audit layer for AI coding agents — measure what AI
+  coding agents cost per accepted engineering outcome.
+repo_url: https://github.com/catwang42/Developer-Agent-Tokenomics-Decision-Lab
+repo_name: Developer-Agent-Tokenomics-Decision-Lab
 theme:
   name: material
   features: [navigation.sections, navigation.top, content.code.copy]
@@ -8,19 +11,23 @@ theme:
       primary: deep purple
 nav:
   - Home: index.md
-  - Pre-work Setup: setup.md
-  - "Operator Guide — run the lab, no AI required": OPERATOR.md
-  - "M0 · The Decision Problem": m0-decision-problem.md
-  - "M1 · Audit the Evidence": m1-audit-evidence.md
-  - "M2 · One Controlled Experiment": m2-controlled-experiment.md
-  - "M3 · Interpret the Economics": m3-interpret-economics.md
-  - "M4 · Enterprise Decision Exercise": m4-decision-exercise.md
-  - Exercises:
-      - exercises/index.md
-  - Sealed Evaluation: sealed-evaluation.md
-  - "Screening Report (renderer — no data until CP-FINDINGS)": screening-report.md
-  - Cheatsheet: cheatsheet.md
-  - Facilitator Guide: facilitator.md
+  - Start here:
+      - Pre-work Setup: setup.md
+      - "Operator Guide — run the lab, no AI required": OPERATOR.md
+      - "Cheatsheet — the seven-point audit checklist": cheatsheet.md
+  - Modules:
+      - "M0 · The Decision Problem": m0-decision-problem.md
+      - "M1 · Audit the Evidence": m1-audit-evidence.md
+      - "M2 · One Controlled Experiment": m2-controlled-experiment.md
+      - "M3 · Interpret the Economics": m3-interpret-economics.md
+      - "M4 · Enterprise Decision Exercise": m4-decision-exercise.md
+      - Exercises: exercises/index.md
+      - Facilitator Guide: facilitator.md
+  - How it measures:
+      - "Sealed Evaluation — how work is graded": sealed-evaluation.md
+      - "Evidence & Methodology — the underlying records": evidence.md
+  - Results:
+      - "Screening Report (renderer — no data until CP-FINDINGS)": screening-report.md
 markdown_extensions: [admonition, tables, attr_list, pymdownx.details, pymdownx.superfences]
 # The screening renderer. Both assets no-op on every other page: the script only draws
 # when it finds the #decision-report mount point.
