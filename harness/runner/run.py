@@ -532,6 +532,21 @@ def _gate_verdict(pub_rc: int, hid_rc: int, checks: Dict[str, Any]
     return True, "accepted", checks
 
 
+def hidden_tests_dir(task_dir: str) -> str:
+    """HOST location of the sealed hidden set for ``task_dir``.
+
+    Mirrors check-hidden.sh's own rule (``HIDDEN_TESTS_DIR`` overrides, else
+    ``$TASK_DIR/hidden``) so the host gate and the container gate resolve the same
+    directory. The container gate needs it explicitly because it must MOUNT the
+    directory — the sealed set is never baked into an image (.dockerignore excludes
+    ``**/hidden/``), so a path alone would resolve to nothing inside the container.
+    """
+    override = os.environ.get("HIDDEN_TESTS_DIR")
+    if override:
+        return os.path.abspath(override)
+    return os.path.join(os.path.abspath(task_dir), "hidden")
+
+
 def real_gate(task_dir: str, run_dir: str, subject_dir: str
               ) -> Tuple[bool, str, Dict[str, Any]]:
     """Run the Phase 2 deterministic gate on the HOST against the subject tree.
@@ -574,6 +589,16 @@ def container_gate(launch: ContainerLaunch, task: "Task", run_dir: str
 
     ``run_dir`` is mounted at ``/out`` so the gate's JSON reports land on the host.
     The gate is always ``--network=none``; the agent leg's egress never applies here.
+
+    The SEALED HIDDEN SET is mounted read-only at ``<task>/hidden``. It is never
+    baked into any image — ``.dockerignore`` excludes ``**/hidden/`` from every
+    build context, by design ("the runtime gate needs only gate/ + tests/ + mounted
+    hidden/"). Without the mount, check-hidden.sh finds no sealed tests, reports
+    ``awaiting_human``, exits 2, and ``_gate_verdict`` turns EVERY containerized run
+    into ``error`` — a batch that bills real spend and grades nothing. Mounting is
+    what makes the containerized posture gradable at all. Read-only: sealed material
+    is human-held and its content hash is frozen in the manifest, so a gate run must
+    not be able to alter it; a sealed runner needing scratch space uses ``/tmp``.
     """
     ex = ContainerExecutor(launch.image)
     task_c = f"{CONTAINER_LAB_ROOT}/{task.task_dir_rel}"
@@ -583,6 +608,15 @@ def container_gate(launch: ContainerLaunch, task: "Task", run_dir: str
     if launch.agent_volume:
         mounts.append((launch.agent_volume, repo_c, "rw"))
     base_env = {"TASK_DIR": task_c, "TASK_WORKDIR": work_c}
+
+    # Absent on the host = genuinely unsealed: leave the mount off and let the gate
+    # report awaiting_human. Never mount a non-existent source — docker would create
+    # it, silently planting a root-owned empty `hidden/` in the task directory.
+    hidden_host = hidden_tests_dir(task.task_dir)
+    if os.path.isdir(hidden_host):
+        hidden_c = f"{task_c}/hidden"
+        mounts.append((hidden_host, hidden_c, "ro"))
+        base_env["HIDDEN_TESTS_DIR"] = hidden_c
 
     pub = ex.run(
         ["bash", f"{CONTAINER_LAB_ROOT}/harness/task-tools/gate/check-public.sh"],
