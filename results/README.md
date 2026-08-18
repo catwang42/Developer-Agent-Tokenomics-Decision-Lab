@@ -22,7 +22,8 @@ dataset. Keeping them lets any number in a superseded report be traced to its ex
 | `smoke-screening/` | screening smoke (8 completed + 1 aborted) **plus the 4-run re-smoke** that verified the fixes, **harness evidence, NOT measurements** — live test of the containerized agent leg and the provider-side collector; found 4 blocking defects, all fixed and re-verified | `report/smoke-screening/` (smoke) + `report/smoke-screening/re-smoke/` (fix verification) |
 | `pilot-reference/` | empty until CP-FINDINGS (≥5 reps/cell; write-protected; human merges only) | — (populated at CP-FINDINGS) |
 | `screening/` | empty until Phase 4 (hypothesis-seeking positioning evidence, SPEC §5) | — (populated in Phase 4) |
-| `screening-batchN/` | **not yet created** — Phase-4 screening batches (W1–W7 × configurations); one directory per batch, same append-only rule as feasibility | `report/screening-batchN/` (pairs by name; `decision-table.{json,md}` from `harness/telemetry/summarize.py`) |
+| `screening-batch1-aborted-20260817-gatefix/` | screening batch 1, **ABORTED at 5/126 runs — NOT a screening result**. Halted by kill switch when every run graded `acceptance.result: error`: `container_gate()` never mounted the sealed hidden set, so the hidden gate reported `awaiting_human` on every containerized run. Telemetry is real and validated; the *outcome* variable is absent, so no cell is gradable. Retained as provenance for $1.86 of real spend | its own `batch1.log` (header note + `HALTED BY OPERATOR` record); no CP-DATA report — there is nothing to report on |
+| `screening-batchN/` | **not yet created** — Phase-4 screening batches (W1–W7 × configurations); one directory per batch, same append-only rule as feasibility. The next launch writes a clean `screening-batch1/` | `report/screening-batchN/` (pairs by name; `decision-table.{json,md}` from `harness/telemetry/summarize.py`) |
 | `cohort/` | **gitignored** — workshop exercise data (not tracked) | — |
 
 Notes:
