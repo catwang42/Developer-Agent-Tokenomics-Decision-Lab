@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<!--
+  decision-report-preview-SYNTHETIC.html — local preview shell for the screening report
+  renderer, driven entirely by tests/fixtures/decision-table-SYNTHETIC.json.
+
+  EVERY FIGURE THIS PAGE DRAWS IS SYNTHETIC. The fixture is fabricated by
+  tests/fixtures/make_decision_table_SYNTHETIC.py to exercise the renderer's paths —
+  including the ones that must NOT produce a number: unavailable costs, cells that
+  accepted nothing, registered arms that never ran, and two-leg bills with one unpriced
+  leg. Nothing here is a measurement of anything, and nothing here may be screenshotted
+  into a report.
+
+  This shell exists so the page can be reviewed without mkdocs and without pointing the
+  renderer at real data (which is gated by CP-FINDINGS). Serve it over HTTP — fetch does
+  not work from a file:// URL:
+
+      python3 -m http.server -d . 8000
+      open http://localhost:8000/tests/fixtures/decision-report-preview-SYNTHETIC.html
+
+  The stylesheet and script are the SAME files the site uses (docs/assets/), never
+  copies, so what you review here is what mkdocs ships.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>SYNTHETIC preview — screening report renderer</title>
+<link rel="stylesheet" href="../../docs/assets/decision-report.css">
+<style>
+  /* Shell-only chrome. The report's own styling lives in docs/assets/decision-report.css
+     so this preview cannot drift from the site build. */
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0;
+    padding: 2rem clamp(1rem, 4vw, 3rem) 5rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #ffffff;
+    color: #14161a;
+    line-height: 1.6;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #16181c; color: #e8eaee; }
+  }
+  .shell { max-width: 78rem; margin: 0 auto; }
+  .shell__mark {
+    display: block;
+    border: 2px solid #9a6400;
+    background: rgba(154, 100, 0, .1);
+    border-radius: 10px;
+    padding: .9rem 1.1rem;
+    margin: 0 0 1.6rem;
+    font-size: .88rem;
+  }
+  .shell__mark strong { letter-spacing: .04em; }
+  .shell h1 { font-size: 1.35rem; margin: 0 0 .4rem; letter-spacing: -.01em; }
+  .shell__sub { margin: 0 0 1.6rem; font-size: .88rem; opacity: .75; max-width: 74ch; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <h1>Screening report renderer — synthetic preview</h1>
+  <p class="shell__sub">
+    A local harness for reviewing the report page's layout, colour, empty states and
+    interaction. It is not a report and carries no measurements.
+  </p>
+  <p class="shell__mark">
+    <strong>SYNTHETIC DATA.</strong>
+    Every number below is fabricated by
+    <code>tests/fixtures/make_decision_table_SYNTHETIC.py</code> to exercise the renderer.
+    No run, token count, cost, acceptance verdict or pre-registration outcome shown here
+    measures anything. Real figures are gated by CP-FINDINGS and are never committed.
+  </p>
+
+  <!-- data-src is a same-origin relative path; the renderer rejects anything else. -->
+  <div id="decision-report" data-dr-auto-dark data-src="decision-table-SYNTHETIC.json"></div>
+</div>
+<script src="../../docs/assets/decision-report.js"></script>
+</body>
+</html>
