@@ -58,7 +58,12 @@ usage: screening-batch1-driver.sh [options]
   --reps N             repetitions per cell (registered: 3)
   --spend-cap-usd N    in-runner kill-switch (registered: 75)
   --start-at N         resume a halted batch at plan index N (1-based)
-  --list               print the run plan and exit
+  --no-resume          run every plan cell, including ones already bought and
+                       validated. Resume is ON by default: a relaunch skips any
+                       cell whose run dir already validates, and skips the
+                       deferred-contaminated cells (they stay holes for a makeup
+                       pass). Use this only to deliberately re-buy runs.
+  --list               print the run plan, marked PENDING/SKIP, and exit
   --manifest PATH      DRY-RUN ONLY: substitute a manifest, so the preflights past
                        the sealed-artifact gate can be exercised before the real
                        artifacts are frozen. Refused without --dry-run — it would
@@ -69,6 +74,7 @@ USAGE
 
 LIST_ONLY=0
 MANIFEST_OVERRIDDEN=0
+NO_RESUME=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY_RUN=1 ;;
@@ -76,6 +82,7 @@ while [ $# -gt 0 ]; do
     --reps) REPS="$2"; shift ;;
     --spend-cap-usd) SPEND_CAP_USD="$2"; shift ;;
     --start-at) START_AT="$2"; shift ;;
+    --no-resume) NO_RESUME=1 ;;
     --list) LIST_ONLY=1 ;;
     --manifest) MANIFEST="$2"; MANIFEST_OVERRIDDEN=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -175,9 +182,134 @@ build_plan() {  # one "<task> <arm> <rep>" per line, in execution order
 PLAN="$(build_plan)"
 TOTAL="$(printf '%s\n' "$PLAN" | grep -c .)"
 
+# --------------------------------------------------------------------------- #
+# Resume index
+#
+# The plan is always the FULL registered matrix — preflight 1 checks it against
+# the registered count, and a resumed batch that shrank its own plan could never
+# be checked against the package again. Resume is therefore a per-cell skip
+# decision taken inside the execution loop, not a smaller plan.
+#
+# A cell is SETTLED (skip it) when either:
+#   * a run dir <task_id>__<ARM>__rep<N>__* exists under the REAL batch dir and
+#     its telemetry passes audit-grade validation. Re-buying a run we already own
+#     spends the budget twice for one number. Validation is re-run here rather
+#     than inferred from the directory existing: the halted batch left an EMPTY
+#     run dir behind (the W4 cell whose image build failed), and an empty dir is
+#     not a result.
+#   * the cell is in deferred-contaminated.tsv. Those cells never ran and cost
+#     nothing, but they were deferred because the provider meter was noisy; a
+#     relaunch would re-enter the same contaminated window. They stay HOLES in
+#     the registered matrix for a later makeup pass and must be reported as
+#     holes, never averaged over.
+#
+# The index always reads results/<phase>, even under --dry-run (whose batch dir
+# is a temp): what is already bought is a property of the real dataset, so a dry
+# run must show the same resume plan the live relaunch will execute.
+# --------------------------------------------------------------------------- #
+RESUME=$((1 - NO_RESUME))
+RESUME_DIR="results/$PHASE"
+RESUME_TSV="$RESUME_DIR/deferred-contaminated.tsv"
+SETTLED=""          # newline-separated "<task_id>|<ARM>|<rep>|<why>"
+
+TASK_ID_MAP=""
+for task in $ROSTER; do
+  tid="$("$PY" -c \
+    "import sys,yaml;print((yaml.safe_load(open(sys.argv[1]+'/task.yaml',encoding='utf-8')) or {})['task_id'])" \
+    "$task" 2>/dev/null)" || tid=""
+  [ -n "$tid" ] || fail "no task_id in $task/task.yaml — cannot match it to a run dir"
+  TASK_ID_MAP="$TASK_ID_MAP$task $tid
+"
+done
+
+task_id_for() {  # task_id_for <task_dir>
+  printf '%s' "$TASK_ID_MAP" | awk -v d="$1" '$1 == d { print $2; exit }'
+}
+
+# "<task_id>|<ARM>|<rep>|<why>" for every completed-and-validated run dir, plus a
+# BAD line per run dir that exists but does not validate (those are NOT settled —
+# they get re-run, and the stale dir is named so a human can resolve it).
+scan_completed() {
+  [ -d "$RESUME_DIR" ] || return 0
+  "$PY" - "$RESUME_DIR" <<'PYEOF'
+import os
+import sys
+
+from harness.telemetry.telemetry import validate
+
+batch_dir = sys.argv[1]
+for name in sorted(os.listdir(batch_dir)):
+    run_dir = os.path.join(batch_dir, name)
+    if not os.path.isdir(run_dir):
+        continue
+    parts = name.split("__")
+    if len(parts) < 4 or not parts[2].startswith("rep"):
+        continue
+    task_id, arm, rep = parts[0], parts[1], parts[2][len("rep"):]
+    if not os.path.exists(os.path.join(run_dir, "summary.json")):
+        print(f"BAD|{task_id}|{arm}|{rep}|{name}: no summary.json (empty or aborted run dir)")
+        continue
+    try:
+        ok, reasons = validate(run_dir)
+    except Exception as exc:                                    # noqa: BLE001
+        ok, reasons = False, [f"validate raised {exc!r}"]
+    if ok:
+        print(f"OK|{task_id}|{arm}|{rep}|{name}")
+    else:
+        first = (reasons or ["unknown"])[0]
+        print(f"BAD|{task_id}|{arm}|{rep}|{name}: {first}")
+PYEOF
+}
+
+build_resume_index() {
+  local kind task_id arm rep why n_ok=0 n_bad=0 n_def=0
+  SETTLED=""
+  [ "$RESUME" -eq 1 ] || { echo "resume disabled (--no-resume): every plan cell will run"; return 0; }
+
+  while IFS='|' read -r kind task_id arm rep why; do
+    [ -n "$kind" ] || continue
+    case "$kind" in
+      OK)  SETTLED="$SETTLED$task_id|$arm|$rep|completed
+"; n_ok=$((n_ok + 1)) ;;
+      BAD) echo "     warn NOT settled, will re-run: $why"; n_bad=$((n_bad + 1)) ;;
+    esac
+  done <<< "$(scan_completed)"
+
+  if [ -f "$RESUME_TSV" ]; then
+    # deferred-contaminated.tsv: <utc>\t<plan idx>\t<task_dir>\t<arm>\t<repN>
+    while IFS=$'\t' read -r _ _ dtask darm drep; do
+      [ -n "${dtask:-}" ] || continue
+      task_id="$(task_id_for "$dtask")"
+      [ -n "$task_id" ] || continue
+      SETTLED="$SETTLED$task_id|$darm|${drep#rep}|deferred-contaminated
+"
+      n_def=$((n_def + 1))
+    done < "$RESUME_TSV"
+  fi
+
+  echo "     $n_ok completed+validated, $n_def deferred-contaminated (holes, not retried)$([ "$n_bad" -gt 0 ] && echo ", $n_bad unvalidated dir(s) to re-run")"
+}
+
+settled_why() {  # settled_why <task_dir> <arm> <rep>; echoes the reason, or nothing
+  local key
+  key="$(task_id_for "$1")|$2|$3|"
+  # index()/substr(), never sub(): the key contains '|', which sub() would read as
+  # a regex alternation and match nearly everything.
+  printf '%s' "$SETTLED" |
+    awk -v k="$key" 'index($0, k) == 1 { print substr($0, length(k) + 1); exit }'
+}
+
 if [ "$LIST_ONLY" -eq 1 ]; then
-  printf '%s\n' "$PLAN" | nl -ba
-  echo "total runs: $TOTAL (reps=$REPS, with_p2=$WITH_P2)"
+  build_resume_index >/dev/null
+  pending=0
+  printf '%s\n' "$PLAN" | nl -ba | while read -r n task arm rep; do
+    why="$(settled_why "$task" "$arm" "$rep")"
+    if [ -n "$why" ]; then printf '%6s  SKIP    %s %s rep%s  (%s)\n' "$n" "$task" "$arm" "$rep" "$why"
+    else                   printf '%6s  PENDING %s %s rep%s\n' "$n" "$task" "$arm" "$rep"; fi
+  done
+  pending="$(printf '%s\n' "$PLAN" | while read -r task arm rep; do
+    [ -n "$(settled_why "$task" "$arm" "$rep")" ] || echo x; done | grep -c .)"
+  echo "total runs: $TOTAL (reps=$REPS, with_p2=$WITH_P2); pending after resume: $pending"
   exit 0
 fi
 
@@ -304,7 +436,18 @@ mkdir -p "$BATCH_DIR"
 rm -f "$KILL_SWITCH"
 log "ok   kill switch armed: touch $KILL_SWITCH to halt between runs"
 
-log "=== preflight passed: $TOTAL runs, cap \$$SPEND_CAP_USD, $BATCH_DIR ==="
+# 10. Resume index. Built AFTER the refusals so a batch that cannot legally start
+#     never re-validates the dataset, and BEFORE the loop so the pending count is
+#     visible in the log before the first cell is billed.
+log "=== resume index (source: $RESUME_DIR) ==="
+build_resume_index | sed 's/^/       /'
+PENDING_CELLS="$(printf '%s\n' "$PLAN" | while read -r task arm rep; do
+  [ -n "$task" ] || continue
+  [ -n "$(settled_why "$task" "$arm" "$rep")" ] || echo x
+done | grep -c .)"
+log "ok   resume: $PENDING_CELLS of $TOTAL plan cells pending"
+
+log "=== preflight passed: $PENDING_CELLS pending of $TOTAL runs, cap \$$SPEND_CAP_USD, $BATCH_DIR ==="
 
 # --------------------------------------------------------------------------- #
 # Per-run quiet window (the batch-level check above is a snapshot; contamination
@@ -339,6 +482,7 @@ await_quiet() {  # await_quiet <label>; 0 = quiet, 1 = still not quiet after ret
 idx=0
 completed=0
 deferred=0
+skipped=0
 HALT_REASON=""
 while read -r task arm rep; do
   [ -n "$task" ] || continue
@@ -348,6 +492,15 @@ while read -r task arm rep; do
   if [ -f "$KILL_SWITCH" ]; then
     HALT_REASON="kill switch $KILL_SWITCH present before plan index $idx"
     break
+  fi
+
+  # Resume: skip before the quiet probe and before any spend. Logged per cell, so
+  # the relaunch log states what it did NOT buy as explicitly as what it did.
+  WHY="$(settled_why "$task" "$arm" "$rep")"
+  if [ -n "$WHY" ]; then
+    skipped=$((skipped + 1))
+    log "SKIP [$idx/$TOTAL] $task $arm rep$rep — $WHY"
+    continue
   fi
 
   log "--- [$idx/$TOTAL] $task $arm rep$rep ---"
@@ -404,7 +557,7 @@ PYEOF
   fi
 done <<< "$PLAN"
 
-log "=== execution finished: $completed/$TOTAL runs completed, $deferred deferred ==="
+log "=== execution finished: $completed run this pass, $skipped skipped (already settled), $deferred deferred; plan $TOTAL ==="
 [ -n "$HALT_REASON" ] && log "HALTED: $HALT_REASON"
 if [ "$deferred" -gt 0 ]; then
   log "DEFERRED-CONTAMINATED cells (never ran, no cost, NOT a result):"

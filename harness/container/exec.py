@@ -23,7 +23,7 @@ import os
 import re
 import subprocess
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 # Network modes we recognise. ``none`` = fully offline (the gate posture, always).
 # Any other value is passed verbatim to ``docker run --network`` — the agent leg
@@ -415,6 +415,60 @@ def image_exists(tag: str) -> bool:
         capture_output=True, text=True, check=False,
     )
     return proc.returncode == 0
+
+
+def agent_build_args(manifest: Dict[str, Any], repo_root: str) -> Dict[str, str]:
+    """The ``--build-arg`` set the ``subject-agent`` target needs, for EVERY builder.
+
+    One resolver, two callers — ``build-subject-image.sh`` (operator, ahead of a
+    batch) and ``_ensure_image`` in the runner (auto-build, mid-batch). They used to
+    resolve these separately, and the runner resolved none of them: batch 1 halted at
+    plan index 19 because the first mid-batch auto-build fell through to the
+    Dockerfile's ARG defaults and produced an image running as uid 1001 against a
+    host user of a different uid, so the 0600 credential mounts were unreadable and
+    the uid guard refused. The same image also labelled ``lab.cli.agy.version`` as
+    ``unavailable`` while carrying the vendored binary — a silent telemetry hole that
+    the uid guard happened to mask. A default that is only correct for one caller is
+    a defect waiting for the other, so neither caller computes these any more.
+
+    ``SUBJECT_UID``/``SUBJECT_GID``: the invoking operator's, because non-root
+    (SMOKE-1) and readable 0600 credential mounts (SMOKE-2) are only simultaneously
+    satisfiable at the host user's own numeric id — a bind mount passes the owner
+    through untranslated.
+
+    ``AGY_REQUIRED``: 1 whenever Product B is expected — either its binary is
+    vendored, or the manifest pins a real version. The second case is deliberately
+    stricter than a warning: an agent image built without ``vendor/agy`` cannot run a
+    Product-B leg at all, and the honest place to discover that is a failed build,
+    not an arm that records ``unavailable`` for a run that was billed.
+
+    Raises ``ValueError`` if the manifest pins no Product-A CLI version; baking an
+    unpinned CLI would stamp whatever npm resolved into every run's
+    ``identity.product_version``.
+    """
+    leg = ((manifest.get("subject_isolation") or {}).get("agent_leg") or {})
+
+    claude_cli_version = str(leg.get("claude_cli_version") or "").strip()
+    if not claude_cli_version:
+        raise ValueError(
+            "manifest subject_isolation.agent_leg.claude_cli_version is missing; "
+            "refusing to bake an unpinned Product-A CLI into the agent image"
+        )
+    agy_version = str(leg.get("agy_version") or "").strip() or "unavailable"
+    agy_sha256 = str(leg.get("agy_sha256") or "").strip() or "unavailable"
+
+    vendored = os.path.join(repo_root, "vendor", "agy")
+    agy_vendored = os.path.isfile(vendored) and os.access(vendored, os.X_OK)
+    agy_required = "1" if (agy_vendored or agy_version != "unavailable") else "0"
+
+    return {
+        "CLAUDE_CLI_VERSION": claude_cli_version,
+        "AGY_VERSION": agy_version,
+        "AGY_SHA256": agy_sha256,
+        "AGY_REQUIRED": agy_required,
+        "SUBJECT_UID": str(os.getuid()),
+        "SUBJECT_GID": str(os.getgid()),
+    }
 
 
 def build_subject_image(

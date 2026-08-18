@@ -14,7 +14,10 @@ import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, ROOT)
+
+import yaml  # noqa: E402
 
 from harness.container import exec as container_exec  # noqa: E402
 from harness.container.exec import (  # noqa: E402
@@ -28,6 +31,7 @@ from harness.container.exec import (  # noqa: E402
     TARGET_AGENT,
     TARGET_GATE,
     ContainerLaunch,
+    agent_build_args,
     agent_container_env,
     agent_credential_mounts,
     agent_image_tag,
@@ -296,11 +300,116 @@ class AgentImageRunsNonRoot(unittest.TestCase):
         # Non-root (SMOKE-1) and reading 0600 credential mounts (SMOKE-2) are only
         # simultaneously satisfiable at the operator's own uid: a bind mount carries
         # the host's numeric owner through untranslated.
+        #
+        # Asserted through the shared resolver rather than against a literal
+        # `$(id -u)` in the script. The script used to compute its own args and got
+        # this right; the runner's auto-build computed nothing and got uid 1001,
+        # which halted batch 1 at plan index 19. One resolver for both callers is
+        # the fix, so the invariant to protect is "the script defers to it" — see
+        # tests/test_agent_image_uid.py for the uid the auto-build now stamps.
         script = os.path.join(os.path.dirname(self.DOCKERFILE), "build-subject-image.sh")
         with open(script, encoding="utf-8") as fh:
             text = fh.read()
-        self.assertIn('--build-arg "SUBJECT_UID=$(id -u)"', text)
-        self.assertIn('--build-arg "SUBJECT_GID=$(id -g)"', text)
+        self.assertIn("from harness.container import agent_build_args", text)
+        self.assertEqual(agent_build_args(self.manifest(), ROOT)["SUBJECT_UID"],
+                         str(os.getuid()))
+        self.assertEqual(agent_build_args(self.manifest(), ROOT)["SUBJECT_GID"],
+                         str(os.getgid()))
+
+    @staticmethod
+    def manifest() -> dict:
+        """The repo's real manifest — the pins the resolver reads are the shipped ones."""
+        with open(os.path.join(ROOT, "manifest", "delivery-manifest.yaml"),
+                  encoding="utf-8") as fh:
+            return yaml.safe_load(fh) or {}
+
+
+class PythonStackSurvivesRelocation(unittest.TestCase):
+    """The python-stack tasks need a working interpreter in the AGENT image.
+
+    Three roster tasks (W3-migration, W4b-zarr, W1b-zarr) declare `uv ...` in
+    task.yaml `stack_cmds.install`. Two things broke, and both were invisible until
+    the screening roster actually reached them:
+
+      1. uv was not installed in the image at all, so setup.sh exited 127 and the
+         image could not be built.
+      2. Once it was, `uv venv --python 3.12` put the interpreter under uv's default
+         per-user dir, outside the exported subject tree. The GATE image kept the
+         whole build tree and worked; the AGENT image, which takes only
+         /export/subject, received the venv as a dangling symlink — a cell where the
+         agent cannot run Python is not the task that was pre-registered.
+
+    Dockerfile-level, so a rebuild that drops any of it fails in the offline gate.
+    """
+
+    DOCKERFILE = AgentImageRunsNonRoot.DOCKERFILE
+
+    def setUp(self) -> None:
+        with open(self.DOCKERFILE, encoding="utf-8") as fh:
+            self.text = fh.read()
+        self.base_stage = self.text.split("AS subject-base", 1)[1].split("AS subject-gate")[0]
+        self.agent_stage = self.text.split("AS subject-agent", 1)[1]
+
+    def test_uv_is_installed_and_pinned(self) -> None:
+        self.assertIn("ghcr.io/astral-sh/uv:", self.base_stage)
+        self.assertIn("ARG UV_VERSION=", self.base_stage)
+
+    def test_the_uv_pin_is_asserted_not_just_declared(self) -> None:
+        # An unpinned resolver could change dependencies between two runs of the
+        # same registered cell; a pin nobody checks is a comment.
+        self.assertRegex(self.base_stage, r"uv --version \|.*UV_VERSION")
+
+    def test_the_interpreter_lives_at_a_path_both_stages_can_hold(self) -> None:
+        self.assertIn("ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python", self.base_stage)
+
+    def test_the_agent_image_receives_that_interpreter_at_the_same_path(self) -> None:
+        # Same absolute path, or the venv's bin/python symlink and pyvenv.cfg — which
+        # store it verbatim — still point at nothing.
+        self.assertIn("COPY --from=subject-export /export/uv-python /opt/uv-python",
+                      self.agent_stage)
+
+    def test_the_interpreter_is_scrubbed_on_the_same_path_as_the_subject(self) -> None:
+        # It must travel THROUGH subject-export, so assert-no-task-material covers
+        # it. A direct COPY from subject-base would be a second, unchecked route
+        # into the agent image.
+        export_stage = self.text.split("AS subject-export", 1)[1].split("AS subject-agent")[0]
+        self.assertIn("mv /opt/uv-python /export/uv-python", export_stage)
+        self.assertIn("assert-no-task-material /export", export_stage)
+        self.assertNotIn("COPY --from=subject-base", self.agent_stage)
+
+    def test_venv_entrypoints_are_relocatable(self) -> None:
+        self.assertIn("ENV UV_VENV_RELOCATABLE=1", self.base_stage)
+
+    def test_the_editable_install_is_repointed_at_subject(self) -> None:
+        # UV_VENV_RELOCATABLE covers `uv venv`, not the venv `uv sync` creates
+        # implicitly, and neither touches the editable finder — which records the
+        # build-time source path and is why `import zarr` failed in the agent image
+        # while the package sat right there in /subject.
+        self.assertIn('old="/lab/${BAKE_TASK_DIR}/.work/repo"', self.agent_stage)
+        self.assertIn("/subject/.venv", self.agent_stage)
+
+    def test_a_partial_rewrite_fails_the_build(self) -> None:
+        # A half-repointed venv is worse than an unrepointed one: it imports until
+        # it doesn't, mid-batch. The build must refuse rather than ship it.
+        repair = self.agent_stage.split('old="/lab/${BAKE_TASK_DIR}/.work/repo"', 1)[1]
+        repair = repair.split("\nENV ", 1)[0]
+        self.assertIn("exit 1", repair)
+        self.assertIn('grep -rI -- "$old" /subject/.venv', repair)
+
+    def test_the_repaired_venv_stays_owned_by_the_agent(self) -> None:
+        # sed -i writes new files as root; the agent must still own its tree, which
+        # is also what Docker preserves when it seeds the per-run volume.
+        self.assertIn("chown -R lab:lab /subject/.venv", self.agent_stage)
+
+    def test_the_venv_command_still_comes_from_the_task_not_the_dockerfile(self) -> None:
+        # The install commands are pre-registered task artifacts (CP-SCREEN-PREREG).
+        # The Dockerfile configures uv through the environment; it must not rewrite
+        # what each task declared it runs.
+        instructions = "\n".join(ln for ln in self.base_stage.splitlines()
+                                 if not ln.lstrip().startswith("#"))
+        for declared in ("uv venv", "uv sync", "uv pip install"):
+            self.assertNotIn(declared, instructions,
+                             f"{declared!r} belongs in a task.yaml stack_cmds, not the Dockerfile")
 
 
 class AgentImageUidMatchesHost(unittest.TestCase):

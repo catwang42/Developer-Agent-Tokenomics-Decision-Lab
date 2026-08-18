@@ -54,6 +54,7 @@ from harness.container.exec import (
     TARGET_GATE,
     ContainerExecutor,
     ContainerLaunch,
+    agent_build_args,
     agent_container_env,
     agent_credential_mounts,
     agent_image_tag,
@@ -1193,6 +1194,7 @@ def _ensure_gate_launch(task: Task, agent_volume: Optional[str] = None) -> Conta
 
 def _ensure_agent_launch(
     task: Task, run_id: str, policy: Optional[egress_mod.EgressPolicy],
+    manifest: Dict[str, Any],
     *, network_override: Optional[str] = None,
 ) -> Tuple[ContainerLaunch, str]:
     """The agent leg's launch: ``subject-agent`` image + credentials + egress.
@@ -1207,7 +1209,14 @@ def _ensure_agent_launch(
     """
     _require_pin(task)
     tag = agent_image_tag(task.task_id, task.pinned_commit)
-    _ensure_image(task, tag, TARGET_AGENT)
+    # The SAME build args build-subject-image.sh resolves. Batch 1 halted at plan
+    # index 19 because this call passed none: the first mid-batch auto-build took the
+    # Dockerfile's ARG defaults, baked uid 1001, and the guard below refused it.
+    try:
+        build_args = agent_build_args(manifest, REPO_ROOT)
+    except ValueError as exc:
+        raise RunnerError(str(exc)) from exc
+    _ensure_image(task, tag, TARGET_AGENT, build_args)
     # Before anything can spend: the container user must be able to read the
     # credential mounts. See exec.assert_image_uid_matches_host.
     try:
@@ -1607,7 +1616,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 policy = (egress_mod.load_policy()
                           if args.subject_egress == "allowlist" else None)
                 agent_launch, network_label = _ensure_agent_launch(
-                    task, run_id, policy, network_override=args.subject_network)
+                    task, run_id, policy, manifest,
+                    network_override=args.subject_network)
                 adapter.container = agent_launch
                 agent_volume = agent_launch.agent_volume
                 agent_containerized = True
