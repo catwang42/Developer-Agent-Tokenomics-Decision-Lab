@@ -67,49 +67,43 @@ PY
 BUILD_ARGS=(--build-arg "BAKE_TASK_DIR=$TASK_DIR_REL")
 
 if [ "$ROLE" = "agent" ]; then
-  # Product CLI pins, read from the manifest (the single place volatile versions
-  # resolve, SPEC 1.4). The Dockerfile asserts each against the installed CLI.
-  eval "$(cd "$REPO_ROOT" && "$PY" - <<'PY'
-import yaml
-
-with open("manifest/delivery-manifest.yaml", encoding="utf-8") as fh:
-    m = yaml.safe_load(fh) or {}
-leg = ((m.get("subject_isolation") or {}).get("agent_leg") or {})
-print(f"CLAUDE_CLI_VERSION={leg.get('claude_cli_version', '')}")
-print(f"AGY_VERSION={leg.get('agy_version', 'unavailable')}")
-print(f"AGY_SHA256={leg.get('agy_sha256', 'unavailable')}")
-PY
-)"
-  if [ -z "${CLAUDE_CLI_VERSION:-}" ]; then
-    echo "build-subject-image: manifest subject_isolation.agent_leg.claude_cli_version" >&2
-    echo "                     is missing; refusing to bake an unpinned CLI." >&2
-    exit 2
-  fi
-  # Stage the Product-B binary from this host if it is not already vendored.
+  # Stage the Product-B binary from this host if it is not already vendored, so the
+  # resolver below sees it. (The runner's auto-build never stages: a batch that
+  # silently copies a host binary mid-flight is not a batch anyone can pin.)
   if [ ! -x "$REPO_ROOT/vendor/agy" ] && command -v agy >/dev/null 2>&1; then
     bash "$SCRIPT_DIR/stage-agy.sh" >/dev/null
   fi
-  if [ ! -x "$REPO_ROOT/vendor/agy" ]; then
-    echo "  note  vendor/agy absent — the image will build WITHOUT Product B and" >&2
-    echo "        label agy.version=unavailable. Product-B legs cannot run in it." >&2
-    AGY_REQUIRED=0; AGY_VERSION=unavailable; AGY_SHA256=unavailable
-  else
-    AGY_REQUIRED=1
-  fi
-  # The agent user is created at the INVOKING operator's uid/gid. It has to be
-  # non-root (SMOKE-1: Product A refuses --dangerously-skip-permissions under uid 0)
-  # and it has to be able to read 0600 credential files bind-mounted from this host
-  # (SMOKE-2), and a bind mount passes the host's numeric owner through untranslated.
-  # Any fixed uid satisfies only the first. The tag does not encode this, so the
-  # image records it as a label and the runner refuses a mismatched one.
-  BUILD_ARGS+=(
-    --build-arg "CLAUDE_CLI_VERSION=$CLAUDE_CLI_VERSION"
-    --build-arg "AGY_VERSION=$AGY_VERSION"
-    --build-arg "AGY_SHA256=$AGY_SHA256"
-    --build-arg "AGY_REQUIRED=$AGY_REQUIRED"
-    --build-arg "SUBJECT_UID=$(id -u)"
-    --build-arg "SUBJECT_GID=$(id -g)"
-  )
+  # Every agent build arg — the CLI pins from the manifest (SPEC 1.4) and the
+  # invoking operator's uid/gid — comes from ONE resolver,
+  # harness.container.agent_build_args, which the runner's mid-batch auto-build
+  # calls too. They were computed separately until batch 1 halted at plan index 19
+  # on an auto-built image that had neither the host uid nor the agy pin: a default
+  # correct for one caller is a defect waiting for the other. See that function for
+  # why the uid must be the host's and when AGY_REQUIRED is 1.
+  AGENT_ARGS_RAW="$(cd "$REPO_ROOT" && "$PY" - <<'PY'
+import sys
+
+import yaml
+
+from harness.container import agent_build_args
+
+with open("manifest/delivery-manifest.yaml", encoding="utf-8") as fh:
+    manifest = yaml.safe_load(fh) or {}
+try:
+    args = agent_build_args(manifest, ".")
+except ValueError as exc:
+    print(f"build-subject-image: {exc}", file=sys.stderr)
+    raise SystemExit(2)
+for key, value in args.items():
+    print(f"{key}={value}")
+PY
+)" || exit 2
+  mapfile -t AGENT_ARGS <<< "$AGENT_ARGS_RAW"
+  case "$AGENT_ARGS_RAW" in
+    *SUBJECT_UID=*) ;;
+    *) echo "build-subject-image: agent build args did not resolve a SUBJECT_UID" >&2; exit 2 ;;
+  esac
+  for arg in "${AGENT_ARGS[@]}"; do BUILD_ARGS+=(--build-arg "$arg"); done
 fi
 
 echo "== building subject image ($ROLE) =="

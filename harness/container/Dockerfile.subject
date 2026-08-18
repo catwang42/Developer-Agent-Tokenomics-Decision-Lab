@@ -44,6 +44,42 @@ RUN apt-get update -qq \
     && apt-get install -y --no-install-recommends git ca-certificates python3 python3-yaml \
     && rm -rf /var/lib/apt/lists/*
 
+# uv — the package manager the PYTHON stack driver shells out to. The three
+# python-stack tasks (W3-migration, W4b-zarr, W1b-zarr) declare `uv venv` / `uv
+# sync` in their task.yaml `stack_cmds.install`, so without it setup.sh exits 127
+# and the image cannot be built at all. Those tasks were validated on a host that
+# had uv on PATH; the container never did, which is why it surfaced only when the
+# screening roster reached them.
+#
+# Pinned to the version the host validated them with, copied from the publisher's
+# own image rather than curl|sh, and ASSERTED — an unpinned installer would let the
+# dependency resolver change between two runs of the same registered cell.
+# The version is repeated in the COPY because the classic builder does not expand
+# ARG in a `COPY --from` image reference; the assertion below is what keeps the two
+# from drifting.
+ARG UV_VERSION=0.12.5
+COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /uvx /usr/local/bin/
+# uv downloads the interpreter a task pins (`uv venv --python 3.12`) and the venv's
+# bin/python is a SYMLINK to it. Left at uv's default (~/.local/share/uv/python),
+# that target is outside the exported subject tree, so the venv arrives in the agent
+# image as a dangling symlink and the agent cannot run Python at all — while the gate
+# image, which keeps the whole build tree, works fine. A system-wide path that both
+# stages can carry is what makes the venv survive relocation to /subject.
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
+# Console scripts (.venv/bin/pytest, ...) otherwise get an absolute shebang naming
+# the build-time repo path, which does not exist once the tree is relocated to
+# /subject. The declared stack_cmds all invoke `.venv/bin/python -m pytest` and so
+# would survive either way, but an agent that types `.venv/bin/pytest` must not hit
+# a broken interpreter line. Set as an env var, NOT by editing the `uv venv` command:
+# those live in each task.yaml and are pre-registered artifacts (CP-SCREEN-PREREG).
+ENV UV_VENV_RELOCATABLE=1
+RUN mkdir -p /opt/uv-python
+# Anchored to the version field only: `uv --version` also reports the build target
+# ("uv 0.12.5 (x86_64-unknown-linux-musl)"), which differs from the host's gnu
+# build and is not part of the pin.
+RUN uv --version | grep -qE "^uv ${UV_VERSION}( |\$)" \
+    || { echo "uv pin mismatch: wanted ${UV_VERSION}, got $(uv --version)" >&2; exit 1; }
+
 WORKDIR /lab
 
 COPY manifest/ /lab/manifest/
@@ -71,9 +107,14 @@ ENV BAKE_TASK_DIR="${BAKE_TASK_DIR}"
 # =============================================================================
 FROM subject-base AS subject-gate
 
+# Re-declared: an ARG does not cross a stage boundary, and the label below would
+# otherwise record an empty uv version — worse than no label (CLAUDE.md rule 3).
+ARG UV_VERSION=0.12.5
+
 LABEL lab.image.role="subject-gate" \
       lab.image.network_posture="none (docker run --network=none)" \
-      lab.image.task_material="present — the deterministic gate requires task.yaml"
+      lab.image.task_material="present — the deterministic gate requires task.yaml" \
+      lab.tool.uv.version="${UV_VERSION}"
 
 # No ENTRYPOINT: the runner/offline gate append the exact command to run
 # (check-public.sh, validate.sh) via `docker run <tag> <cmd...>`.
@@ -89,8 +130,14 @@ CMD ["bash", "-lc", "echo 'subject gate image ready; pass a command to docker ru
 # in the agent stage would leave a runtime-clean image with task material one
 # `docker save` away. This way it is absent from the layer history too.
 FROM subject-base AS subject-export
+# The uv-managed interpreter travels THROUGH this stage rather than being copied
+# from subject-base directly, so the no-task-material assertion below covers it too:
+# anything the agent image receives is scrubbed on one path, not two. It is a plain
+# CPython install with no task material in it, and the assertion is what says so
+# rather than this comment.
 RUN mkdir -p /export \
     && mv "/lab/${BAKE_TASK_DIR}/.work/repo" /export/subject \
+    && mv /opt/uv-python /export/uv-python \
     && rm -rf /lab \
     && assert-no-task-material /export
 
@@ -193,6 +240,42 @@ RUN set -e; \
 # non-root agent: Docker seeds the per-run named volume from this path preserving
 # ownership, so the agent can write its solution without a runtime chown.
 COPY --from=subject-export --chown=lab:lab /export/subject /subject
+
+# The interpreter the subject's venv points at, restored to the SAME absolute path
+# it had at build time (/opt/uv-python) — that identity is the whole mechanism: the
+# venv's bin/python symlink and pyvenv.cfg both hold that path verbatim. Empty for
+# node-stack tasks, which need no interpreter and get an empty directory.
+# Root-owned and read-only to the agent, like every other system tool.
+COPY --from=subject-export /export/uv-python /opt/uv-python
+
+# Repoint the venv from the build-time repo path to /subject.
+#
+# The interpreter symlink above is only half of it. All three python-stack tasks
+# install the subject project EDITABLE (`uv sync`, `uv pip install -e .`), and an
+# editable install records the source tree's ABSOLUTE path inside site-packages —
+# in `__editable__*.pth` / `*_finder.py`, in `pyvenv.cfg`, and in console-script
+# shebangs. Relocated to /subject those all name a directory that does not exist,
+# so `import zarr` / `import sqlfluff` raise ModuleNotFoundError even though the
+# package is right there. uv's own UV_VENV_RELOCATABLE covers `uv venv` but not the
+# venv `uv sync` creates implicitly, and it does not touch the editable finder at
+# all — so the rewrite is done here, once, for every route.
+#
+# Text files only (grep -I), and the substitution is anchored on the exact build
+# path rather than on "/lab". The check afterwards is the point: a silent partial
+# rewrite would surface as an unexplainable import error three hours into a batch.
+ARG BAKE_TASK_DIR=tasks/pilot-realworld
+RUN set -eu; \
+    old="/lab/${BAKE_TASK_DIR}/.work/repo"; \
+    if [ -d /subject/.venv ]; then \
+      grep -rlI -- "$old" /subject/.venv | xargs -r sed -i "s|$old|/subject|g"; \
+      if grep -rI -- "$old" /subject/.venv; then \
+        echo "venv still references the build path $old after the rewrite" >&2; exit 1; \
+      fi; \
+      chown -R lab:lab /subject/.venv; \
+      echo "  ok    venv repointed to /subject"; \
+    else \
+      echo "  ok    no venv in this subject tree (not a python-stack task)"; \
+    fi
 
 ENV NX_DAEMON=false NX_CLOUD_ACCESS_TOKEN='' CI=true TASK_IN_CONTAINER=1
 # The adapter sets this on the docker CLI's environment, not the container's, so
