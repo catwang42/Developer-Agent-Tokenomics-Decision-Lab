@@ -1,0 +1,158 @@
+================================================================================
+SCREENING BATCH 1 — BATCH LOG
+================================================================================
+Started            : 2026-08-17 (see the first driver timestamp below)
+Repo state         : main @ c1220bc
+Registered matrix  : manifest/cp-screen-prereg.md §4 — 126 runs (core; optional P2 excluded)
+Spend authorization: CHECKPOINT APPROVED: CP-SPEND (screening batch 1), human, 2026-08-17
+                     manifest/cp-spend-screening-batch1.md — ceiling $75, --spend-cap-usd 75
+Prereg             : CHECKPOINT APPROVED: CP-SCREEN-PREREG, human, 2026-08-17
+
+--------------------------------------------------------------------------------
+DECLARED LIMITATION — W6 run summaries stamp hidden_test_hash: null
+--------------------------------------------------------------------------------
+Known, accepted and declared by the human before the batch started (2026-08-17).
+
+What happens:
+  harness/runner/run.py reads the manifest key `sealed_hidden_test` only
+  (run.py:478, :485, :892). W6's sealed artifact is a seeded-defect map and is
+  carried under a DIFFERENT manifest key, `sealed_defect_map`. run.py therefore
+  finds nothing to read for W6 and every W6 run summary in this batch records
+    hidden_test_hash: null
+  even though W6's artifact IS frozen (sealed-w6-v1 2026-08-17 k=6,
+  sha256:350bf452c631dec30b413b422b871c4d974fa4df19adc9668b1d10266b4d1002).
+
+This null is a JOIN GAP, NOT a missing measurement. It must not be read as
+"W6 has no sealed artifact" or as an `unavailable` telemetry field: the artifact
+is frozen and the gate fingerprints it on every single run. W6 provenance for
+this batch is carried by two intact records:
+  1. manifest/delivery-manifest.yaml -> w6_task.sealed_defect_map.sha256
+     (frozen 2026-08-17, status: frozen)
+  2. each W6 run's own gate-hidden.json fingerprint, written by
+     harness/task-tools/gate/check-hidden.sh at gate time
+
+Disposition:
+  - No runner change tonight (human decision). Changing run.py mid-batch would
+    split this dataset across two code versions, which is worse than a join gap
+    that is documented and mechanically repairable.
+  - Post-batch, summarize.py joins the hash from each run's gate-hidden.json, so
+    the derived tables carry W6 provenance even though the raw run summaries do
+    not.
+  - The underlying run.py key mismatch remains open as a follow-up; it is a
+    defect in the reader, not in the data.
+
+--------------------------------------------------------------------------------
+DRIVER OUTPUT FOLLOWS
+--------------------------------------------------------------------------------
+2026-08-17T16:23:39Z  === preflight ===
+2026-08-17T16:23:39Z  ok   plan: 126 runs (reps=3, optional P2 excluded)
+2026-08-17T16:23:39Z  ok   spend authorization (LAB_ALLOW_SPEND=1)
+2026-08-17T16:23:39Z  ok   all 7 sealed artifacts frozen (version + sha256 in the manifest)
+2026-08-17T16:23:40Z  ok   7 tasks: task_id matches the manifest, declared arms cover the registered matrix
+2026-08-17T16:23:40Z  ok   agy 1.1.13 == pin; AGY_CLI_DISABLE_AUTO_UPDATE=1 exported
+2026-08-17T16:23:40Z  ok   egress allowlist matches the manifest pin
+2026-08-17T16:23:40Z  ok   docker reachable
+       QUIET 0 tokens in the last 15m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-17T16:23:42Z  ok   quiet window: no background traffic on the subject models
+2026-08-17T16:23:42Z  ok   kill switch armed: touch results/screening-batch1/HALT to halt between runs
+2026-08-17T16:23:42Z  === preflight passed: 126 runs, cap $75, results/screening-batch1 ===
+2026-08-17T16:23:42Z  --- [1/126] tasks/pilot-realworld P0 rep1 ---
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1/pilot-realworld-draft-articles__P0__rep1__20260817T162342
+validate: PASS (audit-grade)
+2026-08-17T16:25:31Z  --- [2/126] tasks/pilot-realworld P0 rep2 ---
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1/pilot-realworld-draft-articles__P0__rep2__20260817T162531
+validate: PASS (audit-grade)
+2026-08-17T16:28:22Z  --- [3/126] tasks/pilot-realworld P0 rep3 ---
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1/pilot-realworld-draft-articles__P0__rep3__20260817T162822
+validate: PASS (audit-grade)
+2026-08-17T16:29:57Z  --- [4/126] tasks/pilot-realworld C2 rep1 ---
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1/pilot-realworld-draft-articles__C2__rep1__20260817T162958
+validate: PASS (audit-grade)
+2026-08-17T16:31:23Z  --- [5/126] tasks/pilot-realworld C2 rep2 ---
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1/pilot-realworld-draft-articles__C2__rep2__20260817T163124
+validate: PASS (audit-grade)
+2026-08-17T16:32:36Z  === execution finished: 5/126 runs completed, 0 deferred ===
+2026-08-17T16:32:36Z  HALTED: kill switch results/screening-batch1/HALT present before plan index 6
+2026-08-17T16:32:36Z  === collector backfill ===
+2026-08-17T16:32:36Z  waiting 300s for Cloud Monitoring ingestion before querying
+collector plan: 0 Gemini-bearing runs -> results/screening-batch1/collector-plan.json
+error: results/screening-batch1/collector-plan.json: no 'runs'
+2026-08-17T16:37:36Z  WARNING: backfill exited 2 — inspect report/screening-batch1/backfill.json before treating any Product-B figure as collected
+2026-08-17T16:37:36Z  === final cost accounting ===
+       known spend floor: $1.8634 over 5 runs (cap $75.00)
+       legs with unavailable cost: 0
+
+NEXT (human):
+  1. Resume the paused Gemini workloads — the quiet window is only needed through
+     the final backfill, which has now run.
+  2. Re-cost the backfilled Product-B legs against the pinned pricing snapshot;
+     every Gemini figure carries cost_basis_qualifier: cache_blind_upper_bound.
+  3. Write report/screening-batch1/ with a STATUS banner and add the dataset row to
+     results/README.md (CLAUDE.md rule 8). No number enters docs/site/report
+     before CP-FINDINGS.
+  4. Account for the 0 deferred-contaminated cell(s) and for any run the
+     collector refused: both are HOLES in the registered matrix. Report them as
+     missing cells; never fill them by widening a window or a filter.
+
+--------------------------------------------------------------------------------
+HALTED BY OPERATOR AT 5/126 — STRUCTURAL: HIDDEN GATE CANNOT RUN UNDER
+isolation=container, SO acceptance.result IS `error` FOR EVERY RUN
+--------------------------------------------------------------------------------
+Kill switch armed 2026-08-17T16:32:10Z (touch results/screening-batch1/HALT).
+Driver stopped cleanly before plan index 6; collector backfill completed.
+Runs completed: 5 of 126.  Product-A authoritative spend: $1.8634 of the $75 cap.
+
+Finding (mechanical, reproduced, not inferred):
+  All 5 runs record acceptance.result = "error" with
+  gate_checks.hidden = {status: awaiting_human, hash: null, version: null},
+  while all 7 public checks (G0,P1..P6) pass.
+
+Cause:
+  - The batch runs ISOLATION="container", so run.py:684 dispatches the gate to
+    container_gate() (run.py:564-597) instead of the host gate real_gate().
+  - container_gate() mounts only run_dir -> /out and the agent volume -> the
+    subject repo (run.py:582-584). It does NOT mount the sealed hidden set.
+  - .dockerignore excludes **/hidden/ from every image by design, and its own
+    comment states the intent: "The runtime gate needs only gate/ + tests/
+    (+ MOUNTED hidden/)". The mount was never implemented.
+  - Verified directly: /lab/tasks/pilot-realworld/hidden does not exist in
+    lab-subject/pilot-realworld-draft-articles:30b68e1e8814.
+  - check-hidden.sh therefore finds no sealed tests, writes awaiting_human and
+    exits 2; _gate_verdict() maps hid_rc==2 to "error" (run.py:528-529).
+
+Scope: deterministic and isolation-dependent, not task-dependent. It applies to
+all 126 runs and to every task in the roster, including the six W-tasks whose
+sealed artifacts were frozen this morning.
+
+Corroborating history (results/smoke-screening/): the 2 runs whose agent leg ran
+on the HOST are accepted/hidden=pass; all 9 containerized runs are
+error/awaiting_human. The signal was present in the smoke evidence and was not
+caught before launch.
+
+NOT a fabrication or a measurement gap: the telemetry for these 5 runs is real
+and authoritative (validate: PASS on all five). What is missing is the DEPENDENT
+VARIABLE — no run in this configuration can be scored accepted or rejected.
+
+Disposition: awaiting human decision. No runner change made (standing "no runner
+change tonight"). The 5 completed runs stay on disk as a partial, honestly
+labelled record; they are NOT a screening result.
+
+--------------------------------------------------------------------------------
+RESOLUTION (appended 2026-08-17, after the halt)
+--------------------------------------------------------------------------------
+Dataset renamed screening-batch1 -> screening-batch1-aborted-20260817-gatefix and
+frozen. Nothing removed; the relaunch writes a clean results/screening-batch1/.
+
+Fix on branch fix/container-gate-hidden-mount:
+  harness/runner/run.py container_gate() now mounts the host sealed set read-only
+  at <task>/hidden and exports HIDDEN_TESTS_DIR; new hidden_tests_dir() resolves
+  the same directory for the host and container gates.
+  tests/test_container_gate.py (9 tests) pins the mount and the failure mode;
+  5 of the 9 fail against the pre-fix runner.
+Verified against real images, --network=none, zero model spend:
+  pilot (gate_type=solution)        -> rejected, hash sha256:105c2418... == manifest
+  W1    (gate_type=test_generation) -> rejected, hash sha256:37f3acd6... == manifest
+Both are the correct pre-modification verdicts on a pristine tree: `rejected`,
+not `error`. The read-only mount is confirmed workable for the executable
+sealed-runner shape (W1/W1b/W6) as well as the injected-test shape.
