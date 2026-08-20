@@ -6047,3 +6047,59 @@ arms under the per-task agent_timeout_s pinned in section A (W3 = 7200s) and
 grade against that dataset. The dry-run schedule for that makeup pass is
 scripts/screening-batch1-makeup-driver.sh; it has not been run for real, and
 running it needs a CP-SPEND approval.
+
+--- F. CEILING v3: A RATE CEILING REPLACES THE FIXED PER-RUN CONSTANT -----------
+Zero model spend. Cloud Monitoring reads only, over batch 1's historical windows.
+
+WHY. Section D above left 31 of 35 refusals on the 3,000,000 input-side per-run
+plausibility ceiling, all of them long Gemini-executor runs whose totals scale
+with duration. A fixed per-run constant cannot distinguish "long run" from
+"contaminated window", so it was refusing duration. The quantity that does
+distinguish them is the rate.
+
+WHAT WAS MEASURED FIRST (all from batch 1's own artifacts, nothing assumed):
+   clean attributed windows (the 4 v2 legs)   347 - 2,199 input-side tokens/s
+   the 31 ceiling-refused windows           5,306 - 12,258 input-side tokens/s
+   the smoke-test contamination that
+     motivated the original guard                    16,693 input-side tokens/s
+The refused windows sit a factor of 2+ below the contamination and a factor of
+2+ above the clean runs, with no overlap in between.
+
+THE RULE. v3 = serialized_run_ownership_with_rate_ceiling. Same window, same
+ownership boundaries and same third-party baseline probe as v2; the ONLY change
+is that --ceiling-input-tokens (3M per run) is replaced by
+--ceiling-input-tokens-per-second, default 25,000/s, over the attributed window.
+It replaces rather than adds: applying both would keep the refusals v3 exists to
+stop making.
+
+KNOWN LIMIT, recorded here and in harness/collectors/README.md. 25,000/s is
+headroom over observed rates, not a published bound, and it does NOT dominate the
+fixed ceiling: the 16,693/s smoke contamination passes it. What refuses that
+window under v3 is the unchanged baseline probe (1,274,568 input tokens in the 5
+minutes after, 176,672 in the 5 before). The probe, not the ceiling, is v3's
+defence against a stranger working at a believable rate, and a regression test
+pins that. Revisit 25,000/s if a subject arm is ever observed above ~10,000/s.
+
+THE PASS.
+harness/collectors/vertex_token_collector.py --plan
+  results/screening-batch1/collector-plan.json --attribution-rule v3
+  --report report/screening-batch1/backfill-v3.json          (exit 4 = refusals)
+   30  backfilled, all 30 audit-grade validated, 0 errors
+        w1b-zarr-block-mask-properties        11 runs   90,149,712 in    498,559 out
+        w3-sqlfluff-segment-method-migration  10 runs  120,703,266 in    813,066 out
+        w4b-zarr-consolidated-order            7 runs   43,067,262 in    318,009 out
+        w6-hono-router-review                  2 runs   10,452,940 in    160,930 out
+    5  still refused — NOT ONE of them on the rate ceiling. No window in batch 1
+        came near 25,000/s. The 5 are the boundary and third-party cases D already
+        named: 2 whose neighbour starts 3-4s after they end (inside the guard
+        band), 1 inheriting that one hop, and 2 with real third-party traffic in
+        the post-run no-man's-land. Their usage stays 'unavailable', never zero.
+   42  skipped (already carrying a v1 or v2 attribution; never double-counted)
+Product-B usage is now attributed on 72 of the 77 planned legs: 38 under v1, 4
+under v2, 30 under v3.
+
+APPEND-ONLY. v3 writes provider_usage_backfill_v3 events and
+PROVIDER-BACKFILL-REFUSED-v3.json markers. No v1 or v2 record was edited or
+removed: a v2 refusal beside a v3 attribution is not a stale marker, it is two
+rules disagreeing, and both verdicts remain true of the rule that made them. The
+summarizer reports that pair as a rule supersession, not as a defect.

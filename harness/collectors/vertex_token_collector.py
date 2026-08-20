@@ -89,12 +89,13 @@ TYPE_TO_USAGE_FIELD: Dict[str, str] = {
 
 BACKFILL_EVENT = "provider_usage_backfill"
 BACKFILL_EVENT_V2 = "provider_usage_backfill_v2"
+BACKFILL_EVENT_V3 = "provider_usage_backfill_v3"
 COLLECTOR_ID = "vertex_token_collector"
 
 #: Events this collector appends AFTER the fact. They carry the collection
 #: timestamp, not a moment of the run, so they must never be read back as part of
 #: the run's wall window — see ``run_window_from_events``.
-_POST_HOC_EVENT_TYPES = (BACKFILL_EVENT, BACKFILL_EVENT_V2)
+_POST_HOC_EVENT_TYPES = (BACKFILL_EVENT, BACKFILL_EVENT_V2, BACKFILL_EVENT_V3)
 
 
 class CollectorError(RuntimeError):
@@ -467,7 +468,36 @@ def usage_fields(totals_by_type: Dict[str, int]) -> Tuple[Dict[str, int], Dict[s
 #: — roughly two orders of magnitude above the input side of the observed smoke
 #: runs — so it fires on contamination, not on a long or repetitive agent loop.
 #: Configurable per invocation (``--ceiling-input-tokens``; 0 disables).
+#:
+#: SUPERSEDED BY THE RATE CEILING FOR RULE v3, and kept only so v1 and v2 remain
+#: reproducible. A fixed per-run constant cannot tell a long run from a
+#: contaminated window: it is a bound on tokens, and the thing that distinguishes
+#: the two is tokens PER SECOND. On batch 1 it refused 31 of 77 runs, every one of
+#: them a 10-48 minute Gemini-executor run whose observed total scaled with its
+#: duration (3.2M at 603s up to 16.4M at 2,836s), which is what a multi-turn agent
+#: re-reading a cached context looks like — not what a third party looks like.
 DEFAULT_CEILING_INPUT_TOKENS = 3_000_000
+
+#: The v3 ceiling: input-side tokens per second of the ATTRIBUTED window.
+#:
+#: This is the quantity a contaminating workload actually inflates. A run that
+#: takes twice as long may legitimately consume twice the tokens; what it cannot
+#: do is consume them faster. Observed on batch 1: attributed (clean) windows run
+#: at 347-2,199 input-side tokens/s, and the 31 windows the fixed ceiling refused
+#: run at 5,306-12,258/s — dense, but flat in duration, which is the signature of
+#: one long agent loop and not of a second workload.
+#:
+#: KNOWN LIMIT, stated because a reader will otherwise assume otherwise: the burst
+#: that motivated this guard (10,993,105 input tokens in a 658s window on the
+#: smoke run) works out to 16,693/s and therefore passes a 25,000/s ceiling. It is
+#: still refused — by the BASELINE probe, which is unchanged and which saw
+#: 1,274,568 input tokens in the five minutes after that window and 176,672 in the
+#: five before. Under v3 the baseline probe is the primary contamination check and
+#: this ceiling is a backstop for the shape the probe cannot see: contamination
+#: entirely contained inside the attributed window. Choosing the threshold is a
+#: judgement about that residual shape, not about the observed burst.
+#: Configurable (``--ceiling-input-tokens-per-second``; 0 disables).
+DEFAULT_CEILING_INPUT_TOKENS_PER_SECOND = 25_000
 
 #: How far either side of the attribution window to probe for background traffic.
 #: The window already carries ``guard_seconds`` of slack, so these probe strictly
@@ -522,6 +552,55 @@ def check_ceiling(collection: Collection,
                 f"per-run plausibility ceiling of {ceiling} — the window is "
                 f"carrying traffic this run cannot have produced"
             )
+    return verdict
+
+
+def check_rate_ceiling(collection: Collection,
+                       rate_ceiling: int = DEFAULT_CEILING_INPUT_TOKENS_PER_SECOND,
+                       ) -> ContaminationVerdict:
+    """Trip when any model's input-side tokens PER SECOND of the attributed
+    window exceed ``rate_ceiling`` — the v3 replacement for the fixed ceiling.
+
+    The window used is the attributed one, tail and all, because that is the
+    interval the tokens were actually counted over. A zero-length window holding
+    tokens has an undefined rate and is refused rather than divided by: it means
+    the boundary arithmetic produced something the meter cannot be read against.
+    """
+    verdict = ContaminationVerdict()
+    if rate_ceiling <= 0:
+        verdict.evidence["rate_ceiling"] = "disabled"
+        return verdict
+    seconds = (parse_ts(collection.window_end)
+               - parse_ts(collection.window_start)).total_seconds()
+    observed = {mid: input_side_tokens(t.totals_by_type)
+                for mid, t in collection.by_model.items()}
+    rates = {mid: (round(total / seconds, 3) if seconds > 0 else None)
+             for mid, total in observed.items()}
+    verdict.evidence["rate_ceiling"] = {
+        "input_side_tokens_per_second_ceiling": rate_ceiling,
+        "window_seconds": round(seconds, 3),
+        "observed_input_side_tokens": dict(sorted(observed.items())),
+        "observed_input_side_tokens_per_second": dict(sorted(rates.items())),
+    }
+    for mid, total in sorted(observed.items()):
+        if total <= 0:
+            continue
+        if seconds <= 0:
+            verdict.contaminated = True
+            verdict.reasons.append(
+                f"{mid}: {total} input-side tokens over a window of "
+                f"{seconds:.3f}s — a rate cannot be computed, so the window "
+                f"cannot support a per-run attribution")
+            continue
+        rate = total / seconds
+        if rate > rate_ceiling:
+            verdict.contaminated = True
+            verdict.reasons.append(
+                f"{mid}: {rate:.0f} input-side tokens per second over the "
+                f"{seconds:.0f}s attributed window ({total} tokens) exceeds the "
+                f"plausibility rate ceiling of {rate_ceiling}/s — no single agent "
+                f"loop consumes context that fast, so the window is carrying "
+                f"traffic this run cannot have produced")
     return verdict
 
 
@@ -766,6 +845,17 @@ DEFAULT_TAIL_SILENCE_SECONDS = 300
 
 ATTRIBUTION_METHOD_V1 = "time_window_serialized_runs"
 ATTRIBUTION_METHOD_V2 = "serialized_run_ownership_with_ingestion_tail"
+#: v3 draws the SAME window as v2. What changes is the plausibility check applied
+#: to it: a rate, not a fixed token count. Recorded as its own method id so a
+#: reader can tell which check a number survived without re-deriving it.
+ATTRIBUTION_METHOD_V3 = "serialized_run_ownership_with_rate_ceiling"
+
+#: Which rules draw an ownership window (as opposed to v1's silence-bounded one).
+_OWNERSHIP_RULES = ("v2", "v3")
+_RULE_EVENT_TYPE = {"v1": BACKFILL_EVENT, "v2": BACKFILL_EVENT_V2,
+                    "v3": BACKFILL_EVENT_V3}
+_RULE_METHOD = {"v1": ATTRIBUTION_METHOD_V1, "v2": ATTRIBUTION_METHOD_V2,
+                "v3": ATTRIBUTION_METHOD_V3}
 
 _TICK = timedelta(microseconds=1)
 
@@ -796,6 +886,10 @@ class Ownership:
     silence_seconds: int = DEFAULT_TAIL_SILENCE_SECONDS
     #: The last point attributed to this run, if any — the tail's evidence.
     last_point: Optional[datetime] = None
+    #: Which rule drew this window. v2 and v3 draw the SAME window and differ only
+    #: in the plausibility check applied to it; the id is recorded so the event
+    #: says which check its number survived.
+    rule: str = "v2"
 
     def window(self) -> Tuple[datetime, datetime]:
         return self.lo, self.hi
@@ -846,7 +940,8 @@ class Ownership:
 
     def as_dict(self) -> Dict[str, Any]:
         return {
-            "id": ATTRIBUTION_METHOD_V2,
+            "id": _RULE_METHOD.get(self.rule, ATTRIBUTION_METHOD_V2),
+            "rule": self.rule,
             "statement": ("a serialized subject run owns the provider meter from "
                           "its own start until the next subject run's window "
                           "opens; its own ingestion tail is its own"),
@@ -869,7 +964,8 @@ class Ownership:
 
 
 def plan_ownership(plans: List[RunPlan], guard_seconds: int = DEFAULT_GUARD_SECONDS,
-                   tail_seconds: int = DEFAULT_TAIL_SECONDS) -> Dict[str, Ownership]:
+                   tail_seconds: int = DEFAULT_TAIL_SECONDS,
+                   rule: str = "v2") -> Dict[str, Ownership]:
     """Partition the batch's timeline into one ownership window per run.
 
     ``plans`` must be the WHOLE serialized batch, not the subset being written:
@@ -923,6 +1019,7 @@ def plan_ownership(plans: List[RunPlan], guard_seconds: int = DEFAULT_GUARD_SECO
             run_dir=plan.run_dir, raw_start=raw_start, raw_end=raw_end, lo=lo, hi=hi,
             guard_seconds=guard_seconds, tail_seconds=tail_seconds,
             bounded_by=bounded_by, next_lo=next_lo, inseparable=inseparable,
+            rule=rule,
         )
         if ordered:
             entry.prev_hi = ordered[-1].hi
@@ -1077,7 +1174,7 @@ def already_backfilled(events: List[Dict[str, Any]]) -> List[str]:
     under v2, or its tokens would be counted twice.
     """
     return sorted({str(e.get("leg", "main")) for e in events
-                   if e.get("event_type") in (BACKFILL_EVENT, BACKFILL_EVENT_V2)})
+                   if e.get("event_type") in _POST_HOC_EVENT_TYPES})
 
 
 def build_backfill_event(leg_id: str, model_user_id: str, collection: Collection,
@@ -1191,7 +1288,20 @@ def _rewrite_summary(run_dir: str, events: List[Dict[str, Any]]) -> Dict[str, An
 #: overwrites an earlier pass's evidence: the two rules can refuse for different
 #: reasons, and both reasons are worth keeping.
 REFUSAL_MARKERS = {"v1": "PROVIDER-BACKFILL-REFUSED.json",
-                   "v2": "PROVIDER-BACKFILL-REFUSED-v2.json"}
+                   "v2": "PROVIDER-BACKFILL-REFUSED-v2.json",
+                   "v3": "PROVIDER-BACKFILL-REFUSED-v3.json"}
+
+
+def _marker_for(attribution_rule: Optional[Dict[str, Any]]) -> str:
+    """Name the refusal marker after the rule the window was drawn under.
+
+    A v1 pass carries no ownership statement at all; an ownership pass names its
+    own rule, and an older statement that predates the field is a v2 one.
+    """
+    if not attribution_rule:
+        return REFUSAL_MARKERS["v1"]
+    return REFUSAL_MARKERS.get(str(attribution_rule.get("rule", "v2")),
+                               REFUSAL_MARKERS["v2"])
 
 
 def write_refusal_marker(run_dir: str, run_id: str, collection: Collection,
@@ -1281,7 +1391,7 @@ def backfill_run(plan: RunPlan, collection: Collection, collected_at: str,
         if not dry_run:
             write_refusal_marker(
                 plan.run_dir, run_id, collection, contamination, collected_at,
-                filename=REFUSAL_MARKERS["v2" if attribution_rule else "v1"],
+                filename=_marker_for(attribution_rule),
                 attribution_rule=attribution_rule)
         return outcome
 
@@ -1327,8 +1437,7 @@ def backfill_run(plan: RunPlan, collection: Collection, collected_at: str,
     # to an event written under that same rule — that self-contradiction is the
     # defect the v1 pass left in four batch-1 runs. The refusal itself is not lost:
     # every pass's verdict is in its own collector report.
-    stale = os.path.join(plan.run_dir,
-                         REFUSAL_MARKERS["v2" if attribution_rule else "v1"])
+    stale = os.path.join(plan.run_dir, _marker_for(attribution_rule))
     if os.path.exists(stale):
         os.remove(stale)
         outcome.superseded_marker = os.path.basename(stale)
@@ -1352,8 +1461,11 @@ def build_report(project: str, collected_at: str, guard_seconds: int,
                  attribution_rule: str = "v1",
                  tail_seconds: int = DEFAULT_TAIL_SECONDS,
                  silence_seconds: int = DEFAULT_TAIL_SILENCE_SECONDS,
+                 rate_ceiling: int = DEFAULT_CEILING_INPUT_TOKENS_PER_SECOND,
                  ) -> Dict[str, Any]:
     """Machine-readable backfill report. Unmapped types sit at the top, on purpose."""
+    owns = attribution_rule in _OWNERSHIP_RULES
+    by_rate = attribution_rule == "v3"
     unmapped: Dict[str, Dict[str, int]] = {}
     for out in outcomes:
         for key, types in out.unmapped_types.items():
@@ -1382,25 +1494,27 @@ def build_report(project: str, collected_at: str, guard_seconds: int,
             "counts_confidence": "authoritative",
             "per_run_attribution_confidence": "derived",
             "rule": attribution_rule,
-            "method": (ATTRIBUTION_METHOD_V2 if attribution_rule == "v2"
-                       else ATTRIBUTION_METHOD_V1),
-            "event_type": (BACKFILL_EVENT_V2 if attribution_rule == "v2"
-                           else BACKFILL_EVENT),
-            "tail_cap_seconds": tail_seconds if attribution_rule == "v2" else None,
-            "tail_seconds": tail_seconds if attribution_rule == "v2" else None,
-            "tail_silence_seconds": (silence_seconds if attribution_rule == "v2"
-                                     else None),
+            "method": _RULE_METHOD.get(attribution_rule, ATTRIBUTION_METHOD_V1),
+            "event_type": _RULE_EVENT_TYPE.get(attribution_rule, BACKFILL_EVENT),
+            "tail_cap_seconds": tail_seconds if owns else None,
+            "tail_seconds": tail_seconds if owns else None,
+            "tail_silence_seconds": silence_seconds if owns else None,
             "note": (("a serialized subject run owns the meter from its own start "
                       "until the next subject run's window opens, so its own "
                       "ingestion tail is attributed to it; the tail is measured, "
                       "ending at the first silence and capped, and the quiet probe "
                       "looks only at the region no subject run owns")
-                     if attribution_rule == "v2" else
+                     + (" — v3 keeps that window unchanged and only swaps the fixed "
+                        "per-run plausibility ceiling for a rate one" if by_rate else "")
+                     if owns else
                      ("a run's window must be surrounded by silence on the subject "
                       "models")),
         },
         "contamination_guard": {
-            "input_side_ceiling_tokens": ceiling,
+            "plausibility_ceiling": ("input_side_tokens_per_second" if by_rate
+                                     else "input_side_tokens_per_run"),
+            "input_side_ceiling_tokens": None if by_rate else ceiling,
+            "input_side_ceiling_tokens_per_second": rate_ceiling if by_rate else None,
             "baseline_probe_seconds": baseline_seconds,
             "on_trip": ("nothing is written; the run is stamped "
                         f"{CONTAMINATED_STATUS} and its usage stays unavailable"),
@@ -1511,22 +1625,30 @@ def guard_run(client: MonitoringClient, project: str, plan: RunPlan,
               ceiling: int = DEFAULT_CEILING_INPUT_TOKENS,
               baseline_seconds: int = DEFAULT_BASELINE_SECONDS,
               ownership: Optional[Ownership] = None,
+              rate_ceiling: Optional[int] = None,
               ) -> ContaminationVerdict:
     """Run both contamination checks over one run's window.
 
-    The ceiling is the same under either rule. The quiet probe is the part that
-    differs: v1 demands silence around the window, v2 probes only the region no
-    subject run owns.
+    Two things vary by rule. The quiet probe: v1 demands silence around the
+    window, v2 and v3 probe only the region no subject run owns. And the
+    plausibility check: v1/v2 apply a fixed token ceiling, v3 applies a rate
+    ceiling instead — ``rate_ceiling`` is set exactly when the caller is running
+    v3, and it REPLACES the fixed one rather than adding to it. Applying both
+    would keep the fixed constant's refusals, which is the thing v3 exists to
+    stop doing.
     """
+    plausibility = (check_rate_ceiling(collection, rate_ceiling)
+                    if rate_ceiling is not None
+                    else check_ceiling(collection, ceiling))
     if ownership is not None:
         return merge_verdicts(
-            check_ceiling(collection, ceiling),
+            plausibility,
             probe_ownership(client, project, plan_filter(plan), ownership,
                             baseline_seconds),
         )
     window, filter_str = plan_query(plan, guard_seconds)
     return merge_verdicts(
-        check_ceiling(collection, ceiling),
+        plausibility,
         probe_baseline(client, project, filter_str, window, baseline_seconds),
     )
 
@@ -1539,18 +1661,24 @@ def run_backfill(client: MonitoringClient, project: str, plans: List[RunPlan],
                  attribution_rule: str = "v1",
                  tail_seconds: int = DEFAULT_TAIL_SECONDS,
                  silence_seconds: int = DEFAULT_TAIL_SILENCE_SECONDS,
+                 rate_ceiling: int = DEFAULT_CEILING_INPUT_TOKENS_PER_SECOND,
                  ) -> Dict[str, Any]:
     """Collect and backfill a whole batch under one attribution rule.
 
-    Under ``v2`` the batch is treated as the serialized sequence it is: boundaries
-    are computed across ALL of ``plans`` first, then each run is collected inside
-    the slice it owns, with its ingestion tail resolved against the meter.
+    Under ``v2`` and ``v3`` the batch is treated as the serialized sequence it is:
+    boundaries are computed across ALL of ``plans`` first, then each run is
+    collected inside the slice it owns, with its ingestion tail resolved against
+    the meter. ``v3`` draws exactly the same windows as ``v2`` — the only
+    difference is which plausibility ceiling the guard applies to them.
     """
     owned: Dict[str, Ownership] = {}
-    if attribution_rule == "v2":
-        owned = plan_ownership(plans, guard_seconds, tail_seconds)
+    if attribution_rule in _OWNERSHIP_RULES:
+        owned = plan_ownership(plans, guard_seconds, tail_seconds,
+                               rule=attribution_rule)
     elif attribution_rule != "v1":
         raise CollectorError(f"unknown attribution rule {attribution_rule!r}")
+    # Set exactly under v3, so guard_run swaps the fixed ceiling for the rate one.
+    rate = rate_ceiling if attribution_rule == "v3" else None
 
     outcomes: List[BackfillOutcome] = []
     for plan in plans:
@@ -1563,12 +1691,13 @@ def run_backfill(client: MonitoringClient, project: str, plans: List[RunPlan],
                 collection = collect_for_run(client, project, plan, guard_seconds)
             verdict = guard_run(client, project, plan, collection, guard_seconds,
                                 ceiling=ceiling, baseline_seconds=baseline_seconds,
-                                ownership=ownership)
+                                ownership=ownership, rate_ceiling=rate)
             outcomes.append(backfill_run(
                 plan, collection, collected_at, dry_run=dry_run,
                 contamination=verdict,
-                event_type=BACKFILL_EVENT_V2 if ownership else BACKFILL_EVENT,
-                attribution_method=(ATTRIBUTION_METHOD_V2 if ownership
+                event_type=(_RULE_EVENT_TYPE[ownership.rule] if ownership
+                            else BACKFILL_EVENT),
+                attribution_method=(_RULE_METHOD[ownership.rule] if ownership
                                     else ATTRIBUTION_METHOD_V1),
                 attribution_rule=ownership.as_dict() if ownership else None))
         except CollectorError as exc:
@@ -1576,7 +1705,7 @@ def run_backfill(client: MonitoringClient, project: str, plans: List[RunPlan],
     return build_report(project, collected_at, guard_seconds, outcomes,
                         ceiling=ceiling, baseline_seconds=baseline_seconds,
                         attribution_rule=attribution_rule, tail_seconds=tail_seconds,
-                        silence_seconds=silence_seconds)
+                        silence_seconds=silence_seconds, rate_ceiling=rate_ceiling)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -1588,30 +1717,40 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--guard-seconds", type=int, default=DEFAULT_GUARD_SECONDS)
     parser.add_argument("--ceiling-input-tokens", type=int,
                         default=DEFAULT_CEILING_INPUT_TOKENS,
-                        help="per-run plausibility ceiling on input-side tokens "
-                             "(input + cache read + cache write). A window over it "
-                             "is refused, not written. 0 disables the check.")
+                        help="v1/v2 only: per-run plausibility ceiling on input-side "
+                             "tokens (input + cache read + cache write). A window "
+                             "over it is refused, not written. 0 disables the check. "
+                             "Ignored under v3, which uses the rate ceiling instead.")
+    parser.add_argument("--ceiling-input-tokens-per-second", type=int,
+                        default=DEFAULT_CEILING_INPUT_TOKENS_PER_SECOND,
+                        help="v3 only: plausibility ceiling on input-side tokens per "
+                             "second of the attributed window. REPLACES the per-run "
+                             "ceiling, which cannot tell a long run from a "
+                             "contaminated window. 0 disables the check.")
     parser.add_argument("--baseline-seconds", type=int,
                         default=DEFAULT_BASELINE_SECONDS,
                         help="probe this many seconds before and after each run's "
                              "window for traffic on the same models; any traffic "
                              "there refuses the run. 0 disables the check.")
-    parser.add_argument("--attribution-rule", choices=("v1", "v2"), default="v1",
+    parser.add_argument("--attribution-rule", choices=("v1", "v2", "v3"),
+                        default="v1",
                         help="v1: each run's window must be surrounded by silence. "
                              "v2: serialized-run ownership — a run owns the meter "
                              "until the next subject run's window opens, so its own "
                              "ingestion tail counts as its own and only the region "
-                             "no run owns is probed for a third party. v2 needs the "
-                             "WHOLE serialized batch in the plan.")
+                             "no run owns is probed for a third party. v3: the same "
+                             "windows as v2, with the fixed per-run plausibility "
+                             "ceiling replaced by a rate one. v2/v3 need the WHOLE "
+                             "serialized batch in the plan.")
     parser.add_argument("--tail-seconds", type=int, default=DEFAULT_TAIL_SECONDS,
-                        help="v2 only: the LONGEST ingestion tail a run may be "
+                        help="v2/v3 only: the LONGEST ingestion tail a run may be "
                              "granted. The tail is measured, not assumed — it ends "
                              "at the first silence — and a run still producing "
                              "points at this cap is refused, not credited. Never "
                              "extends past the next subject run's window.")
     parser.add_argument("--tail-silence-seconds", type=int,
                         default=DEFAULT_TAIL_SILENCE_SECONDS,
-                        help="v2 only: the gap that ends a run's ingestion tail. "
+                        help="v2/v3 only: the gap that ends a run's ingestion tail. "
                              "Points arriving closer together than this extend it.")
     parser.add_argument("--collected-at",
                         help="RFC3339 collection timestamp (default: now, UTC)")
@@ -1635,7 +1774,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                               baseline_seconds=args.baseline_seconds,
                               attribution_rule=args.attribution_rule,
                               tail_seconds=args.tail_seconds,
-                              silence_seconds=args.tail_silence_seconds)
+                              silence_seconds=args.tail_silence_seconds,
+                              rate_ceiling=args.ceiling_input_tokens_per_second)
     except CollectorError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

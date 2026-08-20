@@ -1,0 +1,2027 @@
+{
+  "attribution": {
+    "counts_confidence": "authoritative",
+    "event_type": "provider_usage_backfill_v3",
+    "method": "serialized_run_ownership_with_rate_ceiling",
+    "note": "a serialized subject run owns the meter from its own start until the next subject run's window opens, so its own ingestion tail is attributed to it; the tail is measured, ending at the first silence and capped, and the quiet probe looks only at the region no subject run owns \u2014 v3 keeps that window unchanged and only swaps the fixed per-run plausibility ceiling for a rate one",
+    "per_run_attribution_confidence": "derived",
+    "rule": "v3",
+    "tail_cap_seconds": 900,
+    "tail_seconds": 900,
+    "tail_silence_seconds": 300
+  },
+  "collected_at": "2026-08-20T10:00:08.721441Z",
+  "collector": "vertex_token_collector",
+  "contamination_guard": {
+    "baseline_probe_seconds": 300,
+    "input_side_ceiling_tokens": null,
+    "input_side_ceiling_tokens_per_second": 25000,
+    "on_trip": "nothing is written; the run is stamped contaminated_window and its usage stays unavailable",
+    "plausibility_ceiling": "input_side_tokens_per_second",
+    "runs_refused": [
+      "results/screening-batch1/pilot-realworld-draft-articles__C5__rep2__20260818T041132",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C5__rep3__20260819T075340",
+      "results/screening-batch1/w6-hono-router-review__C3-med__rep1__20260819T215204",
+      "results/screening-batch1/w6-hono-router-review__C3-med__rep2__20260819T215224",
+      "results/screening-batch1/w6-hono-router-review__C3__rep3__20260819T215139"
+    ]
+  },
+  "economics_note": "Usage only. This collector does not recompute economics: costs stay as the runner recorded them. Re-cost with harness/runner/run.py's build_economics against the pinned pricing snapshot once usage is filled.",
+  "guard_seconds": 60,
+  "metric_type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "project": "vital-octagon-19612",
+  "report": "provider-side token backfill",
+  "runs": [
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-med__rep1__20260818T022024",
+      "run_id": "pilot-realworld-draft-articles__C3-med__rep1__20260818T022024",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-med__rep2__20260818T023949",
+      "run_id": "pilot-realworld-draft-articles__C3-med__rep2__20260818T023949",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-med__rep3__20260818T025827",
+      "run_id": "pilot-realworld-draft-articles__C3-med__rep3__20260818T025827",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-prev__rep1__20260818T031215",
+      "run_id": "pilot-realworld-draft-articles__C3-prev__rep1__20260818T031215",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-prev__rep2__20260818T032946",
+      "run_id": "pilot-realworld-draft-articles__C3-prev__rep2__20260818T032946",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3__rep1__20260818T014056",
+      "run_id": "pilot-realworld-draft-articles__C3__rep1__20260818T014056",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3__rep2__20260818T015604",
+      "run_id": "pilot-realworld-draft-articles__C3__rep2__20260818T015604",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C5__rep1__20260818T035153",
+      "run_id": "pilot-realworld-draft-articles__C5__rep1__20260818T035153",
+      "status": "skipped"
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "input": 14307988,
+                    "output": 172035
+                  }
+                },
+                "end": "2026-08-18T08:33:31.281730Z",
+                "points": 99,
+                "start": "2026-08-18T04:24:41.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 974812
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 1149.567
+            },
+            "window_seconds": 847.982
+          }
+        },
+        "reasons": [
+          "post-run baseline window 2026-08-18T04:24:41.000001Z..2026-08-18T08:33:31.281730Z is NOT quiet: 99 point(s), {'gemini-3.7-flash': {'input': 14307988, 'output': 172035}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "post-run baseline window 2026-08-18T04:24:41.000001Z..2026-08-18T08:33:31.281730Z is NOT quiet: 99 point(s), {'gemini-3.7-flash': {'input': 14307988, 'output': 172035}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C5__rep2__20260818T041132",
+      "run_id": "pilot-realworld-draft-articles__C5__rep2__20260818T041132",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T04:24:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T04:10:33.018374Z"
+      }
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-med__rep1__20260818T130921",
+      "run_id": "w1-realworld-mapper-tests__C3-med__rep1__20260818T130921",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-med__rep2__20260818T132851",
+      "run_id": "w1-realworld-mapper-tests__C3-med__rep2__20260818T132851",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-med__rep3__20260818T134653",
+      "run_id": "w1-realworld-mapper-tests__C3-med__rep3__20260818T134653",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-prev__rep1__20260818T140537",
+      "run_id": "w1-realworld-mapper-tests__C3-prev__rep1__20260818T140537",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-prev__rep2__20260818T142504",
+      "run_id": "w1-realworld-mapper-tests__C3-prev__rep2__20260818T142504",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-prev__rep3__20260818T144334",
+      "run_id": "w1-realworld-mapper-tests__C3-prev__rep3__20260818T144334",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3__rep1__20260818T120829",
+      "run_id": "w1-realworld-mapper-tests__C3__rep1__20260818T120829",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3__rep2__20260818T122821",
+      "run_id": "w1-realworld-mapper-tests__C3__rep2__20260818T122821",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3__rep3__20260818T124829",
+      "run_id": "w1-realworld-mapper-tests__C3__rep3__20260818T124829",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C5__rep1__20260818T150210",
+      "run_id": "w1-realworld-mapper-tests__C5__rep1__20260818T150210",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C5__rep2__20260818T154657",
+      "run_id": "w1-realworld-mapper-tests__C5__rep2__20260818T154657",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C5__rep3__20260818T160946",
+      "run_id": "w1-realworld-mapper-tests__C5__rep3__20260818T160946",
+      "status": "skipped"
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T15:44:23.007366Z",
+                "points": 0,
+                "start": "2026-08-19T15:31:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 5272647
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 5264.555
+            },
+            "window_seconds": 1001.537
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 5272647,
+          "output_tokens": 51298
+        }
+      },
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep1__20260819T151616",
+      "run_id": "w1b-zarr-block-mask-properties__C3-med__rep1__20260819T151616",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T15:31:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T15:15:17.462936Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T16:11:58.707077Z",
+                "points": 0,
+                "start": "2026-08-19T15:59:41.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 6193483
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 6746.768
+            },
+            "window_seconds": 917.993
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 6193483,
+          "output_tokens": 51119
+        }
+      },
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep2__20260819T154521",
+      "run_id": "w1b-zarr-block-mask-properties__C3-med__rep2__20260819T154521",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T15:59:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T15:44:23.007367Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T16:42:28.759043Z",
+                "points": 0,
+                "start": "2026-08-19T16:29:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 8741286
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 8091.589
+            },
+            "window_seconds": 1080.293
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 8741286,
+          "output_tokens": 45106
+        }
+      },
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep3__20260819T161257",
+      "run_id": "w1b-zarr-block-mask-properties__C3-med__rep3__20260819T161257",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T16:29:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T16:11:58.707078Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T17:07:13.374992Z",
+                "points": 0,
+                "start": "2026-08-19T16:54:53.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 6193964
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.6-flash": 8322.525
+            },
+            "window_seconds": 744.241
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 6193964,
+          "output_tokens": 38921
+        }
+      },
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep1__20260819T164327",
+      "run_id": "w1b-zarr-block-mask-properties__C3-prev__rep1__20260819T164327",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T16:54:53.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T16:42:28.759044Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T17:33:39.118974Z",
+                "points": 0,
+                "start": "2026-08-19T17:20:53.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 8188593
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.6-flash": 9990.658
+            },
+            "window_seconds": 819.625
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 8188593,
+          "output_tokens": 39864
+        }
+      },
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep2__20260819T170812",
+      "run_id": "w1b-zarr-block-mask-properties__C3-prev__rep2__20260819T170812",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T17:20:53.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T17:07:13.374993Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T17:59:25.996069Z",
+                "points": 0,
+                "start": "2026-08-19T17:46:53.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 9546211
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.6-flash": 12024.738
+            },
+            "window_seconds": 793.881
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 9546211,
+          "output_tokens": 41362
+        }
+      },
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep3__20260819T173437",
+      "run_id": "w1b-zarr-block-mask-properties__C3-prev__rep3__20260819T173437",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T17:46:53.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T17:33:39.118975Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T14:24:20.842881Z",
+                "points": 0,
+                "start": "2026-08-19T14:11:41.000001Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T13:53:49.574748Z",
+                "points": 0,
+                "start": "2026-08-19T13:48:49.574749Z"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 8480407
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 7915.071
+            },
+            "window_seconds": 1071.425
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 8480407,
+          "output_tokens": 66589
+        }
+      },
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep1__20260819T135448",
+      "run_id": "w1b-zarr-block-mask-properties__C3__rep1__20260819T135448",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T14:11:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T13:53:49.574749Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T14:49:46.662975Z",
+                "points": 0,
+                "start": "2026-08-19T14:41:37.808167Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 5497476
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 5301.504
+            },
+            "window_seconds": 1036.965
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 5497476,
+          "output_tokens": 52536
+        }
+      },
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep2__20260819T142519",
+      "run_id": "w1b-zarr-block-mask-properties__C3__rep2__20260819T142519",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T14:41:37.808166Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T14:24:20.842882Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T15:15:17.462935Z",
+                "points": 0,
+                "start": "2026-08-19T15:07:03.402482Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 7295148
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 7036.626
+            },
+            "window_seconds": 1036.74
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 7295148,
+          "output_tokens": 59286
+        }
+      },
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep3__20260819T145045",
+      "run_id": "w1b-zarr-block-mask-properties__C3__rep3__20260819T145045",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T15:07:03.402481Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T14:49:46.662976Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T18:45:00.525372Z",
+                "points": 0,
+                "start": "2026-08-19T18:32:41.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 12128207
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 6079.29
+            },
+            "window_seconds": 1995.004
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "executor": {
+          "input_tokens": 12128207,
+          "output_tokens": 26676
+        }
+      },
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C5__rep1__20260819T180024",
+      "run_id": "w1b-zarr-block-mask-properties__C5__rep1__20260819T180024",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T18:32:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T17:59:25.996070Z"
+      }
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C5__rep2__20260819T184559",
+      "run_id": "w1b-zarr-block-mask-properties__C5__rep2__20260819T184559",
+      "status": "skipped"
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T20:59:47.846202Z",
+                "points": 0,
+                "start": "2026-08-19T20:00:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 12612290
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 6540.791
+            },
+            "window_seconds": 1928.251
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "executor": {
+          "input_tokens": 12612290,
+          "output_tokens": 25802
+        }
+      },
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C5__rep3__20260819T192950",
+      "run_id": "w1b-zarr-block-mask-properties__C5__rep3__20260819T192950",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T20:00:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T19:28:50.748656Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T03:44:49.580237Z",
+                "points": 0,
+                "start": "2026-08-19T03:32:41.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 10661426
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 9743.687
+            },
+            "window_seconds": 1094.188
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 10661426,
+          "output_tokens": 74832
+        }
+      },
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep1__20260819T031526",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-med__rep1__20260819T031526",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T03:32:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T03:14:26.811946Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T04:15:21.334135Z",
+                "points": 0,
+                "start": "2026-08-19T04:02:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 9231530
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 8473.804
+            },
+            "window_seconds": 1089.42
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 9231530,
+          "output_tokens": 85065
+        }
+      },
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep2__20260819T034548",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-med__rep2__20260819T034548",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T04:02:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T03:44:49.580238Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T04:45:40.307304Z",
+                "points": 0,
+                "start": "2026-08-19T04:33:41.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 12012011
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 10923.328
+            },
+            "window_seconds": 1099.666
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 12012011,
+          "output_tokens": 94450
+        }
+      },
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep3__20260819T041620",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-med__rep3__20260819T041620",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T04:33:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T04:15:21.334136Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T05:11:04.472863Z",
+                "points": 0,
+                "start": "2026-08-19T05:02:53.623709Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 10538223
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.6-flash": 10198.447
+            },
+            "window_seconds": 1033.316
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 10538223,
+          "output_tokens": 75760
+        }
+      },
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep1__20260819T044639",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-prev__rep1__20260819T044639",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T05:02:53.623708Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T04:45:40.307305Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T05:41:40.322233Z",
+                "points": 0,
+                "start": "2026-08-19T05:29:35.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 13612322
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.6-flash": 12257.532
+            },
+            "window_seconds": 1110.527
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 13612322,
+          "output_tokens": 87400
+        }
+      },
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep2__20260819T051201",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-prev__rep2__20260819T051201",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T05:29:35.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T05:11:04.472864Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T06:11:58.202747Z",
+                "points": 0,
+                "start": "2026-08-19T05:59:53.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 12765740
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.6-flash": 11682.987
+            },
+            "window_seconds": 1092.678
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 12765740,
+          "output_tokens": 75934
+        }
+      },
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep3__20260819T054239",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-prev__rep3__20260819T054239",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T05:59:53.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T05:41:40.322234Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T02:13:39.411328Z",
+                "points": 0,
+                "start": "2026-08-19T02:00:59.000001Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T01:43:05.676019Z",
+                "points": 0,
+                "start": "2026-08-19T01:38:05.676020Z"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 12823219
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 11947.203
+            },
+            "window_seconds": 1073.324
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 12823219,
+          "output_tokens": 103017
+        }
+      },
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep1__20260819T014403",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3__rep1__20260819T014403",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T02:00:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T01:43:05.676020Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T02:44:02.433182Z",
+                "points": 0,
+                "start": "2026-08-19T02:31:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 11950053
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 10867.748
+            },
+            "window_seconds": 1099.589
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 11950053,
+          "output_tokens": 86731
+        }
+      },
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep2__20260819T021438",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3__rep2__20260819T021438",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T02:31:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T02:13:39.411329Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T03:14:26.811945Z",
+                "points": 0,
+                "start": "2026-08-19T03:02:41.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 10667130
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 9536.426
+            },
+            "window_seconds": 1118.567
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 10667130,
+          "output_tokens": 90596
+        }
+      },
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep3__20260819T024501",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3__rep3__20260819T024501",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T03:02:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T02:44:02.433183Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T07:07:23.675102Z",
+                "points": 0,
+                "start": "2026-08-19T06:59:14.263743Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 16441612
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 5797.341
+            },
+            "window_seconds": 2836.061
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "executor": {
+          "input_tokens": 16441612,
+          "output_tokens": 39281
+        }
+      },
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C5__rep1__20260819T061257",
+      "run_id": "w3-sqlfluff-segment-method-migration__C5__rep1__20260819T061257",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T06:59:14.263742Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T06:11:58.202748Z"
+      }
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C5__rep2__20260819T070822",
+      "run_id": "w3-sqlfluff-segment-method-migration__C5__rep2__20260819T070822",
+      "status": "skipped"
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "input": 35,
+                    "output": 29
+                  }
+                },
+                "end": "2026-08-19T13:53:49.574748Z",
+                "points": 3,
+                "start": "2026-08-19T08:40:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 3213461
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 1109.156
+            },
+            "window_seconds": 2897.213
+          }
+        },
+        "reasons": [
+          "the preceding subject run (w3-sqlfluff-segment-method-migration__C5__rep2__20260819T070822) cannot be separated from this one: the next subject run starts 5s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it",
+          "post-run baseline window 2026-08-19T08:40:59.000001Z..2026-08-19T13:53:49.574748Z is NOT quiet: 3 point(s), {'gemini-3.7-flash': {'input': 35, 'output': 29}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "the preceding subject run (w3-sqlfluff-segment-method-migration__C5__rep2__20260819T070822) cannot be separated from this one: the next subject run starts 5s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it; post-run baseline window 2026-08-19T08:40:59.000001Z..2026-08-19T13:53:49.574748Z is NOT quiet: 3 point(s), {'gemini-3.7-flash': {'input': 35, 'output': 29}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C5__rep3__20260819T075340",
+      "run_id": "w3-sqlfluff-segment-method-migration__C5__rep3__20260819T075340",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T08:40:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T07:52:41.787084Z"
+      }
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-med__rep1__20260818T092544",
+      "run_id": "w4-realworld-missing-user-id__C3-med__rep1__20260818T092544",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-med__rep2__20260818T094352",
+      "run_id": "w4-realworld-missing-user-id__C3-med__rep2__20260818T094352",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-med__rep3__20260818T100250",
+      "run_id": "w4-realworld-missing-user-id__C3-med__rep3__20260818T100250",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-prev__rep1__20260818T101828",
+      "run_id": "w4-realworld-missing-user-id__C3-prev__rep1__20260818T101828",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-prev__rep2__20260818T103728",
+      "run_id": "w4-realworld-missing-user-id__C3-prev__rep2__20260818T103728",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-prev__rep3__20260818T105110",
+      "run_id": "w4-realworld-missing-user-id__C3-prev__rep3__20260818T105110",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3__rep1__20260818T083430",
+      "run_id": "w4-realworld-missing-user-id__C3__rep1__20260818T083430",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3__rep3__20260818T090510",
+      "run_id": "w4-realworld-missing-user-id__C3__rep3__20260818T090510",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C5__rep1__20260818T110505",
+      "run_id": "w4-realworld-missing-user-id__C5__rep1__20260818T110505",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C5__rep2__20260818T112742",
+      "run_id": "w4-realworld-missing-user-id__C5__rep2__20260818T112742",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C5__rep3__20260818T115029",
+      "run_id": "w4-realworld-missing-user-id__C5__rep3__20260818T115029",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-med__rep1__20260818T182342",
+      "run_id": "w4b-zarr-consolidated-order__C3-med__rep1__20260818T182342",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-med__rep2__20260818T184420",
+      "run_id": "w4b-zarr-consolidated-order__C3-med__rep2__20260818T184420",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-med__rep3__20260818T190443",
+      "run_id": "w4b-zarr-consolidated-order__C3-med__rep3__20260818T190443",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-prev__rep1__20260818T192512",
+      "run_id": "w4b-zarr-consolidated-order__C3-prev__rep1__20260818T192512",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-prev__rep2__20260818T194529",
+      "run_id": "w4b-zarr-consolidated-order__C3-prev__rep2__20260818T194529",
+      "status": "skipped"
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T20:27:11.069473Z",
+                "points": 0,
+                "start": "2026-08-18T20:14:53.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 4680517
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.6-flash": 7755.839
+            },
+            "window_seconds": 603.483
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 4680517,
+          "output_tokens": 43415
+        }
+      },
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-prev__rep3__20260818T200548",
+      "run_id": "w4b-zarr-consolidated-order__C3-prev__rep3__20260818T200548",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T20:14:53.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T20:04:49.516974Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T17:31:40.008263Z",
+                "points": 0,
+                "start": "2026-08-18T17:18:59.000001Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T17:02:26.781180Z",
+                "points": 0,
+                "start": "2026-08-18T16:57:26.781181Z"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 6785379
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 6838.591
+            },
+            "window_seconds": 992.219
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 6785379,
+          "output_tokens": 39848
+        }
+      },
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep1__20260818T170326",
+      "run_id": "w4b-zarr-consolidated-order__C3__rep1__20260818T170326",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T17:18:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T17:02:26.781181Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T18:00:24.768990Z",
+                "points": 0,
+                "start": "2026-08-18T17:47:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 8588222
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 8772.517
+            },
+            "window_seconds": 978.992
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 8588222,
+          "output_tokens": 54139
+        }
+      },
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep2__20260818T173239",
+      "run_id": "w4b-zarr-consolidated-order__C3__rep2__20260818T173239",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T17:47:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T17:31:40.008264Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T18:22:42.682181Z",
+                "points": 0,
+                "start": "2026-08-18T18:10:41.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 3899674
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 6328.266
+            },
+            "window_seconds": 616.231
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 3899674,
+          "output_tokens": 37054
+        }
+      },
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep3__20260818T180124",
+      "run_id": "w4b-zarr-consolidated-order__C3__rep3__20260818T180124",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T18:10:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T18:00:24.768991Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T21:22:28.871781Z",
+                "points": 0,
+                "start": "2026-08-18T21:14:23.445232Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 4837417
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 1707.901
+            },
+            "window_seconds": 2832.376
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "executor": {
+          "input_tokens": 4837417,
+          "output_tokens": 25020
+        }
+      },
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep1__20260818T202810",
+      "run_id": "w4b-zarr-consolidated-order__C5__rep1__20260818T202810",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T21:14:23.445231Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T20:27:11.069474Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T22:22:48.589870Z",
+                "points": 0,
+                "start": "2026-08-18T22:09:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 6467769
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 2269.291
+            },
+            "window_seconds": 2850.128
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "executor": {
+          "input_tokens": 6467769,
+          "output_tokens": 40118
+        }
+      },
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep2__20260818T212328",
+      "run_id": "w4b-zarr-consolidated-order__C5__rep2__20260818T212328",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T22:09:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T21:22:28.871782Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T01:43:05.676019Z",
+                "points": 0,
+                "start": "2026-08-18T22:43:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 7808284
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 6146.27
+            },
+            "window_seconds": 1270.41
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "executor": {
+          "input_tokens": 7808284,
+          "output_tokens": 78415
+        }
+      },
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep3__20260818T222348",
+      "run_id": "w4b-zarr-consolidated-order__C5__rep3__20260818T222348",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T22:43:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T22:22:48.589871Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {},
+            "observed_input_side_tokens_per_second": {},
+            "window_seconds": 20.107
+          }
+        },
+        "reasons": [
+          "the next subject run starts 3s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it"
+        ]
+      },
+      "detail": "the next subject run starts 3s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-med__rep1__20260819T215204",
+      "run_id": "w6-hono-router-review__C3-med__rep1__20260819T215204",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T21:51:25.189956Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T21:51:05.082465Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T22:06:55.668673Z",
+                "points": 0,
+                "start": "2026-08-19T21:54:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 212033
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 991.689
+            },
+            "window_seconds": 213.81
+          }
+        },
+        "reasons": [
+          "the preceding subject run (w6-hono-router-review__C3-med__rep1__20260819T215204) cannot be separated from this one: the next subject run starts 3s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it"
+        ]
+      },
+      "detail": "the preceding subject run (w6-hono-router-review__C3-med__rep1__20260819T215204) cannot be separated from this one: the next subject run starts 3s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-med__rep2__20260819T215224",
+      "run_id": "w6-hono-router-review__C3-med__rep2__20260819T215224",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T21:54:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T21:51:25.189957Z"
+      }
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-med__rep3__20260819T220755",
+      "run_id": "w6-hono-router-review__C3-med__rep3__20260819T220755",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-prev__rep1__20260819T222405",
+      "run_id": "w6-hono-router-review__C3-prev__rep1__20260819T222405",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-prev__rep2__20260819T224246",
+      "run_id": "w6-hono-router-review__C3-prev__rep2__20260819T224246",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-prev__rep3__20260819T230254",
+      "run_id": "w6-hono-router-review__C3-prev__rep3__20260819T230254",
+      "status": "skipped"
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T21:26:08.368068Z",
+                "points": 0,
+                "start": "2026-08-19T21:13:59.000001Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T20:59:47.846202Z",
+                "points": 0,
+                "start": "2026-08-19T20:54:47.846203Z"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 5796793
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 6810.512
+            },
+            "window_seconds": 851.154
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 5796793,
+          "output_tokens": 82161
+        }
+      },
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3__rep1__20260819T210047",
+      "run_id": "w6-hono-router-review__C3__rep1__20260819T210047",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T21:13:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T20:59:47.846203Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T21:50:39.868878Z",
+                "points": 0,
+                "start": "2026-08-19T21:38:41.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 4656147
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 6186.486
+            },
+            "window_seconds": 752.632
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 4656147,
+          "output_tokens": 78769
+        }
+      },
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3__rep2__20260819T212707",
+      "run_id": "w6-hono-router-review__C3__rep2__20260819T212707",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T21:38:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T21:26:08.368069Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {},
+            "observed_input_side_tokens_per_second": {},
+            "window_seconds": 25.214
+          }
+        },
+        "reasons": [
+          "the next subject run starts 4s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it"
+        ]
+      },
+      "detail": "the next subject run starts 4s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3__rep3__20260819T215139",
+      "run_id": "w6-hono-router-review__C3__rep3__20260819T215139",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T21:51:05.082464Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T21:50:39.868879Z"
+      }
+    }
+  ],
+  "status_counts": {
+    "backfilled": 30,
+    "contaminated_window": 5,
+    "skipped": 42
+  },
+  "unmapped_types_note": "Type labels with no mapping to a schema usage field. They are recorded verbatim in each run's event log and are NOT counted in any token class. A thinking/reasoning-flavoured type appearing here is a finding, not noise: it is the thinking share of the bill and must be mapped or reported explicitly before any Product-B cost is published.",
+  "unmapped_types_observed": {}
+}
