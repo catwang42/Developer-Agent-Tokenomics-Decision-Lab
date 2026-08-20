@@ -68,10 +68,19 @@ def load_cells(feasibility_dir: str) -> Dict[Tuple[str, str], List[Dict[str, Any
     return cells
 
 
-def ecst(runs: List[Dict[str, Any]], view: str) -> Dict[str, Any]:
+def ecst(runs: List[Dict[str, Any]], view: str,
+         n_accepted: Optional[int] = None) -> Dict[str, Any]:
     """ECST for one cell under a cost view. Undefined if 0 accepted; unavailable
-    (known floor) if any summed attempt cost was unavailable."""
-    n_accepted = sum(1 for r in runs if _accepted(r))
+    (known floor) if any summed attempt cost was unavailable.
+
+    ``n_accepted`` overrides the count read from the summaries. A run summary is frozen
+    once written, so a verdict amended afterwards — an offline re-grade against the same
+    sealed set, say — lives in a file beside it; the caller that knows about those
+    passes the corrected count in rather than this module guessing at it. The numerator
+    is unaffected: every attempt's cost counts either way.
+    """
+    if n_accepted is None:
+        n_accepted = sum(1 for r in runs if _accepted(r))
     numerator = 0.0
     any_unavail = False
     have_number = False

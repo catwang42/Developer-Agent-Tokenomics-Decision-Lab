@@ -17,6 +17,18 @@ For every (task_id, configuration_id) cell it reports:
   * **per-leg rows** — one row per (leg, role, model) so a delegation or escalation
     arm shows an itemized bill instead of a single blended number
 
+A batch that has been through a post-hoc repair pass additionally gets **provenance**
+on the two things a repair can change (added for screening-batch1's repair):
+
+  * **verdict provenance** — a cell says how many of its verdicts are *original* (what
+    the runner recorded), *amended* (re-graded offline from the run's archived diff
+    against the same sealed set, ``regrade-summary.json`` beside the run), or *voided*
+    (an adjudication recorded against the dataset says the cell is unscoreable). An
+    amended verdict never overwrites the original: both travel together.
+  * **usage provenance** — which runs' token totals include a provider backfill, under
+    which attribution rule, and which runs the collector refused. A refused leg's
+    tokens stay ``unavailable``; they are never inferred from a sibling run.
+
 Screening batches additionally get (all three added for screening-batch1):
 
   * **the task registry and arm map** — task class and registered arms read from each
@@ -79,6 +91,33 @@ SCHEMA = "decision-table-v2"
 AUTHORITATIVE, DERIVED, PROXY, UNAVAILABLE = (
     "authoritative", "derived", "proxy_observed", "unavailable")
 UNDEFINED = "undefined"
+
+#: A verdict the runner recorded at run time, an offline re-grade of the same sealed
+#: set against the same archived output, or a dataset-level adjudication that the cell
+#: cannot be scored at all. ``VOID`` is not a third gate outcome — it is the absence of
+#: one, and it is counted separately from both accept and reject everywhere below.
+ORIGINAL, AMENDED, VOIDED = "original", "amended", "voided"
+VOID = "void"
+
+#: Written beside a run by ``harness/runner/regrade.py``. Append-only: the original
+#: ``summary.json`` is never edited, so the amended verdict lives in its own file and
+#: this module carries both.
+REGRADE_FILE = "regrade-summary.json"
+
+#: Optional, human-authored, one per dataset: cells a forensic found unscoreable, with
+#: the reason and the log that documents it. It can only *remove* a cell from scoring —
+#: it can never assert an outcome — so it cannot be used to manufacture a result.
+ADJUDICATION_FILE = "adjudication.json"
+
+#: Provider backfill events are appended AFTER the fact and carry the collection
+#: timestamp, not a moment of the run. They must never widen the wall-clock window —
+#: on screening-batch1 that would have reported 40 runs as hours long instead of
+#: minutes. Same reasoning as the collector's own ``_POST_HOC_EVENT_TYPES``.
+_POST_HOC_EVENT_TYPES = ("provider_usage_backfill", "provider_usage_backfill_v2")
+
+#: Refusal markers the collector leaves when it will not attribute a window.
+_REFUSAL_MARKERS = {"provider_usage_backfill": "PROVIDER-BACKFILL-REFUSED.json",
+                    "provider_usage_backfill_v2": "PROVIDER-BACKFILL-REFUSED-v2.json"}
 
 #: weakest-wins ordering for inherited confidence tiers
 _TIER_RANK = {AUTHORITATIVE: 0, DERIVED: 1, PROXY: 2, UNAVAILABLE: 3}
@@ -193,21 +232,50 @@ def _dist(values: List[float], of_runs: int) -> Dict[str, Any]:
             "min": round(xs[0], 6), "max": round(xs[-1], 6), "confidence": DERIVED}
 
 
-def _accepted(summary: Dict[str, Any]) -> bool:
-    return (summary.get("acceptance") or {}).get("result") == "accepted"
+def _accepted(run: Dict[str, Any]) -> bool:
+    """Did this run clear the gate, under its *effective* verdict?
+
+    Takes the loaded run rather than its ``summary``, because an amended or voided
+    verdict lives beside the summary and never inside it — see
+    :func:`effective_acceptance`.
+    """
+    return (run.get("acceptance") or {}).get("result") == "accepted"
+
+
+def _parse_ts(value: str) -> Optional[dt.datetime]:
+    """ISO-8601 with or without a trailing ``Z``.
+
+    The runner writes offset-aware stamps; the collector writes ``…Z``. On Python
+    < 3.11 ``fromisoformat`` rejects the second form, which silently *dropped* those
+    events instead of reporting them — a parser difference must not decide which
+    events count.
+    """
+    try:
+        return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return None
 
 
 # ------------------------------------------------------------------------- loading
 
-def load_runs(batch_dir: str) -> List[Dict[str, Any]]:
-    """Load ``{summary, wallclock, run_dir}`` for every run directory in the batch.
+def load_runs(batch_dir: str,
+              adjudication: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    """Load one record per run directory in the batch.
 
-    Non-directory entries (a batch's own aggregate JSON files) are skipped, as is any
-    directory without a ``summary.json``.
+    Each record carries the frozen ``summary``, the derived ``wallclock_s``, and the
+    three things a post-hoc repair pass can change: the *effective* ``acceptance``
+    (original, amended or voided), the ``usage_provenance`` of its token totals, and
+    the ``run_budget`` that governed it. Non-directory entries (a batch's own aggregate
+    JSON files) are skipped, as is any directory without a ``summary.json``.
+
+    ``adjudication`` defaults to ``<batch_dir>/adjudication.json`` when that file
+    exists; pass ``{}`` to ignore it.
     """
     runs: List[Dict[str, Any]] = []
     if not os.path.isdir(batch_dir):
         raise FileNotFoundError(f"batch directory not found: {batch_dir}")
+    if adjudication is None:
+        adjudication = load_adjudication(batch_dir)
     for name in sorted(os.listdir(batch_dir)):
         run_dir = os.path.join(batch_dir, name)
         summary_path = os.path.join(run_dir, "summary.json")
@@ -215,38 +283,205 @@ def load_runs(batch_dir: str) -> List[Dict[str, Any]]:
             continue
         with open(summary_path, encoding="utf-8") as fh:
             summary = json.load(fh)
-        runs.append({"run_dir": run_dir, "run_id": name, "summary": summary,
-                     "wallclock_s": wallclock_seconds(run_dir)})
+        runs.append({
+            "run_dir": run_dir,
+            "run_id": name,
+            "summary": summary,
+            "wallclock_s": wallclock_seconds(run_dir),
+            "acceptance": effective_acceptance(run_dir, summary, adjudication),
+            "usage_provenance": usage_provenance(run_dir),
+            "run_budget": run_budget(summary),
+        })
     return runs
 
 
 def wallclock_seconds(run_dir: str) -> Dict[str, Any]:
     """End-to-end wall-clock for one run, derived from the event log's timestamps.
 
-    First to last event in ``events.jsonl``. Derived tier: the harness stamps the
-    events, so the span is a real observation, but it is computed rather than reported
-    by the product. No event log, or fewer than two timestamps, is ``unavailable``.
+    First to last event in ``events.jsonl``, **excluding** the post-hoc provider
+    backfill events: those are stamped when the collector ran, often hours later, and
+    counting them would report a four-minute run as a two-hour one.
+
+    Derived tier: the harness stamps the events, so the span is a real observation, but
+    it is computed rather than reported by the product. No event log, or fewer than two
+    timestamps, is ``unavailable``.
     """
     path = os.path.join(run_dir, "events.jsonl")
     if not os.path.isfile(path):
         return {"value": None, "confidence": UNAVAILABLE, "reason": "no events.jsonl"}
     stamps: List[dt.datetime] = []
+    excluded = 0
     with open(path, encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
             if not line:
                 continue
             try:
-                ts = json.loads(line).get("ts")
-                if ts:
-                    stamps.append(dt.datetime.fromisoformat(ts))
-            except (json.JSONDecodeError, ValueError):
+                event = json.loads(line)
+            except json.JSONDecodeError:
                 continue
+            if event.get("event_type") in _POST_HOC_EVENT_TYPES:
+                excluded += 1
+                continue
+            ts = _parse_ts(event.get("ts") or "")
+            if ts is not None:
+                stamps.append(ts)
     if len(stamps) < 2:
         return {"value": None, "confidence": UNAVAILABLE,
                 "reason": "fewer than two timestamped events"}
-    return {"value": round((max(stamps) - min(stamps)).total_seconds(), 3),
-            "confidence": DERIVED, "basis": "first to last event timestamp"}
+    out = {"value": round((max(stamps) - min(stamps)).total_seconds(), 3),
+           "confidence": DERIVED, "basis": "first to last event timestamp"}
+    if excluded:
+        out["excluded_post_hoc_events"] = excluded
+        out["basis"] += " (post-hoc provider-backfill events excluded)"
+    return out
+
+
+# ------------------------------------------------------ verdict and usage provenance
+
+def load_adjudication(batch_dir: str) -> Dict[str, Any]:
+    """Read ``<batch_dir>/adjudication.json`` if the dataset has one, else ``{}``."""
+    path = os.path.join(batch_dir, ADJUDICATION_FILE)
+    if not os.path.isfile(path):
+        return {}
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def _adjudication_for(adjudication: Dict[str, Any], summary: Dict[str, Any],
+                      run_id: str) -> Optional[Dict[str, Any]]:
+    """The first adjudication entry whose scope covers this run, if any.
+
+    Scope is an AND over whichever of ``task_id`` / ``configuration_id`` / ``run_id``
+    the entry names. An entry that names none of them matches nothing: a dataset-wide
+    void has to be written out task by task, deliberately.
+    """
+    for entry in adjudication.get("entries") or []:
+        scope = entry.get("scope") or {}
+        if not scope:
+            continue
+        checks = {"task_id": summary.get("task_id"),
+                  "configuration_id": summary.get("configuration_id"),
+                  "run_id": run_id}
+        if all(scope[k] == checks.get(k) for k in scope if k in checks) \
+                and any(k in checks for k in scope):
+            return entry
+    return None
+
+
+def read_regrade(run_dir: str) -> Optional[Dict[str, Any]]:
+    """The offline re-grade written beside a run, if one exists."""
+    path = os.path.join(run_dir, REGRADE_FILE)
+    if not os.path.isfile(path):
+        return None
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def effective_acceptance(run_dir: str, summary: Dict[str, Any],
+                         adjudication: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """The verdict this run should be scored under, and where it came from.
+
+    Precedence, strongest claim last:
+
+    1. **original** — what the runner recorded. The default, and the only source for a
+       dataset with no repair pass.
+    2. **amended** — ``regrade-summary.json``: the same sealed set re-run offline
+       against the run's archived output after an instrument defect was fixed. A
+       re-grade that could not reconstruct the tree yields ``unavailable``, never the
+       original verdict and never a guess: the original was produced by an instrument
+       now known to be broken for this run, so it is not evidence either.
+    3. **voided** — a dataset adjudication says the cell is unscoreable (the task
+       material never reached the agent, say). Void is not "rejected": it is the
+       absence of a measurement and is counted apart from both outcomes.
+
+    The original result always travels alongside, so nothing is overwritten.
+    """
+    original = (summary.get("acceptance") or {}).get("result")
+    run_id = summary.get("run_id") or os.path.basename(os.path.normpath(run_dir))
+    out: Dict[str, Any] = {"result": original, "provenance": ORIGINAL,
+                           "original_result": original}
+
+    regrade = read_regrade(run_dir)
+    if regrade:
+        source = os.path.join(os.path.basename(os.path.normpath(run_dir)), REGRADE_FILE)
+        if regrade.get("status") == "graded":
+            out.update({"result": (regrade.get("amended") or {}).get("acceptance_result"),
+                        "provenance": AMENDED, "source": source,
+                        "reason": regrade.get("reason"),
+                        "changed": bool(regrade.get("changed"))})
+        else:
+            out.update({"result": UNAVAILABLE, "provenance": AMENDED, "source": source,
+                        "reason": regrade.get("reason") or
+                        "the re-grade could not reconstruct this run's subject tree",
+                        "changed": True})
+
+    entry = _adjudication_for(adjudication or {}, summary, run_id)
+    if entry and entry.get("disposition") == VOID:
+        out.update({"result": VOID, "provenance": VOIDED,
+                    "source": (adjudication or {}).get("documented_in") or ADJUDICATION_FILE,
+                    "label": entry.get("label"), "reason": entry.get("reason"),
+                    "changed": True})
+    return out
+
+
+def usage_provenance(run_dir: str) -> Dict[str, Any]:
+    """Where this run's token totals came from, and what the collector refused.
+
+    Reports the presence of each provider-backfill event type in the event log and of
+    each refusal marker in the run directory. Both can be present at once, and *which
+    rule* each belongs to decides what that means:
+
+    * same rule — an attributed number and a refusal under the same rule contradict
+      each other. Batch 1 has four, from a collector bug that judged the window before
+      checking idempotence. The number stands; the marker is stale.
+    * different rules — v1 refused the window and v2 attributed it. Nothing is wrong
+      here: the two rules drew different windows and reached different answers, which
+      is the entire reason v2 exists. Calling this a stale marker would erase the
+      refusal that is still true of v1.
+    """
+    seen: List[str] = []
+    path = os.path.join(run_dir, "events.jsonl")
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    event_type = json.loads(line).get("event_type")
+                except json.JSONDecodeError:
+                    continue
+                if event_type in _POST_HOC_EVENT_TYPES and event_type not in seen:
+                    seen.append(str(event_type))
+    refused = sorted(rule for rule, marker in _REFUSAL_MARKERS.items()
+                     if os.path.isfile(os.path.join(run_dir, marker)))
+    return {
+        "backfill_events": sorted(seen),
+        "refusals": refused,
+        "source": ("run_telemetry_only" if not seen else "run_telemetry_plus_backfill"),
+        "contradictory": bool(set(seen) & set(refused)),
+        "refused_under_another_rule": bool(seen and refused
+                                           and not set(seen) & set(refused)),
+    }
+
+
+def run_budget(summary: Dict[str, Any]) -> Dict[str, Any]:
+    """Did the harness's own run budget end this run?
+
+    A run the harness killed did not fail the task — it never finished attempting it.
+    Read from ``behavior.failures_by_category``, where the runner records the timeout it
+    raised. This is the difference between a capability observation and an instrument
+    one, and every grader below has to be able to tell them apart.
+    """
+    slot = (summary.get("behavior") or {}).get("failures_by_category")
+    categories = slot.get("value") if isinstance(slot, dict) else slot
+    timeouts = 0
+    if isinstance(categories, dict):
+        for name, count in categories.items():
+            if "timeout" in str(name):
+                timeouts += int(count or 0)
+    return {"timed_out": timeouts > 0, "timeout_events": timeouts}
 
 
 # ------------------------------------------------------------------------- metrics
@@ -260,7 +495,7 @@ def tokens_per_accepted(runs: List[Dict[str, Any]], token_key: str) -> Dict[str,
     ``unavailable``; if the cell accepted nothing, it is ``undefined`` (dividing by zero
     accepted outcomes has no honest value).
     """
-    n_accepted = sum(1 for r in runs if _accepted(r["summary"]))
+    n_accepted = sum(1 for r in runs if _accepted(r))
     total = 0.0
     tiers: List[str] = []
     n_known = 0
@@ -362,7 +597,7 @@ def _scope(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
                 seen.append(str(v))
         return seen
 
-    n_accepted = sum(1 for r in runs if _accepted(r["summary"]))
+    n_accepted = sum(1 for r in runs if _accepted(r))
     return {
         "n_runs": len(runs),
         "n_accepted": n_accepted,
@@ -579,6 +814,40 @@ def leg_rows(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 # ------------------------------------------------------- pre-registration grading
 
+def budget_confound(cells: List[Optional[Dict[str, Any]]]) -> Optional[Dict[str, Any]]:
+    """``None`` if no cell in play was cut short by the harness, else what was.
+
+    A registration is a prediction about what the agent does, not about what the
+    harness allows it to finish. Once any arm in the comparison contains a run the
+    harness killed, the comparison is between a completed attempt and an interrupted
+    one, and grading it either way would publish an instrument artefact as a result.
+    The observations are still reported; only the verdict is withheld.
+    """
+    flagged = []
+    for cell in cells:
+        if cell and cell["run_budget"]["confounded"]:
+            flagged.append({
+                "task_id": cell["task_id"],
+                "arm": cell["configuration_or_policy"],
+                "n_timed_out": cell["run_budget"]["n_timed_out"],
+                "of_runs": cell["run_budget"]["n_runs"],
+            })
+    if not flagged:
+        return None
+    total = sum(f["n_timed_out"] for f in flagged)
+    return {
+        "confounded_by": "harness_run_budget",
+        "arms": flagged,
+        "n_timed_out": total,
+        "statement": ("the harness ended " + ", ".join(
+            f"{f['n_timed_out']} of {f['of_runs']} {f['arm']} run(s)" for f in flagged)
+            + " before the agent finished; the gate result of an interrupted attempt "
+              "is not evidence about the agent"),
+        "remedy": ("re-run the affected arms under the per-task budget now pinned in "
+                   "the task's `agent_timeout_s`, and grade against that dataset"),
+    }
+
+
 def _cell_ecst_value(cell: Optional[Dict[str, Any]]) -> Tuple[Optional[float], str]:
     if not cell:
         return None, UNAVAILABLE
@@ -631,9 +900,16 @@ def grade_h_effort(cells: Dict[Tuple[str, str], Dict[str, Any]],
                                  "scope_line": cheap["scope_line"] if cheap else None}},
         }
 
+        confound = budget_confound([strong, cheap])
+        if confound:
+            row["confound"] = confound
+
         if not row["in_registered_scope"]:
             row["verdict"] = "exploratory_not_graded"
             row["reason"] = reg["scope_note"]
+        elif confound:
+            row["verdict"] = "confounded_not_graded"
+            row["reason"] = confound["statement"]
         elif strong is None or cheap is None:
             row["verdict"] = "not_gradable"
             row["reason"] = (f"the pair is incomplete in this dataset: "
@@ -677,7 +953,7 @@ def grade_h_effort(cells: Dict[Tuple[str, str], Dict[str, Any]],
     for row in by_task:
         tally[row["verdict"]] = tally.get(row["verdict"], 0) + 1
     graded = [r for r in by_task if r["verdict"] not in
-              ("exploratory_not_graded", "not_gradable")]
+              ("exploratory_not_graded", "not_gradable", "confounded_not_graded")]
     return {
         "registration": reg,
         "arms": [strong_arm, cheap_arm],
@@ -736,7 +1012,10 @@ def grade_w3_escalation(cells: Dict[Tuple[str, str], Dict[str, Any]],
             "escalation_fired": (None if escalations is None else fired),
             "intention_to_route": acceptance.get("intention_to_route"),
             "completed_route": acceptance.get("completed_route"),
-            "result": acceptance.get("result"),
+            "result": (run.get("acceptance") or {}).get("result")
+                      or acceptance.get("result"),
+            "verdict_provenance": (run.get("acceptance") or {}).get("provenance"),
+            "run_budget": run.get("run_budget"),
             "gate_checks": _gate_digest(acceptance),
             "legs": leg_rows([run])["rows"],
         })
@@ -749,7 +1028,16 @@ def grade_w3_escalation(cells: Dict[Tuple[str, str], Dict[str, Any]],
     escalation = ("no_data" if not trace else
                   "observed" if escalated_runs else "not_observed")
 
-    if economical_gate == "no_data" and escalation == "no_data":
+    confound = budget_confound([cheap_cell, probe_cell])
+
+    if confound:
+        # Both halves of the prediction are reported below; only the verdict is
+        # withheld. "The economical tier failed the gate" is not a finding when the
+        # harness stopped the attempt — and on the probe task it stopped most of them.
+        outcome, why = "confounded_by_run_budget", (
+            confound["statement"] + " — the registration is not graded against this "
+            "dataset; " + confound["remedy"])
+    elif economical_gate == "no_data" and escalation == "no_data":
         outcome, why = "not_yet_run", "no runs of either arm in this dataset"
     elif economical_gate == "failed" and escalation == "observed":
         outcome, why = "prediction_supported", (
@@ -783,6 +1071,7 @@ def grade_w3_escalation(cells: Dict[Tuple[str, str], Dict[str, Any]],
                         "legs": probe_cell["legs"],
                         "scope_line": probe_cell["scope_line"]}),
         "trace": trace,
+        "confound": confound,
         "outcome": outcome,
         "outcome_basis": why,
         "note": ("Published either way. SPEC §2.9 item 3 records that this branch had "
@@ -811,25 +1100,133 @@ def _gate_digest(acceptance: Dict[str, Any]) -> List[Dict[str, Any]]:
     return digest
 
 
+def cell_verdict_provenance(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """How many of this cell's verdicts are original, amended or voided, and why.
+
+    A cell where every verdict was amended reads very differently from one where none
+    were, and the reader has to be able to see which without opening the run records.
+    Reasons and sources are collected verbatim from the re-grade / adjudication.
+    """
+    tally = {ORIGINAL: 0, AMENDED: 0, VOIDED: 0}
+    changed = 0
+    unavailable = 0
+    reasons: List[str] = []
+    sources: List[str] = []
+    transitions: Dict[str, int] = {}
+    for r in runs:
+        acc = r.get("acceptance") or {}
+        prov = acc.get("provenance", ORIGINAL)
+        tally[prov] = tally.get(prov, 0) + 1
+        if acc.get("changed"):
+            changed += 1
+            before, after = acc.get("original_result"), acc.get("result")
+            key = f"{before} → {after}"
+            transitions[key] = transitions.get(key, 0) + 1
+        if acc.get("result") == UNAVAILABLE:
+            unavailable += 1
+        for value, sink in ((acc.get("reason"), reasons), (acc.get("source"), sources)):
+            if value and value not in sink:
+                sink.append(str(value))
+    return {
+        "n_runs": len(runs),
+        "original": tally[ORIGINAL],
+        "amended": tally[AMENDED],
+        "voided": tally[VOIDED],
+        "verdicts_changed": changed,
+        "verdicts_unavailable": unavailable,
+        "transitions": transitions or None,
+        "reasons": reasons or None,
+        "sources": sources or None,
+        "all_original": tally[AMENDED] == 0 and tally[VOIDED] == 0,
+    }
+
+
+def cell_usage_provenance(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Which of this cell's token totals include a provider backfill, and under which
+    rule; and how many legs the collector refused to attribute at all."""
+    by_event: Dict[str, int] = {}
+    by_refusal: Dict[str, int] = {}
+    telemetry_only = 0
+    contradictory = 0
+    rule_superseded = 0
+    for r in runs:
+        prov = r.get("usage_provenance") or {}
+        events = prov.get("backfill_events") or []
+        for event_type in events:
+            by_event[event_type] = by_event.get(event_type, 0) + 1
+        for rule in prov.get("refusals") or []:
+            by_refusal[rule] = by_refusal.get(rule, 0) + 1
+        if not events:
+            telemetry_only += 1
+        if prov.get("contradictory"):
+            contradictory += 1
+        if prov.get("refused_under_another_rule"):
+            rule_superseded += 1
+    return {
+        "n_runs": len(runs),
+        "runs_run_telemetry_only": telemetry_only,
+        "runs_with_backfill_by_event": by_event or None,
+        "runs_with_refusal_by_rule": by_refusal or None,
+        "runs_with_backfill_and_refusal": contradictory,
+        "runs_refused_under_an_earlier_rule": rule_superseded,
+        "note": ("A refused window leaves the leg's tokens `unavailable`; they are "
+                 "never inferred from a sibling run. A run carrying a backfill AND a "
+                 "refusal under that same rule has a stale marker — the attributed "
+                 "number stands and the marker is a known collector defect, now fixed."),
+        "earlier_rule_note": ("These runs were refused under `v1` and attributed under "
+                              "`v2`. Both records stand: the rules draw different "
+                              "windows, and the v1 refusal is still true of v1."),
+    }
+
+
+def cell_run_budget(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """How many of this cell's runs the harness's own budget ended.
+
+    A timed-out run is an instrument observation, not a capability one: nothing can be
+    concluded from its gate result about whether the agent could have finished. Cells
+    with any timeout are flagged ``confounded`` and the graders below refuse them.
+    """
+    timed_out = [r["run_id"] for r in runs if (r.get("run_budget") or {}).get("timed_out")]
+    return {
+        "n_runs": len(runs),
+        "n_timed_out": len(timed_out),
+        "timed_out_runs": timed_out or None,
+        "confounded": bool(timed_out),
+        "basis": "behavior.failures_by_category, timeout categories",
+        **({"note": ("the harness ended these runs before the agent finished — their "
+                     "gate results are not capability observations")} if timed_out
+           else {}),
+    }
+
+
 def build_cell(task: str, config: str, runs: List[Dict[str, Any]],
                rate: Optional[float], task_class: Optional[str] = None,
                registered_arm: Optional[bool] = None) -> Dict[str, Any]:
     summaries = [r["summary"] for r in runs]
-    n_accepted = sum(1 for s in summaries if _accepted(s))
+    n_accepted = sum(1 for r in runs if _accepted(r))
     acceptance_breakdown: Dict[str, int] = {}
-    for s in summaries:
-        res = (s.get("acceptance") or {}).get("result") or "other"
+    for r in runs:
+        res = (r.get("acceptance") or {}).get("result") or "other"
         acceptance_breakdown[res] = acceptance_breakdown.get(res, 0) + 1
+    n_gradable = sum(1 for r in runs
+                     if (r.get("acceptance") or {}).get("result")
+                     not in (VOID, UNAVAILABLE, None))
 
-    e_marginal = cell_ecst(summaries, "marginal")
-    e_allocated = cell_ecst(summaries, "fully")
+    # ECST is told the accepted count rather than recomputing it from the frozen
+    # summaries, so an amended verdict reaches the denominator it belongs in.
+    e_marginal = cell_ecst(summaries, "marginal", n_accepted=n_accepted)
+    e_allocated = cell_ecst(summaries, "fully", n_accepted=n_accepted)
 
     attempt_costs = [t for t in (run_total(s, "marginal")[0] for s in summaries)
                      if t is not None]
     wallclocks = [r["wallclock_s"]["value"] for r in runs
                   if r["wallclock_s"]["value"] is not None]
 
+    provenance = cell_verdict_provenance(runs)
     scope = _scope(runs)
+    display = f"{n_accepted}/{len(runs)}"
+    if n_gradable < len(runs):
+        display += f" ({len(runs) - n_gradable} not gradable)"
     return {
         "task_id": task,
         "task_class": task_class or "unclassified",
@@ -839,10 +1236,15 @@ def build_cell(task: str, config: str, runs: List[Dict[str, Any]],
         "acceptance": {
             "accepted": n_accepted,
             "of": len(runs),
-            "display": f"{n_accepted}/{len(runs)}",
+            "gradable": n_gradable,
+            "display": display,
             "breakdown": acceptance_breakdown,
+            "provenance": provenance,
             "confidence": AUTHORITATIVE,
-            "basis": "pre-registered deterministic-first gate (SPEC §2.6)",
+            "basis": ("pre-registered deterministic-first gate (SPEC §2.6)"
+                      if provenance["all_original"] else
+                      "pre-registered deterministic-first gate (SPEC §2.6); some "
+                      "verdicts amended or voided post-hoc — see `provenance`"),
         },
         "ecst": {
             "marginal_operating_usd": e_marginal,
@@ -858,6 +1260,8 @@ def build_cell(task: str, config: str, runs: List[Dict[str, Any]],
         },
         "heac": heac(e_marginal, runs, rate),
         "legs": leg_rows(runs),
+        "usage_provenance": cell_usage_provenance(runs),
+        "run_budget": cell_run_budget(runs),
         "scope": scope,
         "scope_line": _scope_line(scope),
     }
@@ -890,10 +1294,42 @@ def _task_class_index(cells: List[Dict[str, Any]],
     return [index[k] for k in sorted(index)]
 
 
+def _dataset_provenance(runs: List[Dict[str, Any]],
+                        adjudication: Dict[str, Any]) -> Dict[str, Any]:
+    """Dataset-wide roll-up of what the repair pass changed — the first thing a reader
+    of a repaired dataset needs, before any per-cell figure."""
+    roll = cell_verdict_provenance(runs)
+    usage = cell_usage_provenance(runs)
+    return {
+        "verdicts": {k: roll[k] for k in
+                     ("n_runs", "original", "amended", "voided", "verdicts_changed",
+                      "verdicts_unavailable", "transitions", "all_original")},
+        "verdict_sources": roll["sources"],
+        "usage": usage,
+        "runs_timed_out": sum(1 for r in runs
+                              if (r.get("run_budget") or {}).get("timed_out")),
+        "adjudication": ({"documented_in": adjudication.get("documented_in"),
+                          "entries": [
+                              {k: e.get(k) for k in ("scope", "disposition", "label")}
+                              for e in adjudication.get("entries") or []]}
+                         if adjudication else None),
+        "note": ("An amended verdict is the same sealed set re-run against the same "
+                 "archived agent output after an instrument defect was fixed — it is "
+                 "not a re-run of the agent and cost no model spend. A voided cell is "
+                 "unscoreable, which is neither an accept nor a reject."),
+    }
+
+
 def build(batch_dir: str, manifest_path: Optional[str] = None,
-          status: str = "PENDING", tasks_root: Optional[str] = None) -> Dict[str, Any]:
+          status: str = "PENDING", tasks_root: Optional[str] = None,
+          adjudication_path: Optional[str] = None) -> Dict[str, Any]:
     """Build the full decision table for one batch directory."""
-    runs = load_runs(batch_dir)
+    if adjudication_path:
+        with open(adjudication_path, encoding="utf-8") as fh:
+            adjudication = json.load(fh)
+    else:
+        adjudication = load_adjudication(batch_dir)
+    runs = load_runs(batch_dir, adjudication)
     manifest_path = manifest_path or os.path.join(_REPO, "manifest", "delivery-manifest.yaml")
     rate = loaded_rate_from_manifest(manifest_path)
     arm_key = arm_key_for(batch_dir)
@@ -931,6 +1367,7 @@ def build(batch_dir: str, manifest_path: Optional[str] = None,
         "n_runs": len(runs),
         "n_cells": len(cells),
         "confidence_tiers": [AUTHORITATIVE, DERIVED, PROXY, UNAVAILABLE],
+        "dataset_provenance": _dataset_provenance(runs, adjudication),
         "task_registry": registry,
         "arm_coverage": arm_coverage(registry, observed),
         "task_classes": _task_class_index(cells, registry),
@@ -964,6 +1401,70 @@ def _fmt_tokens(slot: Dict[str, Any]) -> str:
         return UNDEFINED if slot.get("status") == UNDEFINED else "unavailable"
     floor = "≥" if slot.get("status") == "derived_floor" else ""
     return f"{floor}{slot['value']:,.0f}"
+
+
+def _fmt_provenance(prov: Dict[str, Any]) -> str:
+    """`original` · `12 amended` · `15 void` — never just the strongest label."""
+    if prov.get("all_original"):
+        return "original"
+    parts = []
+    for key, label in ((ORIGINAL, "original"), (AMENDED, "amended"), (VOIDED, "void")):
+        if prov.get(key):
+            parts.append(f"{prov[key]} {label}")
+    changed = prov.get("verdicts_changed") or 0
+    if changed:
+        parts.append(f"{changed} changed")
+    return ", ".join(parts) or "original"
+
+
+def _fmt_budget(budget: Dict[str, Any]) -> str:
+    return ("—" if not budget.get("confounded")
+            else f"**{budget['n_timed_out']}/{budget['n_runs']} timed out**")
+
+
+def _render_dataset_provenance(table: Dict[str, Any]) -> List[str]:
+    prov = table.get("dataset_provenance") or {}
+    verdicts = prov.get("verdicts") or {}
+    if not verdicts or verdicts.get("all_original"):
+        return []
+    usage = prov.get("usage") or {}
+    L = ["## What this dataset has been through", "",
+         prov.get("note", ""), "",
+         f"- **Verdicts:** {verdicts['original']} original, {verdicts['amended']} "
+         f"amended, {verdicts['voided']} voided across {verdicts['n_runs']} run(s); "
+         f"{verdicts['verdicts_changed']} verdict(s) changed, "
+         f"{verdicts['verdicts_unavailable']} left `unavailable`."]
+    for transition, count in sorted((verdicts.get("transitions") or {}).items()):
+        L.append(f"    - {transition}: {count} run(s)")
+    backfills = usage.get("runs_with_backfill_by_event") or {}
+    refusals = usage.get("runs_with_refusal_by_rule") or {}
+    L.append(f"- **Token totals:** {usage.get('runs_run_telemetry_only')} run(s) from "
+             f"run telemetry alone"
+             + ("".join(f"; {n} carrying `{e}`" for e, n in sorted(backfills.items())))
+             + ("".join(f"; {n} with a `{r}` refusal on record"
+                        for r, n in sorted(refusals.items())))
+             + ".")
+    if usage.get("runs_with_backfill_and_refusal"):
+        L.append(f"    - {usage['runs_with_backfill_and_refusal']} run(s) carry both an "
+                 f"attributed number and a refusal marker under the same rule. "
+                 f"{usage.get('note')}")
+    if usage.get("runs_refused_under_an_earlier_rule"):
+        L.append(f"    - {usage['runs_refused_under_an_earlier_rule']} run(s) carry a "
+                 f"`v1` refusal and a `v2` attribution. {usage.get('earlier_rule_note')}")
+    if prov.get("runs_timed_out"):
+        L.append(f"- **Run budget:** {prov['runs_timed_out']} run(s) were ended by the "
+                 f"harness before the agent finished. Their gate results say nothing "
+                 f"about the agent, and every grader below refuses the cells they sit in.")
+    adjudication = prov.get("adjudication")
+    if adjudication:
+        L.append(f"- **Adjudication:** documented in "
+                 f"`{adjudication.get('documented_in')}`.")
+        for entry in adjudication.get("entries") or []:
+            scope = ", ".join(f"{k}=`{v}`" for k, v in (entry.get("scope") or {}).items())
+            L.append(f"    - {scope} → **{entry.get('disposition')}** — "
+                     f"{entry.get('label')}")
+    L.append("")
+    return L
 
 
 def _render_coverage(table: Dict[str, Any]) -> List[str]:
@@ -1069,6 +1570,12 @@ def _render_prereg(table: Dict[str, Any]) -> List[str]:
                 f"| {red_txt} | {band_txt} | {parity_txt} "
                 f"| **{row['verdict']}** |")
         L.append("")
+        for row in h.get("by_task", []):
+            if row.get("confound"):
+                L.append(f"- `{row['task_id']}` is **not graded**: "
+                         f"{row['confound']['statement']}. "
+                         f"Remedy: {row['confound']['remedy']}.")
+        L.append("")
         L.append(f"Graded {h.get('n_graded', 0)} of {len(h.get('by_task', []))} task(s) "
                  f"({h.get('status')}). {h.get('note')}")
         L.append("")
@@ -1094,6 +1601,9 @@ def _render_prereg(table: Dict[str, Any]) -> List[str]:
                      f"({w3.get('n_escalated')} of {w3.get('n_probe_runs')} probe run(s) "
                      f"escalated)")
             L.append(f"- **Outcome:** **{w3.get('outcome')}** — {w3.get('outcome_basis')}")
+            if w3.get("confound"):
+                L.append(f"- **Both halves above are reported, neither is graded.** "
+                         f"{w3['confound']['remedy'].capitalize()}.")
         L.append("")
         L.append(w3.get("note", ""))
         L.append("")
@@ -1130,16 +1640,27 @@ def render_markdown(table: Dict[str, Any]) -> str:
              "**Unavailable is never zero.**")
     L.append("")
 
+    L.extend(_render_dataset_provenance(table))
+
     L.append("## Acceptance, ECST and wall-clock")
     L.append("")
-    L.append("| Task | Config/policy | Accepted | ECST marginal | ECST allocated | "
-             "Attempt cost median [min–max] | Wall-clock s median [min–max] |")
-    L.append("|---|---|---|---|---|---|---|")
+    L.append("**Verdict** says where each cell's acceptance came from: `original` as "
+             "the runner recorded it, `amended` re-graded offline against the same "
+             "sealed set after an instrument defect was fixed, `void` adjudicated "
+             "unscoreable. **Budget** flags cells the harness cut short — those gate "
+             "results are instrument observations, not capability ones.")
+    L.append("")
+    L.append("| Task | Config/policy | Accepted | Verdict | Budget | ECST marginal | "
+             "ECST allocated | Attempt cost median [min–max] | "
+             "Wall-clock s median [min–max] |")
+    L.append("|---|---|---|---|---|---|---|---|---|")
     for c in table["cells"]:
         em, ea = c["ecst"]["marginal_operating_usd"], c["ecst"]["fully_allocated_usd"]
         L.append(
             f"| `{c['task_id']}` | **{c['configuration_or_policy']}** "
             f"| {c['acceptance']['display']} "
+            f"| {_fmt_provenance(c['acceptance']['provenance'])} "
+            f"| {_fmt_budget(c['run_budget'])} "
             f"| {_fmt_usd(em)} ({em['status']}) "
             f"| {_fmt_usd(ea)} ({ea['status']}) "
             f"| {_fmt_dist(c['ecst']['attempt_cost_usd'])} "
@@ -1240,11 +1761,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--tasks-root", default=None,
                     help="task definitions supplying the class + registered arm map "
                          "(default: tasks/)")
+    ap.add_argument("--adjudication", default=None,
+                    help=f"dataset adjudication recording unscoreable cells "
+                         f"(default: <batch_dir>/{ADJUDICATION_FILE} if present)")
     ap.add_argument("--stdout", action="store_true",
                     help="print the markdown instead of writing files")
     args = ap.parse_args(argv)
 
-    table = build(args.batch_dir, args.manifest, args.status, args.tasks_root)
+    table = build(args.batch_dir, args.manifest, args.status, args.tasks_root,
+                  args.adjudication)
     markdown = render_markdown(table)
 
     if args.stdout:
