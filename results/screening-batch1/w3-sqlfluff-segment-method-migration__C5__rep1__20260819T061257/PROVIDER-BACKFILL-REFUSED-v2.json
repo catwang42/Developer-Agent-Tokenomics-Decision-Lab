@@ -1,0 +1,76 @@
+{
+  "attribution_rule": {
+    "attribution_window": {
+      "end": "2026-08-19T06:59:14.263742Z",
+      "start": "2026-08-19T06:11:58.202748Z"
+    },
+    "bounded_by": "next_subject_run",
+    "guard_seconds": 60,
+    "id": "serialized_run_ownership_with_ingestion_tail",
+    "last_point_attributed": null,
+    "next_run_window_opens": "2026-08-19T07:07:23.675103Z",
+    "prev_run_owns_until": "2026-08-19T06:11:58.202747Z",
+    "run_window": {
+      "end": "2026-08-19T06:58:14.263742Z",
+      "start": "2026-08-19T06:12:58.202748Z"
+    },
+    "statement": "a serialized subject run owns the provider meter from its own start until the next subject run's window opens; its own ingestion tail is its own",
+    "tail_cap_seconds": 900,
+    "tail_ended_by": "no_points",
+    "tail_granted_seconds": 0.0,
+    "tail_seconds": 900,
+    "tail_silence_seconds": 300
+  },
+  "collected_at": "2026-08-20T05:18:52.915850Z",
+  "collector": "vertex_token_collector",
+  "guard": {
+    "contaminated": true,
+    "evidence": {
+      "baseline": {
+        "baseline_seconds": 300,
+        "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+        "windows": {
+          "post": {
+            "by_model": {},
+            "end": "2026-08-19T07:07:23.675102Z",
+            "points": 0,
+            "start": "2026-08-19T06:59:14.263743Z"
+          },
+          "pre": {
+            "status": "not_applicable",
+            "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+          }
+        }
+      },
+      "ceiling": {
+        "input_side_tokens_ceiling": 3000000,
+        "observed_input_side_tokens": {
+          "gemini-3.7-flash": 16441612
+        }
+      }
+    },
+    "reasons": [
+      "gemini-3.7-flash: 16441612 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+    ]
+  },
+  "metric_type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "note": "The provider meter for this window could not be attributed to this run, so NOTHING was written to events.jsonl or summary.json and the run's Product-B usage remains 'unavailable' (not zero). The totals below are what the window contained; they are NOT this run's usage.",
+  "refusal": "contaminated_window",
+  "run_id": "w3-sqlfluff-segment-method-migration__C5__rep1__20260819T061257",
+  "window_totals_refused": {
+    "by_model": {
+      "gemini-3.7-flash": {
+        "input": 16441612,
+        "output": 39281
+      }
+    },
+    "points_in_window": 28,
+    "points_outside_window": 0,
+    "unmapped_types": {},
+    "window": {
+      "end": "2026-08-19T06:59:14.263742Z",
+      "guard_seconds": 60,
+      "start": "2026-08-19T06:11:58.202748Z"
+    }
+  }
+}

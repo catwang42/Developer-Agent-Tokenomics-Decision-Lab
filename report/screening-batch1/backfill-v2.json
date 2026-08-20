@@ -1,0 +1,1852 @@
+{
+  "attribution": {
+    "counts_confidence": "authoritative",
+    "event_type": "provider_usage_backfill_v2",
+    "method": "serialized_run_ownership_with_ingestion_tail",
+    "note": "a serialized subject run owns the meter from its own start until the next subject run's window opens, so its own ingestion tail is attributed to it; the tail is measured, ending at the first silence and capped, and the quiet probe looks only at the region no subject run owns",
+    "per_run_attribution_confidence": "derived",
+    "rule": "v2",
+    "tail_cap_seconds": 900,
+    "tail_seconds": 900,
+    "tail_silence_seconds": 300
+  },
+  "collected_at": "2026-08-20T05:18:52.915850Z",
+  "collector": "vertex_token_collector",
+  "contamination_guard": {
+    "baseline_probe_seconds": 300,
+    "input_side_ceiling_tokens": 3000000,
+    "on_trip": "nothing is written; the run is stamped contaminated_window and its usage stays unavailable",
+    "runs_refused": [
+      "results/screening-batch1/pilot-realworld-draft-articles__C5__rep2__20260818T041132",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep1__20260819T151616",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep2__20260819T154521",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep3__20260819T161257",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep1__20260819T164327",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep2__20260819T170812",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep3__20260819T173437",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep1__20260819T135448",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep2__20260819T142519",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep3__20260819T145045",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C5__rep1__20260819T180024",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C5__rep3__20260819T192950",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep1__20260819T031526",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep2__20260819T034548",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep3__20260819T041620",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep1__20260819T044639",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep2__20260819T051201",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep3__20260819T054239",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep1__20260819T014403",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep2__20260819T021438",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep3__20260819T024501",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C5__rep1__20260819T061257",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C5__rep3__20260819T075340",
+      "results/screening-batch1/w4b-zarr-consolidated-order__C3-prev__rep3__20260818T200548",
+      "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep1__20260818T170326",
+      "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep2__20260818T173239",
+      "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep3__20260818T180124",
+      "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep1__20260818T202810",
+      "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep2__20260818T212328",
+      "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep3__20260818T222348",
+      "results/screening-batch1/w6-hono-router-review__C3-med__rep1__20260819T215204",
+      "results/screening-batch1/w6-hono-router-review__C3-med__rep2__20260819T215224",
+      "results/screening-batch1/w6-hono-router-review__C3__rep1__20260819T210047",
+      "results/screening-batch1/w6-hono-router-review__C3__rep2__20260819T212707",
+      "results/screening-batch1/w6-hono-router-review__C3__rep3__20260819T215139"
+    ]
+  },
+  "economics_note": "Usage only. This collector does not recompute economics: costs stay as the runner recorded them. Re-cost with harness/runner/run.py's build_economics against the pinned pricing snapshot once usage is filled.",
+  "guard_seconds": 60,
+  "metric_type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "project": "vital-octagon-19612",
+  "report": "provider-side token backfill",
+  "runs": [
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-med__rep1__20260818T022024",
+      "run_id": "pilot-realworld-draft-articles__C3-med__rep1__20260818T022024",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-med__rep2__20260818T023949",
+      "run_id": "pilot-realworld-draft-articles__C3-med__rep2__20260818T023949",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-med__rep3__20260818T025827",
+      "run_id": "pilot-realworld-draft-articles__C3-med__rep3__20260818T025827",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-prev__rep1__20260818T031215",
+      "run_id": "pilot-realworld-draft-articles__C3-prev__rep1__20260818T031215",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-prev__rep2__20260818T032946",
+      "run_id": "pilot-realworld-draft-articles__C3-prev__rep2__20260818T032946",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3__rep1__20260818T014056",
+      "run_id": "pilot-realworld-draft-articles__C3__rep1__20260818T014056",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3__rep2__20260818T015604",
+      "run_id": "pilot-realworld-draft-articles__C3__rep2__20260818T015604",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C5__rep1__20260818T035153",
+      "run_id": "pilot-realworld-draft-articles__C5__rep1__20260818T035153",
+      "status": "skipped"
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "input": 14307988,
+                    "output": 172035
+                  }
+                },
+                "end": "2026-08-18T08:33:31.281730Z",
+                "points": 99,
+                "start": "2026-08-18T04:24:41.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 974812
+            }
+          }
+        },
+        "reasons": [
+          "post-run baseline window 2026-08-18T04:24:41.000001Z..2026-08-18T08:33:31.281730Z is NOT quiet: 99 point(s), {'gemini-3.7-flash': {'input': 14307988, 'output': 172035}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "post-run baseline window 2026-08-18T04:24:41.000001Z..2026-08-18T08:33:31.281730Z is NOT quiet: 99 point(s), {'gemini-3.7-flash': {'input': 14307988, 'output': 172035}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C5__rep2__20260818T041132",
+      "run_id": "pilot-realworld-draft-articles__C5__rep2__20260818T041132",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T04:24:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T04:10:33.018374Z"
+      }
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-med__rep1__20260818T130921",
+      "run_id": "w1-realworld-mapper-tests__C3-med__rep1__20260818T130921",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-med__rep2__20260818T132851",
+      "run_id": "w1-realworld-mapper-tests__C3-med__rep2__20260818T132851",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-med__rep3__20260818T134653",
+      "run_id": "w1-realworld-mapper-tests__C3-med__rep3__20260818T134653",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-prev__rep1__20260818T140537",
+      "run_id": "w1-realworld-mapper-tests__C3-prev__rep1__20260818T140537",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-prev__rep2__20260818T142504",
+      "run_id": "w1-realworld-mapper-tests__C3-prev__rep2__20260818T142504",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-prev__rep3__20260818T144334",
+      "run_id": "w1-realworld-mapper-tests__C3-prev__rep3__20260818T144334",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3__rep1__20260818T120829",
+      "run_id": "w1-realworld-mapper-tests__C3__rep1__20260818T120829",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3__rep2__20260818T122821",
+      "run_id": "w1-realworld-mapper-tests__C3__rep2__20260818T122821",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3__rep3__20260818T124829",
+      "run_id": "w1-realworld-mapper-tests__C3__rep3__20260818T124829",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C5__rep1__20260818T150210",
+      "run_id": "w1-realworld-mapper-tests__C5__rep1__20260818T150210",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C5__rep2__20260818T154657",
+      "run_id": "w1-realworld-mapper-tests__C5__rep2__20260818T154657",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C5__rep3__20260818T160946",
+      "run_id": "w1-realworld-mapper-tests__C5__rep3__20260818T160946",
+      "status": "skipped"
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T15:44:23.007366Z",
+                "points": 0,
+                "start": "2026-08-19T15:31:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 5272647
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 5272647 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 5272647 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep1__20260819T151616",
+      "run_id": "w1b-zarr-block-mask-properties__C3-med__rep1__20260819T151616",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T15:31:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T15:15:17.462936Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T16:11:58.707077Z",
+                "points": 0,
+                "start": "2026-08-19T15:59:41.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 6193483
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 6193483 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 6193483 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep2__20260819T154521",
+      "run_id": "w1b-zarr-block-mask-properties__C3-med__rep2__20260819T154521",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T15:59:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T15:44:23.007367Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T16:42:28.759043Z",
+                "points": 0,
+                "start": "2026-08-19T16:29:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 8741286
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 8741286 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 8741286 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep3__20260819T161257",
+      "run_id": "w1b-zarr-block-mask-properties__C3-med__rep3__20260819T161257",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T16:29:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T16:11:58.707078Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T17:07:13.374992Z",
+                "points": 0,
+                "start": "2026-08-19T16:54:53.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 6193964
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.6-flash: 6193964 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.6-flash: 6193964 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep1__20260819T164327",
+      "run_id": "w1b-zarr-block-mask-properties__C3-prev__rep1__20260819T164327",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T16:54:53.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T16:42:28.759044Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T17:33:39.118974Z",
+                "points": 0,
+                "start": "2026-08-19T17:20:53.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 8188593
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.6-flash: 8188593 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.6-flash: 8188593 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep2__20260819T170812",
+      "run_id": "w1b-zarr-block-mask-properties__C3-prev__rep2__20260819T170812",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T17:20:53.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T17:07:13.374993Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T17:59:25.996069Z",
+                "points": 0,
+                "start": "2026-08-19T17:46:53.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 9546211
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.6-flash: 9546211 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.6-flash: 9546211 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep3__20260819T173437",
+      "run_id": "w1b-zarr-block-mask-properties__C3-prev__rep3__20260819T173437",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T17:46:53.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T17:33:39.118975Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T14:24:20.842881Z",
+                "points": 0,
+                "start": "2026-08-19T14:11:41.000001Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T13:53:49.574748Z",
+                "points": 0,
+                "start": "2026-08-19T13:48:49.574749Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 8480407
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 8480407 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 8480407 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep1__20260819T135448",
+      "run_id": "w1b-zarr-block-mask-properties__C3__rep1__20260819T135448",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T14:11:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T13:53:49.574749Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T14:49:46.662975Z",
+                "points": 0,
+                "start": "2026-08-19T14:41:37.808167Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 5497476
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 5497476 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 5497476 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep2__20260819T142519",
+      "run_id": "w1b-zarr-block-mask-properties__C3__rep2__20260819T142519",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T14:41:37.808166Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T14:24:20.842882Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T15:15:17.462935Z",
+                "points": 0,
+                "start": "2026-08-19T15:07:03.402482Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 7295148
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 7295148 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 7295148 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep3__20260819T145045",
+      "run_id": "w1b-zarr-block-mask-properties__C3__rep3__20260819T145045",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T15:07:03.402481Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T14:49:46.662976Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T18:45:00.525372Z",
+                "points": 0,
+                "start": "2026-08-19T18:32:41.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 12128207
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 12128207 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 12128207 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C5__rep1__20260819T180024",
+      "run_id": "w1b-zarr-block-mask-properties__C5__rep1__20260819T180024",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T18:32:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T17:59:25.996070Z"
+      }
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C5__rep2__20260819T184559",
+      "run_id": "w1b-zarr-block-mask-properties__C5__rep2__20260819T184559",
+      "status": "skipped"
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T20:59:47.846202Z",
+                "points": 0,
+                "start": "2026-08-19T20:00:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 12612290
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 12612290 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 12612290 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C5__rep3__20260819T192950",
+      "run_id": "w1b-zarr-block-mask-properties__C5__rep3__20260819T192950",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T20:00:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T19:28:50.748656Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T03:44:49.580237Z",
+                "points": 0,
+                "start": "2026-08-19T03:32:41.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 10661426
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 10661426 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 10661426 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep1__20260819T031526",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-med__rep1__20260819T031526",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T03:32:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T03:14:26.811946Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T04:15:21.334135Z",
+                "points": 0,
+                "start": "2026-08-19T04:02:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 9231530
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 9231530 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 9231530 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep2__20260819T034548",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-med__rep2__20260819T034548",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T04:02:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T03:44:49.580238Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T04:45:40.307304Z",
+                "points": 0,
+                "start": "2026-08-19T04:33:41.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 12012011
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 12012011 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 12012011 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep3__20260819T041620",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-med__rep3__20260819T041620",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T04:33:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T04:15:21.334136Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T05:11:04.472863Z",
+                "points": 0,
+                "start": "2026-08-19T05:02:53.623709Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 10538223
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.6-flash: 10538223 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.6-flash: 10538223 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep1__20260819T044639",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-prev__rep1__20260819T044639",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T05:02:53.623708Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T04:45:40.307305Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T05:41:40.322233Z",
+                "points": 0,
+                "start": "2026-08-19T05:29:35.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 13612322
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.6-flash: 13612322 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.6-flash: 13612322 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep2__20260819T051201",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-prev__rep2__20260819T051201",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T05:29:35.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T05:11:04.472864Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T06:11:58.202747Z",
+                "points": 0,
+                "start": "2026-08-19T05:59:53.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 12765740
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.6-flash: 12765740 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.6-flash: 12765740 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep3__20260819T054239",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-prev__rep3__20260819T054239",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T05:59:53.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T05:41:40.322234Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T02:13:39.411328Z",
+                "points": 0,
+                "start": "2026-08-19T02:00:59.000001Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T01:43:05.676019Z",
+                "points": 0,
+                "start": "2026-08-19T01:38:05.676020Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 12823219
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 12823219 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 12823219 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep1__20260819T014403",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3__rep1__20260819T014403",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T02:00:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T01:43:05.676020Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T02:44:02.433182Z",
+                "points": 0,
+                "start": "2026-08-19T02:31:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 11950053
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 11950053 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 11950053 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep2__20260819T021438",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3__rep2__20260819T021438",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T02:31:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T02:13:39.411329Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T03:14:26.811945Z",
+                "points": 0,
+                "start": "2026-08-19T03:02:41.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 10667130
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 10667130 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 10667130 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep3__20260819T024501",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3__rep3__20260819T024501",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T03:02:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T02:44:02.433183Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T07:07:23.675102Z",
+                "points": 0,
+                "start": "2026-08-19T06:59:14.263743Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 16441612
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 16441612 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 16441612 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C5__rep1__20260819T061257",
+      "run_id": "w3-sqlfluff-segment-method-migration__C5__rep1__20260819T061257",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T06:59:14.263742Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T06:11:58.202748Z"
+      }
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C5__rep2__20260819T070822",
+      "run_id": "w3-sqlfluff-segment-method-migration__C5__rep2__20260819T070822",
+      "status": "skipped"
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "input": 35,
+                    "output": 29
+                  }
+                },
+                "end": "2026-08-19T13:53:49.574748Z",
+                "points": 3,
+                "start": "2026-08-19T08:40:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 3213461
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 3213461 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+          "the preceding subject run (w3-sqlfluff-segment-method-migration__C5__rep2__20260819T070822) cannot be separated from this one: the next subject run starts 5s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it",
+          "post-run baseline window 2026-08-19T08:40:59.000001Z..2026-08-19T13:53:49.574748Z is NOT quiet: 3 point(s), {'gemini-3.7-flash': {'input': 35, 'output': 29}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 3213461 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced; the preceding subject run (w3-sqlfluff-segment-method-migration__C5__rep2__20260819T070822) cannot be separated from this one: the next subject run starts 5s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it; post-run baseline window 2026-08-19T08:40:59.000001Z..2026-08-19T13:53:49.574748Z is NOT quiet: 3 point(s), {'gemini-3.7-flash': {'input': 35, 'output': 29}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C5__rep3__20260819T075340",
+      "run_id": "w3-sqlfluff-segment-method-migration__C5__rep3__20260819T075340",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T08:40:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T07:52:41.787084Z"
+      }
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-med__rep1__20260818T092544",
+      "run_id": "w4-realworld-missing-user-id__C3-med__rep1__20260818T092544",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-med__rep2__20260818T094352",
+      "run_id": "w4-realworld-missing-user-id__C3-med__rep2__20260818T094352",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-med__rep3__20260818T100250",
+      "run_id": "w4-realworld-missing-user-id__C3-med__rep3__20260818T100250",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-prev__rep1__20260818T101828",
+      "run_id": "w4-realworld-missing-user-id__C3-prev__rep1__20260818T101828",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-prev__rep2__20260818T103728",
+      "run_id": "w4-realworld-missing-user-id__C3-prev__rep2__20260818T103728",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-prev__rep3__20260818T105110",
+      "run_id": "w4-realworld-missing-user-id__C3-prev__rep3__20260818T105110",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3__rep1__20260818T083430",
+      "run_id": "w4-realworld-missing-user-id__C3__rep1__20260818T083430",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3__rep3__20260818T090510",
+      "run_id": "w4-realworld-missing-user-id__C3__rep3__20260818T090510",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C5__rep1__20260818T110505",
+      "run_id": "w4-realworld-missing-user-id__C5__rep1__20260818T110505",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C5__rep2__20260818T112742",
+      "run_id": "w4-realworld-missing-user-id__C5__rep2__20260818T112742",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C5__rep3__20260818T115029",
+      "run_id": "w4-realworld-missing-user-id__C5__rep3__20260818T115029",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-med__rep1__20260818T182342",
+      "run_id": "w4b-zarr-consolidated-order__C3-med__rep1__20260818T182342",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-med__rep2__20260818T184420",
+      "run_id": "w4b-zarr-consolidated-order__C3-med__rep2__20260818T184420",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-med__rep3__20260818T190443",
+      "run_id": "w4b-zarr-consolidated-order__C3-med__rep3__20260818T190443",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-prev__rep1__20260818T192512",
+      "run_id": "w4b-zarr-consolidated-order__C3-prev__rep1__20260818T192512",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-prev__rep2__20260818T194529",
+      "run_id": "w4b-zarr-consolidated-order__C3-prev__rep2__20260818T194529",
+      "status": "skipped"
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T20:27:11.069473Z",
+                "points": 0,
+                "start": "2026-08-18T20:14:53.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 4680517
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.6-flash: 4680517 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.6-flash: 4680517 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-prev__rep3__20260818T200548",
+      "run_id": "w4b-zarr-consolidated-order__C3-prev__rep3__20260818T200548",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T20:14:53.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T20:04:49.516974Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T17:31:40.008263Z",
+                "points": 0,
+                "start": "2026-08-18T17:18:59.000001Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T17:02:26.781180Z",
+                "points": 0,
+                "start": "2026-08-18T16:57:26.781181Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 6785379
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 6785379 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 6785379 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep1__20260818T170326",
+      "run_id": "w4b-zarr-consolidated-order__C3__rep1__20260818T170326",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T17:18:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T17:02:26.781181Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T18:00:24.768990Z",
+                "points": 0,
+                "start": "2026-08-18T17:47:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 8588222
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 8588222 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 8588222 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep2__20260818T173239",
+      "run_id": "w4b-zarr-consolidated-order__C3__rep2__20260818T173239",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T17:47:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T17:31:40.008264Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T18:22:42.682181Z",
+                "points": 0,
+                "start": "2026-08-18T18:10:41.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 3899674
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 3899674 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 3899674 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep3__20260818T180124",
+      "run_id": "w4b-zarr-consolidated-order__C3__rep3__20260818T180124",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T18:10:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T18:00:24.768991Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T21:22:28.871781Z",
+                "points": 0,
+                "start": "2026-08-18T21:14:23.445232Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 4837417
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 4837417 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 4837417 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep1__20260818T202810",
+      "run_id": "w4b-zarr-consolidated-order__C5__rep1__20260818T202810",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T21:14:23.445231Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T20:27:11.069474Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T22:22:48.589870Z",
+                "points": 0,
+                "start": "2026-08-18T22:09:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 6467769
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 6467769 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 6467769 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep2__20260818T212328",
+      "run_id": "w4b-zarr-consolidated-order__C5__rep2__20260818T212328",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T22:09:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T21:22:28.871782Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T01:43:05.676019Z",
+                "points": 0,
+                "start": "2026-08-18T22:43:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 7808284
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 7808284 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 7808284 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep3__20260818T222348",
+      "run_id": "w4b-zarr-consolidated-order__C5__rep3__20260818T222348",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T22:43:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T22:22:48.589871Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {}
+          }
+        },
+        "reasons": [
+          "the next subject run starts 3s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it"
+        ]
+      },
+      "detail": "the next subject run starts 3s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-med__rep1__20260819T215204",
+      "run_id": "w6-hono-router-review__C3-med__rep1__20260819T215204",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T21:51:25.189956Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T21:51:05.082465Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T22:06:55.668673Z",
+                "points": 0,
+                "start": "2026-08-19T21:54:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 212033
+            }
+          }
+        },
+        "reasons": [
+          "the preceding subject run (w6-hono-router-review__C3-med__rep1__20260819T215204) cannot be separated from this one: the next subject run starts 3s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it"
+        ]
+      },
+      "detail": "the preceding subject run (w6-hono-router-review__C3-med__rep1__20260819T215204) cannot be separated from this one: the next subject run starts 3s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-med__rep2__20260819T215224",
+      "run_id": "w6-hono-router-review__C3-med__rep2__20260819T215224",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T21:54:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T21:51:25.189957Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T22:23:06.637524Z",
+                "points": 0,
+                "start": "2026-08-19T22:10:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 318569
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 318569,
+          "output_tokens": 3197
+        }
+      },
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-med__rep3__20260819T220755",
+      "run_id": "w6-hono-router-review__C3-med__rep3__20260819T220755",
+      "status": "backfilled",
+      "superseded_marker": "PROVIDER-BACKFILL-REFUSED-v2.json",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T22:10:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T22:06:55.668674Z"
+      }
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-prev__rep1__20260819T222405",
+      "run_id": "w6-hono-router-review__C3-prev__rep1__20260819T222405",
+      "status": "skipped"
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T23:01:55.087295Z",
+                "points": 0,
+                "start": "2026-08-19T22:49:53.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 1068251
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1068251,
+          "output_tokens": 70679
+        }
+      },
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-prev__rep2__20260819T224246",
+      "run_id": "w6-hono-router-review__C3-prev__rep2__20260819T224246",
+      "status": "backfilled",
+      "superseded_marker": "PROVIDER-BACKFILL-REFUSED-v2.json",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T22:49:53.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T22:41:47.165287Z"
+      }
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-prev__rep3__20260819T230254",
+      "run_id": "w6-hono-router-review__C3-prev__rep3__20260819T230254",
+      "status": "skipped"
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T21:26:08.368068Z",
+                "points": 0,
+                "start": "2026-08-19T21:13:59.000001Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T20:59:47.846202Z",
+                "points": 0,
+                "start": "2026-08-19T20:54:47.846203Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 5796793
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 5796793 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 5796793 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3__rep1__20260819T210047",
+      "run_id": "w6-hono-router-review__C3__rep1__20260819T210047",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T21:13:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T20:59:47.846203Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T21:50:39.868878Z",
+                "points": 0,
+                "start": "2026-08-19T21:38:41.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 4656147
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 4656147 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 4656147 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3__rep2__20260819T212707",
+      "run_id": "w6-hono-router-review__C3__rep2__20260819T212707",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T21:38:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T21:26:08.368069Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {}
+          }
+        },
+        "reasons": [
+          "the next subject run starts 4s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it"
+        ]
+      },
+      "detail": "the next subject run starts 4s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3__rep3__20260819T215139",
+      "run_id": "w6-hono-router-review__C3__rep3__20260819T215139",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T21:51:05.082464Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T21:50:39.868879Z"
+      }
+    }
+  ],
+  "status_counts": {
+    "backfilled": 2,
+    "contaminated_window": 35,
+    "skipped": 40
+  },
+  "unmapped_types_note": "Type labels with no mapping to a schema usage field. They are recorded verbatim in each run's event log and are NOT counted in any token class. A thinking/reasoning-flavoured type appearing here is a finding, not noise: it is the thinking share of the bill and must be mapped or reported explicitly before any Product-B cost is published.",
+  "unmapped_types_observed": {}
+}

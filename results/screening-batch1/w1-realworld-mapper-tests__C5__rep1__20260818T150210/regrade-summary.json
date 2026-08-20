@@ -1,0 +1,23 @@
+{
+  "amended": {
+    "acceptance_result": "unavailable",
+    "gate_exit_code": null,
+    "hidden_hash": null,
+    "hidden_status": "unavailable",
+    "hidden_version": null
+  },
+  "changed": false,
+  "original": {
+    "acceptance_result": "rejected",
+    "hidden_hash": null,
+    "hidden_status": "unavailable",
+    "hidden_version": null
+  },
+  "provenance": "amended",
+  "reason": "the original public-gate verdict cannot be recovered (gate-public.json is absent), so no combined verdict can be stated",
+  "regrade_version": "1",
+  "regraded_at": "2026-08-20T04:47:29Z",
+  "run_id": "w1-realworld-mapper-tests__C5__rep1__20260818T150210",
+  "status": "unavailable",
+  "task_id": "w1-realworld-mapper-tests"
+}

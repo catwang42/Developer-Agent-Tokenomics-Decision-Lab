@@ -1,0 +1,23 @@
+{
+  "schema": "dataset-adjudication-v1",
+  "dataset": "results/screening-batch1",
+  "documented_in": "results/screening-batch1/batch1.log (POST-BATCH REPAIR PASS, section C)",
+  "written": "2026-08-20",
+  "what_this_file_can_do": "Remove a cell from scoring, with the reason and the log that documents it. It can never assert an outcome: no entry may say a cell passed or failed, only that the dataset cannot answer. harness/telemetry/summarize.py reads it and counts a voided cell apart from both accepted and rejected.",
+  "entries": [
+    {
+      "scope": {"task_id": "w6-hono-router-review"},
+      "disposition": "void",
+      "label": "unscoreable — the artifact under review was never delivered to the agent",
+      "reason": "task.yaml pins review_diff: hidden/review-diff.patch, which is sealed and excluded from both container images, and invocation.txt shows the agent argv is --print \"<prompt>\" with no diff appended: the prompt opens \"Review the following diff\" and nothing follows it. The 15 cells therefore measure nothing about PR review. Independently, the prompt never names an output path while the sealed runner requires review-report.txt, so even a run that had received the diff would have written to stdout and been rejected. Two independent breaks, either one fatal.",
+      "evidence": [
+        "sealed-runner stderr, 15/15 runs, verbatim: \"no review-report.txt — reject\" (sealed-w6-v1 2026-08-17 k=6, hash sha256:350bf452...) — the matcher never ran",
+        "agent-solution.diff is 0 bytes in 15/15 runs — nothing reached the subject tree",
+        "12/15 agent stdouts say so explicitly (\"There is no diff in your message\"); 3 produced defect lines inferred from the pristine source in the image; 2 timed out with 0-byte stdout",
+        "the offline re-grade was run over all 15 runs and repairs nothing — there is no artifact to re-grade"
+      ],
+      "not_concluded": "Nothing here is a statement about whether the agent can review a diff. Grading source-derived guesses against a defect map seeded into a diff the agent never saw would manufacture a number rather than recover one.",
+      "remedy": "fix both defects before any W6 makeup — deliver the sealed diff to the agent, and declare the output path in the prompt — then re-run the cells."
+    }
+  ]
+}

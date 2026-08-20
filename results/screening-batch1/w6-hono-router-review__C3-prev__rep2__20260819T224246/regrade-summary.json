@@ -1,0 +1,39 @@
+{
+  "amended": {
+    "acceptance_result": "rejected",
+    "gate_exit_code": 1,
+    "hidden_hash": "sha256:350bf452c631dec30b413b422b871c4d974fa4df19adc9668b1d10266b4d1002",
+    "hidden_status": "fail",
+    "hidden_version": "sealed-w6-v1 2026-08-17 k=6",
+    "public_exit_code": 0
+  },
+  "changed": false,
+  "method": {
+    "agent_image": "lab-subject-agent/w6-hono-router-review:3feb3551d46d",
+    "gate_image": "lab-subject/w6-hono-router-review:3feb3551d46d",
+    "harness": {
+      "note": "the gate image's baked harness is overmounted with the working tree's, so the FIXED gate does the grading",
+      "repo_head": "6704fe91655824dcaaa3b0931d700b4f3c308319",
+      "task_tools_sha256": "sha256:48404bf8bd64e91d9e3890468df3ac302fd08d4efa3e8ff428dd268487d41b56",
+      "task_tools_uncommitted": "no"
+    },
+    "hidden_gate_only": true,
+    "model_spend": "none",
+    "network": "none (both containers)",
+    "public_gate": "carried over from the original run (all checks pass)",
+    "subject_tree": "fresh volume seeded from the agent image, archived agent-solution.diff applied as the agent uid"
+  },
+  "original": {
+    "acceptance_result": "rejected",
+    "hidden_hash": "sha256:350bf452c631dec30b413b422b871c4d974fa4df19adc9668b1d10266b4d1002",
+    "hidden_status": "fail",
+    "hidden_version": "sealed-w6-v1 2026-08-17 k=6"
+  },
+  "provenance": "amended",
+  "reason": "batch-1 instrument error: the hidden gate graded a subject tree git refused to read (safe.directory), so its discovery step returned empty. Fixed in harness/task-tools/lib.sh (git_trust_subject); this is the same sealed set re-applied to the same archived agent output.",
+  "regrade_version": "1",
+  "regraded_at": "2026-08-20T04:55:12Z",
+  "run_id": "w6-hono-router-review__C3-prev__rep2__20260819T224246",
+  "status": "graded",
+  "task_id": "w6-hono-router-review"
+}

@@ -1,0 +1,16 @@
+--- diff apply ---
+[regrade] archived diff is empty: grading the pristine tree
+
+--- hidden gate (stdout) ---
+== hidden gate (w6-hono-router-review) [pr_review] ==
+  source: /lab/tasks/suite/W6-pr-review/hidden
+  version: sealed-w6-v1 2026-08-17 k=6
+  hash:    sha256:350bf452c631dec30b413b422b871c4d974fa4df19adc9668b1d10266b4d1002
+  runner:  check.sh (sealed; contents never shown)
+  -- sealed runner (stderr) --
+  | no review-report.txt — reject
+== hidden gate: FAIL ==
+
+--- hidden gate (stderr) ---
+
+--- exit: 1

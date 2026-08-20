@@ -1,0 +1,23 @@
+--- diff apply ---
+?? tests/test_block_mask_indexing_properties.py
+
+--- hidden gate (stdout) ---
+== hidden gate (w1b-zarr-block-mask-properties) [test_generation] ==
+  source: /lab/tasks/suite/W1b-zarr-block-mask-properties/hidden
+  version: sealed-w1b-v1 2026-08-17 m=8 (M6=control)
+  hash:    sha256:f380d1424f796166353bf959939eb552492140edaf92d87c76e896d4eaa12fb6
+  runner:  check.sh (sealed; contents never shown)
+  -- sealed runner (stderr) --
+  | CAUGHT M1
+  | CAUGHT M2
+  | CAUGHT M3
+  | CAUGHT M4
+  | CAUGHT M5
+  | CONTROL M6-control caught
+  | CAUGHT M7
+  | CAUGHT M8
+== hidden gate: PASS ==
+
+--- hidden gate (stderr) ---
+
+--- exit: 0

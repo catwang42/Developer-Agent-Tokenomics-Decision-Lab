@@ -255,7 +255,7 @@ validate: PASS (audit-grade)
 2026-08-18T04:30:43Z    Recorded in results/screening-batch1/deferred-contaminated.tsv; the batch continues.
 2026-08-18T04:30:43Z  --- [19/126] tasks/suite/W4-complex-bugfix P0 rep1 ---
 runner: building subject image lab-subject-agent/w4-realworld-missing-user-id:88b258ce54aa (target subject-agent; build-time network; not model spend)
-Sending build context to Docker daemon    208MB
+Sending build context to Docker daemon    208MB
 Step 1/44 : FROM node:20-bookworm-slim AS subject-base
  ---> 9da6b4e352d0
 Step 2/44 : RUN apt-get update -qq     && apt-get install -y --no-install-recommends git ca-certificates python3 python3-yaml     && rm -rf /var/lib/apt/lists/*
@@ -5817,3 +5817,233 @@ NEXT (human):
   4. Account for the 0 deferred-contaminated cell(s) and for any run the
      collector refused: both are HOLES in the registered matrix. Report them as
      missing cells; never fill them by widening a window or a filter.
+
+================================================================================
+POST-BATCH REPAIR PASS — zero model spend  (branch fix/budgets-and-regrade)
+2026-08-20T04:29:02Z
+Nothing below re-ran an agent. No model API was called. Every number here comes
+from artifacts batch 1 already wrote, re-graded or re-attributed offline.
+================================================================================
+
+--- B. GATE-DISCOVERY DEFECT: diagnosis ----------------------------------------
+Root cause, proven experimentally against the batch-1 images (not inferred):
+the agent container writes into a named volume as uid 706335951 (lab); the gate
+container mounts that same volume and runs as root. git then refuses the tree —
+"fatal: detected dubious ownership in repository at '/subject'" — and EVERY git
+call in the gate returns empty with rc=128. Sealed runners that DISCOVER the
+agent's files via git therefore saw zero files and rejected.
+
+  reproduce: gate image, as root, `git -C /subject ls-files --others` -> rc 128.
+             same command with GIT_CONFIG_COUNT=1 / safe.directory=/subject -> the
+             agent's file, rc 0.
+  fingerprint in batch 1: gate_type=solution (no git discovery) 32/32 hidden-pass;
+             gate_type=test_generation (git discovery) 15/15 hidden-fail.
+  corroboration: run.py's _archive_agent_diff_container() ALREADY passed that
+             safe.directory env, which is exactly why every archived
+             agent-solution.diff is intact while the gate saw nothing.
+
+Fixed in harness/task-tools/lib.sh (git_trust_subject), wired into the G0/H0
+readability checks. A tree git cannot read is now UNAVAILABLE (exit 2), never a
+rejection. Regression test: tests/test_gate_subject_ownership.py (9 tests,
+including a negative control that reproduces the pre-fix blind gate against the
+real images).
+
+--- B. OFFLINE RE-GRADE (hidden gate only; originals untouched) ----------------
+harness/runner/regrade.py replays the SAME sealed set against each run's stored
+agent-solution.diff on a fresh volume, and writes regrade-summary.json +
+regrade-gate-hidden.log beside the run. summary.json / events.jsonl / gate-*.json
+are never modified. The public verdict is carried over from the original run.
+
+W1  (w1-realworld-mapper-tests, 18 runs):
+    17 amended  rejected -> ACCEPTED  (hidden fail -> pass, identical sealed hash
+                sha256:37f3acd6... and version sealed-w1-v1 2026-07-20 6-mutants)
+     1 unavailable: C5 rep1 has no gate-public.json, so no combined verdict can
+                be stated. Recorded as unavailable, not guessed.
+
+W1b (w1b-zarr-block-mask-properties, 18 runs):
+    18/18 hidden gate flips fail -> PASS — the same blindness, same fix.
+    0/18 verdicts change: the PUBLIC gate independently fails on all 18
+    (T2-suite-green, T3-coverage, T4-tests-pass), so the combined verdict stays
+    rejected. This is a SECOND, separate W1b problem and it is NOT diagnosed here:
+    batch 1 stored no public-gate output (only pass/fail per check), so there is
+    nothing to read. The runner now writes gate-public.log / gate-hidden.log for
+    every run, so the next batch will have it. Whether W1b's public failure is
+    genuine or a second instrument defect is OPEN — do not read the W1b rejects
+    as a capability result either way.
+
+--- C. W6 FORENSIC: instrument error, not recall/precision ---------------------
+Asked: are the W6 rejects genuine recall/precision failures, or a review-report
+path/format problem? Answer: NEITHER, and the reason is upstream of both — the
+participant was never given the artifact under review.
+
+Evidence, per run (all 15 W6 runs re-graded; sealed-runner stderr in each run's
+regrade-gate-hidden.log):
+  1. sealed runner stderr, 15/15, verbatim:  "no review-report.txt — reject"
+     (sealed-w6-v1 2026-08-17 k=6, hash sha256:350bf452...). The matcher never
+     ran; there was no report to match against.
+  2. agent-solution.diff is 0 bytes in 15/15 runs — nothing was written to the
+     subject tree at all.
+  3. task.yaml pins review_diff: hidden/review-diff.patch, which is SEALED and
+     excluded from both images. invocation.txt shows the agent argv is
+     `--print "<prompt>"` with NO diff appended: the prompt opens "Review the
+     following diff" and no diff follows it.
+  4. 12/15 agent stdouts say so in as many words ("There is no diff in your
+     message"). 3 (C3-prev rep1/rep3, C3 rep2) produced defect lines inferred
+     from the pristine source in the image; 2 (P0 rep1/rep2) are exit_code
+     timeout with 0-byte stdout.
+  5. Independently: the prompt never names an output path, while the sealed
+     runner requires review-report.txt (harness/task-tools/validate.sh defaults
+     review_report to that name; W6 task.yaml does not declare it). Even a run
+     that HAD the diff would have written to stdout and been rejected.
+
+Classification: MATERIAL-DELIVERY instrument error (primary) plus an undeclared
+OUTPUT-CONTRACT defect (secondary). Two independent breaks, either one fatal.
+
+Disposition: the offline re-grade was run over all 15 W6 runs and repairs
+nothing — the archived output is stdout text produced without the diff, so there
+is no artifact to re-grade. Grading those three source-derived guesses against a
+defect map seeded into a diff the agent never saw would manufacture a number, not
+recover one. W6 batch-1 cells are VOID (unscoreable), not "rejected", and a
+re-run is spend and therefore out of scope for this pass. Both defects must be
+fixed before any W6 makeup: deliver the sealed diff to the agent, and declare the
+output path in the prompt.
+
+--- D. COLLECTOR ATTRIBUTION RULE v2 -------------------------------------------
+Two defects found and fixed in harness/collectors/vertex_token_collector.py:
+
+  (i) run_window_from_events counted the collector's OWN appended backfill events,
+      which carry the COLLECTION timestamp. On a second pass over an already-
+      collected batch this stretched 73 of 77 runs to hours long and mutually
+      overlapping. Those events are now excluded from a run's wall window.
+ (ii) the contamination guard ran BEFORE the idempotence check, so a second pass
+      stamped PROVIDER-BACKFILL-REFUSED.json on runs that had already been
+      backfilled. Four batch-1 runs carry exactly that contradiction today —
+      a real usage number in summary.json AND a marker claiming nothing was
+      written. The markers are wrong, the usage stands:
+        pilot-realworld-draft-articles__C3__rep1__20260818T014056
+        pilot-realworld-draft-articles__C3__rep2__20260818T015604
+        pilot-realworld-draft-articles__C3-med__rep1__20260818T022024
+        pilot-realworld-draft-articles__C3-med__rep2__20260818T023949
+      They are left in place as a record of what that pass did; the correction is
+      here and in report/screening-batch1/backfill-v2.json. The v1 report's
+      "43 contaminated" therefore over-counts by 4 — 39 runs were genuinely
+      refused and never written.
+
+Rule v2 (serialized_run_ownership_with_ingestion_tail): a serialized subject run
+owns the meter from its own start until the NEXT subject run's window opens, so
+its own ingestion tail is its own rather than evidence against it —
+  [start_i - guard,  min(end_i + guard + tail,  start_{i+1} - guard) ),  tail=300s
+The quiet probe survives, moved to the only region a third party is still
+distinguishable in: the no-man's-land between one run's ownership and its
+neighbours'. The 3M input-side plausibility ceiling is unchanged. Written as
+provider_usage_backfill_v2 events (distinct type; v1 events untouched), each
+carrying attribution_rule with the window, the boundary and tail_granted_seconds.
+
+Re-collection over batch 1's historical windows (read-only Cloud Monitoring; no
+model spend), report/screening-batch1/backfill-v2.json:
+    2  RECOVERED and written, both audit-grade validated:
+         w1-realworld-mapper-tests__C5__rep1  (executor leg: 277,130 in / 2,019 out)
+         w4b-zarr-consolidated-order__C3-prev__rep2  (2,261,886 in / 39,613 out)
+   37  still refused:
+         31  input-side over the 3M plausibility ceiling (unchanged by design)
+          5  neighbouring subject run 3-4s away, inside the guard band: the run's
+             own tail lands in its neighbour's window and the meter cannot say
+             which produced it. All five are W6 runs that failed in seconds.
+          1  genuine third-party burst — pilot C5 rep2, 117,103 input tokens in
+             the 5 minutes after it, on the subject model. Correctly refused.
+   38  skipped (already backfilled under v1; never double-counted).
+Refused runs' usage stays 'unavailable' — never zero, never widened into.
+
+--- D (cont.). THE FIRST v2 PASS WAS WRONG TWICE; THIS IS THE CORRECTED ONE -----
+2026-08-20T09:56:00Z. Still zero model spend — Cloud Monitoring reads only.
+
+The v2 pass recorded above (flat 300s tail, 2 recovered / 37 refused / 38 skipped)
+is SUPERSEDED by the pass recorded here. Two defects, both found by looking at the
+meter rather than at the code:
+
+ (i) THE TAIL WAS ASSUMED, NOT MEASURED. Dumping every raw point around
+     pilot-realworld-draft-articles__C5__rep2 (run 04:11:33 -> 04:15:38) showed a
+     contiguous chain of that run's own points from -100s to +482s past its end
+     (gaps <= 120s), then 20 minutes of complete silence until the next run's
+     traffic. The run's container is destroyed at run end, so contiguous points
+     after it can only be its own late-metered calls — and a flat 300s tail is
+     SHORTER than this metric's ingestion delay. v2's first pass therefore
+     reproduced v1's defect in a milder form.
+     Fix: the tail is now measured. It extends while points keep arriving closer
+     together than --tail-silence-seconds (300s) and ends at the first silence,
+     under a hard --tail-seconds cap (900s). A tail still producing points AT the
+     cap is REFUSED, not credited: an ingestion tail decays, a third party working
+     does not. The post-run quiet probe widens to the whole no-man's-land after a
+     silenced tail, so a third-party burst anywhere before the next run still
+     refuses. Recorded per run as tail_ended_by = no_points | silence |
+     next_subject_run | tail_cap.
+
+(ii) INSEPARABILITY WAS PROPAGATED TRANSITIVELY. When run i's tail landed inside
+     run i+1's guard band, i+1 was flagged — correctly — and then the flag was
+     read back while it was being written, so i+2, i+3 ... to the end of the batch
+     inherited it. One 4s gap poisoned 14 runs. But run i's flag is a claim about
+     the i/i+1 boundary only; whether i+1's own tail is separable from i+2 is a
+     different boundary and a different question. Propagation is now exactly one
+     hop, from a snapshot of the runs' own flags.
+
+Also fixed, both found by running this pass:
+  * urllib surfaces a socket read timeout as a bare TimeoutError, which is not a
+    URLError, so it escaped the per-run handler and killed the whole 77-run pass
+    mid-flight. Transient failures (read timeout, 429, 5xx) are now retried up to
+    4 times with backoff; a 400 or a 401 still fails immediately, because
+    retrying a wrong answer only buries the message.
+  * a run that a later pass successfully attributes now has its refusal marker
+    FROM THAT SAME RULE removed — a marker saying "nothing was written under this
+    rule" must not sit beside an event written under it. A v1 marker beside a v2
+    event is left alone: that is not a contradiction, the two rules drew different
+    windows and the v1 refusal is still true of v1.
+
+Corrected re-collection over batch 1's historical windows
+(report/screening-batch1/backfill-v2.json, which supersedes the earlier v2 report
+of the same name; the run-level refusal markers were rewritten by this pass):
+    2  RECOVERED and written this pass, both audit-grade validated — both freed by
+       the one-hop fix, having been refused only on an inherited flag:
+         w6-hono-router-review__C3-med__rep3   (318,569 in / 3,197 out)
+         w6-hono-router-review__C3-prev__rep2  (1,068,251 in / 70,679 out)
+   35  still refused
+   40  skipped (already backfilled; never double-counted) — this includes the 2
+       runs the earlier v2 pass recovered, so the v2 rule has now attributed 4
+       legs in total.
+
+WHY THE OTHER 35 STAY UNAVAILABLE — and the one number a human should look at:
+   31  input-side tokens over the 3,000,000 per-run plausibility ceiling. Kept
+        refusing, as instructed. But the pattern is worth recording rather than
+        filing as noise: every one of the 31 is a long Gemini-executor run
+        (C3 / C3-med / C3-prev / C5) of 10-48 minutes, and the observed totals
+        scale with duration — 3.2M at 603s up to 16.4M at 2,836s, roughly 9k
+        input-side tokens per second of wall clock, which is what a multi-turn
+        agent re-reading a cached context looks like. The ceiling is a FIXED
+        per-run constant, so it cannot tell "long run" from "contaminated window"
+        and it binds hardest on exactly the arms the batch exists to measure.
+        This is an instrument-design question, not a data question, and it is the
+        human's call: it is the reason H-effort grades not_gradable (no_data) on
+        all 7 tasks below. NOTHING has been changed about it here.
+    4  a subject-run boundary the meter cannot resolve: 2 whose own neighbour
+        starts 4-5s after they end, inside the 60s guard band, and 2 that inherit
+        that from the run immediately before them (one hop, on real evidence).
+    2  genuine third-party traffic in the post-run no-man's-land, on the subject
+        model. Correctly refused; this is the check working.
+   (the three reasons overlap on one run, so they sum to 37 over 35 runs; taken
+    disjointly: 30 ceiling only, 2 own boundary, 1 inherited boundary, 1 third
+    party, 1 carrying all three at once.)
+Refused runs' usage stays 'unavailable' — never zero, never widened into.
+
+--- E. DECISION TABLE OVER THE REPAIRED STATE -----------------------------------
+harness/telemetry/summarize.py results/screening-batch1 --status PENDING
+  -> report/screening-batch1/decision-table.{json,md}   (STATUS: PENDING)
+122 runs / 42 cells. Verdicts: 71 original, 36 amended, 15 voided; 33 changed.
+H-effort: graded, 0 of 7 tasks gradable (no_data) — see the ceiling note above.
+W3-escalation-probe: confounded_by_run_budget. Both halves are reported and
+neither is graded: the economical-tier gate failed (C2 accepted 0/3) and the
+escalation branch was observed (3 of 3 P1 runs escalated), but the harness ended
+3 of 3 C2 and 3 of 3 P1 runs before the agent finished, so no gate result in
+either arm is evidence about the agent. Remedy on record: re-run the affected
+arms under the per-task agent_timeout_s pinned in section A (W3 = 7200s) and
+grade against that dataset. The dry-run schedule for that makeup pass is
+scripts/screening-batch1-makeup-driver.sh; it has not been run for real, and
+running it needs a CP-SPEND approval.

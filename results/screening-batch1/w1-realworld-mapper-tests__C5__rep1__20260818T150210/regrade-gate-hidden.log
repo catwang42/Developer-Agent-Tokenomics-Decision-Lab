@@ -1,0 +1,16 @@
+--- diff apply ---
+[regrade] archived diff is empty: grading the pristine tree
+
+--- hidden gate (stdout) ---
+== hidden gate (w1-realworld-mapper-tests) [test_generation] ==
+  source: /lab/tasks/suite/W1-test-generation/hidden
+  version: sealed-w1-v1 2026-07-20 6-mutants
+  hash:    sha256:37f3acd685fd03e0624a98f328e38edffe8faef5179263e502035c707c51f4e9
+  runner:  check.sh (sealed; contents never shown)
+  -- sealed runner (stderr) --
+  | hidden: no agent tests under src/tests/
+== hidden gate: FAIL ==
+
+--- hidden gate (stderr) ---
+
+--- exit: 1
