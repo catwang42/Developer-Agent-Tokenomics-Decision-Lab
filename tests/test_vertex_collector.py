@@ -609,6 +609,92 @@ class ContaminationCeilingTests(unittest.TestCase):
         self.assertEqual(verdict.evidence["ceiling"], "disabled")
 
 
+class RateCeilingTests(unittest.TestCase):
+    """The v3 plausibility check: tokens per second, not tokens per run.
+
+    A fixed per-run constant cannot tell a long run from a contaminated window —
+    a 47-minute executor run and a 4-minute run sharing the meter with a stranger
+    both land above 3M. The quantity that separates them is the rate.
+    """
+
+    @staticmethod
+    def _collect(series, start, end):
+        return vtc.aggregate_series(series, vtc.build_window(start, end),
+                                    vtc.DEFAULT_GUARD_SECONDS)
+
+    #: 50 minutes of one agent's own work. Batch 1's Gemini-executor arms are
+    #: this shape: totals scaling with duration, well over the fixed ceiling.
+    LONG_RUN = ("2026-08-16T10:00:00Z", "2026-08-16T10:50:00Z")
+    #: Four minutes. With the guard band either side the window is 360s.
+    SHORT_RUN = ("2026-08-16T10:00:00Z", "2026-08-16T10:04:00Z")
+    #: The real reading from the smoke-test contamination this guard was built
+    #: after. Over 360s it is 30,536 input-side tokens/s.
+    BURST = 10_993_105
+
+    def test_a_long_run_over_the_fixed_ceiling_is_plausible_by_rate(self):
+        collection = self._collect(
+            [_series(GEMINI, "input", 4_000_000, "2026-08-16T10:25:00Z")], *self.LONG_RUN)
+        # The negative control: this is exactly what v1/v2 refused.
+        self.assertTrue(vtc.check_ceiling(collection, 3_000_000).contaminated)
+        verdict = vtc.check_rate_ceiling(collection, 25_000)
+        self.assertFalse(verdict.contaminated, verdict.reasons)
+        self.assertEqual(verdict.reasons, [])
+
+    def test_a_burst_packed_into_four_minutes_is_refused(self):
+        collection = self._collect(
+            [_series(GEMINI, "input", self.BURST, "2026-08-16T10:02:00Z")],
+            *self.SHORT_RUN)
+        verdict = vtc.check_rate_ceiling(collection, 25_000)
+        self.assertTrue(verdict.contaminated)
+        self.assertIn("per second", verdict.reasons[0])
+        self.assertIn(GEMINI, verdict.reasons[0])
+
+    def test_the_evidence_records_the_rate_it_measured_not_just_the_verdict(self):
+        collection = self._collect(
+            [_series(GEMINI, "input", 4_000_000, "2026-08-16T10:25:00Z")], *self.LONG_RUN)
+        evidence = vtc.check_rate_ceiling(collection, 25_000).evidence["rate_ceiling"]
+        self.assertEqual(evidence["input_side_tokens_per_second_ceiling"], 25_000)
+        # 10:00:00 to 10:50:00 plus a 60s guard band either side.
+        self.assertEqual(evidence["window_seconds"], 3120.0)
+        self.assertEqual(evidence["observed_input_side_tokens"][GEMINI], 4_000_000)
+        self.assertAlmostEqual(
+            evidence["observed_input_side_tokens_per_second"][GEMINI],
+            4_000_000 / 3120, places=2)
+
+    def test_cache_reads_count_toward_the_rate(self):
+        collection = self._collect(
+            [_series(GEMINI, "cache_read_input", self.BURST, "2026-08-16T10:02:00Z")],
+            *self.SHORT_RUN)
+        self.assertTrue(vtc.check_rate_ceiling(collection, 25_000).contaminated)
+
+    def test_output_tokens_do_not_trip_the_input_side_rate(self):
+        collection = self._collect(
+            [_series(GEMINI, "output", self.BURST, "2026-08-16T10:02:00Z")],
+            *self.SHORT_RUN)
+        self.assertFalse(vtc.check_rate_ceiling(collection, 25_000).contaminated)
+
+    def test_zero_disables_the_check_and_says_so(self):
+        collection = self._collect(
+            [_series(GEMINI, "input", self.BURST, "2026-08-16T10:02:00Z")],
+            *self.SHORT_RUN)
+        verdict = vtc.check_rate_ceiling(collection, 0)
+        self.assertFalse(verdict.contaminated)
+        self.assertEqual(verdict.evidence["rate_ceiling"], "disabled")
+
+    def test_a_window_of_no_duration_is_refused_rather_than_divided_by(self):
+        # Not reachable through the guard band, but a rate over a zero window has
+        # no value, and inventing one (or waving the window through) would be the
+        # fabrication this whole check exists to prevent.
+        collection = self._collect(
+            [_series(GEMINI, "input", 1_000, "2026-08-16T10:02:00Z")],
+            *self.SHORT_RUN)
+        collection.window_end = collection.window_start
+        verdict = vtc.check_rate_ceiling(collection, 25_000)
+        self.assertTrue(verdict.contaminated)
+        self.assertIsNone(
+            verdict.evidence["rate_ceiling"]["observed_input_side_tokens_per_second"][GEMINI])
+
+
 class BaselineProbeTests(unittest.TestCase):
 
     def _probe(self, series, baseline=300):
@@ -1207,7 +1293,192 @@ class SerializedOwnershipBackfillTests(RunDirMixin, unittest.TestCase):
         with self.assertRaises(vtc.CollectorError):
             vtc.run_backfill(WindowedFakeClient([]), "SYNTHETIC-project",
                              self._plans(run_dir, neighbour), COLLECTED_AT,
-                             attribution_rule="v3")
+                             attribution_rule="v9")
+
+
+# --------------------------------------------------------------------------- #
+# v3: the same windows as v2, judged by rate instead of by a fixed constant.
+#
+# 31 of batch 1's 35 remaining refusals were the fixed 3M ceiling firing on long
+# Gemini-executor runs — a 47-minute run legitimately produces more input-side
+# tokens than a per-run constant allows, so the constant was refusing duration,
+# not contamination. v3 changes ONLY that test. The window, the ownership rule
+# and the third-party baseline probe are byte-for-byte the v2 ones, and the
+# tests below have to hold both halves of that claim.
+# --------------------------------------------------------------------------- #
+#: A 50-minute executor run: over the fixed ceiling, unremarkable by rate.
+LONG_START, LONG_END = "2026-08-16T10:00:00Z", "2026-08-16T10:50:00Z"
+#: Far enough away that the long run's ownership is never squeezed by it.
+FAR_START, FAR_END = "2026-08-16T12:00:00Z", "2026-08-16T12:05:00Z"
+
+
+class RateCeilingBackfillTests(RunDirMixin, unittest.TestCase):
+
+    def _plans(self, run_dir, neighbour_dir, start=LONG_START, end=LONG_END):
+        return [vtc.RunPlan(run_dir=run_dir, legs={"main": GEMINI},
+                            start=start, end=end),
+                vtc.RunPlan(run_dir=neighbour_dir, legs={"main": GEMINI},
+                            start=FAR_START, end=FAR_END)]
+
+    def _backfill(self, series, rule="v3", plans=None, **kwargs):
+        run_dir, neighbour = self.make_run(), self.make_run()
+        plans = plans(run_dir, neighbour) if plans else self._plans(run_dir, neighbour)
+        report = vtc.run_backfill(WindowedFakeClient(series), "SYNTHETIC-project",
+                                  plans, COLLECTED_AT, attribution_rule=rule, **kwargs)
+        return run_dir, report, report["runs"][0]
+
+    #: One long run's own work, all of it inside its own window.
+    LONG_OWN = [
+        _series(GEMINI, "input", 4_000_000, "2026-08-16T10:25:00Z"),
+        _series(GEMINI, "output", 61_400, "2026-08-16T10:25:00Z"),
+    ]
+
+    def test_v2_refuses_the_long_run_on_the_fixed_ceiling(self):
+        # The negative control. Without it the v3 test below proves nothing.
+        _, _, run = self._backfill(self.LONG_OWN, rule="v2")
+        self.assertEqual(run["status"], vtc.CONTAMINATED_STATUS)
+        self.assertTrue(any("ceiling" in r for r in run["contamination"]["reasons"]))
+
+    def test_v3_attributes_the_long_run_the_fixed_ceiling_refused(self):
+        run_dir, _, run = self._backfill(self.LONG_OWN)
+        self.assertEqual(run["status"], "backfilled", run.get("detail"))
+        usage = self.summary_of(run_dir)["usage"]
+        self.assertEqual(usage["input_tokens"]["value"], 4_000_000)
+        self.assertEqual(usage["output_tokens"]["value"], 61_400)
+        self.assertEqual(usage["input_tokens"]["confidence"], "derived")
+
+    def test_v3_still_refuses_a_window_whose_rate_is_impossible(self):
+        # Same 50-minute window, 40x the tokens: 240k/s is not one agent working.
+        _, _, run = self._backfill(
+            [_series(GEMINI, "input", 750_000_000, "2026-08-16T10:25:00Z")])
+        self.assertEqual(run["status"], vtc.CONTAMINATED_STATUS)
+        self.assertTrue(any("per second" in r for r in run["contamination"]["reasons"]))
+
+    def test_the_third_party_probe_is_the_v2_one_unchanged(self):
+        # KNOWN LIMIT, load-bearing: the historical smoke contamination ran at
+        # 16,693 input-side tokens/s, which a 25,000/s ceiling does NOT catch.
+        # What catches it is the baseline probe, which v3 leaves alone. If this
+        # test ever goes green for the wrong reason, v3 has no defence left
+        # against a stranger sharing the meter at a believable rate.
+        _, _, run = self._backfill(
+            [_series(GEMINI, "input", 4_000_000, "2026-08-16T10:25:00Z"),
+             _series(GEMINI, "input", 1_274_568, "2026-08-16T10:55:30Z")])
+        self.assertEqual(run["status"], vtc.CONTAMINATED_STATUS)
+        reasons = run["contamination"]["reasons"]
+        self.assertTrue(any("post-run" in r for r in reasons), reasons)
+        self.assertFalse(any("per second" in r for r in reasons), reasons)
+
+    def test_a_refused_run_is_left_unavailable_not_zero(self):
+        run_dir, _, _ = self._backfill(
+            [_series(GEMINI, "input", 750_000_000, "2026-08-16T10:25:00Z")])
+        self.assertIsNone(self.summary_of(run_dir)["usage"]["input_tokens"]["value"])
+
+    def test_the_event_names_v3_as_the_rule_that_attributed_it(self):
+        run_dir, _, _ = self._backfill(self.LONG_OWN)
+        events = [e for e in read_events(os.path.join(run_dir, "events.jsonl"))
+                  if e["event_type"] == vtc.BACKFILL_EVENT_V3]
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["attribution_method"], vtc.ATTRIBUTION_METHOD_V3)
+        self.assertEqual(events[0]["attribution_confidence"], "derived")
+        self.assertEqual(events[0]["counts_confidence"], "authoritative")
+        rule = events[0]["attribution_rule"]
+        self.assertEqual(rule["rule"], "v3")
+        self.assertEqual(rule["id"], vtc.ATTRIBUTION_METHOD_V3)
+        # The window is the v2 window: v3 changed the ceiling, not the boundaries.
+        self.assertEqual(rule["bounded_by"], "ingestion_tail")
+        self.assertEqual(rule["attribution_window"]["end"],
+                         "2026-08-16T10:51:00.000000Z")
+
+    def test_the_report_states_the_rate_ceiling_it_applied(self):
+        _, report, _ = self._backfill(self.LONG_OWN)
+        self.assertEqual(report["attribution"]["rule"], "v3")
+        self.assertEqual(report["attribution"]["event_type"], vtc.BACKFILL_EVENT_V3)
+        self.assertEqual(report["attribution"]["method"], vtc.ATTRIBUTION_METHOD_V3)
+        guard = report["contamination_guard"]
+        self.assertEqual(guard["plausibility_ceiling"], "input_side_tokens_per_second")
+        self.assertEqual(guard["input_side_ceiling_tokens_per_second"],
+                         vtc.DEFAULT_CEILING_INPUT_TOKENS_PER_SECOND)
+        # The constant v3 replaces must not also be reported as if it applied.
+        self.assertIsNone(guard["input_side_ceiling_tokens"])
+
+    def test_a_v3_refusal_does_not_overwrite_the_v2_refusal_beside_it(self):
+        run_dir, neighbour = self.make_run(), self.make_run()
+        plans = self._plans(run_dir, neighbour)
+        burst = [_series(GEMINI, "input", 750_000_000, "2026-08-16T10:25:00Z")]
+        for rule in ("v2", "v3"):
+            vtc.run_backfill(WindowedFakeClient(burst), "SYNTHETIC-project", plans,
+                             COLLECTED_AT, attribution_rule=rule)
+        v2 = os.path.join(run_dir, vtc.REFUSAL_MARKERS["v2"])
+        v3 = os.path.join(run_dir, vtc.REFUSAL_MARKERS["v3"])
+        self.assertTrue(os.path.isfile(v2) and os.path.isfile(v3))
+        with open(v3, encoding="utf-8") as fh:
+            payload = json.load(fh)
+        self.assertEqual(payload["attribution_rule"]["id"], vtc.ATTRIBUTION_METHOD_V3)
+        self.assertEqual(payload["attribution_rule"]["rule"], "v3")
+
+    def test_a_v3_pass_clears_the_v3_marker_a_failed_v3_pass_left(self):
+        # Re-running v3 after fixing whatever made it refuse must not leave a
+        # marker claiming nothing was written next to the event that was.
+        run_dir, neighbour = self.make_run(), self.make_run()
+        plans = self._plans(run_dir, neighbour)
+        vtc.run_backfill(
+            WindowedFakeClient([_series(GEMINI, "input", 750_000_000,
+                                        "2026-08-16T10:25:00Z")]),
+            "SYNTHETIC-project", plans, COLLECTED_AT, attribution_rule="v3")
+        self.assertTrue(os.path.isfile(os.path.join(run_dir,
+                                                    vtc.REFUSAL_MARKERS["v3"])))
+        report = vtc.run_backfill(WindowedFakeClient(self.LONG_OWN),
+                                  "SYNTHETIC-project", plans, COLLECTED_AT,
+                                  attribution_rule="v3")
+        self.assertEqual(report["runs"][0]["status"], "backfilled")
+        self.assertFalse(os.path.isfile(os.path.join(run_dir,
+                                                     vtc.REFUSAL_MARKERS["v3"])))
+
+    def test_a_leg_already_filled_under_v2_is_not_filled_again_under_v3(self):
+        run_dir, neighbour = self.make_run(), self.make_run()
+        plans = self._plans(run_dir, neighbour)
+        clean = [_series(GEMINI, "input", 1500, "2026-08-16T10:25:00Z")]
+        first = vtc.run_backfill(WindowedFakeClient(clean), "SYNTHETIC-project",
+                                 plans, COLLECTED_AT, attribution_rule="v2")
+        self.assertEqual(first["runs"][0]["status"], "backfilled")
+        second = vtc.run_backfill(WindowedFakeClient(clean), "SYNTHETIC-project",
+                                  plans, COLLECTED_AT, attribution_rule="v3")
+        self.assertEqual(second["runs"][0]["status"], "skipped")
+        self.assertEqual(self.summary_of(run_dir)["usage"]["input_tokens"]["value"],
+                         1500, "the v2 number must not be doubled by a v3 pass")
+
+    def test_a_v3_backfill_does_not_count_as_a_turn(self):
+        run_dir, neighbour = self.make_run(), self.make_run()
+        before = self.summary_of(run_dir)["behavior"]["turns"]["value"]
+        vtc.run_backfill(WindowedFakeClient(self.LONG_OWN), "SYNTHETIC-project",
+                         self._plans(run_dir, neighbour), COLLECTED_AT,
+                         attribution_rule="v3")
+        self.assertEqual(self.summary_of(run_dir)["behavior"]["turns"]["value"], before)
+
+    def test_v3_inherits_the_ownership_boundaries_it_did_not_change(self):
+        # An inseparable neighbour is still inseparable under v3: the rate
+        # ceiling says nothing about whose tokens these are.
+        run_dir, neighbour = self.make_run(), self.make_run()
+        plans = [vtc.RunPlan(run_dir, {"main": GEMINI}, LONG_START, LONG_END),
+                 vtc.RunPlan(neighbour, {"main": GEMINI},
+                             "2026-08-16T10:50:30Z", "2026-08-16T10:55:00Z")]
+        report = vtc.run_backfill(WindowedFakeClient(self.LONG_OWN),
+                                  "SYNTHETIC-project", plans, COLLECTED_AT,
+                                  attribution_rule="v3")
+        self.assertEqual(report["status_counts"], {vtc.CONTAMINATED_STATUS: 2})
+        self.assertIsNone(self.summary_of(run_dir)["usage"]["input_tokens"]["value"])
+
+    def test_the_cli_accepts_v3_and_its_rate_flag(self):
+        # A plan with no project stops main() at load with a return of 2. An
+        # argparse rejection would SystemExit instead — which is what this
+        # distinguishes: the flags parse, the run just has nothing to run on.
+        plan = os.path.join(tempfile.mkdtemp(prefix="SYNTHETIC-plan-"), "plan.json")
+        self.addCleanup(shutil.rmtree, os.path.dirname(plan), True)
+        with open(plan, "w", encoding="utf-8") as fh:
+            json.dump({"runs": []}, fh)
+        self.assertEqual(
+            vtc.main(["--plan", plan, "--attribution-rule", "v3",
+                      "--ceiling-input-tokens-per-second", "9000", "--dry-run"]), 2)
 
 
 if __name__ == "__main__":

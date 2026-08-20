@@ -59,11 +59,17 @@ EVENT_TYPES = (
     # flag on the old one, because the two rules can disagree about which run a
     # point belongs to and an analysis must be able to say which rule it used.
     "provider_usage_backfill_v2",
+    # v3: the v2 window and the v2 ownership rule, with the fixed per-run
+    # plausibility ceiling replaced by a rate one — a fixed constant refuses long
+    # runs for being long. Again a distinct type rather than a flag: v2 and v3 can
+    # disagree about whether a window is attributable at all, and both verdicts
+    # are worth keeping next to each other.
+    "provider_usage_backfill_v3",
 )
 
 # Event types whose ``usage`` block contributes to a leg's token totals.
 _USAGE_EVENT_TYPES = ("model_call_completed", "provider_usage_backfill",
-                      "provider_usage_backfill_v2")
+                      "provider_usage_backfill_v2", "provider_usage_backfill_v3")
 
 _SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema-v2.json")
 

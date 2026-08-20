@@ -1033,6 +1033,32 @@ class TestUsageProvenance(unittest.TestCase):
             self.assertEqual(0, usage["runs_with_backfill_and_refusal"])
             self.assertEqual(1, usage["runs_refused_under_an_earlier_rule"])
 
+    def test_a_v3_number_beside_the_v1_and_v2_refusals_it_supersedes(self):
+        # The batch-1 recovery shape: v1 refused for the run's own tail, v2 for the
+        # fixed per-run ceiling, v3 attributed it by rate. All three records stand
+        # and the table has to be able to say so — three refusals on file is not
+        # three defects.
+        with tempfile.TemporaryDirectory() as tmp:
+            prov = self._cell(tmp, events=("provider_usage_backfill_v3",),
+                              markers=("PROVIDER-BACKFILL-REFUSED.json",
+                                       "PROVIDER-BACKFILL-REFUSED-v2.json"))
+            usage = prov["usage_provenance"]
+            self.assertEqual({"provider_usage_backfill_v3": 1},
+                             usage["runs_with_backfill_by_event"])
+            self.assertEqual({"provider_usage_backfill": 1,
+                              "provider_usage_backfill_v2": 1},
+                             usage["runs_with_refusal_by_rule"])
+            self.assertEqual(0, usage["runs_with_backfill_and_refusal"])
+            self.assertEqual(1, usage["runs_refused_under_an_earlier_rule"])
+
+    def test_a_v3_number_beside_a_v3_marker_is_still_a_contradiction(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            prov = self._cell(tmp, events=("provider_usage_backfill_v3",),
+                              markers=("PROVIDER-BACKFILL-REFUSED-v3.json",))
+            usage = prov["usage_provenance"]
+            self.assertEqual(1, usage["runs_with_backfill_and_refusal"])
+            self.assertEqual(0, usage["runs_refused_under_an_earlier_rule"])
+
 
 class TestRunBudgetConfound(unittest.TestCase):
     """A run the harness killed is an instrument observation, not a capability one."""

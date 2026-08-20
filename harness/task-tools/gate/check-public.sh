@@ -43,6 +43,19 @@ mapfile -t TARGET_PATHS < <(task_list target_paths)
 mapfile -t PROTECTED_TEST_PATHS < <(task_list protected_test_paths)
 [ "${#PROTECTED_TEST_PATHS[@]}" -gt 0 ] || PROTECTED_TEST_PATHS=(src/tests)
 
+# A review task's participant artifact is a REPORT FILE at the subject root, and
+# the artifact it reviews is DELIVERED into the same tree at run time. Neither is
+# an "unexpected change": P6 judges the changed-path set against target_paths, so
+# without this the public gate would fail every review run for producing exactly
+# the file it was asked to produce, and _gate_verdict rejects on a failed public
+# gate no matter what the sealed matcher says. Screening batch 1 never hit this —
+# its W6 agents produced nothing at all — so it would have surfaced first as a
+# clean sweep of rejections in the makeup pass.
+if [ "$GATE_TYPE" = "pr_review" ]; then
+  TARGET_PATHS+=("$(task_field_opt review_report review-report.txt)")
+  TARGET_PATHS+=("$(basename "$(task_field_opt review_diff review-diff.patch)")")
+fi
+
 # Installed dependency trees are vendor bytes, not participant edits, so they are
 # excluded from every diff-scope view. Most subject repos gitignore them (zarr and
 # sqlfluff both ignore .venv), but that is the repo's choice, not ours — take the

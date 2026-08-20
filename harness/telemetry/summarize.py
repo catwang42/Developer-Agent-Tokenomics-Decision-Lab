@@ -113,11 +113,13 @@ ADJUDICATION_FILE = "adjudication.json"
 #: timestamp, not a moment of the run. They must never widen the wall-clock window —
 #: on screening-batch1 that would have reported 40 runs as hours long instead of
 #: minutes. Same reasoning as the collector's own ``_POST_HOC_EVENT_TYPES``.
-_POST_HOC_EVENT_TYPES = ("provider_usage_backfill", "provider_usage_backfill_v2")
+_POST_HOC_EVENT_TYPES = ("provider_usage_backfill", "provider_usage_backfill_v2",
+                         "provider_usage_backfill_v3")
 
 #: Refusal markers the collector leaves when it will not attribute a window.
 _REFUSAL_MARKERS = {"provider_usage_backfill": "PROVIDER-BACKFILL-REFUSED.json",
-                    "provider_usage_backfill_v2": "PROVIDER-BACKFILL-REFUSED-v2.json"}
+                    "provider_usage_backfill_v2": "PROVIDER-BACKFILL-REFUSED-v2.json",
+                    "provider_usage_backfill_v3": "PROVIDER-BACKFILL-REFUSED-v3.json"}
 
 #: weakest-wins ordering for inherited confidence tiers
 _TIER_RANK = {AUTHORITATIVE: 0, DERIVED: 1, PROXY: 2, UNAVAILABLE: 3}
@@ -1173,9 +1175,11 @@ def cell_usage_provenance(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
                  "never inferred from a sibling run. A run carrying a backfill AND a "
                  "refusal under that same rule has a stale marker — the attributed "
                  "number stands and the marker is a known collector defect, now fixed."),
-        "earlier_rule_note": ("These runs were refused under `v1` and attributed under "
-                              "`v2`. Both records stand: the rules draw different "
-                              "windows, and the v1 refusal is still true of v1."),
+        "earlier_rule_note": ("These runs were refused under one attribution rule and "
+                              "attributed under another. Both records stand: the rules "
+                              "differ in the window they draw or the plausibility "
+                              "ceiling they apply, and the earlier refusal is still "
+                              "true of the rule that made it."),
     }
 
 
@@ -1450,7 +1454,8 @@ def _render_dataset_provenance(table: Dict[str, Any]) -> List[str]:
                  f"{usage.get('note')}")
     if usage.get("runs_refused_under_an_earlier_rule"):
         L.append(f"    - {usage['runs_refused_under_an_earlier_rule']} run(s) carry a "
-                 f"`v1` refusal and a `v2` attribution. {usage.get('earlier_rule_note')}")
+                 f"refusal under one rule and an attribution under another. "
+                 f"{usage.get('earlier_rule_note')}")
     if prov.get("runs_timed_out"):
         L.append(f"- **Run budget:** {prov['runs_timed_out']} run(s) were ended by the "
                  f"harness before the agent finished. Their gate results say nothing "

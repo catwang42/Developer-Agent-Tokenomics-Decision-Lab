@@ -210,17 +210,7 @@
     {
       "cost_basis": "marginal_api_cost",
       "cost_basis_qualifier": "cache_blind_upper_bound",
-      "fully_allocated_usd": {
-        "confidence": "unavailable",
-        "reason": "token cost unavailable; fully-allocated not zero-filled",
-        "value": null
-      },
       "leg_id": "main",
-      "marginal_operating_usd": {
-        "confidence": "unavailable",
-        "reason": "cannot derive cost; unavailable/missing billed classes: input_tokens, cache_creation_tokens, cache_read_tokens, output_tokens",
-        "value": null
-      },
       "model_or_selector": {
         "confidence": "proxy_observed",
         "value": "Gemini 3.6 Flash (High)"
@@ -242,14 +232,12 @@
           "value": null
         },
         "input_tokens": {
-          "confidence": "unavailable",
-          "reason": "no event reported this token class",
-          "value": null
+          "confidence": "derived",
+          "value": 4680517
         },
         "output_tokens": {
-          "confidence": "unavailable",
-          "reason": "no event reported this token class",
-          "value": null
+          "confidence": "derived",
+          "value": 43415
         },
         "reasoning_tokens": {
           "confidence": "unavailable",
@@ -290,14 +278,12 @@
       "value": null
     },
     "input_tokens": {
-      "confidence": "unavailable",
-      "reason": "no event reported this token class",
-      "value": null
+      "confidence": "derived",
+      "value": 4680517
     },
     "output_tokens": {
-      "confidence": "unavailable",
-      "reason": "no event reported this token class",
-      "value": null
+      "confidence": "derived",
+      "value": 43415
     },
     "reasoning_tokens": {
       "confidence": "unavailable",

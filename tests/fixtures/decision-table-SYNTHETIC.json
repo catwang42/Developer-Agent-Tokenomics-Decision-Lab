@@ -427,7 +427,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -701,7 +701,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -975,7 +975,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -1249,7 +1249,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -1595,7 +1595,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -1865,7 +1865,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -2206,7 +2206,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -2480,7 +2480,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -2754,7 +2754,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -3028,7 +3028,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -3302,7 +3302,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -3648,7 +3648,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -3922,7 +3922,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -4263,7 +4263,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -4537,7 +4537,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -4811,7 +4811,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -5086,7 +5086,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -5360,7 +5360,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -5706,7 +5706,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -5980,7 +5980,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -6256,7 +6256,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -6530,7 +6530,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -6804,7 +6804,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -7078,7 +7078,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -7424,7 +7424,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -7694,7 +7694,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -8035,7 +8035,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -8305,7 +8305,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -8579,7 +8579,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -8853,7 +8853,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -9127,7 +9127,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -9473,7 +9473,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -9743,7 +9743,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -10013,7 +10013,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -10287,7 +10287,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -10561,7 +10561,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -10907,7 +10907,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -11177,7 +11177,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -11447,7 +11447,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -11721,7 +11721,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -11995,7 +11995,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -12269,7 +12269,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -12539,7 +12539,7 @@
         }
       },
       "usage_provenance": {
-        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
         "n_runs": 3,
         "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
         "runs_refused_under_an_earlier_rule": 0,
@@ -12572,7 +12572,7 @@
     "note": "An amended verdict is the same sealed set re-run against the same archived agent output after an instrument defect was fixed \u2014 it is not a re-run of the agent and cost no model spend. A voided cell is unscoreable, which is neither an accept nor a reject.",
     "runs_timed_out": 0,
     "usage": {
-      "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+      "earlier_rule_note": "These runs were refused under one attribution rule and attributed under another. Both records stand: the rules differ in the window they draw or the plausibility ceiling they apply, and the earlier refusal is still true of the rule that made it.",
       "n_runs": 129,
       "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
       "runs_refused_under_an_earlier_rule": 0,

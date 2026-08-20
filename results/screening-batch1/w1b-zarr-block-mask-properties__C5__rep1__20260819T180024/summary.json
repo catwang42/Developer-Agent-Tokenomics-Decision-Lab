@@ -125,9 +125,8 @@
     }
   },
   "frontier_token_share": {
-    "confidence": "unavailable",
-    "reason": "token counts unavailable on one or more legs",
-    "value": null
+    "confidence": "derived",
+    "value": 0.267983
   },
   "hidden_test_hash": "sha256:f380d1424f796166353bf959939eb552492140edaf92d87c76e896d4eaa12fb6",
   "human_effort": {
@@ -204,28 +203,7 @@
   "legs": [
     {
       "cost_basis": "marginal_api_cost",
-      "fully_allocated_usd": {
-        "confidence": "derived",
-        "value": 4.2945
-      },
       "leg_id": "conductor",
-      "marginal_operating_usd": {
-        "basis": "marginal_api_cost",
-        "components": {
-          "cache_creation_tokens": 1.25822,
-          "cache_read_tokens": 2.144085,
-          "input_tokens": 0.00057,
-          "output_tokens": 0.891625
-        },
-        "confidence": "derived",
-        "rate_keys": {
-          "cache_creation_tokens": "cache_write_1h",
-          "cache_read_tokens": "cache_read",
-          "input_tokens": "input",
-          "output_tokens": "output"
-        },
-        "value": 4.2945
-      },
       "model_or_selector": {
         "confidence": "authoritative",
         "value": "claude-opus-5@default"
@@ -267,17 +245,7 @@
     {
       "cost_basis": "marginal_api_cost",
       "cost_basis_qualifier": "cache_blind_upper_bound",
-      "fully_allocated_usd": {
-        "confidence": "unavailable",
-        "reason": "token cost unavailable; fully-allocated not zero-filled",
-        "value": null
-      },
       "leg_id": "executor",
-      "marginal_operating_usd": {
-        "confidence": "unavailable",
-        "reason": "cannot derive cost; unavailable/missing billed classes: input_tokens, cache_creation_tokens, cache_read_tokens, output_tokens",
-        "value": null
-      },
       "model_or_selector": {
         "confidence": "proxy_observed",
         "value": "Gemini 3.7 Flash (High)"
@@ -299,14 +267,12 @@
           "value": null
         },
         "input_tokens": {
-          "confidence": "unavailable",
-          "reason": "no event reported this token class",
-          "value": null
+          "confidence": "derived",
+          "value": 12128207
         },
         "output_tokens": {
-          "confidence": "unavailable",
-          "reason": "no event reported this token class",
-          "value": null
+          "confidence": "derived",
+          "value": 26676
         },
         "reasoning_tokens": {
           "confidence": "unavailable",
@@ -345,12 +311,12 @@
       "value": null
     },
     "input_tokens": {
-      "confidence": "authoritative",
-      "value": 114
+      "confidence": "derived",
+      "value": 12128321
     },
     "output_tokens": {
-      "confidence": "authoritative",
-      "value": 35665
+      "confidence": "derived",
+      "value": 62341
     },
     "reasoning_tokens": {
       "confidence": "unavailable",

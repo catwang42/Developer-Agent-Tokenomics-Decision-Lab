@@ -1,0 +1,87 @@
+{
+  "attribution_rule": {
+    "attribution_window": {
+      "end": "2026-08-19T08:40:59.000000Z",
+      "start": "2026-08-19T07:52:41.787084Z"
+    },
+    "bounded_by": "ingestion_tail",
+    "guard_seconds": 60,
+    "id": "serialized_run_ownership_with_rate_ceiling",
+    "last_point_attributed": "2026-08-19T08:39:59.000000Z",
+    "next_run_window_opens": "2026-08-19T13:53:49.574749Z",
+    "prev_run_owns_until": "2026-08-19T07:52:41.787083Z",
+    "rule": "v3",
+    "run_window": {
+      "end": "2026-08-19T08:39:01.138569Z",
+      "start": "2026-08-19T07:53:41.787084Z"
+    },
+    "statement": "a serialized subject run owns the provider meter from its own start until the next subject run's window opens; its own ingestion tail is its own",
+    "tail_cap_seconds": 900,
+    "tail_ended_by": "silence",
+    "tail_granted_seconds": 57.861431,
+    "tail_seconds": 900,
+    "tail_silence_seconds": 300
+  },
+  "collected_at": "2026-08-20T10:00:08.721441Z",
+  "collector": "vertex_token_collector",
+  "guard": {
+    "contaminated": true,
+    "evidence": {
+      "baseline": {
+        "baseline_seconds": 300,
+        "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+        "windows": {
+          "post": {
+            "by_model": {
+              "gemini-3.7-flash": {
+                "input": 35,
+                "output": 29
+              }
+            },
+            "end": "2026-08-19T13:53:49.574748Z",
+            "points": 3,
+            "start": "2026-08-19T08:40:59.000001Z"
+          },
+          "pre": {
+            "status": "not_applicable",
+            "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+          }
+        }
+      },
+      "rate_ceiling": {
+        "input_side_tokens_per_second_ceiling": 25000,
+        "observed_input_side_tokens": {
+          "gemini-3.7-flash": 3213461
+        },
+        "observed_input_side_tokens_per_second": {
+          "gemini-3.7-flash": 1109.156
+        },
+        "window_seconds": 2897.213
+      }
+    },
+    "reasons": [
+      "the preceding subject run (w3-sqlfluff-segment-method-migration__C5__rep2__20260819T070822) cannot be separated from this one: the next subject run starts 5s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it",
+      "post-run baseline window 2026-08-19T08:40:59.000001Z..2026-08-19T13:53:49.574748Z is NOT quiet: 3 point(s), {'gemini-3.7-flash': {'input': 35, 'output': 29}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+    ]
+  },
+  "metric_type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "note": "The provider meter for this window could not be attributed to this run, so NOTHING was written to events.jsonl or summary.json and the run's Product-B usage remains 'unavailable' (not zero). The totals below are what the window contained; they are NOT this run's usage.",
+  "refusal": "contaminated_window",
+  "run_id": "w3-sqlfluff-segment-method-migration__C5__rep3__20260819T075340",
+  "window_totals_refused": {
+    "by_model": {
+      "gemini-3.7-flash": {
+        "input": 3213461,
+        "output": 86473
+      }
+    },
+    "points_in_window": 13,
+    "points_outside_window": 0,
+    "unmapped_types": {},
+    "window": {
+      "end": "2026-08-19T08:40:59.000000Z",
+      "guard_seconds": 60,
+      "start": "2026-08-19T07:52:41.787084Z"
+    }
+  }
+}

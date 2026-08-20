@@ -147,11 +147,11 @@ observed window. The `model_user_id` filter excludes anything on a *different*
 model; nothing but the time window separates a subject run from a background job
 on the *same* model.
 
-## Attribution rules: v1 (silence) and v2 (ownership)
+## Attribution rules: v1 (silence), v2 (ownership), v3 (rate ceiling)
 
-`--attribution-rule` selects how a run's window is drawn and what the quiet probe
-looks at. Both rules keep the same confidence tiers (counts authoritative,
-per-run attribution derived) and the same 3M input-side plausibility ceiling.
+`--attribution-rule` selects how a run's window is drawn, what the quiet probe
+looks at, and which plausibility ceiling judges the total. All three rules keep
+the same confidence tiers: counts authoritative, per-run attribution derived.
 
 **v1 — `time_window_serialized_runs`** (the default, unchanged). A run's window is
 `[start - guard, end + guard]`, and the `baseline_seconds` either side of it must
@@ -194,6 +194,43 @@ rules can disagree about which run a point belongs to, so an analysis must be ab
 to say which rule it is reading; and the distinct type keeps a v2 pass append-only
 with respect to an earlier v1 one.
 
+**v3 — `serialized_run_ownership_with_rate_ceiling`.** The v2 window, the v2
+ownership boundaries and the v2 third-party probe, all unchanged. The single
+difference is the plausibility test.
+
+v1 and v2 apply `--ceiling-input-tokens`: a **fixed per-run constant** (3M
+input-side tokens). That constant conflates two different things. A window can be
+over it because a stranger was on the meter, or because the run was simply long —
+and a long executor run legitimately produces more input-side tokens than any
+per-run constant allows. In screening batch 1, 31 of the 35 windows v2 still
+refused were this second case: long Gemini-executor runs (10–48 minutes) whose
+totals scaled with duration, from 3.2M over 603s to 16.4M over 2836s. The constant
+was refusing duration, not contamination.
+
+v3 applies `--ceiling-input-tokens-per-second` instead — input-side tokens divided
+by the length of the attributed window, default **25,000/s**. It *replaces* the
+fixed ceiling rather than adding to it; applying both would keep exactly the
+refusals v3 exists to stop making. Measured against batch 1: clean attributed
+windows ran at 347–2,199 input-side tokens/s, and the 31 ceiling-refused windows
+at 5,306–12,258/s — none of them near 25,000/s.
+
+**KNOWN LIMIT.** 25,000/s is not a bound anyone published; it is a headroom
+figure over the rates this project has actually observed, and it does not
+dominate the fixed ceiling in every direction. The contaminated smoke-test window
+that motivated the original guard ran at 16,693 input-side tokens/s (10,993,105
+tokens over 658s) — **under** 25,000/s, so the rate ceiling alone would not have
+refused it. What refuses it under v3 is the third-party baseline probe, which v3
+leaves untouched: that window's probe saw 1,274,568 input tokens in the five
+minutes after and 176,672 in the five minutes before. The probe, not the ceiling,
+is v3's defence against a stranger working at a believable rate; a regression test
+pins that (`test_the_third_party_probe_is_the_v2_one_unchanged`). Revisit the
+number if a subject arm is ever observed above ~10,000/s.
+
+v3 writes `provider_usage_backfill_v3` events and leaves `PROVIDER-BACKFILL-
+REFUSED-v3.json` markers, for the same append-only reason: a v2 refusal and a v3
+attribution of the same window are both true of their own rule, and the summarizer
+reports that pair as a rule supersession rather than as a stale marker.
+
 ## How backfill works (and why it appends events)
 
 `telemetry.validate` is audit-grade: it re-derives the summary from `events.jsonl`
@@ -213,8 +250,9 @@ append-only.
 
 Guards:
 
-- **Idempotence** — a run that already has a `provider_usage_backfill` **or**
-  `provider_usage_backfill_v2` event is skipped, never double-counted. Re-running
+- **Idempotence** — a run that already has a `provider_usage_backfill`,
+  `provider_usage_backfill_v2` **or** `provider_usage_backfill_v3` event is
+  skipped, never double-counted. Re-running
   under a different attribution rule does not re-fill a leg; to change a leg's
   attribution, delete its backfill event first.
 - **Ambiguity** — if two legs of a run declare the same `model_user_id`, the

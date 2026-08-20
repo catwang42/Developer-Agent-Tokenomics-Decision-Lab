@@ -1,12 +1,23 @@
 #!/usr/bin/env bash
-# W3 makeup pass for screening batch 1 — 4 arms x 2 reps = 8 runs, under the
-# per-task agent budget now pinned in tasks/suite/W3-migration/task.yaml.
+# Makeup passes for screening batch 1. TWO PROFILES, one body:
+#
+#   w3 (default) — 4 arms x 2 reps = 8 runs under the 7200s W3 budget. The arm
+#                  list, reps, dataset, budget and backfill rule are byte-identical
+#                  to the single-profile version of this script that ran the live
+#                  W3 pass; --profile w3 changes nothing about it.
+#   w6           — 5 arms x 3 reps = 15 runs under the 1200s W6 budget, after the
+#                  review-delivery fix (results/screening-batch1/batch1.log G).
 #
 #   bash scripts/screening-batch1-makeup-driver.sh --dry-run --list   # the schedule
 #   bash scripts/screening-batch1-makeup-driver.sh --dry-run          # full rehearsal
 #   nohup bash scripts/screening-batch1-makeup-driver.sh > makeup.log 2>&1 &
+#   nohup bash scripts/screening-batch1-makeup-driver.sh --profile w6 > w6.log 2>&1 &
 #
-# WHY THIS BATCH EXISTS. Batch 1 ran every task under a flat 1800s agent timeout.
+# Two profiles NEVER run at once. Both attribute Product-B tokens by run window on
+# a shared provider meter, so overlapping batches would make every C3 figure in
+# both of them unattributable.
+#
+# WHY PROFILE w3 EXISTS. Batch 1 ran every task under a flat 1800s agent timeout.
 # W3 is the largest task in the suite and the designated escalation probe, and the
 # bound censored it: 12 of 21 attempts were killed before the agent finished. A
 # right-censored attempt is indistinguishable from a capability failure, so the
@@ -15,22 +26,37 @@
 # This pass re-buys the four arms that registration needs, under the 7200s budget,
 # into a SEPARATE dataset.
 #
-# WHAT IT IS NOT. It does not patch batch 1. Batch-1 W3 cells stay exactly as they
-# are, confounded and labelled so; results/screening-batch1-makeup/ is its own
-# dataset with its own report (CLAUDE.md rule 8, append-only per batch). Two
-# datasets that were run under different instrument settings are never merged into
-# one cell — that is why the makeup is a new directory and not a --start-at.
+#   SCOPE. Arms P0, C2, C3, P1 — the escalation probe (P1), its economical baseline
+#   (C2), and the two solo references the registration reads against. Not the full
+#   batch-1 W3 arm set: C3-med / C3-prev / C5 belong to the H-effort and delegation
+#   panels, which are confounded on this task for the same reason but are not what
+#   this pass is scoped to buy. Their batch-1 cells stay reported as confounded.
 #
-# SCOPE. Arms P0, C2, C3, P1 — the escalation probe (P1), its economical baseline
-# (C2), and the two solo references the registration reads against. Not the full
-# batch-1 W3 arm set: C3-med / C3-prev / C5 belong to the H-effort and delegation
-# panels, which are confounded on this task for the same reason but are not what
-# this pass is scoped to buy. Their batch-1 cells stay reported as confounded.
+#   REPS. 2, not batch 1's 3. The registration is graded on two binary observations
+#   (did the economical arm clear the gate; did the escalation branch fire), not on
+#   a dispersion estimate. 2 reps per arm is enough to see a split; it is NOT enough
+#   for a variance claim and no figure from this dataset may carry one.
 #
-# REPS. 2, not batch 1's 3. The registration is graded on two binary observations
-# (did the economical arm clear the gate; did the escalation branch fire), not on a
-# dispersion estimate. 2 reps per arm is enough to see a split; it is NOT enough
-# for a variance claim and no figure from this dataset may carry one.
+# WHY PROFILE w6 EXISTS. Batch 1's W6 cells are not confounded, they are VOID: the
+# artifact under review was never delivered to the agent, so all 15 attempts
+# reviewed an empty room and produced a 0-byte diff. That is an instrument defect,
+# not a result, and it is adjudicated as void in batch 1 rather than scored. The
+# harness now delivers the sealed diff and names the report file the gate reads
+# (results/screening-batch1/batch1.log G). This pass buys W6's full registered
+# roster — 5 arms x 3 reps — under the fixed instrument.
+#
+#   THE FIX CHANGES THE INSTRUMENT, so this is a new dataset and never a repair of
+#   batch 1's W6 cells: they stay void. A void cell and a fixed-instrument cell are
+#   not two observations of the same thing.
+#
+#   REPS. 3 — the registered `reps_screening` for this task, unchanged from batch 1.
+#   Three reps still support no dispersion claim.
+#
+# WHAT NEITHER PROFILE IS. Neither patches batch 1. Batch-1 cells stay exactly as
+# they are, labelled confounded or void; each makeup dataset is its own directory
+# with its own report (CLAUDE.md rule 8, append-only per batch). Two datasets run
+# under different instrument settings are never merged into one cell — that is why
+# a makeup is a new directory and not a --start-at.
 #
 # Runs are strictly SERIAL, for the same reason batch 1 was: Product-B effort
 # levels are not label-separable in the provider's metering surface, so C3
@@ -38,9 +64,10 @@
 #
 # Spend: live mode bills a real account and requires an approved CP-SPEND plus
 # LAB_ALLOW_SPEND=1. The in-runner --spend-cap-usd kill-switch is set to 150 here
-# deliberately: batch 1's W3 arms cost well under that, so the cap must NOT be the
-# thing that ends this batch. A cap that binds mid-pass would leave the makeup
-# half-bought and ungradable, which is worse than not starting it.
+# deliberately: batch 1's corresponding arms cost well under that on either task,
+# so the cap must NOT be the thing that ends a pass. A cap that binds mid-pass
+# would leave the makeup half-bought and ungradable, which is worse than not
+# starting it.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -50,15 +77,8 @@ cd "$REPO_ROOT" || exit 2
 PY="$REPO_ROOT/.venv/bin/python"; [ -x "$PY" ] || PY="python3"
 
 MANIFEST="manifest/delivery-manifest.yaml"
-PHASE="screening-batch1-makeup"
-LABEL="makeup-batch"
 OUT_ROOT="results"
-BATCH_DIR="$OUT_ROOT/$PHASE"
-TASK="tasks/suite/W3-migration"
-ARMS="P0 C2 C3 P1"
-REPS=2
 SPEND_CAP_USD=150            # deliberately non-binding; see the header
-EXPECTED_TIMEOUT_S=7200      # the pin this whole pass exists to run under
 CHECKPOINT_EVERY=4
 CACHE_STATE="cold"
 ISOLATION="container"
@@ -68,17 +88,18 @@ QUIET_LOOKBACK_MIN=15
 QUIET_PROBE_MIN=10
 QUIET_RETRIES=3
 QUIET_RETRY_SLEEP=300
-GEMINI_ARMS="C3"             # the only Google-metered arm in this roster
 DRY_RUN=0
 START_AT=1
-KILL_SWITCH="$BATCH_DIR/HALT"
-DEFERRED_LOG="$BATCH_DIR/deferred-contaminated.tsv"
+PROFILE="w3"
+REPS_OVERRIDE=""
 
 usage() {
   cat <<'USAGE'
 usage: screening-batch1-makeup-driver.sh [options]
+  --profile w3|w6      which makeup pass (default w3). NEVER run two at once:
+                       both attribute Product-B tokens by run window on one meter.
   --dry-run            exercise the full plan and every preflight, bill nothing
-  --reps N             repetitions per arm (default 2)
+  --reps N             repetitions per arm (default: the profile's)
   --spend-cap-usd N    in-runner kill-switch (default 150, deliberately non-binding)
   --start-at N         resume at plan index N (1-based)
   --no-resume          re-buy cells that already exist and validate
@@ -93,8 +114,9 @@ MANIFEST_OVERRIDDEN=0
 NO_RESUME=0
 while [ $# -gt 0 ]; do
   case "$1" in
+    --profile) PROFILE="$2"; shift ;;
     --dry-run) DRY_RUN=1 ;;
-    --reps) REPS="$2"; shift ;;
+    --reps) REPS_OVERRIDE="$2"; shift ;;
     --spend-cap-usd) SPEND_CAP_USD="$2"; shift ;;
     --start-at) START_AT="$2"; shift ;;
     --no-resume) NO_RESUME=1 ;;
@@ -105,6 +127,80 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+
+# --------------------------------------------------------------------------- #
+# Profiles. Everything below this block is shared; everything task-specific is
+# here, so the two passes cannot drift apart in the parts that must not differ
+# (isolation, egress, quiet-window contract, resume rule, refusal semantics).
+#
+# PROBE_MODELS is the roster's OWN metered models and nothing else. A model no arm
+# in this pass calls cannot contaminate it, and blocking on somebody else's traffic
+# on it would refuse a clean batch.
+#
+# The backfill rule differs on purpose. w3 stays on v2 with the fixed per-run
+# ceiling because that is what its live pass ran under and a driver must not
+# silently re-describe a dataset already on disk; its legs are re-attributed under
+# v3 append-only by the separate backfill pass (report/screening-batch1/
+# backfill-v3.json). w6 is bought fresh and so runs v3 from the start: its long
+# Gemini legs are exactly the case the fixed 3M ceiling refuses for duration
+# rather than contamination.
+# --------------------------------------------------------------------------- #
+case "$PROFILE" in
+  w3)
+    PHASE="screening-batch1-makeup"
+    LABEL="makeup-batch"
+    TASK="tasks/suite/W3-migration"
+    TASK_LABEL="W3-migration"
+    SEALED_KEY="w3_task"
+    ARMS="P0 C2 C3 P1"
+    DEFAULT_REPS=2
+    EXPECTED_TOTAL=8         # 4 arms x 2 reps, at the profile's default reps
+    EXPECTED_TIMEOUT_S=7200  # the pin this pass exists to run under
+    GEMINI_ARMS="C3"         # the only Google-metered arm in this roster
+    PROBE_MODELS="gemini-3.7-flash"
+    GEMINI_MAP_JSON='{"C3": {"main": "gemini-3.7-flash"}}'
+    ATTRIBUTION_RULE="v2"
+    TAIL_SECONDS=300
+    TAIL_SILENCE_SECONDS=300
+    CEILING_ARGS="--ceiling-input-tokens 3000000"
+    SUPPLEMENTS="results/screening-batch1 (W3 cells, confounded by the flat 1800s agent timeout)"
+    WHY="Batch 1 ran W3 under a flat 1800s agent budget and 12 of 21 attempts were killed before the agent finished, so the W3-escalation registration is not gradable against that dataset. This pass re-buys the four arms the registration reads, under the per-task budget pinned in tasks/suite/W3-migration/task.yaml."
+    NOT_A_REPLACEMENT="Batch-1 W3 cells are not superseded or edited. They remain in results/screening-batch1 labelled confounded_by_run_budget. Cells run under different instrument settings are never merged."
+    REPS_CAVEAT="2 reps per arm supports the registration's two binary observations. It does not support a dispersion or variance claim and no figure from this dataset may carry one."
+    NEXT_GRADE="Grade the W3-escalation registration against THIS dataset. Batch 1 stays confounded_by_run_budget; it is not re-graded and not merged in."
+    ;;
+  w6)
+    PHASE="screening-batch1-makeup-w6"
+    LABEL="makeup-batch-w6"
+    TASK="tasks/suite/W6-pr-review"
+    TASK_LABEL="W6-pr-review"
+    SEALED_KEY="w6_task"
+    ARMS="P0 C2 C3 C3-med C3-prev"
+    DEFAULT_REPS=3
+    EXPECTED_TOTAL=15        # 5 arms x 3 reps, the registered W6 roster
+    EXPECTED_TIMEOUT_S=1200
+    GEMINI_ARMS="C3 C3-med C3-prev"
+    PROBE_MODELS="gemini-3.7-flash gemini-3.6-flash"
+    GEMINI_MAP_JSON='{"C3": {"main": "gemini-3.7-flash"}, "C3-med": {"main": "gemini-3.7-flash"}, "C3-prev": {"main": "gemini-3.6-flash"}}'
+    ATTRIBUTION_RULE="v3"
+    TAIL_SECONDS=900
+    TAIL_SILENCE_SECONDS=300
+    CEILING_ARGS="--ceiling-input-tokens-per-second 25000"
+    SUPPLEMENTS="results/screening-batch1 (W6 cells, VOID — the artifact under review was never delivered to the agent)"
+    WHY="Batch 1's 15 W6 cells are void: nothing in the harness read task.yaml's review_diff, so every agent got a bare checkout with no diff to review and no named file to write findings to, and all 15 produced a 0-byte agent-solution.diff. The delivery defect and the two found with it are fixed in the harness (results/screening-batch1/batch1.log G). This pass buys the registered W6 roster under the fixed instrument."
+    NOT_A_REPLACEMENT="Batch-1 W6 cells are not superseded or repaired. They remain in results/screening-batch1 adjudicated void. The fix changes the instrument, so a void cell and a cell from this dataset are not two observations of the same thing and are never merged."
+    REPS_CAVEAT="3 reps per arm is the registered reps_screening for this task. It does not support a dispersion or variance claim and no figure from this dataset may carry one."
+    NEXT_GRADE="Report W6 from THIS dataset only. Batch 1's W6 cells stay void; they are not re-graded, not back-filled and not merged in."
+    ;;
+  *)
+    echo "makeup-driver: unknown --profile '$PROFILE' (expected w3 or w6)" >&2
+    usage >&2; exit 2 ;;
+esac
+
+REPS="${REPS_OVERRIDE:-$DEFAULT_REPS}"
+BATCH_DIR="$OUT_ROOT/$PHASE"
+KILL_SWITCH="$BATCH_DIR/HALT"
+DEFERRED_LOG="$BATCH_DIR/deferred-contaminated.tsv"
 
 log()  { printf '%s  %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 fail() { printf '%s  REFUSING: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >&2; exit 2; }
@@ -124,14 +220,15 @@ fi
 # model. UNKNOWN is never treated as quiet.
 # --------------------------------------------------------------------------- #
 quiet_probe() {  # quiet_probe <lookback-minutes>
-  "$PY" - "$PROJECT" "$1" <<'PYEOF' 2>/dev/null || echo "UNKNOWN collector query failed"
+  "$PY" - "$PROJECT" "$1" "$PROBE_MODELS" <<'PYEOF' 2>/dev/null || echo "UNKNOWN collector query failed"
 import datetime, sys
 from harness.collectors.vertex_token_collector import GcloudMonitoringClient, build_filter
 project, minutes = sys.argv[1], int(sys.argv[2])
-# Only the model this roster actually meters. Batch 1 probed 3.6 as well because
-# its C3-prev arm used it; this pass has no 3.6 arm, so 3.6 traffic is somebody
-# else's business and must not block a batch it cannot contaminate.
-models = ["gemini-3.7-flash"]
+# Only the models THIS roster actually meters (the profile's PROBE_MODELS). The w3
+# pass has no 3.6 arm, so 3.6 traffic is somebody else's business and must not
+# block a batch it cannot contaminate; the w6 pass has a C3-prev arm and does
+# probe it.
+models = sys.argv[3].split()
 now = datetime.datetime.now(datetime.timezone.utc)
 start = now - datetime.timedelta(minutes=minutes)
 flt = build_filter(models, ["google"])
@@ -250,7 +347,7 @@ PYEOF
 if [ "$LIST_ONLY" -eq 1 ]; then
   read -r T_TASK T_MANIFEST <<< "$(read_timeout)"
   build_resume_index
-  echo "makeup batch: $LABEL"
+  echo "makeup batch: $LABEL   (profile $PROFILE)"
   echo "  task     : $TASK ($TASK_ID)"
   echo "  arms     : $ARMS   reps: $REPS   runs: $TOTAL"
   echo "  dataset  : results/$PHASE/   (batch 1 is NOT modified)"
@@ -274,8 +371,8 @@ if [ "$LIST_ONLY" -eq 1 ]; then
   echo "worst-case wall clock: $LEGS agent leg(s) x ${T_TASK}s budget"
   echo "  = ${LEGS} legs across $TOTAL runs ($(( LEGS * T_TASK / 3600 ))h of agent time if every"
   echo "    leg runs to the bound), plus gates, per-run quiet probes on the $GEMINI_ARMS arm(s),"
-  echo "    and a 300s ingestion wait before backfill. Batch 1 spent 900-3600s per W3 leg,"
-  echo "    so the realistic figure is far below the bound — but the bound is what to plan for."
+  echo "    and a 300s ingestion wait before backfill. Batch 1's legs on this task ran well"
+  echo "    under the bound, so the realistic figure is lower — but the bound is what to plan for."
   echo "  The batch is resumable between runs: re-invoke to continue, or --start-at N."
   exit 0
 fi
@@ -292,8 +389,8 @@ fi
 [ "$MANIFEST_OVERRIDDEN" -eq 1 ] && log "warn manifest OVERRIDDEN for this dry run: $MANIFEST"
 
 # 1. Plan size.
-if [ "$REPS" -eq 2 ] && [ "$TOTAL" -ne 8 ]; then
-  fail "plan is $TOTAL runs, the makeup scope is 8 (4 arms x 2 reps) — the arm list has drifted"
+if [ "$REPS" -eq "$DEFAULT_REPS" ] && [ "$TOTAL" -ne "$EXPECTED_TOTAL" ]; then
+  fail "plan is $TOTAL runs, the $PROFILE makeup scope is $EXPECTED_TOTAL — the arm list has drifted"
 fi
 log "ok   plan: $TOTAL runs ($ARMS x $REPS reps)"
 
@@ -312,20 +409,39 @@ fi
 log "ok   spend authorization ($([ "$DRY_RUN" -eq 1 ] && echo 'dry-run, nothing bills' || echo 'LAB_ALLOW_SPEND=1'))"
 
 # 4. Sealed artifact for this task, frozen.
-PENDING="$("$PY" - "$MANIFEST" <<'PYEOF'
+PENDING="$("$PY" - "$MANIFEST" "$SEALED_KEY" "$TASK_LABEL" <<'PYEOF'
 import sys, yaml
 m = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
-entry = m.get("w3_task") or {}
+key, label = sys.argv[2], sys.argv[3]
+entry = m.get(key) or {}
 sealed = entry.get("sealed_hidden_test") or entry.get("sealed_defect_map")
 if sealed is None:
-    print("W3-migration: no sealed artifact declared in manifest key 'w3_task'")
+    print(f"{label}: no sealed artifact declared in manifest key {key!r}")
 elif sealed.get("status") == "awaiting_human" or not sealed.get("sha256"):
-    print("W3-migration: PENDING-FREEZE (no frozen version+sha256)")
+    print(f"{label}: PENDING-FREEZE (no frozen version+sha256)")
 PYEOF
 )" || fail "could not read sealed-artifact status from $MANIFEST"
 [ -z "$PENDING" ] || { printf '%s\n' "$PENDING" | sed 's/^/       /' >&2
-  fail "the W3 sealed hidden test is not frozen — the makeup would produce ungradable diffs"; }
-log "ok   W3 sealed hidden test frozen (version + sha256 in the manifest)"
+  fail "the $TASK_LABEL sealed artifact is not frozen — the makeup would produce ungradable runs"; }
+log "ok   $TASK_LABEL sealed artifact frozen (version + sha256 in the manifest)"
+
+# 4b. Review tasks only: the artifact the agent reviews is DELIVERED at run time
+#     from the sealed set, so it must be on this host before anything is bought.
+#     Asking the runner's own resolver keeps this from drifting from the delivery
+#     code. It stats the file; it never reads a byte of the sealed set.
+if [ "$SEALED_KEY" = "w6_task" ]; then
+  REVIEW_SRC="$("$PY" - "$TASK" "$MANIFEST" <<'PYEOF'
+import sys, yaml
+from harness.runner import run as R
+manifest = yaml.safe_load(open(sys.argv[2], encoding="utf-8")) or {}
+task = R.load_task(sys.argv[1], manifest)
+print(R.review_artifact_source(task) if R.is_review_task(task) else "")
+PYEOF
+)" || fail "could not resolve the review artifact path for $TASK_LABEL"
+  [ -n "$REVIEW_SRC" ] || fail "$TASK_LABEL is not a pr_review task but the $PROFILE profile expects one"
+  [ -s "$REVIEW_SRC" ] || fail "the sealed review artifact is missing or empty at $REVIEW_SRC — it is human-held (hidden/README-FOR-HUMAN.md). Without it every agent reviews nothing and the pass reproduces batch 1's void exactly."
+  log "ok   sealed review artifact present ($(stat -c%s "$REVIEW_SRC") bytes, contents never read here)"
+fi
 
 # 5. Task identity + declared arms.
 MISMATCH="$("$PY" - "$MANIFEST" "$TASK" "$ARMS" <<'PYEOF'
@@ -392,16 +508,21 @@ cat > "$BATCH_DIR/MAKEUP-BATCH.json" <<EOF
   "label": "$LABEL",
   "dataset": "results/$PHASE",
   "replaces": null,
-  "supplements": "results/screening-batch1 (W3 cells, confounded by the flat 1800s agent timeout)",
+  "profile": "$PROFILE",
+  "supplements": "$SUPPLEMENTS",
   "task_id": "$TASK_ID",
   "arms": [$(printf '"%s", ' $ARMS | sed 's/, $//')],
   "reps": $REPS,
   "agent_timeout_s": $T_TASK,
-  "why": "Batch 1 ran W3 under a flat 1800s agent budget and 12 of 21 attempts were killed before the agent finished, so the W3-escalation registration is not gradable against that dataset. This pass re-buys the four arms the registration reads, under the per-task budget pinned in tasks/suite/W3-migration/task.yaml.",
-  "not_a_replacement": "Batch-1 W3 cells are not superseded or edited. They remain in results/screening-batch1 labelled confounded_by_run_budget. Cells run under different instrument settings are never merged.",
-  "reps_caveat": "2 reps per arm supports the registration's two binary observations. It does not support a dispersion or variance claim and no figure from this dataset may carry one."
+  "attribution_rule": "$ATTRIBUTION_RULE",
+  "why": "$WHY",
+  "not_a_replacement": "$NOT_A_REPLACEMENT",
+  "reps_caveat": "$REPS_CAVEAT"
 }
 EOF
+"$PY" -c 'import json,sys;json.load(open(sys.argv[1],encoding="utf-8"))' \
+  "$BATCH_DIR/MAKEUP-BATCH.json" \
+  || fail "the dataset marker is not valid JSON — a profile string needs escaping"
 log "ok   dataset marker written: $BATCH_DIR/MAKEUP-BATCH.json"
 
 # 12. Resume index.
@@ -515,30 +636,32 @@ if [ "$completed" -eq 0 ]; then
 fi
 
 # --------------------------------------------------------------------------- #
-# Backfill — C3's tokens only ever arrive from the provider meter. Attribution
-# rule v2 (serialized-run ownership): a serialized run owns the meter up to the
-# next subject run's window, so its own ingestion tail counts as its own. v1
-# demanded post-run silence and refused most of batch 1 for its own tail.
+# Backfill — Product-B tokens only ever arrive from the provider meter. Both rules
+# used here share serialized-run ownership: a serialized run owns the meter up to
+# the next subject run's window, so its own ingestion tail counts as its own. (v1
+# demanded post-run silence and refused most of batch 1 for its own tail.) v3 adds
+# the rate ceiling in place of the fixed per-run one. Which rule each profile runs,
+# and why they differ, is in the profile block.
 # --------------------------------------------------------------------------- #
-log "=== collector backfill (attribution rule v2) ==="
+log "=== collector backfill (attribution rule $ATTRIBUTION_RULE) ==="
 log "waiting 300s for Cloud Monitoring ingestion before querying"
 sleep 300
 
 PLAN_JSON="$BATCH_DIR/collector-plan.json"
-"$PY" - "$BATCH_DIR" "$PROJECT" "$PLAN_JSON" <<'PYEOF' || fail "could not build the collector plan"
+"$PY" - "$BATCH_DIR" "$PROJECT" "$PLAN_JSON" "$GEMINI_MAP_JSON" <<'PYEOF' || fail "could not build the collector plan"
 import json, os, sys
 batch_dir, project, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
 
-# Declared, never inferred from a model name (SPEC §6.3).
-GEMINI = {"C3": {"main": "gemini-3.7-flash"}}
+# Declared by the profile, never inferred from a model name (SPEC §6.3).
+GEMINI = json.loads(sys.argv[4])
 
 # The plan carries every run in this batch that can put points on those publisher
-# models — i.e. the C3 runs. P0/C2/P1 never call them, so they cannot be the third
-# party v2's probes look for, and leaving them out cannot make a window absorb
-# someone else's tokens. What it does mean is that a C3 run owns the meter across
-# any P0/C2/P1 run that follows it, until the next C3 run opens; that is exactly
-# the ownership claim, and the no-man's-land probe and the plausibility ceiling
-# still police it.
+# models — i.e. the Gemini-metered arms. The Product-A arms never call them, so
+# they cannot be the third party the ownership probes look for, and leaving them
+# out cannot make a window absorb someone else's tokens. What it does mean is that
+# a metered run owns the meter across any Product-A run that follows it, until the
+# next metered run opens; that is exactly the ownership claim, and the
+# no-man's-land probe and the plausibility ceiling still police it.
 
 runs = []
 for name in sorted(os.listdir(batch_dir)):
@@ -557,18 +680,21 @@ print(f"collector plan: {len(runs)} Gemini-bearing runs -> {out_path}", file=sys
 PYEOF
 
 REPORT_DIR="report/$PHASE"
+BACKFILL_REPORT="$REPORT_DIR/backfill-$ATTRIBUTION_RULE.json"
 mkdir -p "$REPORT_DIR"
+# shellcheck disable=SC2086  # $CEILING_ARGS is a flag+value pair; splitting is the point
 "$PY" -m harness.collectors.vertex_token_collector \
-  --plan "$PLAN_JSON" --attribution-rule v2 --guard-seconds 60 --tail-seconds 300 \
-  --ceiling-input-tokens 3000000 --baseline-seconds 300 \
-  --report "$REPORT_DIR/backfill-v2.json"
+  --plan "$PLAN_JSON" --attribution-rule "$ATTRIBUTION_RULE" --guard-seconds 60 \
+  --tail-seconds "$TAIL_SECONDS" --tail-silence-seconds "$TAIL_SILENCE_SECONDS" \
+  $CEILING_ARGS --baseline-seconds 300 \
+  --report "$BACKFILL_REPORT"
 backfill_rc=$?
 case "$backfill_rc" in
   0) ;;
   4) log "CONTAMINATION GUARD REFUSED at least one run — nothing was written for it."
      log "  Its Product-B usage stays 'unavailable' (never zero). Evidence per run:"
-     log "  $REPORT_DIR/backfill-v2.json and PROVIDER-BACKFILL-REFUSED-v2.json in the run dir." ;;
-  *) log "WARNING: backfill exited $backfill_rc — inspect $REPORT_DIR/backfill-v2.json before treating any Product-B figure as collected" ;;
+     log "  $BACKFILL_REPORT and PROVIDER-BACKFILL-REFUSED-$ATTRIBUTION_RULE.json in the run dir." ;;
+  *) log "WARNING: backfill exited $backfill_rc — inspect $BACKFILL_REPORT before treating any Product-B figure as collected" ;;
 esac
 
 log "=== final cost accounting ==="
@@ -588,8 +714,7 @@ NEXT (human):
        python -m harness.telemetry.summarize results/$PHASE
      It pairs with report/$PHASE/ (CLAUDE.md rule 8). Add the dataset row to
      results/README.md naming that report.
-  2. Grade the W3-escalation registration against THIS dataset. Batch 1 stays
-     confounded_by_run_budget; it is not re-graded and not merged in.
+  2. $NEXT_GRADE
   3. Account for the $deferred deferred-contaminated cell(s) and for any run the
      collector refused: both are HOLES, reported as missing, never averaged over.
   4. No number from this dataset enters docs, the site, or an external-facing
