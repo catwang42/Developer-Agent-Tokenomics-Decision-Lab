@@ -625,6 +625,31 @@ def real_gate(task_dir: str, run_dir: str, subject_dir: str
     return _gate_verdict(pub_rc, hid_rc, _read_gate_reports(run_dir))
 
 
+def _write_gate_log(run_dir: str, which: str, result) -> None:
+    """Persist a gate container's transcript next to its JSON report.
+
+    Batch 1 threw this away: the gate's stdout lived only in a ``ContainerResult``
+    the runner dropped on the floor, so when W6 cells came back `rejected` there was
+    no sealed-runner stderr anywhere to say WHY — the per-defect matcher lines that
+    distinguish "the review missed the defects" from "the review report was not
+    where the matcher looked" existed for a few milliseconds and were discarded.
+    Diagnosing it after the fact meant re-running the gate.
+
+    What lands here is what the gate already prints: its own check lines plus the
+    sealed runner's stderr, which check-hidden.sh surfaces by design. The sealed
+    ARTEFACTS are never read or printed by the harness, and nothing here changes
+    that — only the runner's habit of discarding its own instrument's output.
+    """
+    path = os.path.join(run_dir, f"gate-{which}.log")
+    body = getattr(result, "stdout", "") or ""
+    if getattr(result, "stderr", ""):
+        body += f"\n--- stderr ---\n{result.stderr}"
+    timed_out = " (TIMED OUT)" if getattr(result, "timed_out", False) else ""
+    body += f"\n--- exit: {result.returncode}{timed_out}\n"
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(body)
+
+
 def container_gate(launch: ContainerLaunch, task: "Task", run_dir: str
                    ) -> Tuple[bool, str, Dict[str, Any]]:
     """Run the deterministic gate OFFLINE inside the subject-gate container (--network=none).
@@ -672,11 +697,13 @@ def container_gate(launch: ContainerLaunch, task: "Task", run_dir: str
         mounts=mounts, network="none", workdir=repo_c,
         env={**base_env, "GATE_REPORT": "/out/gate-public.json"},
     )
+    _write_gate_log(run_dir, "public", pub)
     hid = ex.run(
         ["bash", f"{CONTAINER_LAB_ROOT}/harness/task-tools/gate/check-hidden.sh"],
         mounts=mounts, network="none", workdir=repo_c,
         env={**base_env, "HIDDEN_REPORT": "/out/gate-hidden.json"},
     )
+    _write_gate_log(run_dir, "hidden", hid)
     return _gate_verdict(pub.returncode, hid.returncode, _read_gate_reports(run_dir))
 
 

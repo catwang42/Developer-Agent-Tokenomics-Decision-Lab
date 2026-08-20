@@ -45,6 +45,18 @@ FIX_VERSION = (FIX / "VERSION").read_text(encoding="utf-8").strip()
 CHECK_HIDDEN = "check-hidden.sh"
 
 
+def _git_repo(path: pathlib.Path) -> pathlib.Path:
+    """A minimal committed git repo, standing in for the subject clone."""
+    path.mkdir(parents=True, exist_ok=True)
+    env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+           "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+    (path / "README.md").write_text("SYNTHETIC subject tree\n", encoding="utf-8")
+    for argv in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "base"]):
+        subprocess.run(["git", "-C", str(path), *argv],  # noqa: S603 - fixed argv
+                       check=True, capture_output=True, env=env)
+    return path
+
+
 class FakeExecutor:
     """Stands in for ``docker run``: resolves container paths, then execs on the host.
 
@@ -124,7 +136,11 @@ class ContainerGateHiddenMount(unittest.TestCase):
         image_task.parent.mkdir(parents=True)
         shutil.copytree(W1_TASK_DIR, image_task,
                         ignore=shutil.ignore_patterns("hidden", ".work"))
-        (image_task / ".work" / "repo").mkdir(parents=True)
+        # The subject tree is always a git CLONE in a real run, and both gates run
+        # git against it (discovery for test_generation, the G0/H0 readability guard
+        # for every shape). An empty directory would exercise a tree no batch ever
+        # sees; make the fixture what the gate is actually pointed at.
+        _git_repo(image_task / ".work" / "repo")
         (self.tmp / "image" / "harness").symlink_to(ROOT / "harness")
         self.assertFalse((image_task / "hidden").exists(),
                          "the gate image must not carry the sealed set")

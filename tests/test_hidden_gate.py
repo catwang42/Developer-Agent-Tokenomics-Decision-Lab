@@ -45,9 +45,19 @@ class TestGenerationHiddenGate(unittest.TestCase):
             shutil.copy(FIX / runner, entry)
             entry.chmod(0o755)
             (hidden / "VERSION").write_text(FIX_VERSION + "\n", encoding="utf-8")
-        # SUBJECT_DIR is derived by lib.sh from TASK_WORKDIR; create it so the
-        # runner's SUBJECT_DIR-exists expectation is realistic.
-        (tmp / "work" / "repo").mkdir(parents=True)
+        # SUBJECT_DIR is derived by lib.sh from TASK_WORKDIR. Create it as a git
+        # CLONE, which is what the gate is pointed at in every real run: the
+        # executable-runner branch refuses to grade a tree git cannot read (see
+        # tests/test_gate_subject_ownership.py), so a bare directory here would
+        # exercise a state no batch produces.
+        subject = tmp / "work" / "repo"
+        subject.mkdir(parents=True)
+        (subject / "README.md").write_text("SYNTHETIC subject tree\n", encoding="utf-8")
+        gitenv = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+                  "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        for argv in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "base"]):
+            subprocess.run(["git", "-C", str(subject), *argv],
+                           check=True, capture_output=True, env=gitenv)
         report = tmp / "gate-hidden.json"
         env = {
             **os.environ,

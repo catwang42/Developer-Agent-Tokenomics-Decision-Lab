@@ -36,6 +36,20 @@ GATE_TYPE="$(task_field gate_type 2>/dev/null || echo solution)"
 echo "== hidden gate ($(task_field task_id)) [$GATE_TYPE] =="
 echo "  source: $HIDDEN_DIR"
 
+# H0: git must be able to READ the subject tree, and the trust must be EXPORTED so
+# the sealed runner inherits it. See git_trust_subject in lib.sh for the mechanism
+# and the batch-1 evidence. check-public.sh has had this guard since the container
+# gate landed; this script did not, and the two gates run as separate `docker run`
+# invocations so the public gate's export could never reach here. That gap graded
+# every test_generation and pr_review cell of screening batch 1 against a tree the
+# sealed runner could not see.
+if git_trust_subject; then
+  SUBJECT_READABLE=yes
+else
+  SUBJECT_READABLE=no
+  echo "  H0-subject-readable: FAIL — git cannot read $SUBJECT_DIR: $(git_subject_error)"
+fi
+
 # Write the gate-hidden.json report — shape shared by both gate types and consumed
 # unchanged by validate.sh. Args: status hash version ("null" -> JSON null).
 write_hidden_report() {
@@ -73,6 +87,17 @@ PY
 # test_generation — executable sealed runner (mutation-catch). See header.
 # ---------------------------------------------------------------------------
 if [ "$GATE_TYPE" = "test_generation" ] || [ "$GATE_TYPE" = "pr_review" ]; then
+  # These shapes DISCOVER the agent's work with git (which files did it add?), so an
+  # unreadable tree is not a failing agent — it is an unusable instrument. Report
+  # `unavailable` (exit 2 -> acceptance.result "error"), never `fail`: a rejection
+  # we cannot justify is worse than an admitted hole, and batch 1 is what that costs.
+  if [ "$SUBJECT_READABLE" != yes ]; then
+    echo "  UNAVAILABLE — the subject tree is unreadable; nothing was graded"
+    write_hidden_report unavailable null null
+    echo "== hidden gate: UNAVAILABLE =="
+    exit 2
+  fi
+
   ENTRYPOINT="$HIDDEN_DIR/check.sh"    # convention; human-authored, human-held
   if [ ! -x "$ENTRYPOINT" ]; then
     echo "  AWAITING_HUMAN — no executable sealed runner at $HIDDEN_DIR/check.sh"
