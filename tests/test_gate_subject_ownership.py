@@ -39,17 +39,26 @@ showing the pre-fix path finds nothing. Sealed material is never touched: the
 runner here is the SYNTHETIC fixture (CLAUDE.md non-negotiable #1).
 
 THE SIMULATION IS NOT AVAILABLE EVERYWHERE, and that is checked rather than
-assumed. Producing a genuinely foreign-owned tree needs the privilege to chown to
-another uid, which an unprivileged runner does not have; and the env-var stand-in
-only bites where git actually refuses — a global or system `safe.directory = *`,
-or a git build that ignores the variable, and it simulates nothing. Silently, in
-the worst way: every "refused" assertion below would pass while exercising the
-opposite path. So the offline layer runs hermetically (global and system
-gitconfig pointed at /dev/null) and then PROBES the capability on a throwaway
-repo. If the refusal still cannot be produced, the tests that need one skip with
-the diagnosis attached — never quietly, and never by asking "are we in CI?", a
-question whose answer says nothing about what this machine can do. The
-logic-level tests keep running everywhere.
+assumed — with the right question, which took two goes to find. Producing a
+genuinely foreign-owned tree needs the privilege to chown to another uid, which
+an unprivileged runner does not have, so the env-var stand-in is all we get; and
+it only bites where git actually refuses. Under a global or system
+`safe.directory = *` it simulates nothing, silently, in the worst way: every
+"refused" assertion below would pass while exercising the opposite path. So the
+offline layer runs hermetically (global and system gitconfig pointed at
+/dev/null) and PROBES on a throwaway repo. But "does git refuse?" is the wrong
+question on its own, because our own helper then grants a safe.directory
+exception and a modern git ACCEPTS it — the fix working. Two capabilities are
+therefore probed separately: whether git refuses at all (enough to assert the
+trust is exported), and whether the refusal SURVIVES that exception (needed
+before any gate can be shown an ungradable tree). Where a capability is missing
+the tests that need it skip with the diagnosis attached — never quietly, and
+never by asking "are we in CI?", a question whose answer says nothing about what
+this machine can do.
+
+The gate's `unavailable` logic itself is not left to that lottery: it is also
+exercised through a mode-000 `.git`, which no safe.directory exception can
+rescue, so it runs anywhere the tests are not root.
 """
 
 from __future__ import annotations
@@ -107,42 +116,106 @@ def _git(*argv: str, cwd: str | None = None,
         env={**os.environ, **GIT_ID, **HERMETIC, **(env or {})})
 
 
-def _foreign_simulation_diagnosis() -> str:
-    """Empty if this machine can make git refuse a tree as foreign-owned, else why not.
+def _exception_for(path: str) -> dict:
+    """The env-config safe.directory exception git_trust_subject grants. Mirrors
+    lib.sh; if the two drift, the probes below stop describing the real helper."""
+    return {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "safe.directory",
+            "GIT_CONFIG_VALUE_0": path}
 
-    A CAPABILITY probe on a throwaway repo, deliberately not an "are we in CI?"
-    check: it asks git what it actually does here, so it stays right whatever the
-    reason — an unprivileged runner that cannot chown, a git build that ignores
-    the variable, an allowlist we did not manage to neutralise.
+
+def _probe_repo(tmp: str) -> tuple[pathlib.Path | None, str]:
+    repo = pathlib.Path(tmp) / "repo"
+    repo.mkdir()
+    for argv in (("init", "-q"), ("commit", "-qm", "base", "--allow-empty")):
+        built = _git(*argv, cwd=str(repo))
+        if built.returncode != 0:
+            return None, (f"could not build a probe repo to test the capability: "
+                          f"{built.stderr.strip()[:200]}")
+    return repo, ""
+
+
+def _git_version() -> str:
+    return _git("--version").stdout.strip() or "git (version unknown)"
+
+
+def _refusal_diagnoses() -> tuple[str, str]:
+    """(why an initial refusal is unreachable, why a TERMINAL one is), or "" each.
+
+    Two capabilities, not one, because the tests need different things and the CI
+    runner has exactly one of them.
+
+      initial  — GIT_TEST_ASSUME_DIFFERENT_OWNER makes git refuse at all. Enough to
+                 prove the helper reaches for safe.directory and exports it.
+      terminal — the refusal SURVIVES the exception the helper grants. Only then is
+                 there an ungradable tree for a gate to admit to. On a modern git
+                 the exception works, which is the fix succeeding, so the refusal
+                 cannot be made to stick without a genuinely foreign-owned tree —
+                 i.e. the privilege to chown to another uid. The host's git 2.30.2
+                 carries a backported safe.directory that reads global and system
+                 config only and ignores the env-config form, so there the refusal
+                 is terminal and these tests run.
+
+    Probes on a throwaway repo, deliberately not an "are we in CI?" check: they ask
+    git what it actually does here, so they stay right whatever the reason.
     """
     tmp = tempfile.mkdtemp(prefix="gateowner-probe-")
     try:
-        repo = pathlib.Path(tmp) / "repo"
-        repo.mkdir()
-        for argv in (("init", "-q"), ("commit", "-qm", "base", "--allow-empty")):
-            built = _git(*argv, cwd=str(repo))
-            if built.returncode != 0:
-                return (f"could not build a probe repo to test the capability: "
-                        f"{built.stderr.strip()[:200]}")
-        probe = _git("rev-parse", "--is-inside-work-tree", cwd=str(repo), env=FOREIGN)
-        if probe.returncode == 0:
-            version = _git("--version").stdout.strip() or "git (version unknown)"
-            return (
-                f"this environment cannot produce a tree git considers foreign-owned: "
-                f"{version} answered {probe.stdout.strip()!r} for a repo marked foreign "
-                f"by GIT_TEST_ASSUME_DIFFERENT_OWNER, even with global and system "
-                f"gitconfig neutralised. Reproducing the refusal for real needs the "
-                f"privilege to chown a tree to another uid, which an unprivileged "
-                f"runner does not have. The docker layer covers this end to end where "
-                f"the images are built"
+        repo, why = _probe_repo(tmp)
+        if repo is None:
+            return why, why
+        bare = _git("rev-parse", "--is-inside-work-tree", cwd=str(repo), env=FOREIGN)
+        if bare.returncode == 0:
+            unreachable = (
+                f"this environment cannot make git refuse a tree at all: "
+                f"{_git_version()} answered {bare.stdout.strip()!r} for a repo marked "
+                f"foreign by GIT_TEST_ASSUME_DIFFERENT_OWNER, even with global and "
+                f"system gitconfig neutralised"
             )
+            return unreachable, unreachable
+        rescued = _git("rev-parse", "--is-inside-work-tree", cwd=str(repo),
+                       env={**FOREIGN, **_exception_for(str(repo))})
+        if rescued.returncode == 0:
+            return "", (
+                f"this environment cannot produce an UNGRADABLE tree: {_git_version()} "
+                f"honours the safe.directory exception git_trust_subject grants, so a "
+                f"simulated foreign tree is rescued rather than refused — the fix "
+                f"working, not a gap. Making the refusal stick needs a genuinely "
+                f"foreign-owned tree, i.e. the privilege to chown to another uid, "
+                f"which an unprivileged runner does not have. The docker layer covers "
+                f"this end to end where the images are built; "
+                f"test_a_tree_git_cannot_read_at_all_is_unavailable_not_a_rejection "
+                f"covers the same gate logic here"
+            )
+        return "", ""
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _unreadable_diagnosis() -> str:
+    """Empty if chmod 000 on a .git dir actually stops git here (i.e. we are not root)."""
+    tmp = tempfile.mkdtemp(prefix="gateowner-probe-")
+    try:
+        repo, why = _probe_repo(tmp)
+        if repo is None:
+            return why
+        (repo / ".git").chmod(0o000)
+        try:
+            blocked = _git("rev-parse", "--is-inside-work-tree", cwd=str(repo))
+        finally:
+            (repo / ".git").chmod(0o755)
+        if blocked.returncode == 0:
+            return (f"this process can read a mode-000 .git directory (euid "
+                    f"{os.geteuid()}), so an unreadable tree cannot be staged here")
         return ""
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-FOREIGN_UNAVAILABLE = _foreign_simulation_diagnosis()
-CAN_SIMULATE_FOREIGN = not FOREIGN_UNAVAILABLE
+FOREIGN_UNAVAILABLE, TERMINAL_UNAVAILABLE = _refusal_diagnoses()
+CAN_REFUSE_FOREIGN = not FOREIGN_UNAVAILABLE
+CAN_REFUSE_TERMINALLY = not TERMINAL_UNAVAILABLE
+UNREADABLE_UNAVAILABLE = _unreadable_diagnosis()
+CAN_MAKE_UNREADABLE = not UNREADABLE_UNAVAILABLE
 
 
 def _sh(script: str, env: dict) -> subprocess.CompletedProcess:
@@ -264,22 +337,23 @@ class TrustHelperContract(_TaskFixture):
                       "no safe.directory exception may be granted for a path that "
                       "does not exist")
 
-    @unittest.skipUnless(CAN_SIMULATE_FOREIGN, FOREIGN_UNAVAILABLE)
+    @unittest.skipUnless(CAN_REFUSE_TERMINALLY, TERMINAL_UNAVAILABLE)
     def test_a_foreign_owned_tree_is_refused_not_silently_empty(self) -> None:
         proc = self._probe(FOREIGN)
         self.assertIn("VERDICT=refused", proc.stdout)
         self.assertIn("dubious ownership", proc.stdout,
                       "the gate must be able to say WHY, not just score zero")
 
-    @unittest.skipUnless(CAN_SIMULATE_FOREIGN, FOREIGN_UNAVAILABLE)
+    @unittest.skipUnless(CAN_REFUSE_FOREIGN, FOREIGN_UNAVAILABLE)
     def test_the_trust_is_exported_so_the_sealed_runner_inherits_it(self) -> None:
         """The mechanism, asserted independently of whether git then relents.
 
-        The host's git 2.30.2 refuses regardless once
-        GIT_TEST_ASSUME_DIFFERENT_OWNER is set, so this asserts only what our code
-        owns: that safe.directory reaches a child process, naming this exact path
-        and no other. That it is SUFFICIENT is proven against the real images in
-        TheRealArrangement below.
+        Whether the exception WORKS is the git build's business — the host's 2.30.2
+        refuses regardless, a modern git accepts — so this asserts only what our
+        code owns: that safe.directory reaches a child process, naming this exact
+        path and no other. It therefore needs the weaker of the two capabilities,
+        an initial refusal. That the exception is SUFFICIENT is proven against the
+        real images in TheRealArrangement below.
         """
         out = self._probe(FOREIGN).stdout
         self.assertIn(f"CHILD_SEES={self.subject}", out)
@@ -294,7 +368,26 @@ class DiscoveryGateRefusesToScoreWhatItCannotSee(_TaskFixture):
         self.assertIn("1 agent test file(s) found", proc.stdout)
         self.assertEqual(self._report()["status"], "pass")
 
-    @unittest.skipUnless(CAN_SIMULATE_FOREIGN, FOREIGN_UNAVAILABLE)
+    @unittest.skipUnless(CAN_MAKE_UNREADABLE, UNREADABLE_UNAVAILABLE)
+    def test_a_tree_git_cannot_read_at_all_is_unavailable_not_a_rejection(self) -> None:
+        """The batch-1 verdict, inverted — and portable.
+
+        Ownership is one way to lose a tree; permissions are another, and no
+        safe.directory exception rescues a `.git` git cannot open. So this reaches
+        the same branch on any machine that is not root, and keeps the rule under
+        test where the ownership simulation is unavailable.
+        """
+        dotgit = self.subject / ".git"
+        dotgit.chmod(0o000)
+        self.addCleanup(dotgit.chmod, 0o755)
+        proc = self._hidden_gate()
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertIn("UNAVAILABLE", proc.stdout)
+        self.assertEqual(self._report()["status"], "unavailable")
+        self.assertNotIn("SYNTHETIC discovery", proc.stdout + proc.stderr,
+                         "nothing was graded, so nothing may claim to have been")
+
+    @unittest.skipUnless(CAN_REFUSE_TERMINALLY, TERMINAL_UNAVAILABLE)
     def test_an_unreadable_tree_is_unavailable_not_a_rejection(self) -> None:
         """The batch-1 verdict, inverted. Exit 2 -> acceptance.result "error"."""
         proc = self._hidden_gate(**FOREIGN)
@@ -304,7 +397,7 @@ class DiscoveryGateRefusesToScoreWhatItCannotSee(_TaskFixture):
         self.assertIn("UNAVAILABLE", proc.stdout)
         self.assertEqual(self._report()["status"], "unavailable")
 
-    @unittest.skipUnless(CAN_SIMULATE_FOREIGN, FOREIGN_UNAVAILABLE)
+    @unittest.skipUnless(CAN_REFUSE_TERMINALLY, TERMINAL_UNAVAILABLE)
     def test_the_sealed_runner_is_not_even_invoked_on_an_unreadable_tree(self) -> None:
         """Nothing was graded, so nothing may claim to have been graded.
 
