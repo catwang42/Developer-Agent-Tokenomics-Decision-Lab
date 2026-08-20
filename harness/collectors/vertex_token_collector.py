@@ -44,10 +44,11 @@ import json
 import os
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -66,6 +67,14 @@ MONITORED_RESOURCE = "aiplatform.googleapis.com/PublisherModel"
 DEFAULT_PUBLISHER = "google"
 DEFAULT_GUARD_SECONDS = 60
 MONITORING_ENDPOINT = "https://monitoring.googleapis.com/v3"
+#: A widened attribution window makes each ``timeSeries.list`` call bigger, and the
+#: endpoint occasionally stalls past the socket timeout mid-page. A read timeout
+#: says nothing about the data, so retry it a bounded number of times rather than
+#: letting one slow page abort a whole batch backfill.
+MONITORING_ATTEMPTS = 4
+MONITORING_RETRY_BACKOFF_S = (2, 8, 20)
+#: 429/500/502/503/504 are transient by contract; 4xx other than 429 are not.
+MONITORING_RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
 
 #: Metric ``type`` label -> schema usage field. Verified against the metric's
 #: type label at the SPEC 2.9 pre-build gate: the label carries both
@@ -200,9 +209,12 @@ class GcloudMonitoringClient(MonitoringClient):
     nothing against a model budget.
     """
 
-    def __init__(self, access_token: Optional[str] = None, timeout_s: int = 60):
+    def __init__(self, access_token: Optional[str] = None, timeout_s: int = 180,
+                 attempts: int = MONITORING_ATTEMPTS, sleep=time.sleep):
         self._token = access_token
         self.timeout_s = timeout_s
+        self.attempts = max(1, attempts)
+        self._sleep = sleep
 
     def _access_token(self) -> str:
         if self._token:
@@ -222,6 +234,39 @@ class GcloudMonitoringClient(MonitoringClient):
             raise CollectorError("gcloud returned an empty access token")
         return self._token
 
+    def _get(self, url: str) -> Dict[str, Any]:
+        """One GET, retried on transient failures only. Never partial-credits.
+
+        A read timeout or a 503 is a statement about the transport, not about the
+        meter, so retrying is safe: the call is a read and the interval is fixed.
+        Anything else (401, 400, an unparseable body) fails immediately — a wrong
+        answer must never look like a slow one.
+        """
+        last: Optional[Exception] = None
+        for attempt in range(self.attempts):
+            if attempt:
+                self._sleep(MONITORING_RETRY_BACKOFF_S[
+                    min(attempt - 1, len(MONITORING_RETRY_BACKOFF_S) - 1)])
+            req = urllib.request.Request(
+                url, headers={"Authorization": f"Bearer {self._access_token()}"})
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
+                    return json.loads(resp.read().decode("utf-8"))
+            except urllib.error.HTTPError as exc:
+                body = exc.read().decode("utf-8", "replace")[:500]
+                err = CollectorError(f"monitoring API {exc.code}: {body}")
+                if exc.code not in MONITORING_RETRY_STATUS:
+                    raise err from exc
+                last = err
+            except urllib.error.URLError as exc:
+                last = CollectorError(f"monitoring API unreachable: {exc}")
+            except (TimeoutError, OSError) as exc:
+                # urlopen surfaces a socket read timeout as a bare TimeoutError,
+                # which is NOT a URLError — batch 1's v2 pass died on exactly this.
+                last = CollectorError(f"monitoring API read timed out: {exc!r}")
+        raise CollectorError(
+            f"{last} (gave up after {self.attempts} attempts)") from last
+
     def list_time_series(self, project: str, filter_str: str,
                          window: Tuple[datetime, datetime]) -> List[Dict[str, Any]]:
         lo, hi = window
@@ -238,16 +283,7 @@ class GcloudMonitoringClient(MonitoringClient):
                 params["pageToken"] = page_token
             url = (f"{MONITORING_ENDPOINT}/projects/{urllib.parse.quote(project)}"
                    f"/timeSeries?{urllib.parse.urlencode(params)}")
-            req = urllib.request.Request(
-                url, headers={"Authorization": f"Bearer {self._access_token()}"})
-            try:
-                with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
-                    payload = json.loads(resp.read().decode("utf-8"))
-            except urllib.error.HTTPError as exc:
-                body = exc.read().decode("utf-8", "replace")[:500]
-                raise CollectorError(f"monitoring API {exc.code}: {body}") from exc
-            except urllib.error.URLError as exc:
-                raise CollectorError(f"monitoring API unreachable: {exc}") from exc
+            payload = self._get(url)
             series.extend(payload.get("timeSeries") or [])
             page_token = payload.get("nextPageToken") or ""
             if not page_token:
@@ -671,16 +707,31 @@ def _leg_model_map(plan: RunPlan) -> Dict[str, str]:
 #     run i owns the meter from its own start until the next subject run's
 #     window opens; nothing else in the batch can have produced points there.
 #
-# Concretely the attribution window becomes
+# The MAXIMAL window that claim allows is
 #
-#     [start_i - guard,  min(end_i + guard + tail,  start_{i+1} - guard) )
+#     [start_i - guard,  min(end_i + guard + tail_cap,  start_{i+1} - guard) )
 #
-# — the same window as v1 extended by an ingestion tail, but never allowed to
-# reach into the next run's guard band. The quiet probes survive, moved to the
-# only region where a third party is still distinguishable: the no-man's-land
-# between one run's ownership window and the next run's. Traffic there still
-# refuses, and the plausibility ceiling is untouched. So v2 stops refusing a run
-# for its own tail and keeps refusing it for someone else's burst.
+# but the window actually used is narrower, and measured rather than assumed. A
+# fixed tail is a guess at an ingestion delay nobody published: set it too short
+# and v1's defect comes straight back (the first v2 pass over batch 1 used a flat
+# 300s and still refused 37 of 43 legs — the meter was simply still delivering
+# their points), set it too long and every run absorbs whatever follows it.
+#
+# So the tail is TERMINATED BY SILENCE (``resolve_tail``): starting at the run's
+# end, each point that arrives within ``silence_seconds`` of the previous one
+# extends the tail; the first gap that long closes it. The justification is that
+# the run's process is dead — the container is gone — so points contiguous with
+# its own traffic can only be its own calls arriving late, while traffic that
+# resumes after a full silence cannot be. ``tail_cap`` remains as a backstop: a
+# meter still producing points at the cap is not an ingestion tail, it is someone
+# else working, and the run is refused rather than credited with it.
+#
+# The quiet probes survive, moved to the only region where a third party is still
+# distinguishable: the no-man's-land between one run's tail and the next run's
+# window. When the tail ended in silence, that whole region is probed — none of it
+# is ours by construction — and any traffic in it refuses the run. The
+# plausibility ceiling is untouched. So v2 stops refusing a run for its own tail
+# and keeps refusing it for someone else's burst.
 #
 # Two ways this rule can fail to hold, both refused rather than papered over:
 #   * the runs OVERLAP (start_{i+1} < end_i) — the batch was not serialized here
@@ -690,11 +741,28 @@ def _leg_model_map(plan: RunPlan) -> Dict[str, str]:
 #     points land inside its neighbour's window and the meter cannot separate the
 #     two. Both runs are refused.
 
-#: How long after a run's last call its own points may still be ingested. Sized
-#: to the baseline probe span: the tail we now attribute is exactly the region v1
-#: demanded be silent. Configurable (``--tail-seconds``; 0 reduces v2's window to
-#: v1's, keeping only the batch-aware probe placement).
-DEFAULT_TAIL_SECONDS = 300
+#: The LONGEST ingestion tail the rule will grant a run — a hard cap, not the tail
+#: itself. The tail actually granted is measured per run (see ``resolve_tail``):
+#: it ends at the first silence, and a run whose meter is still producing points
+#: at this cap is refused rather than credited with them. Configurable
+#: (``--tail-seconds``; 0 reduces v2's window to v1's, keeping only the
+#: batch-aware probe placement).
+#:
+#: 900s comes from the observed behaviour of THIS metric, not from taste. The
+#: first v2 pass over batch 1 granted a flat 300s and still refused 37 of 43 legs;
+#: querying the meter around one of them showed the run's own points arriving in a
+#: contiguous chain until 482s after its last event, then nothing for 20 minutes.
+#: A flat 300s tail is therefore shorter than this metric's ingestion delay, and a
+#: cap has to leave room for it. It stays a cap because a tail that never stops is
+#: the signature of a third party, not of ingestion lag.
+DEFAULT_TAIL_SECONDS = 900
+
+#: The silence that ENDS a tail. Points keep extending a run's tail while they
+#: arrive closer together than this; the first gap this long closes it. A run's
+#: process is dead once the run ends, so contiguous points after it are its own
+#: late-ingested calls — but traffic that resumes after a full silence cannot be,
+#: and is treated as a third party.
+DEFAULT_TAIL_SILENCE_SECONDS = 300
 
 ATTRIBUTION_METHOD_V1 = "time_window_serialized_runs"
 ATTRIBUTION_METHOD_V2 = "serialized_run_ownership_with_ingestion_tail"
@@ -712,7 +780,8 @@ class Ownership:
     hi: datetime
     guard_seconds: int
     tail_seconds: int
-    #: "ingestion_tail" (the full tail fitted) or "next_subject_run" (clipped).
+    #: "ingestion_tail" (the full tail cap fitted) or "next_subject_run" (clipped).
+    #: Describes the MAXIMAL window; ``tail_ended_by`` describes the one used.
     bounded_by: str
     #: The neighbouring boundaries, or None at the ends of the batch.
     prev_hi: Optional[datetime] = None
@@ -720,6 +789,13 @@ class Ownership:
     #: Set when the ownership premise does not hold for this run; the run is
     #: refused and this is the reason.
     inseparable: Optional[str] = None
+    #: How the tail actually ended, once the meter had been looked at:
+    #: "unresolved" (no points examined yet), "no_points" (nothing after the run),
+    #: "silence", "next_subject_run", or "tail_cap" (refused).
+    tail_ended_by: str = "unresolved"
+    silence_seconds: int = DEFAULT_TAIL_SILENCE_SECONDS
+    #: The last point attributed to this run, if any — the tail's evidence.
+    last_point: Optional[datetime] = None
 
     def window(self) -> Tuple[datetime, datetime]:
         return self.lo, self.hi
@@ -749,11 +825,21 @@ class Ownership:
 
     def post_probe(self, baseline_seconds: int) -> Optional[Tuple[datetime, datetime]]:
         """Third-party territory after this run, or None if the next subject run
-        owns from our boundary onward (the case v1 mistook for contamination)."""
+        owns from our boundary onward (the case v1 mistook for contamination).
+
+        Once the tail has ended in silence, everything from there to the next run
+        is territory no subject run claims, so the whole of it is probed rather
+        than a fixed slice: traffic anywhere in it is somebody else on the subject
+        models near this batch, which is exactly what would also make the numbers
+        inside our window unsafe. Before the tail is resolved — or when it was cut
+        short by a neighbour — the probe stays the fixed baseline slice, clipped.
+        """
         if baseline_seconds <= 0:
             return None
         start = self.hi + _TICK
         end = self.hi + timedelta(seconds=baseline_seconds)
+        if self.tail_ended_by in ("silence", "no_points") and self.next_lo is not None:
+            end = max(end, self.next_lo - _TICK)
         if self.next_lo is not None:
             end = min(end, self.next_lo - _TICK)
         return (start, end) if start <= end else None
@@ -769,8 +855,13 @@ class Ownership:
             "attribution_window": {"start": format_ts(self.lo),
                                    "end": format_ts(self.hi)},
             "guard_seconds": self.guard_seconds,
+            "tail_cap_seconds": self.tail_seconds,
             "tail_seconds": self.tail_seconds,
+            "tail_silence_seconds": self.silence_seconds,
             "tail_granted_seconds": self.tail_granted_seconds(),
+            "tail_ended_by": self.tail_ended_by,
+            "last_point_attributed": (format_ts(self.last_point)
+                                      if self.last_point else None),
             "bounded_by": self.bounded_by,
             "prev_run_owns_until": format_ts(self.prev_hi) if self.prev_hi else None,
             "next_run_window_opens": format_ts(self.next_lo) if self.next_lo else None,
@@ -838,16 +929,106 @@ def plan_ownership(plans: List[RunPlan], guard_seconds: int = DEFAULT_GUARD_SECO
         ordered.append(entry)
         owned[plan.run_dir] = entry
 
-    # Inseparability is symmetric: if a run's tail lands in its neighbour's
-    # window, the neighbour's window is carrying tokens that are not its own.
-    for index, entry in enumerate(ordered):
-        if entry.inseparable and index + 1 < len(ordered):
-            neighbour = ordered[index + 1]
-            if not neighbour.inseparable:
-                neighbour.inseparable = (
-                    f"the preceding subject run ({os.path.basename(entry.run_dir)}) "
-                    f"cannot be separated from this one: {entry.inseparable}")
+    # Inseparability is symmetric but NOT transitive, and the distinction matters:
+    # run i's flag says "my tail lands in i+1's window", which contaminates i+1's
+    # LOW side only. Whether i+1's own tail is separable from i+2 is a separate
+    # question about a different boundary. Propagating from the flags as they are
+    # being written makes one 4s gap poison every run after it to the end of the
+    # batch — that is how the first v2 pass refused 14 runs off a single tight gap.
+    # So propagate exactly one hop, from a snapshot of the runs' OWN flags.
+    own_flags = [entry.inseparable for entry in ordered]
+    for index, flag in enumerate(own_flags):
+        if flag and index + 1 < len(ordered) and not own_flags[index + 1]:
+            ordered[index + 1].inseparable = (
+                f"the preceding subject run ({os.path.basename(ordered[index].run_dir)}) "
+                f"cannot be separated from this one: {flag}")
     return owned
+
+
+def series_point_times(series: List[Dict[str, Any]]) -> List[datetime]:
+    """Every point's ``interval.endTime`` across a series list, sorted.
+
+    Values are deliberately ignored: where the tail ends is a question about
+    WHEN the meter was still delivering, not how much.
+    """
+    times: List[datetime] = []
+    for one in series:
+        for point in one.get("points") or []:
+            end = (point.get("interval") or {}).get("endTime")
+            if not end:
+                raise CollectorError("point has no interval.endTime")
+            times.append(parse_ts(end))
+    return sorted(times)
+
+
+def resolve_tail(entry: Ownership, point_times: List[datetime],
+                 silence_seconds: int = DEFAULT_TAIL_SILENCE_SECONDS) -> Ownership:
+    """Narrow a maximal ownership window to the tail the meter actually shows.
+
+    Walks forward from the run's end. Each point closer than ``silence_seconds``
+    to the previous one extends the tail; the first gap that long ends it. The
+    guard band is granted regardless — it is there for clock skew, not ingestion.
+
+    Four ways it can end, all recorded on the returned window:
+      * ``no_points`` — nothing after the run at all; the window is v1's.
+      * ``silence`` — the ordinary case. Everything after is third-party territory
+        and gets probed as such.
+      * ``next_subject_run`` — the meter was still delivering when the neighbour's
+        window opened. Attributable, but the run's later points are in its
+        neighbour's window; ``tail_granted_seconds`` is the shortfall.
+      * ``tail_cap`` — still delivering at the cap. A tail that never stops is not
+        ingestion lag, so the run is REFUSED rather than credited with the tokens.
+
+    Pure: takes the times, returns a new window. The caller does the querying.
+    """
+    if silence_seconds < 0:
+        raise CollectorError("silence_seconds must be >= 0")
+    guard = timedelta(seconds=entry.guard_seconds)
+    silence = timedelta(seconds=silence_seconds)
+    floor = entry.raw_end + guard
+    cap = entry.raw_end + guard + timedelta(seconds=entry.tail_seconds)
+
+    cursor = entry.raw_end
+    ran_on = False          # points kept arriving right up to the boundary
+    saw_any = False
+    for when in point_times:
+        if when <= entry.raw_end:
+            continue
+        if when - cursor >= silence:
+            break
+        if when > entry.hi:
+            ran_on = True
+            break
+        cursor, saw_any = when, True
+
+    if not saw_any and not ran_on:
+        ended_by = "no_points"
+    elif ran_on:
+        ended_by = ("next_subject_run" if entry.bounded_by == "next_subject_run"
+                    else "tail_cap")
+    elif (entry.bounded_by == "next_subject_run"
+          and cursor + silence > entry.hi):
+        # The points stopped, but the neighbour's window opens before a full
+        # silence could have been observed — so silence was not established, it
+        # merely was not contradicted. Recorded as the clipped tail it is rather
+        # than as evidence nobody looked for.
+        ended_by = "next_subject_run"
+    else:
+        ended_by = "silence"
+
+    resolved_hi = min(entry.hi, max(floor, cursor + guard))
+    inseparable = entry.inseparable
+    if ended_by == "tail_cap" and inseparable is None:
+        inseparable = (
+            f"the meter was still delivering points on the subject models "
+            f"{(cap - entry.raw_end).total_seconds():.0f}s after this run ended, "
+            f"with no {silence_seconds}s silence anywhere in between — an ingestion "
+            f"tail decays, so a tail that reaches the cap is somebody else working "
+            f"and these tokens cannot be called this run's")
+
+    return replace(entry, hi=resolved_hi, tail_ended_by=ended_by,
+                   silence_seconds=silence_seconds, inseparable=inseparable,
+                   last_point=cursor if saw_any else None)
 
 
 def probe_ownership(client: MonitoringClient, project: str, filter_str: str,
@@ -958,6 +1139,9 @@ class BackfillOutcome:
     #: The contamination guard's verdict and its evidence. Present on every run the
     #: guard examined, so a clean run records WHY it was considered clean.
     contamination: Optional[Dict[str, Any]] = None
+    #: A refusal marker from an earlier pass under the SAME rule that this write
+    #: made false, and which was therefore removed. Named so the report says so.
+    superseded_marker: Optional[str] = None
 
     def as_dict(self) -> Dict[str, Any]:
         return {k: v for k, v in self.__dict__.items() if v not in (None, [], {})} | {
@@ -1139,6 +1323,16 @@ def backfill_run(plan: RunPlan, collection: Collection, collected_at: str,
         log.append(event_type, event["ts"], **payload)
     _rewrite_summary(plan.run_dir, list(read_events(events_path)))
 
+    # A marker saying "nothing was written under this rule" must not survive next
+    # to an event written under that same rule — that self-contradiction is the
+    # defect the v1 pass left in four batch-1 runs. The refusal itself is not lost:
+    # every pass's verdict is in its own collector report.
+    stale = os.path.join(plan.run_dir,
+                         REFUSAL_MARKERS["v2" if attribution_rule else "v1"])
+    if os.path.exists(stale):
+        os.remove(stale)
+        outcome.superseded_marker = os.path.basename(stale)
+
     ok, reasons = validate(plan.run_dir)
     outcome.status = "backfilled" if ok else "error"
     outcome.validated = ok
@@ -1156,7 +1350,9 @@ def build_report(project: str, collected_at: str, guard_seconds: int,
                  ceiling: int = DEFAULT_CEILING_INPUT_TOKENS,
                  baseline_seconds: int = DEFAULT_BASELINE_SECONDS,
                  attribution_rule: str = "v1",
-                 tail_seconds: int = DEFAULT_TAIL_SECONDS) -> Dict[str, Any]:
+                 tail_seconds: int = DEFAULT_TAIL_SECONDS,
+                 silence_seconds: int = DEFAULT_TAIL_SILENCE_SECONDS,
+                 ) -> Dict[str, Any]:
     """Machine-readable backfill report. Unmapped types sit at the top, on purpose."""
     unmapped: Dict[str, Dict[str, int]] = {}
     for out in outcomes:
@@ -1190,11 +1386,15 @@ def build_report(project: str, collected_at: str, guard_seconds: int,
                        else ATTRIBUTION_METHOD_V1),
             "event_type": (BACKFILL_EVENT_V2 if attribution_rule == "v2"
                            else BACKFILL_EVENT),
+            "tail_cap_seconds": tail_seconds if attribution_rule == "v2" else None,
             "tail_seconds": tail_seconds if attribution_rule == "v2" else None,
+            "tail_silence_seconds": (silence_seconds if attribution_rule == "v2"
+                                     else None),
             "note": (("a serialized subject run owns the meter from its own start "
                       "until the next subject run's window opens, so its own "
-                      "ingestion tail is attributed to it; the quiet probe looks "
-                      "only at the region no subject run owns")
+                      "ingestion tail is attributed to it; the tail is measured, "
+                      "ending at the first silence and capped, and the quiet probe "
+                      "looks only at the region no subject run owns")
                      if attribution_rule == "v2" else
                      ("a run's window must be surrounded by silence on the subject "
                       "models")),
@@ -1285,6 +1485,27 @@ def collect_for_run(client: MonitoringClient, project: str, plan: RunPlan,
     return aggregate_series(series, window, guard_seconds)
 
 
+def collect_owned(client: MonitoringClient, project: str, plan: RunPlan,
+                  ownership: Ownership, guard_seconds: int,
+                  silence_seconds: int = DEFAULT_TAIL_SILENCE_SECONDS,
+                  ) -> Tuple[Collection, Ownership]:
+    """Resolve the run's tail against the meter, then aggregate inside it.
+
+    One query, over the MAXIMAL window the ownership claim allows plus enough
+    slack to see the silence that ends the tail; the resolved window is then
+    applied to the same points. Querying the maximum and narrowing afterwards is
+    what makes the tail a measurement instead of a setting.
+    """
+    filter_str = plan_filter(plan)
+    horizon = ownership.hi + timedelta(seconds=max(silence_seconds, 0))
+    if ownership.next_lo is not None:
+        horizon = min(horizon, ownership.next_lo - _TICK)
+    horizon = max(horizon, ownership.hi)
+    series = client.list_time_series(project, filter_str, (ownership.lo, horizon))
+    resolved = resolve_tail(ownership, series_point_times(series), silence_seconds)
+    return aggregate_series(series, resolved.window(), guard_seconds), resolved
+
+
 def guard_run(client: MonitoringClient, project: str, plan: RunPlan,
               collection: Collection, guard_seconds: int,
               ceiling: int = DEFAULT_CEILING_INPUT_TOKENS,
@@ -1316,12 +1537,14 @@ def run_backfill(client: MonitoringClient, project: str, plans: List[RunPlan],
                  ceiling: int = DEFAULT_CEILING_INPUT_TOKENS,
                  baseline_seconds: int = DEFAULT_BASELINE_SECONDS,
                  attribution_rule: str = "v1",
-                 tail_seconds: int = DEFAULT_TAIL_SECONDS) -> Dict[str, Any]:
+                 tail_seconds: int = DEFAULT_TAIL_SECONDS,
+                 silence_seconds: int = DEFAULT_TAIL_SILENCE_SECONDS,
+                 ) -> Dict[str, Any]:
     """Collect and backfill a whole batch under one attribution rule.
 
     Under ``v2`` the batch is treated as the serialized sequence it is: boundaries
     are computed across ALL of ``plans`` first, then each run is collected inside
-    the slice it owns.
+    the slice it owns, with its ingestion tail resolved against the meter.
     """
     owned: Dict[str, Ownership] = {}
     if attribution_rule == "v2":
@@ -1333,9 +1556,11 @@ def run_backfill(client: MonitoringClient, project: str, plans: List[RunPlan],
     for plan in plans:
         try:
             ownership = owned.get(plan.run_dir)
-            collection = collect_for_run(
-                client, project, plan, guard_seconds,
-                window=ownership.window() if ownership else None)
+            if ownership is not None:
+                collection, ownership = collect_owned(
+                    client, project, plan, ownership, guard_seconds, silence_seconds)
+            else:
+                collection = collect_for_run(client, project, plan, guard_seconds)
             verdict = guard_run(client, project, plan, collection, guard_seconds,
                                 ceiling=ceiling, baseline_seconds=baseline_seconds,
                                 ownership=ownership)
@@ -1350,7 +1575,8 @@ def run_backfill(client: MonitoringClient, project: str, plans: List[RunPlan],
             outcomes.append(BackfillOutcome(plan.run_dir, "", "error", str(exc)))
     return build_report(project, collected_at, guard_seconds, outcomes,
                         ceiling=ceiling, baseline_seconds=baseline_seconds,
-                        attribution_rule=attribution_rule, tail_seconds=tail_seconds)
+                        attribution_rule=attribution_rule, tail_seconds=tail_seconds,
+                        silence_seconds=silence_seconds)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -1378,9 +1604,15 @@ def main(argv: Optional[List[str]] = None) -> int:
                              "no run owns is probed for a third party. v2 needs the "
                              "WHOLE serialized batch in the plan.")
     parser.add_argument("--tail-seconds", type=int, default=DEFAULT_TAIL_SECONDS,
-                        help="v2 only: how long after its last call a run may still "
-                             "have points ingested. Never extends past the next "
-                             "subject run's window.")
+                        help="v2 only: the LONGEST ingestion tail a run may be "
+                             "granted. The tail is measured, not assumed — it ends "
+                             "at the first silence — and a run still producing "
+                             "points at this cap is refused, not credited. Never "
+                             "extends past the next subject run's window.")
+    parser.add_argument("--tail-silence-seconds", type=int,
+                        default=DEFAULT_TAIL_SILENCE_SECONDS,
+                        help="v2 only: the gap that ends a run's ingestion tail. "
+                             "Points arriving closer together than this extend it.")
     parser.add_argument("--collected-at",
                         help="RFC3339 collection timestamp (default: now, UTC)")
     parser.add_argument("--report", help="write the JSON report here as well as stdout")
@@ -1402,7 +1634,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                               ceiling=args.ceiling_input_tokens,
                               baseline_seconds=args.baseline_seconds,
                               attribution_rule=args.attribution_rule,
-                              tail_seconds=args.tail_seconds)
+                              tail_seconds=args.tail_seconds,
+                              silence_seconds=args.tail_silence_seconds)
     except CollectorError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

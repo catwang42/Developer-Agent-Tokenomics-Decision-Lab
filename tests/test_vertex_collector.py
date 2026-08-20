@@ -18,6 +18,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+import urllib.error
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -173,6 +174,99 @@ class QueryConstructionTests(unittest.TestCase):
     def test_a_backwards_window_is_refused(self):
         with self.assertRaises(vtc.CollectorError):
             vtc.build_window(RUN_END, RUN_START, 60)
+
+
+class TransportRetryTests(unittest.TestCase):
+    """The HTTP layer of the real client. No network: ``urlopen`` is stubbed.
+
+    Batch 1's v2 backfill died mid-pass on a bare socket ``TimeoutError``, which
+    is not a ``URLError`` and so escaped the per-run ``CollectorError`` handler and
+    took the whole 77-run batch with it. Widening the attribution window made the
+    pages bigger and the stalls more likely, so the transport has to survive one.
+    """
+
+    def _client(self, responses):
+        """responses: a list of exceptions to raise / dicts to return, in order."""
+        calls = []
+        client = vtc.GcloudMonitoringClient(access_token="t", sleep=lambda _s: None)
+
+        def fake_urlopen(req, timeout=None):  # noqa: ARG001
+            outcome = responses[len(calls)]
+            calls.append(req.full_url)
+            if isinstance(outcome, Exception):
+                raise outcome
+            return _FakeResponse(outcome)
+
+        return client, calls, fake_urlopen
+
+    def _run(self, client, fake_urlopen):
+        original = vtc.urllib.request.urlopen
+        vtc.urllib.request.urlopen = fake_urlopen
+        try:
+            return client.list_time_series(
+                "p", vtc.build_filter([GEMINI]),
+                (vtc.parse_ts(RUN_START), vtc.parse_ts(RUN_END)))
+        finally:
+            vtc.urllib.request.urlopen = original
+
+    def test_a_read_timeout_is_retried_and_then_succeeds(self):
+        client, calls, fake = self._client([
+            TimeoutError("The read operation timed out"),
+            {"timeSeries": [{"points": []}]},
+        ])
+        series = self._run(client, fake)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(series), 1)
+
+    def test_a_read_timeout_that_never_clears_raises_a_collector_error(self):
+        """One run degrades to ``error`` — the batch keeps going. What must NOT
+        happen is a bare TimeoutError escaping to the top of the process."""
+        client, calls, fake = self._client([TimeoutError("timed out")] * 4)
+        with self.assertRaises(vtc.CollectorError) as caught:
+            self._run(client, fake)
+        self.assertEqual(len(calls), vtc.MONITORING_ATTEMPTS)
+        self.assertIn("gave up after", str(caught.exception))
+
+    def test_a_503_is_retried_but_a_401_is_not(self):
+        client, calls, fake = self._client([
+            urllib.error.HTTPError("u", 503, "unavailable", {}, io.BytesIO(b"busy")),
+            {"timeSeries": []},
+        ])
+        self._run(client, fake)
+        self.assertEqual(len(calls), 2)
+
+        client, calls, fake = self._client([
+            urllib.error.HTTPError("u", 401, "denied", {}, io.BytesIO(b"nope")),
+            {"timeSeries": []},
+        ])
+        with self.assertRaises(vtc.CollectorError):
+            self._run(client, fake)
+        self.assertEqual(len(calls), 1, "a credential failure must not be retried")
+
+    def test_a_400_bad_filter_fails_immediately(self):
+        """A malformed filter returns 400 forever; retrying it just wastes the
+        batch's wall clock and buries the real message four attempts deep."""
+        client, calls, fake = self._client([
+            urllib.error.HTTPError("u", 400, "bad", {}, io.BytesIO(b"Could not parse filter")),
+        ] * 4)
+        with self.assertRaises(vtc.CollectorError) as caught:
+            self._run(client, fake)
+        self.assertEqual(len(calls), 1)
+        self.assertIn("Could not parse filter", str(caught.exception))
+
+
+class _FakeResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def read(self):
+        return json.dumps(self._payload).encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
 
 
 class WindowAttributionTests(unittest.TestCase):
@@ -619,6 +713,25 @@ class ContaminationRefusalTests(RunDirMixin, unittest.TestCase):
         self.assertEqual(run["status"], vtc.CONTAMINATED_STATUS)
         self.assertTrue(run["contamination"]["contaminated"])
 
+    def test_a_later_pass_that_succeeds_removes_the_marker_it_falsified(self):
+        """A marker means "nothing was written under this rule". Leaving one next
+        to an event written under that same rule is the self-contradiction four
+        batch-1 runs carry from the v1 pass — a reader cannot tell which is true.
+        """
+        run_dir = self.make_run()
+        self._backfill(run_dir, self.CONTAMINATED)
+        marker = os.path.join(run_dir, "PROVIDER-BACKFILL-REFUSED.json")
+        self.assertTrue(os.path.isfile(marker))
+
+        clean = [_series(GEMINI, "input", 4_101, "2026-08-16T10:02:00Z")]
+        report = self._backfill(run_dir, clean)
+
+        self.assertEqual(report["runs"][0]["status"], "backfilled")
+        self.assertFalse(os.path.exists(marker), "the falsified marker must go")
+        self.assertEqual(report["runs"][0]["superseded_marker"],
+                         "PROVIDER-BACKFILL-REFUSED.json",
+                         "and the report must say it was removed")
+
     def test_a_dry_run_refusal_writes_no_marker_either(self):
         run_dir = self.make_run()
         client = WindowedFakeClient(self.CONTAMINATED)
@@ -755,6 +868,37 @@ class OwnershipWindowTests(unittest.TestCase):
         self.assertIn("guard band", owned[plans[0].run_dir].inseparable)
         self.assertIn("preceding subject run", owned[plans[1].run_dir].inseparable)
 
+    def test_inseparability_travels_one_hop_and_stops(self):
+        """Regression: batch 1's first v2 pass refused 14 runs off tight gaps.
+
+        A and B are 30s apart, so A's tail lands in B's window — B is refused.
+        C is half an hour after B, so B's OWN tail is separable from C's window
+        and nothing about the A/B boundary bears on C. Propagating transitively
+        (reading the flag while writing it) poisons every run to the end of the
+        batch from a single tight gap, which is a claim the meter never made.
+        """
+        plans, owned = self._own((A_START, A_END),
+                                 ("2026-08-16T10:05:30Z", "2026-08-16T10:09:00Z"),
+                                 ("2026-08-16T10:40:00Z", "2026-08-16T10:45:00Z"))
+        self.assertIn("guard band", owned[plans[0].run_dir].inseparable)
+        self.assertIn("preceding subject run", owned[plans[1].run_dir].inseparable)
+        self.assertIsNone(owned[plans[2].run_dir].inseparable,
+                          "C's boundaries are its own; A/B's ambiguity is not C's")
+
+    def test_a_run_of_tight_gaps_flags_each_pair_on_its_own_evidence(self):
+        """Every gap here is tight, so every run really is flagged — but each on
+        the boundary it actually has, not on an inherited one four runs back."""
+        plans, owned = self._own((A_START, A_END),
+                                 ("2026-08-16T10:05:30Z", "2026-08-16T10:09:00Z"),
+                                 ("2026-08-16T10:09:30Z", "2026-08-16T10:12:00Z"))
+        for plan in plans[:2]:
+            self.assertIn("guard band", owned[plan.run_dir].inseparable)
+        # The last run has no successor, so it can only inherit — one hop.
+        last = owned[plans[2].run_dir].inseparable
+        self.assertIn("preceding subject run", last)
+        self.assertEqual(last.count("preceding subject run"), 1,
+                         "an inherited reason must not stack up the whole chain")
+
     def test_overlapping_runs_are_refused_as_not_serialized(self):
         plans, owned = self._own((A_START, A_END), ("2026-08-16T10:04:00Z",
                                                     "2026-08-16T10:09:00Z"))
@@ -786,6 +930,100 @@ class OwnershipWindowTests(unittest.TestCase):
                                                     "2026-08-16T10:12:00Z"))
         self.assertIsNone(owned[plans[0].run_dir].post_probe(300))
         self.assertIsNone(owned[plans[1].run_dir].pre_probe(300))
+
+
+class ResolvedTailTests(unittest.TestCase):
+    """The tail is measured against the meter, not granted by configuration.
+
+    The first v2 pass over batch 1 handed every run a flat 300s tail and still
+    refused 37 of 43 legs: querying the meter around one of them showed its own
+    points arriving in an unbroken chain until 482s after its last event, then
+    nothing for twenty minutes. A fixed tail is a guess at an undocumented
+    ingestion delay, and a guess that is too short reproduces v1's defect exactly.
+    These tests pin the replacement — extend while points keep coming, stop at the
+    first silence, refuse a tail that never stops.
+
+    All series here are SYNTHETIC.
+    """
+
+    def _entry(self, *, tail=900, guard=60, next_start=None):
+        plans = [vtc.RunPlan(run_dir="/SYNTHETIC/run-0", legs={"main": GEMINI},
+                             start=A_START, end=A_END)]
+        if next_start is not None:
+            plans.append(vtc.RunPlan(run_dir="/SYNTHETIC/run-1",
+                                     legs={"main": GEMINI}, start=next_start,
+                                     end="2026-08-16T11:30:00Z"))
+        return vtc.plan_ownership(plans, guard, tail)["/SYNTHETIC/run-0"]
+
+    @staticmethod
+    def _times(*stamps):
+        return [vtc.parse_ts(s) for s in stamps]
+
+    def test_a_run_with_no_points_after_it_keeps_the_v1_window(self):
+        resolved = vtc.resolve_tail(self._entry(), self._times("2026-08-16T10:02:00Z"))
+        self.assertEqual(resolved.tail_ended_by, "no_points")
+        self.assertEqual(vtc.format_ts(resolved.hi), "2026-08-16T10:06:00.000000Z")
+        self.assertEqual(resolved.tail_granted_seconds(), 0)
+
+    def test_a_chain_of_points_extends_the_tail_past_a_fixed_300s(self):
+        # 10:05 end; points at +2m, +4m, +6m, +8m — each within the silence
+        # threshold of the last. A flat 300s tail would have stopped at 10:11 and
+        # refused the run for the two points it left outside.
+        resolved = vtc.resolve_tail(self._entry(), self._times(
+            "2026-08-16T10:07:00Z", "2026-08-16T10:09:00Z",
+            "2026-08-16T10:11:00Z", "2026-08-16T10:13:00Z"))
+        self.assertEqual(resolved.tail_ended_by, "silence")
+        self.assertEqual(vtc.format_ts(resolved.hi), "2026-08-16T10:14:00.000000Z")
+        self.assertEqual(resolved.tail_granted_seconds(), 480)
+
+    def test_the_tail_stops_at_the_first_silence_not_at_the_last_point(self):
+        # A gap of exactly the silence threshold ends it: the point after the gap
+        # is not ours, however much it looks like more of the same.
+        resolved = vtc.resolve_tail(self._entry(), self._times(
+            "2026-08-16T10:07:00Z", "2026-08-16T10:12:00Z"))
+        self.assertEqual(resolved.tail_ended_by, "silence")
+        self.assertEqual(vtc.format_ts(resolved.last_point),
+                         "2026-08-16T10:07:00.000000Z")
+        self.assertLess(resolved.hi, vtc.parse_ts("2026-08-16T10:12:00Z"))
+
+    def test_a_tail_that_never_stops_is_refused_not_credited(self):
+        # Points every two minutes for twenty. An ingestion tail decays; this is
+        # someone else working, so the run is refused rather than handed the lot.
+        forever = self._times(*[f"2026-08-16T10:{m:02d}:00Z"
+                                for m in range(7, 30, 2)])
+        resolved = vtc.resolve_tail(self._entry(tail=600), forever)
+        self.assertEqual(resolved.tail_ended_by, "tail_cap")
+        self.assertIsNotNone(resolved.inseparable)
+        self.assertIn("cannot be called this run's", resolved.inseparable)
+
+    def test_a_tail_still_running_when_the_neighbour_opens_is_clipped_not_refused(self):
+        entry = self._entry(next_start="2026-08-16T10:20:00Z")
+        resolved = vtc.resolve_tail(entry, self._times(
+            "2026-08-16T10:07:00Z", "2026-08-16T10:09:00Z",
+            "2026-08-16T10:11:00Z", "2026-08-16T10:13:00Z",
+            "2026-08-16T10:15:00Z", "2026-08-16T10:17:00Z"))
+        self.assertEqual(resolved.tail_ended_by, "next_subject_run")
+        self.assertIsNone(resolved.inseparable, "clipping is a risk, not a refusal")
+        self.assertLess(resolved.hi, entry.next_lo)
+
+    def test_the_probe_after_a_silenced_tail_covers_the_whole_no_mans_land(self):
+        # Nothing between the tail's end and the next run belongs to any subject
+        # run, so all of it is probed — not just the first baseline slice.
+        entry = self._entry(next_start="2026-08-16T11:00:00Z")
+        resolved = vtc.resolve_tail(entry, self._times("2026-08-16T10:07:00Z"))
+        probe = resolved.post_probe(300)
+        self.assertEqual(vtc.format_ts(probe[0]), "2026-08-16T10:08:00.000001Z")
+        self.assertEqual(probe[1], resolved.next_lo - vtc._TICK)
+
+    def test_points_before_the_run_ends_never_shorten_the_window(self):
+        resolved = vtc.resolve_tail(self._entry(), self._times(
+            "2026-08-16T10:00:30Z", "2026-08-16T10:04:00Z"))
+        self.assertGreaterEqual(resolved.hi, vtc.parse_ts(A_END))
+        self.assertEqual(resolved.tail_ended_by, "no_points")
+
+    def test_a_negative_silence_is_refused_rather_than_clamped(self):
+        with self.assertRaises(vtc.CollectorError):
+            vtc.resolve_tail(self._entry(), [], silence_seconds=-1)
 
 
 class SerializedOwnershipBackfillTests(RunDirMixin, unittest.TestCase):
@@ -831,6 +1069,31 @@ class SerializedOwnershipBackfillTests(RunDirMixin, unittest.TestCase):
         self.assertEqual(probes["post"]["points"], 0)
         self.assertEqual(probes["pre"]["points"], 0)
 
+    #: The batch-1 shape: a tail that keeps arriving past the 300s a fixed setting
+    #: would have granted. Every gap here is under the silence threshold.
+    LONG_TAIL = OWN_TAIL + [
+        _series(GEMINI, "input", 31_004, "2026-08-16T10:09:30Z"),
+        _series(GEMINI, "input", 12_880, "2026-08-16T10:12:00Z"),
+    ]
+
+    def test_a_tail_longer_than_a_fixed_300s_is_attributed_end_to_end(self):
+        # The regression the second v2 pass exists for. Under a flat 300s tail the
+        # window closed at 10:11:00, the 10:12:00 point fell in the post probe, and
+        # the run was refused for its own late ingestion — 37 of batch 1's 43
+        # refused legs looked exactly like this.
+        run_dir, _, run = self._backfill(self.LONG_TAIL)
+        self.assertEqual(run["status"], "backfilled", run.get("detail"))
+        usage = self.summary_of(run_dir)["usage"]
+        self.assertEqual(usage["input_tokens"]["value"],
+                         251_259 + 25_871 + 31_004 + 12_880)
+        events = [e for e in read_events(os.path.join(run_dir, "events.jsonl"))
+                  if e["event_type"] == vtc.BACKFILL_EVENT_V2]
+        rule = events[0]["attribution_rule"]
+        self.assertEqual(rule["tail_ended_by"], "silence")
+        self.assertEqual(rule["tail_granted_seconds"], 420)
+        self.assertEqual(rule["attribution_window"]["end"],
+                         "2026-08-16T10:13:00.000000Z")
+
     def test_a_third_party_burst_after_the_tail_still_refuses(self):
         # The load-bearing half: widening the window must not have widened it to
         # everything. This point is past the run's ownership and before the next
@@ -867,9 +1130,17 @@ class SerializedOwnershipBackfillTests(RunDirMixin, unittest.TestCase):
         self.assertEqual(events[0]["attribution_confidence"], "derived")
         self.assertEqual(events[0]["counts_confidence"], "authoritative")
         self.assertEqual(rule["bounded_by"], "ingestion_tail")
-        self.assertEqual(rule["tail_seconds"], vtc.DEFAULT_TAIL_SECONDS)
+        self.assertEqual(rule["tail_cap_seconds"], vtc.DEFAULT_TAIL_SECONDS)
+        self.assertEqual(rule["tail_silence_seconds"],
+                         vtc.DEFAULT_TAIL_SILENCE_SECONDS)
+        # The window ends a guard band after the last point the run actually
+        # deposited (10:07:00), not at the cap: the tail is measured, so the record
+        # says how far the meter really ran on rather than how far it was allowed to.
+        self.assertEqual(rule["tail_ended_by"], "silence")
+        self.assertEqual(rule["last_point_attributed"],
+                         vtc.format_ts(vtc.parse_ts(A_OWN_TAIL)))
         self.assertEqual(rule["attribution_window"]["end"],
-                         "2026-08-16T10:11:00.000000Z")
+                         "2026-08-16T10:08:00.000000Z")
         self.assertEqual(rule["next_run_window_opens"], "2026-08-16T10:29:00.000000Z")
 
     def test_a_v2_backfill_does_not_count_as_a_turn(self):
