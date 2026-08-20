@@ -417,6 +417,19 @@ class WindowFromEventsTests(RunDirMixin, unittest.TestCase):
         self.assertEqual(start[:19], "2026-08-16T10:00:00")
         self.assertEqual(end[:19], "2026-08-16T10:05:00")
 
+    def test_a_backfill_event_does_not_stretch_the_window_to_collection_time(self):
+        # Regression: a backfill event carries the COLLECTION timestamp, not a
+        # moment of the run. Counting it made every already-collected run in
+        # screening batch 1 look hours long and overlapping with its neighbours,
+        # which the ownership rule then refused as "not serialized".
+        run_dir = self.make_run()
+        EventLog(os.path.join(run_dir, "events.jsonl")).append(
+            vtc.BACKFILL_EVENT, "2026-08-16T23:15:09Z", leg="main")
+        EventLog(os.path.join(run_dir, "events.jsonl")).append(
+            vtc.BACKFILL_EVENT_V2, "2026-08-17T04:37:27Z", leg="main")
+        self.assertEqual(vtc.run_window_from_events(run_dir)[1],
+                         vtc.format_ts(vtc.parse_ts(RUN_END)))
+
     def test_a_run_with_no_event_log_cannot_be_windowed(self):
         empty = tempfile.mkdtemp(prefix="SYNTHETIC-run-")
         self.addCleanup(shutil.rmtree, empty, True)
@@ -626,6 +639,21 @@ class ContaminationRefusalTests(RunDirMixin, unittest.TestCase):
         self.assertIn("baseline", guard["evidence"])
         self.assertIn("ceiling", guard["evidence"])
 
+    def test_an_already_filled_run_is_skipped_rather_than_re_refused(self):
+        # Regression: the guard used to speak before the idempotence check, so a
+        # second pass over an already-collected batch stamped a refusal marker on
+        # runs whose earlier attribution stands — a refusal about a write that was
+        # never going to happen, overwriting whatever marker was already there.
+        run_dir = self.make_run()
+        self._backfill(run_dir, [_series(GEMINI, "input", 1500,
+                                         "2026-08-16T10:02:00Z")])
+        report = self._backfill(run_dir, self.CONTAMINATED)
+        self.assertEqual(report["runs"][0]["status"], "skipped")
+        self.assertFalse(os.path.isfile(
+            os.path.join(run_dir, "PROVIDER-BACKFILL-REFUSED.json")))
+        self.assertEqual(self.summary_of(run_dir)["usage"]["input_tokens"]["value"],
+                         1500)
+
     def test_the_report_names_the_refused_runs_and_the_thresholds(self):
         run_dir = self.make_run()
         report = self._backfill(run_dir, self.CONTAMINATED)
@@ -655,6 +683,260 @@ class ContaminationRefusalTests(RunDirMixin, unittest.TestCase):
             vtc.GcloudMonitoringClient = original
         self.assertEqual(rc, 4)
         self.assertIn("CONTAMINATED WINDOW", printed.getvalue())
+
+
+# --------------------------------------------------------------------------- #
+# Serialized-run ownership (attribution rule v2)
+#
+# The defect these tests exist for is the mirror image of the one above. Rule v1
+# demands silence either side of a run's window, but Cloud Monitoring ingests this
+# metric with a delay, so a run deposits its OWN last points after its own window
+# closes. v1 read that as a third party and refused: 8 of batch 1's 43 refusals
+# were runs refused for their own tail. v2 says a serialized run owns the meter
+# until the next subject run's window opens, which makes the tail attributable
+# WITHOUT making a genuine third-party burst attributable.
+#
+# Both halves are tested here, because a rule that only did the first half would
+# be a licence to attribute anything at all.
+# --------------------------------------------------------------------------- #
+A_START, A_END = "2026-08-16T10:00:00Z", "2026-08-16T10:05:00Z"
+B_START, B_END = "2026-08-16T10:30:00Z", "2026-08-16T10:35:00Z"
+
+#: A_END + 120s: after run A's guarded window closes (10:06:00), inside the tail.
+A_OWN_TAIL = "2026-08-16T10:07:00Z"
+#: After A's ownership window closes (10:11:00) and long before B's opens
+#: (10:29:00) — no subject run owns this instant.
+THIRD_PARTY = "2026-08-16T10:13:00Z"
+
+
+class OwnershipWindowTests(unittest.TestCase):
+    """The boundary arithmetic, with no client and no run directories."""
+
+    def _own(self, *windows, guard=60, tail=300):
+        plans = [vtc.RunPlan(run_dir=f"/SYNTHETIC/run-{i}", legs={"main": GEMINI},
+                             start=s, end=e) for i, (s, e) in enumerate(windows)]
+        return plans, vtc.plan_ownership(plans, guard, tail)
+
+    def test_a_lone_run_gets_the_full_ingestion_tail(self):
+        plans, owned = self._own((A_START, A_END))
+        entry = owned[plans[0].run_dir]
+        self.assertEqual(vtc.format_ts(entry.hi), "2026-08-16T10:11:00.000000Z")
+        self.assertEqual(entry.bounded_by, "ingestion_tail")
+        self.assertEqual(entry.tail_granted_seconds(), 300)
+        self.assertIsNone(entry.inseparable)
+
+    def test_a_clipped_tail_is_recorded_as_the_residual_risk_it_is(self):
+        # 200s apart, 60s of guard each side: the run keeps 80s of tail and the
+        # neighbour takes the rest. Attributable, but the shortfall must be
+        # visible in the record rather than left to be reconstructed.
+        plans, owned = self._own((A_START, A_END), ("2026-08-16T10:08:20Z",
+                                                    "2026-08-16T10:12:00Z"))
+        entry = owned[plans[0].run_dir]
+        self.assertAlmostEqual(entry.tail_granted_seconds(), 80, places=3)
+        self.assertLess(entry.as_dict()["tail_granted_seconds"],
+                        entry.as_dict()["tail_seconds"])
+
+    def test_the_window_stops_where_the_next_runs_window_opens(self):
+        # A neighbour 200s later cannot be given away 300s of tail.
+        plans, owned = self._own((A_START, A_END), ("2026-08-16T10:08:20Z",
+                                                    "2026-08-16T10:12:00Z"))
+        first = owned[plans[0].run_dir]
+        self.assertEqual(first.bounded_by, "next_subject_run")
+        self.assertLess(first.hi, vtc.parse_ts("2026-08-16T10:07:20Z"))
+        self.assertIsNone(first.inseparable, "200s apart is still separable")
+        # No overlap: one run's window ends strictly before the next one's opens.
+        self.assertLess(first.hi, owned[plans[1].run_dir].lo)
+
+    def test_runs_closer_than_the_guard_bands_are_inseparable_not_attributed(self):
+        # 30s apart: A's tail lands inside B's window and the meter cannot say
+        # which run produced it. Refusing both is the only honest answer.
+        plans, owned = self._own((A_START, A_END), ("2026-08-16T10:05:30Z",
+                                                    "2026-08-16T10:09:00Z"))
+        self.assertIn("guard band", owned[plans[0].run_dir].inseparable)
+        self.assertIn("preceding subject run", owned[plans[1].run_dir].inseparable)
+
+    def test_overlapping_runs_are_refused_as_not_serialized(self):
+        plans, owned = self._own((A_START, A_END), ("2026-08-16T10:04:00Z",
+                                                    "2026-08-16T10:09:00Z"))
+        self.assertIn("not serialized", owned[plans[0].run_dir].inseparable)
+
+    def test_boundaries_do_not_depend_on_the_order_the_plans_arrive_in(self):
+        forward, owned_f = self._own((A_START, A_END), (B_START, B_END))
+        backward, owned_b = self._own((B_START, B_END), (A_START, A_END))
+        self.assertEqual(vtc.format_ts(owned_f[forward[0].run_dir].hi),
+                         vtc.format_ts(owned_b[backward[1].run_dir].hi))
+
+    def test_a_zero_tail_reduces_the_window_to_the_v1_one(self):
+        plans, owned = self._own((A_START, A_END), tail=0)
+        self.assertEqual(owned[plans[0].run_dir].window(),
+                         vtc.build_window(A_START, A_END, 60))
+
+    def test_the_probes_are_the_region_no_subject_run_owns(self):
+        plans, owned = self._own((A_START, A_END), (B_START, B_END))
+        first, second = owned[plans[0].run_dir], owned[plans[1].run_dir]
+        # A's post probe starts at its boundary and stops before B's window.
+        post = first.post_probe(300)
+        self.assertEqual(vtc.format_ts(post[0]), "2026-08-16T10:11:00.000001Z")
+        self.assertLess(post[1], second.lo)
+        # B's pre probe never reaches back into A's ownership.
+        self.assertGreater(second.pre_probe(300)[0], first.hi)
+
+    def test_a_probe_the_neighbour_squeezes_to_nothing_is_absent(self):
+        plans, owned = self._own((A_START, A_END), ("2026-08-16T10:08:20Z",
+                                                    "2026-08-16T10:12:00Z"))
+        self.assertIsNone(owned[plans[0].run_dir].post_probe(300))
+        self.assertIsNone(owned[plans[1].run_dir].pre_probe(300))
+
+
+class SerializedOwnershipBackfillTests(RunDirMixin, unittest.TestCase):
+    """The rule end to end: own tail attributed, third party still refused."""
+
+    def _plans(self, run_dir, neighbour_dir):
+        return [vtc.RunPlan(run_dir=run_dir, legs={"main": GEMINI},
+                            start=A_START, end=A_END),
+                vtc.RunPlan(run_dir=neighbour_dir, legs={"main": GEMINI},
+                            start=B_START, end=B_END)]
+
+    def _backfill(self, series, rule="v2", **kwargs):
+        run_dir, neighbour = self.make_run(), self.make_run()
+        report = vtc.run_backfill(WindowedFakeClient(series), "SYNTHETIC-project",
+                                  self._plans(run_dir, neighbour), COLLECTED_AT,
+                                  attribution_rule=rule, **kwargs)
+        return run_dir, report, report["runs"][0]
+
+    #: The run's own calls, plus two points ingested after its window closed.
+    OWN_TAIL = [
+        _series(GEMINI, "input", 251_259, "2026-08-16T10:02:00Z"),
+        _series(GEMINI, "output", 4_100, "2026-08-16T10:02:00Z"),
+        _series(GEMINI, "input", 25_871, A_OWN_TAIL),
+    ]
+
+    def test_the_old_rule_refuses_the_run_for_its_own_tail(self):
+        # The negative control. Without this, the v2 test below proves nothing.
+        _, report, run = self._backfill(self.OWN_TAIL, rule="v1")
+        self.assertEqual(run["status"], vtc.CONTAMINATED_STATUS)
+        self.assertTrue(any("post-run" in r for r in run["contamination"]["reasons"]))
+
+    def test_the_new_rule_attributes_the_tail_to_the_run_that_produced_it(self):
+        run_dir, report, run = self._backfill(self.OWN_TAIL)
+        self.assertEqual(run["status"], "backfilled", run.get("detail"))
+        usage = self.summary_of(run_dir)["usage"]
+        self.assertEqual(usage["input_tokens"]["value"], 251_259 + 25_871)
+        self.assertEqual(usage["input_tokens"]["confidence"], "derived")
+        self.assertEqual(usage["output_tokens"]["value"], 4_100)
+
+    def test_the_post_probe_says_the_neighbour_owns_the_rest(self):
+        _, _, run = self._backfill(self.OWN_TAIL)
+        probes = run["contamination"]["evidence"]["baseline"]["windows"]
+        self.assertEqual(probes["post"]["points"], 0)
+        self.assertEqual(probes["pre"]["points"], 0)
+
+    def test_a_third_party_burst_after_the_tail_still_refuses(self):
+        # The load-bearing half: widening the window must not have widened it to
+        # everything. This point is past the run's ownership and before the next
+        # run's — nobody in the batch can have produced it.
+        _, _, run = self._backfill(
+            self.OWN_TAIL + [_series(GEMINI, "input", 800, THIRD_PARTY)])
+        self.assertEqual(run["status"], vtc.CONTAMINATED_STATUS)
+        self.assertTrue(any("post-run" in r for r in run["contamination"]["reasons"]))
+
+    def test_a_third_party_burst_before_the_run_still_refuses(self):
+        _, _, run = self._backfill(
+            self.OWN_TAIL + [_series(GEMINI, "input", 800, "2026-08-16T09:56:00Z")])
+        self.assertEqual(run["status"], vtc.CONTAMINATED_STATUS)
+        self.assertTrue(any("pre-run" in r for r in run["contamination"]["reasons"]))
+
+    def test_the_plausibility_ceiling_is_untouched_by_the_new_rule(self):
+        _, _, run = self._backfill(
+            [_series(GEMINI, "input", 10_993_105, "2026-08-16T10:02:00Z")])
+        self.assertEqual(run["status"], vtc.CONTAMINATED_STATUS)
+        self.assertTrue(any("ceiling" in r for r in run["contamination"]["reasons"]))
+
+    def test_nothing_is_written_when_the_run_is_refused(self):
+        run_dir, _, _ = self._backfill(
+            self.OWN_TAIL + [_series(GEMINI, "input", 800, THIRD_PARTY)])
+        self.assertIsNone(self.summary_of(run_dir)["usage"]["input_tokens"]["value"])
+
+    def test_the_event_names_the_rule_that_attributed_it(self):
+        run_dir, _, _ = self._backfill(self.OWN_TAIL)
+        events = [e for e in read_events(os.path.join(run_dir, "events.jsonl"))
+                  if e["event_type"] == vtc.BACKFILL_EVENT_V2]
+        self.assertEqual(len(events), 1)
+        rule = events[0]["attribution_rule"]
+        self.assertEqual(events[0]["attribution_method"], vtc.ATTRIBUTION_METHOD_V2)
+        self.assertEqual(events[0]["attribution_confidence"], "derived")
+        self.assertEqual(events[0]["counts_confidence"], "authoritative")
+        self.assertEqual(rule["bounded_by"], "ingestion_tail")
+        self.assertEqual(rule["tail_seconds"], vtc.DEFAULT_TAIL_SECONDS)
+        self.assertEqual(rule["attribution_window"]["end"],
+                         "2026-08-16T10:11:00.000000Z")
+        self.assertEqual(rule["next_run_window_opens"], "2026-08-16T10:29:00.000000Z")
+
+    def test_a_v2_backfill_does_not_count_as_a_turn(self):
+        # The new event type has to be usage-bearing without being a turn, exactly
+        # as v1 is: adding it to _USAGE_EVENT_TYPES must not inflate behaviour.
+        run_dir, neighbour = self.make_run(), self.make_run()
+        before = self.summary_of(run_dir)["behavior"]["turns"]["value"]
+        vtc.run_backfill(WindowedFakeClient(self.OWN_TAIL), "SYNTHETIC-project",
+                         self._plans(run_dir, neighbour), COLLECTED_AT,
+                         attribution_rule="v2")
+        after = self.summary_of(run_dir)
+        self.assertEqual(after["behavior"]["turns"]["value"], before)
+        self.assertEqual(after["usage"]["input_tokens"]["value"], 251_259 + 25_871)
+
+    def test_a_leg_already_filled_under_v1_is_not_filled_again_under_v2(self):
+        run_dir, neighbour = self.make_run(), self.make_run()
+        clean = [_series(GEMINI, "input", 1500, "2026-08-16T10:02:00Z")]
+        plans = self._plans(run_dir, neighbour)
+        first = vtc.run_backfill(WindowedFakeClient(clean), "SYNTHETIC-project",
+                                 plans, COLLECTED_AT, attribution_rule="v1")
+        self.assertEqual(first["runs"][0]["status"], "backfilled")
+        second = vtc.run_backfill(WindowedFakeClient(clean), "SYNTHETIC-project",
+                                  plans, COLLECTED_AT, attribution_rule="v2")
+        self.assertEqual(second["runs"][0]["status"], "skipped")
+        self.assertEqual(self.summary_of(run_dir)["usage"]["input_tokens"]["value"],
+                         1500, "the v1 number must not be doubled by a v2 pass")
+
+    def test_inseparable_neighbours_are_refused_rather_than_split(self):
+        run_dir, neighbour = self.make_run(), self.make_run()
+        plans = [vtc.RunPlan(run_dir, {"main": GEMINI}, A_START, A_END),
+                 vtc.RunPlan(neighbour, {"main": GEMINI},
+                             "2026-08-16T10:05:30Z", "2026-08-16T10:09:00Z")]
+        report = vtc.run_backfill(WindowedFakeClient(self.OWN_TAIL),
+                                  "SYNTHETIC-project", plans, COLLECTED_AT,
+                                  attribution_rule="v2")
+        self.assertEqual(report["status_counts"], {vtc.CONTAMINATED_STATUS: 2})
+        self.assertIsNone(self.summary_of(run_dir)["usage"]["input_tokens"]["value"])
+
+    def test_a_v2_refusal_does_not_overwrite_the_v1_refusal_it_disagrees_with(self):
+        run_dir, neighbour = self.make_run(), self.make_run()
+        plans = self._plans(run_dir, neighbour)
+        burst = self.OWN_TAIL + [_series(GEMINI, "input", 800, THIRD_PARTY)]
+        vtc.run_backfill(WindowedFakeClient(burst), "SYNTHETIC-project", plans,
+                         COLLECTED_AT, attribution_rule="v1")
+        vtc.run_backfill(WindowedFakeClient(burst), "SYNTHETIC-project", plans,
+                         COLLECTED_AT, attribution_rule="v2")
+        v1 = os.path.join(run_dir, vtc.REFUSAL_MARKERS["v1"])
+        v2 = os.path.join(run_dir, vtc.REFUSAL_MARKERS["v2"])
+        self.assertTrue(os.path.isfile(v1) and os.path.isfile(v2))
+        with open(v2, encoding="utf-8") as fh:
+            payload = json.load(fh)
+        self.assertEqual(payload["attribution_rule"]["id"], vtc.ATTRIBUTION_METHOD_V2)
+
+    def test_the_report_states_which_rule_the_batch_was_collected_under(self):
+        _, report, _ = self._backfill(self.OWN_TAIL)
+        self.assertEqual(report["attribution"]["rule"], "v2")
+        self.assertEqual(report["attribution"]["event_type"], vtc.BACKFILL_EVENT_V2)
+        self.assertEqual(report["attribution"]["tail_seconds"],
+                         vtc.DEFAULT_TAIL_SECONDS)
+        self.assertEqual(report["attribution"]["counts_confidence"], "authoritative")
+
+    def test_an_unknown_rule_is_refused_rather_than_defaulted(self):
+        run_dir, neighbour = self.make_run(), self.make_run()
+        with self.assertRaises(vtc.CollectorError):
+            vtc.run_backfill(WindowedFakeClient([]), "SYNTHETIC-project",
+                             self._plans(run_dir, neighbour), COLLECTED_AT,
+                             attribution_rule="v3")
 
 
 if __name__ == "__main__":

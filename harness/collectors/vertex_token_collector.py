@@ -79,7 +79,13 @@ TYPE_TO_USAGE_FIELD: Dict[str, str] = {
 }
 
 BACKFILL_EVENT = "provider_usage_backfill"
+BACKFILL_EVENT_V2 = "provider_usage_backfill_v2"
 COLLECTOR_ID = "vertex_token_collector"
+
+#: Events this collector appends AFTER the fact. They carry the collection
+#: timestamp, not a moment of the run, so they must never be read back as part of
+#: the run's wall window — see ``run_window_from_events``.
+_POST_HOC_EVENT_TYPES = (BACKFILL_EVENT, BACKFILL_EVENT_V2)
 
 
 class CollectorError(RuntimeError):
@@ -483,6 +489,41 @@ def check_ceiling(collection: Collection,
     return verdict
 
 
+def _probe_one(client: MonitoringClient, project: str, filter_str: str, name: str,
+               probe_window: Tuple[datetime, datetime],
+               verdict: ContaminationVerdict) -> Dict[str, Any]:
+    """Query one quiet-probe window; trip ``verdict`` if it is not quiet.
+
+    A probe that ERRORS is treated as contaminated, not as quiet: an unverifiable
+    quiet window is not a quiet window.
+    """
+    entry: Dict[str, Any] = {
+        "start": format_ts(probe_window[0]), "end": format_ts(probe_window[1])}
+    try:
+        series = client.list_time_series(project, filter_str, probe_window)
+        found = aggregate_series(series, probe_window, guard_seconds=0)
+    except CollectorError as exc:
+        entry["error"] = str(exc)
+        verdict.contaminated = True
+        verdict.reasons.append(
+            f"{name}-run baseline probe failed ({exc}) — an unverifiable quiet "
+            f"window is not a quiet window")
+        return entry
+    totals = {mid: dict(sorted(t.totals_by_type.items()))
+              for mid, t in sorted(found.by_model.items())}
+    entry["points"] = found.points_in_window
+    entry["by_model"] = totals
+    if found.points_in_window:
+        verdict.contaminated = True
+        verdict.reasons.append(
+            f"{name}-run baseline window {entry['start']}..{entry['end']} is "
+            f"NOT quiet: {found.points_in_window} point(s), {totals} — traffic "
+            f"on the subject models outside the run means points inside the "
+            f"run's window cannot be attributed to the run"
+        )
+    return entry
+
+
 def probe_baseline(client: MonitoringClient, project: str, filter_str: str,
                    window: Tuple[datetime, datetime],
                    baseline_seconds: int = DEFAULT_BASELINE_SECONDS,
@@ -495,8 +536,9 @@ def probe_baseline(client: MonitoringClient, project: str, filter_str: str,
     other than this run is calling these models right now, which is exactly the
     premise time-window attribution rests on.
 
-    A probe that ERRORS is treated as contaminated, not as quiet: an unverifiable
-    quiet window is not a quiet window.
+    This is attribution rule **v1**. It is unaware of the other runs in the batch,
+    so it cannot tell the run's own late-arriving points from a third party's and
+    refuses both; ``probe_ownership`` below is the batch-aware successor.
     """
     verdict = ContaminationVerdict()
     if baseline_seconds <= 0:
@@ -508,32 +550,8 @@ def probe_baseline(client: MonitoringClient, project: str, filter_str: str,
     probes = {"pre": (lo - span, lo - tick), "post": (hi + tick, hi + span)}
     evidence: Dict[str, Any] = {"baseline_seconds": baseline_seconds, "windows": {}}
     for name, probe_window in probes.items():
-        entry: Dict[str, Any] = {
-            "start": format_ts(probe_window[0]), "end": format_ts(probe_window[1])}
-        try:
-            series = client.list_time_series(project, filter_str, probe_window)
-            found = aggregate_series(series, probe_window, guard_seconds=0)
-        except CollectorError as exc:
-            entry["error"] = str(exc)
-            verdict.contaminated = True
-            verdict.reasons.append(
-                f"{name}-run baseline probe failed ({exc}) — an unverifiable quiet "
-                f"window is not a quiet window")
-            evidence["windows"][name] = entry
-            continue
-        totals = {mid: dict(sorted(t.totals_by_type.items()))
-                  for mid, t in sorted(found.by_model.items())}
-        entry["points"] = found.points_in_window
-        entry["by_model"] = totals
-        evidence["windows"][name] = entry
-        if found.points_in_window:
-            verdict.contaminated = True
-            verdict.reasons.append(
-                f"{name}-run baseline window {entry['start']}..{entry['end']} is "
-                f"NOT quiet: {found.points_in_window} point(s), {totals} — traffic "
-                f"on the subject models outside the run means points inside the "
-                f"run's window cannot be attributed to the run"
-            )
+        evidence["windows"][name] = _probe_one(
+            client, project, filter_str, name, probe_window, verdict)
     verdict.evidence["baseline"] = evidence
     return verdict
 
@@ -552,11 +570,20 @@ def merge_verdicts(*verdicts: ContaminationVerdict) -> ContaminationVerdict:
 # Run windows
 # --------------------------------------------------------------------------- #
 def run_window_from_events(run_dir: str) -> Tuple[str, str]:
-    """First and last event timestamps of a run — its uninstrumented wall window."""
+    """First and last event timestamps of a run — its uninstrumented wall window.
+
+    Events this collector appended after the fact are excluded. They carry the
+    COLLECTION timestamp, so counting them stretches the window from the end of
+    the run to whenever collection happened — which on a second pass over an
+    already-collected batch makes every run look hours long and overlapping with
+    every other. (Observed on screening batch 1: 73 of 77 runs appeared to overlap
+    because their last "event" was a backfill stamped at the epilogue's clock.)
+    """
     path = os.path.join(run_dir, "events.jsonl")
     if not os.path.exists(path):
         raise CollectorError(f"no events.jsonl in {run_dir} — cannot bound a window")
-    stamps = [parse_ts(e["ts"]) for e in read_events(path) if e.get("ts")]
+    stamps = [parse_ts(e["ts"]) for e in read_events(path)
+              if e.get("ts") and e.get("event_type") not in _POST_HOC_EVENT_TYPES]
     if not stamps:
         raise CollectorError(f"{path} has no timestamped events")
     return format_ts(min(stamps)), format_ts(max(stamps))
@@ -626,21 +653,270 @@ def _leg_model_map(plan: RunPlan) -> Dict[str, str]:
     return plan.legs
 
 
+# --------------------------------------------------------------------------- #
+# Serialized-run ownership — attribution rule v2
+# --------------------------------------------------------------------------- #
+# Rule v1 asks each run's window to be surrounded by silence. That is the right
+# question to ask of a window in isolation and the wrong one to ask of a BATCH:
+# the subject runs are serialized by the driver, one at a time, so the traffic
+# just after a run is overwhelmingly the run's OWN meter points arriving late.
+# Cloud Monitoring aligns this metric into buckets and ingests them with a delay,
+# so a run that stops calling at T still deposits points after T. v1 read that
+# tail as "someone else is calling the model" and refused — batch 1 lost 8 legs
+# to a post-window tail whose whole content was the run's own last few calls.
+#
+# v2 replaces "the run must be surrounded by silence" with a statement about
+# OWNERSHIP that holds by construction for a serialized batch:
+#
+#     run i owns the meter from its own start until the next subject run's
+#     window opens; nothing else in the batch can have produced points there.
+#
+# Concretely the attribution window becomes
+#
+#     [start_i - guard,  min(end_i + guard + tail,  start_{i+1} - guard) )
+#
+# — the same window as v1 extended by an ingestion tail, but never allowed to
+# reach into the next run's guard band. The quiet probes survive, moved to the
+# only region where a third party is still distinguishable: the no-man's-land
+# between one run's ownership window and the next run's. Traffic there still
+# refuses, and the plausibility ceiling is untouched. So v2 stops refusing a run
+# for its own tail and keeps refusing it for someone else's burst.
+#
+# Two ways this rule can fail to hold, both refused rather than papered over:
+#   * the runs OVERLAP (start_{i+1} < end_i) — the batch was not serialized here
+#     and no boundary exists to draw;
+#   * the runs are closer than the guard bands (start_{i+1} - guard <= end_i +
+#     guard) — the boundary exists but leaves the run no tail at all, so its late
+#     points land inside its neighbour's window and the meter cannot separate the
+#     two. Both runs are refused.
+
+#: How long after a run's last call its own points may still be ingested. Sized
+#: to the baseline probe span: the tail we now attribute is exactly the region v1
+#: demanded be silent. Configurable (``--tail-seconds``; 0 reduces v2's window to
+#: v1's, keeping only the batch-aware probe placement).
+DEFAULT_TAIL_SECONDS = 300
+
+ATTRIBUTION_METHOD_V1 = "time_window_serialized_runs"
+ATTRIBUTION_METHOD_V2 = "serialized_run_ownership_with_ingestion_tail"
+
+_TICK = timedelta(microseconds=1)
+
+
+@dataclass
+class Ownership:
+    """The slice of the meter one run in a serialized batch owns."""
+    run_dir: str
+    raw_start: datetime
+    raw_end: datetime
+    lo: datetime
+    hi: datetime
+    guard_seconds: int
+    tail_seconds: int
+    #: "ingestion_tail" (the full tail fitted) or "next_subject_run" (clipped).
+    bounded_by: str
+    #: The neighbouring boundaries, or None at the ends of the batch.
+    prev_hi: Optional[datetime] = None
+    next_lo: Optional[datetime] = None
+    #: Set when the ownership premise does not hold for this run; the run is
+    #: refused and this is the reason.
+    inseparable: Optional[str] = None
+
+    def window(self) -> Tuple[datetime, datetime]:
+        return self.lo, self.hi
+
+    def tail_granted_seconds(self) -> float:
+        """How much ingestion tail this run actually got, after clipping.
+
+        Less than ``tail_seconds`` means a neighbour took the rest: any of this
+        run's points ingested later than this land in the neighbour's window. The
+        run is still attributable — the guard band covers the usual delay — but a
+        clipped tail is the residual risk in this rule and is recorded so an
+        analysis can see it rather than having to reconstruct it.
+        """
+        return max(0.0, (self.hi - (self.raw_end + timedelta(
+            seconds=self.guard_seconds))).total_seconds())
+
+    def pre_probe(self, baseline_seconds: int) -> Optional[Tuple[datetime, datetime]]:
+        """Third-party territory before this run, or None if the previous
+        subject run owns right up to our window."""
+        if baseline_seconds <= 0:
+            return None
+        start = self.lo - timedelta(seconds=baseline_seconds)
+        if self.prev_hi is not None:
+            start = max(start, self.prev_hi + _TICK)
+        end = self.lo - _TICK
+        return (start, end) if start <= end else None
+
+    def post_probe(self, baseline_seconds: int) -> Optional[Tuple[datetime, datetime]]:
+        """Third-party territory after this run, or None if the next subject run
+        owns from our boundary onward (the case v1 mistook for contamination)."""
+        if baseline_seconds <= 0:
+            return None
+        start = self.hi + _TICK
+        end = self.hi + timedelta(seconds=baseline_seconds)
+        if self.next_lo is not None:
+            end = min(end, self.next_lo - _TICK)
+        return (start, end) if start <= end else None
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "id": ATTRIBUTION_METHOD_V2,
+            "statement": ("a serialized subject run owns the provider meter from "
+                          "its own start until the next subject run's window "
+                          "opens; its own ingestion tail is its own"),
+            "run_window": {"start": format_ts(self.raw_start),
+                           "end": format_ts(self.raw_end)},
+            "attribution_window": {"start": format_ts(self.lo),
+                                   "end": format_ts(self.hi)},
+            "guard_seconds": self.guard_seconds,
+            "tail_seconds": self.tail_seconds,
+            "tail_granted_seconds": self.tail_granted_seconds(),
+            "bounded_by": self.bounded_by,
+            "prev_run_owns_until": format_ts(self.prev_hi) if self.prev_hi else None,
+            "next_run_window_opens": format_ts(self.next_lo) if self.next_lo else None,
+        }
+
+
+def plan_ownership(plans: List[RunPlan], guard_seconds: int = DEFAULT_GUARD_SECONDS,
+                   tail_seconds: int = DEFAULT_TAIL_SECONDS) -> Dict[str, Ownership]:
+    """Partition the batch's timeline into one ownership window per run.
+
+    ``plans`` must be the WHOLE serialized batch, not the subset being written:
+    a run's boundary is its neighbour's start, so collecting a few runs against a
+    plan that omits the runs around them would hand each one its neighbour's
+    traffic. (Runs already backfilled are skipped downstream by the idempotence
+    guard, so passing the full batch every time is both safe and correct.)
+    """
+    if guard_seconds < 0 or tail_seconds < 0:
+        raise CollectorError("guard_seconds and tail_seconds must be >= 0")
+    guard = timedelta(seconds=guard_seconds)
+    tail = timedelta(seconds=tail_seconds)
+
+    bounds: List[Tuple[datetime, datetime, RunPlan]] = []
+    for plan in plans:
+        start = plan.start or run_window_from_events(plan.run_dir)[0]
+        end = plan.end or run_window_from_events(plan.run_dir)[1]
+        lo, hi = parse_ts(start), parse_ts(end)
+        if hi < lo:
+            raise CollectorError(f"{plan.run_dir}: run ends before it starts")
+        bounds.append((lo, hi, plan))
+    bounds.sort(key=lambda b: (b[0], b[1], b[2].run_dir))
+
+    owned: Dict[str, Ownership] = {}
+    ordered: List[Ownership] = []
+    for index, (raw_start, raw_end, plan) in enumerate(bounds):
+        next_raw_start = bounds[index + 1][0] if index + 1 < len(bounds) else None
+        next_lo = next_raw_start - guard if next_raw_start is not None else None
+        lo = raw_start - guard
+        desired_hi = raw_end + guard + tail
+        if next_lo is not None and next_lo <= desired_hi:
+            hi, bounded_by = next_lo - _TICK, "next_subject_run"
+        else:
+            hi, bounded_by = desired_hi, "ingestion_tail"
+
+        inseparable: Optional[str] = None
+        if next_raw_start is not None and next_raw_start < raw_end:
+            inseparable = (
+                f"the next subject run starts at {format_ts(next_raw_start)}, before "
+                f"this one ends at {format_ts(raw_end)} — the batch was not serialized "
+                f"here, so there is no boundary that separates the two runs' tokens")
+        elif next_lo is not None and next_lo <= raw_end + guard:
+            gap = (next_raw_start - raw_end).total_seconds()  # type: ignore[operator]
+            inseparable = (
+                f"the next subject run starts {gap:.0f}s after this one ends, inside "
+                f"the {guard_seconds}s guard band — this run's own ingestion tail "
+                f"lands in its neighbour's window and the meter cannot say which run "
+                f"produced it")
+
+        entry = Ownership(
+            run_dir=plan.run_dir, raw_start=raw_start, raw_end=raw_end, lo=lo, hi=hi,
+            guard_seconds=guard_seconds, tail_seconds=tail_seconds,
+            bounded_by=bounded_by, next_lo=next_lo, inseparable=inseparable,
+        )
+        if ordered:
+            entry.prev_hi = ordered[-1].hi
+        ordered.append(entry)
+        owned[plan.run_dir] = entry
+
+    # Inseparability is symmetric: if a run's tail lands in its neighbour's
+    # window, the neighbour's window is carrying tokens that are not its own.
+    for index, entry in enumerate(ordered):
+        if entry.inseparable and index + 1 < len(ordered):
+            neighbour = ordered[index + 1]
+            if not neighbour.inseparable:
+                neighbour.inseparable = (
+                    f"the preceding subject run ({os.path.basename(entry.run_dir)}) "
+                    f"cannot be separated from this one: {entry.inseparable}")
+    return owned
+
+
+def probe_ownership(client: MonitoringClient, project: str, filter_str: str,
+                    ownership: Ownership,
+                    baseline_seconds: int = DEFAULT_BASELINE_SECONDS,
+                    ) -> ContaminationVerdict:
+    """The v2 quiet probe: look for a THIRD PARTY, not for silence.
+
+    Probes only the no-man's-land either side of the ownership window — the region
+    no subject run claims. A probe the neighbours squeeze to nothing is reported as
+    ``not_applicable`` (the neighbour owns it), which is precisely the difference
+    from v1: the run's own tail is no longer evidence against it.
+    """
+    verdict = ContaminationVerdict()
+    if ownership.inseparable:
+        verdict.contaminated = True
+        verdict.reasons.append(ownership.inseparable)
+    if baseline_seconds <= 0:
+        verdict.evidence["baseline"] = "disabled"
+        return verdict
+    evidence: Dict[str, Any] = {
+        "baseline_seconds": baseline_seconds,
+        "probes": ("third-party territory only: the region between this run's "
+                   "ownership window and its neighbours'"),
+        "windows": {},
+    }
+    for name, probe_window in (("pre", ownership.pre_probe(baseline_seconds)),
+                               ("post", ownership.post_probe(baseline_seconds))):
+        if probe_window is None:
+            evidence["windows"][name] = {
+                "status": "not_applicable",
+                "why": ("an adjacent subject run owns this side up to the boundary; "
+                        "there is no third-party region to probe"),
+            }
+            continue
+        evidence["windows"][name] = _probe_one(
+            client, project, filter_str, name, probe_window, verdict)
+    verdict.evidence["baseline"] = evidence
+    return verdict
+
+
 def already_backfilled(events: List[Dict[str, Any]]) -> List[str]:
-    """Leg ids that already carry a provider backfill (idempotence guard)."""
+    """Leg ids that already carry a provider backfill (idempotence guard).
+
+    Both rule versions count: a leg filled under v1 must not be filled again
+    under v2, or its tokens would be counted twice.
+    """
     return sorted({str(e.get("leg", "main")) for e in events
-                   if e.get("event_type") == BACKFILL_EVENT})
+                   if e.get("event_type") in (BACKFILL_EVENT, BACKFILL_EVENT_V2)})
 
 
 def build_backfill_event(leg_id: str, model_user_id: str, collection: Collection,
-                         collected_at: str) -> Optional[Dict[str, Any]]:
-    """The event to append for one leg, or None when the window held no points."""
+                         collected_at: str,
+                         attribution_method: str = ATTRIBUTION_METHOD_V1,
+                         attribution_rule: Optional[Dict[str, Any]] = None,
+                         ) -> Optional[Dict[str, Any]]:
+    """The event to append for one leg, or None when the window held no points.
+
+    ``attribution_rule`` is the full statement of the rule the window came from
+    (``Ownership.as_dict()`` under v2). It is recorded on the event, not just in
+    the batch report, so a run's own log says which rule attributed its tokens.
+    """
     totals = collection.by_model.get(model_user_id)
     if totals is None or not totals.totals_by_type:
         return None
     mapped, unmapped = usage_fields(totals.totals_by_type)
     reason = (f"provider-side {METRIC_TYPE}; counts authoritative, attribution "
-              f"derived from the run's time window (serialized runs)")
+              f"derived from the run's time window (serialized runs, "
+              f"{attribution_method})")
     event: Dict[str, Any] = {
         "leg": leg_id,
         "collector": COLLECTOR_ID,
@@ -649,7 +925,7 @@ def build_backfill_event(leg_id: str, model_user_id: str, collection: Collection
         "model_user_id": model_user_id,
         "counts_confidence": "authoritative",
         "attribution_confidence": "derived",
-        "attribution_method": "time_window_serialized_runs",
+        "attribution_method": attribution_method,
         "window": {"start": collection.window_start, "end": collection.window_end,
                    "guard_seconds": collection.guard_seconds},
         "points_in_window": totals.points_in_window,
@@ -660,6 +936,8 @@ def build_backfill_event(leg_id: str, model_user_id: str, collection: Collection
     if unmapped:
         # Never dropped, never folded into a mapped class. The report shouts about it.
         event["unmapped_types"] = dict(sorted(unmapped.items()))
+    if attribution_rule is not None:
+        event["attribution_rule"] = attribution_rule
     event["ts"] = collected_at
     return event
 
@@ -725,8 +1003,17 @@ def _rewrite_summary(run_dir: str, events: List[Dict[str, Any]]) -> Dict[str, An
     return merged
 
 
+#: Refusal markers are named per attribution rule so a later pass never
+#: overwrites an earlier pass's evidence: the two rules can refuse for different
+#: reasons, and both reasons are worth keeping.
+REFUSAL_MARKERS = {"v1": "PROVIDER-BACKFILL-REFUSED.json",
+                   "v2": "PROVIDER-BACKFILL-REFUSED-v2.json"}
+
+
 def write_refusal_marker(run_dir: str, run_id: str, collection: Collection,
-                         verdict: ContaminationVerdict, collected_at: str) -> str:
+                         verdict: ContaminationVerdict, collected_at: str,
+                         filename: str = REFUSAL_MARKERS["v1"],
+                         attribution_rule: Optional[Dict[str, Any]] = None) -> str:
     """Record a refusal next to the run — evidence only, no measurement.
 
     The run's telemetry is left untouched (its usage stays *unavailable*, which is
@@ -736,13 +1023,14 @@ def write_refusal_marker(run_dir: str, run_id: str, collection: Collection,
     a telemetry artifact: nothing derives from it and no number in it is a
     measurement of this run.
     """
-    path = os.path.join(run_dir, "PROVIDER-BACKFILL-REFUSED.json")
-    payload = {
+    path = os.path.join(run_dir, filename)
+    payload: Dict[str, Any] = {
         "refusal": CONTAMINATED_STATUS,
         "collector": COLLECTOR_ID,
         "metric_type": METRIC_TYPE,
         "run_id": run_id,
         "collected_at": collected_at,
+        "attribution_rule": attribution_rule,
         "note": ("The provider meter for this window could not be attributed to "
                  "this run, so NOTHING was written to events.jsonl or summary.json "
                  "and the run's Product-B usage remains 'unavailable' (not zero). "
@@ -762,6 +1050,9 @@ def write_refusal_marker(run_dir: str, run_id: str, collection: Collection,
 def backfill_run(plan: RunPlan, collection: Collection, collected_at: str,
                  dry_run: bool = False,
                  contamination: Optional[ContaminationVerdict] = None,
+                 event_type: str = BACKFILL_EVENT,
+                 attribution_method: str = ATTRIBUTION_METHOD_V1,
+                 attribution_rule: Optional[Dict[str, Any]] = None,
                  ) -> BackfillOutcome:
     """Append provider-side usage to one run and re-derive its summary.
 
@@ -769,6 +1060,11 @@ def backfill_run(plan: RunPlan, collection: Collection, collected_at: str,
     the window is contaminated NOTHING is written, whatever the meter returned:
     the counts are real, but they are not this run's, and a real number attributed
     to the wrong run is a fabricated measurement (CLAUDE.md rule 1).
+
+    ``event_type``/``attribution_method``/``attribution_rule`` carry the rule the
+    window was drawn under. Appending under a distinct event type is what keeps a
+    v2 backfill append-only with respect to a v1 one: the two never overwrite each
+    other, and the idempotence guard refuses to write a second one either way.
     """
     events_path = os.path.join(plan.run_dir, "events.jsonl")
     summary_path = os.path.join(plan.run_dir, "summary.json")
@@ -779,6 +1075,17 @@ def backfill_run(plan: RunPlan, collection: Collection, collected_at: str,
     with open(summary_path, encoding="utf-8") as fh:
         run_id = json.load(fh).get("run_id", "")
 
+    # Idempotence is checked BEFORE contamination, not after: a leg that already
+    # carries a backfill is not going to be written under any verdict, so letting
+    # the guard speak first would stamp a refusal marker on a run whose earlier
+    # attribution stands — and would overwrite an existing marker with a verdict
+    # about a rule this pass never applied.
+    done = already_backfilled(events)
+    if done:
+        return BackfillOutcome(plan.run_dir, run_id, "skipped",
+                               f"already backfilled for legs {done} — re-running would "
+                               f"double-count; delete the events to redo it")
+
     if contamination is not None and contamination.contaminated:
         outcome = BackfillOutcome(
             plan.run_dir, run_id, CONTAMINATED_STATUS,
@@ -788,15 +1095,11 @@ def backfill_run(plan: RunPlan, collection: Collection, collected_at: str,
             contamination=contamination.as_dict(),
         )
         if not dry_run:
-            write_refusal_marker(plan.run_dir, run_id, collection, contamination,
-                                 collected_at)
+            write_refusal_marker(
+                plan.run_dir, run_id, collection, contamination, collected_at,
+                filename=REFUSAL_MARKERS["v2" if attribution_rule else "v1"],
+                attribution_rule=attribution_rule)
         return outcome
-
-    done = already_backfilled(events)
-    if done:
-        return BackfillOutcome(plan.run_dir, run_id, "skipped",
-                               f"already backfilled for legs {done} — re-running would "
-                               f"double-count; delete the events to redo it")
 
     known_legs = {str(e.get("leg", "main")) for e in events
                   if e.get("event_type") == "model_call_completed"} or {"main"}
@@ -808,7 +1111,9 @@ def backfill_run(plan: RunPlan, collection: Collection, collected_at: str,
                                              if contamination is not None else None))
     new_events: List[Dict[str, Any]] = []
     for leg_id, model_user_id in sorted(_leg_model_map(plan).items()):
-        event = build_backfill_event(leg_id, model_user_id, collection, collected_at)
+        event = build_backfill_event(leg_id, model_user_id, collection, collected_at,
+                                     attribution_method=attribution_method,
+                                     attribution_rule=attribution_rule)
         if event is None:
             continue
         new_events.append(event)
@@ -831,7 +1136,7 @@ def backfill_run(plan: RunPlan, collection: Collection, collected_at: str,
     log = EventLog(events_path)
     for event in new_events:
         payload = {k: v for k, v in event.items() if k != "ts"}
-        log.append(BACKFILL_EVENT, event["ts"], **payload)
+        log.append(event_type, event["ts"], **payload)
     _rewrite_summary(plan.run_dir, list(read_events(events_path)))
 
     ok, reasons = validate(plan.run_dir)
@@ -849,7 +1154,9 @@ def backfill_run(plan: RunPlan, collection: Collection, collected_at: str,
 def build_report(project: str, collected_at: str, guard_seconds: int,
                  outcomes: List[BackfillOutcome],
                  ceiling: int = DEFAULT_CEILING_INPUT_TOKENS,
-                 baseline_seconds: int = DEFAULT_BASELINE_SECONDS) -> Dict[str, Any]:
+                 baseline_seconds: int = DEFAULT_BASELINE_SECONDS,
+                 attribution_rule: str = "v1",
+                 tail_seconds: int = DEFAULT_TAIL_SECONDS) -> Dict[str, Any]:
     """Machine-readable backfill report. Unmapped types sit at the top, on purpose."""
     unmapped: Dict[str, Dict[str, int]] = {}
     for out in outcomes:
@@ -878,7 +1185,19 @@ def build_report(project: str, collected_at: str, guard_seconds: int,
         "attribution": {
             "counts_confidence": "authoritative",
             "per_run_attribution_confidence": "derived",
-            "method": "time_window_serialized_runs",
+            "rule": attribution_rule,
+            "method": (ATTRIBUTION_METHOD_V2 if attribution_rule == "v2"
+                       else ATTRIBUTION_METHOD_V1),
+            "event_type": (BACKFILL_EVENT_V2 if attribution_rule == "v2"
+                           else BACKFILL_EVENT),
+            "tail_seconds": tail_seconds if attribution_rule == "v2" else None,
+            "note": (("a serialized subject run owns the meter from its own start "
+                      "until the next subject run's window opens, so its own "
+                      "ingestion tail is attributed to it; the quiet probe looks "
+                      "only at the region no subject run owns")
+                     if attribution_rule == "v2" else
+                     ("a run's window must be surrounded by silence on the subject "
+                      "models")),
         },
         "contamination_guard": {
             "input_side_ceiling_tokens": ceiling,
@@ -940,19 +1259,28 @@ def load_plan(path: str) -> Tuple[str, List[RunPlan]]:
     return str(project), runs
 
 
+def plan_filter(plan: RunPlan) -> str:
+    """The Monitoring filter for one run's declared legs."""
+    publishers = {plan.publisher_for(leg_id) for leg_id in plan.legs}
+    return build_filter(sorted(set(plan.legs.values())), publishers)
+
+
 def plan_query(plan: RunPlan, guard_seconds: int
                ) -> Tuple[Tuple[datetime, datetime], str]:
     """The ``(window, filter)`` one run is collected with. Pure but for the events."""
     start = plan.start or run_window_from_events(plan.run_dir)[0]
     end = plan.end or run_window_from_events(plan.run_dir)[1]
-    window = build_window(start, end, guard_seconds)
-    publishers = {plan.publisher_for(leg_id) for leg_id in plan.legs}
-    return window, build_filter(sorted(set(plan.legs.values())), publishers)
+    return build_window(start, end, guard_seconds), plan_filter(plan)
 
 
 def collect_for_run(client: MonitoringClient, project: str, plan: RunPlan,
-                    guard_seconds: int) -> Collection:
-    window, filter_str = plan_query(plan, guard_seconds)
+                    guard_seconds: int,
+                    window: Optional[Tuple[datetime, datetime]] = None) -> Collection:
+    """Aggregate one run's window. ``window`` overrides the v1 derivation."""
+    if window is None:
+        window, filter_str = plan_query(plan, guard_seconds)
+    else:
+        filter_str = plan_filter(plan)
     series = client.list_time_series(project, filter_str, window)
     return aggregate_series(series, window, guard_seconds)
 
@@ -961,8 +1289,20 @@ def guard_run(client: MonitoringClient, project: str, plan: RunPlan,
               collection: Collection, guard_seconds: int,
               ceiling: int = DEFAULT_CEILING_INPUT_TOKENS,
               baseline_seconds: int = DEFAULT_BASELINE_SECONDS,
+              ownership: Optional[Ownership] = None,
               ) -> ContaminationVerdict:
-    """Run both contamination checks over one run's window."""
+    """Run both contamination checks over one run's window.
+
+    The ceiling is the same under either rule. The quiet probe is the part that
+    differs: v1 demands silence around the window, v2 probes only the region no
+    subject run owns.
+    """
+    if ownership is not None:
+        return merge_verdicts(
+            check_ceiling(collection, ceiling),
+            probe_ownership(client, project, plan_filter(plan), ownership,
+                            baseline_seconds),
+        )
     window, filter_str = plan_query(plan, guard_seconds)
     return merge_verdicts(
         check_ceiling(collection, ceiling),
@@ -974,19 +1314,43 @@ def run_backfill(client: MonitoringClient, project: str, plans: List[RunPlan],
                  collected_at: str, guard_seconds: int = DEFAULT_GUARD_SECONDS,
                  dry_run: bool = False,
                  ceiling: int = DEFAULT_CEILING_INPUT_TOKENS,
-                 baseline_seconds: int = DEFAULT_BASELINE_SECONDS) -> Dict[str, Any]:
+                 baseline_seconds: int = DEFAULT_BASELINE_SECONDS,
+                 attribution_rule: str = "v1",
+                 tail_seconds: int = DEFAULT_TAIL_SECONDS) -> Dict[str, Any]:
+    """Collect and backfill a whole batch under one attribution rule.
+
+    Under ``v2`` the batch is treated as the serialized sequence it is: boundaries
+    are computed across ALL of ``plans`` first, then each run is collected inside
+    the slice it owns.
+    """
+    owned: Dict[str, Ownership] = {}
+    if attribution_rule == "v2":
+        owned = plan_ownership(plans, guard_seconds, tail_seconds)
+    elif attribution_rule != "v1":
+        raise CollectorError(f"unknown attribution rule {attribution_rule!r}")
+
     outcomes: List[BackfillOutcome] = []
     for plan in plans:
         try:
-            collection = collect_for_run(client, project, plan, guard_seconds)
+            ownership = owned.get(plan.run_dir)
+            collection = collect_for_run(
+                client, project, plan, guard_seconds,
+                window=ownership.window() if ownership else None)
             verdict = guard_run(client, project, plan, collection, guard_seconds,
-                                ceiling=ceiling, baseline_seconds=baseline_seconds)
-            outcomes.append(backfill_run(plan, collection, collected_at,
-                                         dry_run=dry_run, contamination=verdict))
+                                ceiling=ceiling, baseline_seconds=baseline_seconds,
+                                ownership=ownership)
+            outcomes.append(backfill_run(
+                plan, collection, collected_at, dry_run=dry_run,
+                contamination=verdict,
+                event_type=BACKFILL_EVENT_V2 if ownership else BACKFILL_EVENT,
+                attribution_method=(ATTRIBUTION_METHOD_V2 if ownership
+                                    else ATTRIBUTION_METHOD_V1),
+                attribution_rule=ownership.as_dict() if ownership else None))
         except CollectorError as exc:
             outcomes.append(BackfillOutcome(plan.run_dir, "", "error", str(exc)))
     return build_report(project, collected_at, guard_seconds, outcomes,
-                        ceiling=ceiling, baseline_seconds=baseline_seconds)
+                        ceiling=ceiling, baseline_seconds=baseline_seconds,
+                        attribution_rule=attribution_rule, tail_seconds=tail_seconds)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -1006,6 +1370,17 @@ def main(argv: Optional[List[str]] = None) -> int:
                         help="probe this many seconds before and after each run's "
                              "window for traffic on the same models; any traffic "
                              "there refuses the run. 0 disables the check.")
+    parser.add_argument("--attribution-rule", choices=("v1", "v2"), default="v1",
+                        help="v1: each run's window must be surrounded by silence. "
+                             "v2: serialized-run ownership — a run owns the meter "
+                             "until the next subject run's window opens, so its own "
+                             "ingestion tail counts as its own and only the region "
+                             "no run owns is probed for a third party. v2 needs the "
+                             "WHOLE serialized batch in the plan.")
+    parser.add_argument("--tail-seconds", type=int, default=DEFAULT_TAIL_SECONDS,
+                        help="v2 only: how long after its last call a run may still "
+                             "have points ingested. Never extends past the next "
+                             "subject run's window.")
     parser.add_argument("--collected-at",
                         help="RFC3339 collection timestamp (default: now, UTC)")
     parser.add_argument("--report", help="write the JSON report here as well as stdout")
@@ -1021,10 +1396,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     project = args.project or project
     collected_at = args.collected_at or format_ts(datetime.now(timezone.utc))
 
-    report = run_backfill(GcloudMonitoringClient(), project, plans, collected_at,
-                          guard_seconds=args.guard_seconds, dry_run=args.dry_run,
-                          ceiling=args.ceiling_input_tokens,
-                          baseline_seconds=args.baseline_seconds)
+    try:
+        report = run_backfill(GcloudMonitoringClient(), project, plans, collected_at,
+                              guard_seconds=args.guard_seconds, dry_run=args.dry_run,
+                              ceiling=args.ceiling_input_tokens,
+                              baseline_seconds=args.baseline_seconds,
+                              attribution_rule=args.attribution_rule,
+                              tail_seconds=args.tail_seconds)
+    except CollectorError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
     _print_report(report)
     if args.report:
         with open(args.report, "w", encoding="utf-8") as fh:
