@@ -50,20 +50,55 @@ VENV_PY="$REPO_ROOT/.venv/bin/python"
 # check the return value: git still unable to read the tree means NOTHING can be
 # graded, and each gate says so loudly instead of scoring an invisible tree.
 #
-# Returns 0 if git can read $SUBJECT_DIR (possibly after trusting it), else 1.
+# Returns 0 if git can read $SUBJECT_DIR AS A WORK TREE (possibly after trusting
+# it), else 1.
+#
+# FAILS CLOSED, and the distinction is not academic. `rev-parse
+# --is-inside-work-tree` exits 0 and prints `false` for a bare repository and for
+# a path inside a `.git` directory — so an exit-status-only check trusts a
+# "repository" that has no working tree at all. A discovery gate then asks it
+# "which files did the agent add?", gets an empty list, and grades the agent
+# `rejected` for writing nothing. That is the batch-1 defect wearing a different
+# hat: an unreadable tree and a non-existent tree must both be admitted, never
+# scored. So an ANSWER is required, not merely an exit code, and a subject
+# directory we cannot even stat is refused before any exception is granted for it.
 git_trust_subject() {
-  if git -C "$SUBJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  [ -d "$SUBJECT_DIR" ] || return 1
+  if [ "$(git -C "$SUBJECT_DIR" rev-parse --is-inside-work-tree 2>/dev/null)" = "true" ]; then
     return 0
   fi
+  # Trust THIS path only, through env rather than the operator's gitconfig, and
+  # export it so a sealed runner invoked as a child inherits it. Left in place on
+  # refusal on purpose: it names the tree we were already asked to grade, and it
+  # is the only offline evidence that the mechanism reaches a child process.
   export GIT_CONFIG_COUNT=1
   export GIT_CONFIG_KEY_0=safe.directory
   export GIT_CONFIG_VALUE_0="$SUBJECT_DIR"
-  git -C "$SUBJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1
+  [ "$(git -C "$SUBJECT_DIR" rev-parse --is-inside-work-tree 2>/dev/null)" = "true" ]
 }
 
 # Why git refuses the subject tree, one line, for a gate's failure message.
+#
+# Never fabricates a fault. The obvious implementation pipes rev-parse's output
+# through `head -1` unconditionally, which reports the string `true` — rev-parse's
+# own success output — as the reason a gate failed. A reason that is really a
+# success reads like a fail-open in the logs and sends the next reader after the
+# wrong thing; a CI runner where git did not refuse is exactly how that surfaced.
 git_subject_error() {
-  git -C "$SUBJECT_DIR" rev-parse --is-inside-work-tree 2>&1 | head -1
+  if [ ! -d "$SUBJECT_DIR" ]; then
+    echo "no subject directory at $SUBJECT_DIR"
+    return 0
+  fi
+  local out
+  if out="$(git -C "$SUBJECT_DIR" rev-parse --is-inside-work-tree 2>&1)"; then
+    if [ "$out" = "true" ]; then
+      echo "git can read $SUBJECT_DIR now — the refusal did not reproduce"
+    else
+      echo "no work tree at $SUBJECT_DIR (--is-inside-work-tree said '$out')"
+    fi
+    return 0
+  fi
+  printf '%s\n' "$out" | head -1
 }
 
 # Prefer the project venv python; fall back to python3 (containers without .venv).

@@ -37,6 +37,19 @@ reproduces the real arrangement byte for byte — volume seeded by the agent ima
 graded by the gate image — and proves both halves, with a negative control
 showing the pre-fix path finds nothing. Sealed material is never touched: the
 runner here is the SYNTHETIC fixture (CLAUDE.md non-negotiable #1).
+
+THE SIMULATION IS NOT AVAILABLE EVERYWHERE, and that is checked rather than
+assumed. Producing a genuinely foreign-owned tree needs the privilege to chown to
+another uid, which an unprivileged runner does not have; and the env-var stand-in
+only bites where git actually refuses — a global or system `safe.directory = *`,
+or a git build that ignores the variable, and it simulates nothing. Silently, in
+the worst way: every "refused" assertion below would pass while exercising the
+opposite path. So the offline layer runs hermetically (global and system
+gitconfig pointed at /dev/null) and then PROBES the capability on a throwaway
+repo. If the refusal still cannot be produced, the tests that need one skip with
+the diagnosis attached — never quietly, and never by asking "are we in CI?", a
+question whose answer says nothing about what this machine can do. The
+logic-level tests keep running everywhere.
 """
 
 from __future__ import annotations
@@ -65,6 +78,13 @@ GIT_ID = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
 # code path a foreign-uid volume takes, without needing a foreign uid.
 FOREIGN = {"GIT_TEST_ASSUME_DIFFERENT_OWNER": "1"}
 
+# Take the operator's git configuration out of play. A global or system
+# `safe.directory = *` — common on shared machines and on hosted CI runner images
+# — allowlists every repository, and the simulation above then simulates nothing.
+# git before 2.32 ignores both variables, which is why the capability probe, not
+# this, has the last word.
+HERMETIC = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull}
+
 
 def _have(*argv: str) -> bool:
     try:
@@ -79,10 +99,56 @@ HAVE_IMAGES = HAVE_DOCKER and all(
     _have("docker", "image", "inspect", img) for img in (GATE_IMAGE, AGENT_IMAGE))
 
 
+def _git(*argv: str, cwd: str | None = None,
+         env: dict | None = None) -> subprocess.CompletedProcess:
+    return subprocess.run(  # noqa: S603 - fixed argv
+        ["git", *(["-C", cwd] if cwd else []), *argv],
+        capture_output=True, text=True, check=False,
+        env={**os.environ, **GIT_ID, **HERMETIC, **(env or {})})
+
+
+def _foreign_simulation_diagnosis() -> str:
+    """Empty if this machine can make git refuse a tree as foreign-owned, else why not.
+
+    A CAPABILITY probe on a throwaway repo, deliberately not an "are we in CI?"
+    check: it asks git what it actually does here, so it stays right whatever the
+    reason — an unprivileged runner that cannot chown, a git build that ignores
+    the variable, an allowlist we did not manage to neutralise.
+    """
+    tmp = tempfile.mkdtemp(prefix="gateowner-probe-")
+    try:
+        repo = pathlib.Path(tmp) / "repo"
+        repo.mkdir()
+        for argv in (("init", "-q"), ("commit", "-qm", "base", "--allow-empty")):
+            built = _git(*argv, cwd=str(repo))
+            if built.returncode != 0:
+                return (f"could not build a probe repo to test the capability: "
+                        f"{built.stderr.strip()[:200]}")
+        probe = _git("rev-parse", "--is-inside-work-tree", cwd=str(repo), env=FOREIGN)
+        if probe.returncode == 0:
+            version = _git("--version").stdout.strip() or "git (version unknown)"
+            return (
+                f"this environment cannot produce a tree git considers foreign-owned: "
+                f"{version} answered {probe.stdout.strip()!r} for a repo marked foreign "
+                f"by GIT_TEST_ASSUME_DIFFERENT_OWNER, even with global and system "
+                f"gitconfig neutralised. Reproducing the refusal for real needs the "
+                f"privilege to chown a tree to another uid, which an unprivileged "
+                f"runner does not have. The docker layer covers this end to end where "
+                f"the images are built"
+            )
+        return ""
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+FOREIGN_UNAVAILABLE = _foreign_simulation_diagnosis()
+CAN_SIMULATE_FOREIGN = not FOREIGN_UNAVAILABLE
+
+
 def _sh(script: str, env: dict) -> subprocess.CompletedProcess:
     return subprocess.run(  # noqa: S603 - fixed argv, test-owned script
         ["bash", "-c", script], capture_output=True, text=True, check=False,
-        env={**os.environ, **env})
+        env={**os.environ, **HERMETIC, **env})
 
 
 class _TaskFixture(unittest.TestCase):
@@ -107,9 +173,9 @@ class _TaskFixture(unittest.TestCase):
         self.subject = self.task / ".work" / "repo"
         self.subject.mkdir()
         (self.subject / "README.md").write_text("SYNTHETIC subject\n", encoding="utf-8")
-        for argv in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "base"]):
-            subprocess.run(["git", "-C", str(self.subject), *argv],  # noqa: S603
-                           check=True, capture_output=True, env={**os.environ, **GIT_ID})
+        for argv in (("init", "-q"), ("add", "-A"), ("commit", "-qm", "base")):
+            built = _git(*argv, cwd=str(self.subject))
+            self.assertEqual(built.returncode, 0, built.stderr)
         # The agent's untracked contribution — what discovery must find.
         (self.subject / "src" / "tests").mkdir(parents=True)
         (self.subject / "src" / "tests" / "agent.test.ts").write_text(
@@ -155,12 +221,57 @@ class TrustHelperContract(_TaskFixture):
         self.assertIn("CHILD_SEES=<unset>", out,
                       "a tree git can already read must not have its config rewritten")
 
+    def test_a_healthy_tree_is_not_reported_as_a_fault(self) -> None:
+        """git_subject_error must not pass rev-parse's own output off as a reason.
+
+        `rev-parse --is-inside-work-tree` answers `true`, so piping it through
+        `head -1` unconditionally makes a gate print `ERROR=true` for a tree that
+        is perfectly fine. A reason that is really a success reads like a
+        fail-open in the logs and sends the next reader after the wrong thing —
+        which is exactly how it surfaced, on a runner where git did not refuse.
+        """
+        out = self._probe({}).stdout
+        self.assertIn("VERDICT=trusted", out)
+        self.assertNotIn("ERROR=true", out)
+
+    def test_a_bare_repository_is_refused_because_it_has_no_work_tree(self) -> None:
+        """An exit code is not an answer.
+
+        `rev-parse --is-inside-work-tree` exits 0 and prints `false` for a bare
+        repository and for a path inside a `.git` directory, so a status-only
+        check trusts a "repo" with no working tree in it. A discovery gate then
+        asks which files the agent added, is told none, and rejects the agent for
+        writing nothing: the batch-1 verdict again, from a different cause. Trust
+        requires the answer `true`.
+        """
+        alt = self.tmp / "bare-work"
+        alt.mkdir()
+        built = _git("init", "-q", "--bare", str(alt / "repo"))
+        self.assertEqual(built.returncode, 0, built.stderr)
+        out = self._probe({"TASK_WORKDIR": str(alt)}).stdout
+        self.assertIn("VERDICT=refused", out)
+        self.assertIn("no work tree", out,
+                      "the gate must be able to say WHY, not just score zero")
+
+    def test_a_missing_subject_tree_is_refused_before_anything_is_trusted(self) -> None:
+        """A tree we cannot stat is a tree we cannot grade — and must not allowlist."""
+        alt = self.tmp / "empty-work"
+        alt.mkdir()
+        out = self._probe({"TASK_WORKDIR": str(alt)}).stdout
+        self.assertIn("VERDICT=refused", out)
+        self.assertIn("no subject directory", out)
+        self.assertIn("CHILD_SEES=<unset>", out,
+                      "no safe.directory exception may be granted for a path that "
+                      "does not exist")
+
+    @unittest.skipUnless(CAN_SIMULATE_FOREIGN, FOREIGN_UNAVAILABLE)
     def test_a_foreign_owned_tree_is_refused_not_silently_empty(self) -> None:
         proc = self._probe(FOREIGN)
         self.assertIn("VERDICT=refused", proc.stdout)
         self.assertIn("dubious ownership", proc.stdout,
                       "the gate must be able to say WHY, not just score zero")
 
+    @unittest.skipUnless(CAN_SIMULATE_FOREIGN, FOREIGN_UNAVAILABLE)
     def test_the_trust_is_exported_so_the_sealed_runner_inherits_it(self) -> None:
         """The mechanism, asserted independently of whether git then relents.
 
@@ -183,6 +294,7 @@ class DiscoveryGateRefusesToScoreWhatItCannotSee(_TaskFixture):
         self.assertIn("1 agent test file(s) found", proc.stdout)
         self.assertEqual(self._report()["status"], "pass")
 
+    @unittest.skipUnless(CAN_SIMULATE_FOREIGN, FOREIGN_UNAVAILABLE)
     def test_an_unreadable_tree_is_unavailable_not_a_rejection(self) -> None:
         """The batch-1 verdict, inverted. Exit 2 -> acceptance.result "error"."""
         proc = self._hidden_gate(**FOREIGN)
@@ -192,6 +304,7 @@ class DiscoveryGateRefusesToScoreWhatItCannotSee(_TaskFixture):
         self.assertIn("UNAVAILABLE", proc.stdout)
         self.assertEqual(self._report()["status"], "unavailable")
 
+    @unittest.skipUnless(CAN_SIMULATE_FOREIGN, FOREIGN_UNAVAILABLE)
     def test_the_sealed_runner_is_not_even_invoked_on_an_unreadable_tree(self) -> None:
         """Nothing was graded, so nothing may claim to have been graded.
 
@@ -220,6 +333,10 @@ class SolutionGateIsOutOfTheBlastRadius(_TaskFixture):
             "// SYNTHETIC sealed test\n", encoding="utf-8")
 
     def test_an_unreadable_tree_does_not_block_the_injection_path(self) -> None:
+        # Runs everywhere on purpose: it asserts a PASS, so it cannot go red for
+        # want of the simulation. Where the refusal cannot be produced it degrades
+        # to "the solution gate passes", which is worth keeping but is not the
+        # pointed claim — the docker layer is what proves that claim there.
         proc = self._hidden_gate(**FOREIGN)
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertEqual(self._report()["status"], "pass")
