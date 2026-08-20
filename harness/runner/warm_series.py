@@ -141,6 +141,16 @@ def run_series(
             "set LAB_ALLOW_SPEND=1 for an approved run, or pass --dry-run"
         )
     task = R.load_task(task_arg, manifest)
+    if R.is_review_task(task):
+        # This driver stages ONCE and resets the tree between reps, and a reset
+        # removes untracked files — including the delivered review artifact. Reps
+        # 2..N would review nothing and score as silence, which is exactly the
+        # failure the delivery fix exists to end. Refuse rather than half-run.
+        raise R.RunnerError(
+            f"{task.task_id}: the warm-series driver cannot run a pr_review task — "
+            f"it resets the staged tree between reps, which would delete the "
+            f"delivered review artifact after rep 1. Use the single-run runner."
+        )
     plan = R.build_plan(config, manifest, task=task, require_frozen=not dry_run)
     prices, pricing_snapshot = R.resolve_pricing(manifest, plan)
     manifest_rel = os.path.relpath(manifest_path, R.REPO_ROOT)
@@ -183,7 +193,7 @@ def run_series(
                     staged_repo = R._stage_subject_outside_repo(src)
                     shutil.rmtree(src, ignore_errors=True)
                 else:
-                    staged_repo = R._setup_subject(task.task_dir, run_dir)
+                    staged_repo = R._setup_subject(task, run_dir)
                 staged_root = os.path.dirname(staged_repo)
                 pin = _staged_head(staged_repo)
 

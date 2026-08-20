@@ -50,6 +50,7 @@ from harness.adapters.base import (
 )
 from harness.container import egress as egress_mod
 from harness.container.exec import (
+    CONTAINER_SUBJECT_ROOT,
     TARGET_AGENT,
     TARGET_GATE,
     ContainerExecutor,
@@ -1317,6 +1318,10 @@ def _ensure_agent_launch(
 
     volume = agent_volume_name(run_id)
     create_volume(volume)
+    # A review task's input is DELIVERED, not baked: seed it into the volume before
+    # the agent's first container mounts it (see stage_review_artifact_container).
+    if is_review_task(task):
+        stage_review_artifact_container(tag, volume, task)
     return ContainerLaunch(
         image=tag, network=network, mounts=tuple(agent_credential_mounts()),
         env=env, agent_volume=volume, profile=SUBJECT_PROFILE_CONTAINER_AGENT,
@@ -1326,6 +1331,150 @@ def _ensure_agent_launch(
         # its own run (exec.kill_container).
         name_prefix=agent_container_prefix(run_id),
     ), label
+
+
+# --------------------------------------------------------------------------- #
+# Review-task delivery (gate_type: pr_review)
+# --------------------------------------------------------------------------- #
+#: Default in-subject filename of the artifact the agent reviews.
+REVIEW_ARTIFACT_DEFAULT = "review-diff.patch"
+#: Default in-subject filename of the report the agent writes. Same default as
+#: validate.sh's ``review_report``; the two must not drift.
+REVIEW_REPORT_DEFAULT = "review-report.txt"
+#: Where the source diff is bind-mounted inside the seeding container.
+CONTAINER_REVIEW_SRC = "/tmp/lab-review-src"
+
+#: Copy the review artifact into a subject tree and hide it from git.
+#:
+#: ONE script, run by bash on the host in host mode and by the agent image in
+#: container mode, so the two postures deliver the same bytes to the same path and
+#: a test of either is a test of both.
+#:
+#: The ``.git/info/exclude`` line is not tidiness — it is what keeps SEALED bytes
+#: out of ``results/``. ``_archive_agent_diff`` and its container twin archive the
+#: FULL CONTENT of every untracked file, and that archive is committed; an
+#: unexcluded review diff would publish the seeded-defect artifact next to the
+#: committed ``review/base-diff.patch``, which is the same as publishing the map.
+#: Both archivers pass ``--exclude-standard``, so this one line covers both.
+REVIEW_SEED_SCRIPT = (
+    'set -e; '
+    'cp "$LAB_REVIEW_SRC" "$LAB_SUBJECT_ROOT/$LAB_REVIEW_NAME"; '
+    'g="$(git -C "$LAB_SUBJECT_ROOT" rev-parse --absolute-git-dir 2>/dev/null '
+    '     || true)"; '
+    'if [ -n "$g" ]; then '
+    '  mkdir -p "$g/info"; '
+    '  grep -qxF "$LAB_REVIEW_NAME" "$g/info/exclude" 2>/dev/null '
+    '    || printf "%s\\n" "$LAB_REVIEW_NAME" >> "$g/info/exclude"; '
+    'fi'
+)
+
+
+def is_review_task(task: "Task") -> bool:
+    return task.gate_type == "pr_review"
+
+
+def review_artifact_name(task: "Task") -> str:
+    """In-subject filename of the artifact under review.
+
+    Defaults to the basename of ``review_diff`` so the name the agent is told to
+    read is the name the human authored, with no second place to keep in step.
+    """
+    declared = task.task_yaml.get("review_artifact")
+    if declared:
+        return str(declared)
+    source = task.task_yaml.get("review_diff")
+    return os.path.basename(str(source)) if source else REVIEW_ARTIFACT_DEFAULT
+
+
+def review_report_name(task: "Task") -> str:
+    """In-subject filename of the report the agent writes (validate.sh's default)."""
+    return str(task.task_yaml.get("review_report") or REVIEW_REPORT_DEFAULT)
+
+
+def review_artifact_source(task: "Task") -> str:
+    """HOST path of the artifact under review.
+
+    A ``hidden/``-relative declaration resolves through :func:`hidden_tests_dir`,
+    the same rule the gates use, so ``HIDDEN_TESTS_DIR`` moves the sealed set as one
+    thing and a synthetic fixture can stand in for it without touching the real one.
+    """
+    rel = str(task.task_yaml.get("review_diff") or "")
+    if not rel:
+        raise RunnerError(
+            f"{task.task_id}: gate_type is pr_review but task.yaml declares no "
+            f"review_diff, so there is no artifact to hand the agent"
+        )
+    prefix = "hidden" + os.sep
+    if rel.startswith(prefix) or rel.startswith("hidden/"):
+        return os.path.join(hidden_tests_dir(task.task_dir),
+                            rel.split("/", 1)[1] if "/" in rel else rel)
+    return os.path.join(task.task_dir, rel)
+
+
+def _require_review_artifact(task: "Task") -> str:
+    """The source path, or a refusal. Fails CLOSED — never a silent empty review.
+
+    Screening batch 1 ran 15 W6 cells against a subject tree that carried no diff
+    at all: nothing in the harness read ``review_diff``, the agents had nothing to
+    review, and every run landed a 0-byte ``agent-solution.diff``. The cells were
+    voided. A missing sealed artifact must stop the run, not produce 15 more.
+    """
+    src = review_artifact_source(task)
+    if not os.path.isfile(src) or os.path.getsize(src) == 0:
+        raise RunnerError(
+            f"{task.task_id}: the artifact under review is missing or empty at "
+            f"{src}. It is SEALED and human-held (task.yaml review_diff, "
+            f"hidden/README-FOR-HUMAN.md); without it the agent has nothing to "
+            f"review and the run would score silence. Refusing to start."
+        )
+    return src
+
+
+def stage_review_artifact(subject_dir: str, task: "Task") -> str:
+    """Host-mode delivery: put the review artifact in the staged subject tree."""
+    src = _require_review_artifact(task)
+    name = review_artifact_name(task)
+    proc = subprocess.run(  # noqa: S603 - fixed script, values passed by env
+        ["bash", "-c", REVIEW_SEED_SCRIPT],
+        env={**os.environ, "LAB_REVIEW_SRC": src, "LAB_SUBJECT_ROOT": subject_dir,
+             "LAB_REVIEW_NAME": name},
+        capture_output=True, text=True, check=False,
+    )
+    dst = os.path.join(subject_dir, name)
+    if proc.returncode != 0 or not os.path.isfile(dst) or os.path.getsize(dst) == 0:
+        raise RunnerError(
+            f"{task.task_id}: could not stage the review artifact into "
+            f"{subject_dir} (exit {proc.returncode}): {proc.stderr.strip()}"
+        )
+    return dst
+
+
+def stage_review_artifact_container(image: str, volume: str, task: "Task",
+                                    *, subject_root: str = CONTAINER_SUBJECT_ROOT
+                                    ) -> None:
+    """Container-mode delivery: seed the per-run volume before the agent starts.
+
+    The agent IMAGE cannot carry the artifact — ``.dockerignore`` excludes
+    ``**/hidden/`` and the build ends with ``assert-no-task-material /``. So it is
+    mounted read-only at RUN time and copied into the volume, exactly as
+    ``container_gate`` mounts the sealed set rather than baking it. Docker seeds an
+    empty named volume from the image on first mount, so this container's mount IS
+    that first mount and the agent still starts from the baked tree.
+    """
+    src = _require_review_artifact(task)
+    name = review_artifact_name(task)
+    res = ContainerExecutor(image, subject_root=subject_root).run(
+        ["bash", "-c", REVIEW_SEED_SCRIPT],
+        mounts=[(volume, subject_root, "rw"), (src, CONTAINER_REVIEW_SRC, "ro")],
+        network="none", workdir=subject_root,
+        env={"LAB_REVIEW_SRC": CONTAINER_REVIEW_SRC,
+             "LAB_SUBJECT_ROOT": subject_root, "LAB_REVIEW_NAME": name},
+    )
+    if res.returncode != 0:
+        raise RunnerError(
+            f"{task.task_id}: could not stage the review artifact into volume "
+            f"{volume} (exit {res.returncode}): {res.stderr.strip()}"
+        )
 
 
 def _stage_subject_outside_repo(source_repo: str) -> str:
@@ -1362,7 +1511,8 @@ def _stage_subject_outside_repo(source_repo: str) -> str:
     return staged_repo
 
 
-def _setup_subject(task_dir: str, run_dir: str) -> str:
+def _setup_subject(task: "Task", run_dir: str) -> str:
+    task_dir = task.task_dir
     tt = os.path.join(REPO_ROOT, "harness", "task-tools")
     env = {**os.environ, "TASK_DIR": task_dir}
     subprocess.run(["bash", os.path.join(tt, "setup.sh")], env=env, check=True)  # noqa: S603
@@ -1375,7 +1525,12 @@ def _setup_subject(task_dir: str, run_dir: str) -> str:
     # FIX A: hand the agent a subject tree staged OUTSIDE the lab repo, so canonical/,
     # hidden/ and task.yaml cannot be reached by relative traversal from its cwd.
     source_repo = os.path.join(task_dir, ".work", "repo")
-    return _stage_subject_outside_repo(source_repo)
+    staged = _stage_subject_outside_repo(source_repo)
+    # Deliver AFTER staging: reset.sh removes every untracked file, so an artifact
+    # placed before it would be swept away without a word.
+    if is_review_task(task):
+        stage_review_artifact(staged, task)
+    return staged
 
 
 # --------------------------------------------------------------------------- #
@@ -1708,7 +1863,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 # the agent's tree rather than the pristine baked one.
                 launch = _ensure_gate_launch(task, agent_volume=agent_volume)
             else:
-                subject_dir = _setup_subject(task.task_dir, run_dir)
+                subject_dir = _setup_subject(task, run_dir)
                 staged_root = os.path.dirname(subject_dir)  # <staged>/repo -> <staged>
 
         ok, reasons = execute_and_validate_run(

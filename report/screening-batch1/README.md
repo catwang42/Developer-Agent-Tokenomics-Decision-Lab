@@ -25,6 +25,11 @@ Pairs with the dataset `results/screening-batch1/` (CLAUDE.md rule 8).
 - **15 runs are voided.** `w6-hono-router-review` is unscoreable as run — the artifact
   under review was never delivered to the agent — and is adjudicated as such in
   `results/screening-batch1/adjudication.json`. A void is neither an accept nor a reject.
+  The delivery defect (and two more found with it) is fixed in the harness and recorded
+  in `batch1.log` *G*; the fix changes the instrument, so any re-run is a **separate
+  dataset**, never merged into this one. The re-run is
+  `scripts/screening-batch1-makeup-driver.sh --profile w6` into
+  `results/screening-batch1-makeup-w6/`; running it needs CP-SPEND.
 - **17 runs were ended by the harness before the agent finished**, under batch 1's flat
   1800s bound. Their gate results are instrument observations, not capability ones, and
   every grader in the decision table refuses the cells they sit in.
@@ -37,8 +42,8 @@ Pairs with the dataset `results/screening-batch1/` (CLAUDE.md rule 8).
 - **W3-escalation-probe grades `confounded_by_run_budget`.** Both halves are reported
   and neither is graded. The remedy is the makeup pass under the per-task
   `agent_timeout_s` now pinned in each `task.yaml`
-  (`scripts/screening-batch1-makeup-driver.sh`, dry-run only — running it needs
-  CP-SPEND).
+  (`scripts/screening-batch1-makeup-driver.sh --profile w3`, into
+  `results/screening-batch1-makeup/`; running it needs CP-SPEND).
 
 Coverage is uneven across arms and several cells are confounded, so **nothing in this
 folder supports a comparison of any kind** — not between arms, not between products,

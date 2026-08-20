@@ -6103,3 +6103,68 @@ PROVIDER-BACKFILL-REFUSED-v3.json markers. No v1 or v2 record was edited or
 removed: a v2 refusal beside a v3 attribution is not a stale marker, it is two
 rules disagreeing, and both verdicts remain true of the rule that made them. The
 summarizer reports that pair as a rule supersession, not as a defect.
+
+--- G. W6 DELIVERY FIX (harness change; no batch-1 record altered) --------------
+C classified the W6 void as two independent breaks. Both are now fixed, plus a
+third that C could not have seen because batch 1's W6 agents produced nothing.
+
+1. MATERIAL DELIVERY. Nothing in the harness read task.yaml `review_diff`. The
+   runner now stages it into the subject tree at run time under its own basename
+   (review-diff.patch), in BOTH postures and from ONE script
+   (harness/runner/run.py REVIEW_SEED_SCRIPT): host mode copies it into the
+   staged tree after reset.sh (which deletes untracked files, so the order
+   matters); container mode seeds the per-run named volume before the agent's
+   first mount, with the sealed file bind-mounted read-only — the agent IMAGE
+   cannot carry it (.dockerignore excludes **/hidden/ and the build ends with
+   `assert-no-task-material /`), exactly as container_gate mounts the sealed set
+   rather than baking it.
+   FAILS CLOSED: a missing or empty artifact refuses the run. Batch 1's cost was
+   15 runs that scored silence; the next one stops before it starts.
+
+2. OUTPUT CONTRACT. task.yaml now declares `review_report: review-report.txt`
+   and the prompt names both files — the one to read and the one to write.
+   tests/test_review_delivery.py pins the prompt to the resolved names, so the
+   three cannot drift apart again.
+
+3. NEW, found while fixing 1 and 2: P6-diff-scope in check-public.sh judges the
+   changed-path set against target_paths, so a review report at the subject root
+   would have read as an unexpected change. The public gate would have FAILED
+   every makeup run, and _gate_verdict rejects when either gate fails no matter
+   what the sealed matcher says. Batch 1 never hit this only because its W6
+   agents wrote nothing. The pr_review branch now allows exactly the two named
+   review files — not an amnesty: a stray file still fails diff-scope, and there
+   is a test for that.
+
+SEALED BYTES DO NOT REACH results/. _archive_agent_diff and its container twin
+archive the FULL CONTENT of every untracked file into agent-solution.diff, which
+is committed. Delivering the seeded diff without hiding it would publish it next
+to the committed review/base-diff.patch, and a two-way diff of the two recovers
+the defect map. The delivery adds the artifact to .git/info/exclude, which both
+archivers honour (--exclude-standard); the agent's own review-report.txt is NOT
+excluded and is archived as the evidence it is.
+
+The warm-series driver refuses pr_review tasks outright: it stages once and
+resets between reps, and a reset would delete the delivered artifact after rep 1.
+
+NO BATCH-1 RECORD IS TOUCHED. The 15 W6 runs stay VOID in adjudication.json.
+This fix changes the instrument for the W6 MAKEUP, which is a separate dataset
+(results/screening-batch1-makeup-w6/) precisely because its instrument differs.
+
+HOW THE W6 MAKEUP IS RUN. screening-batch1-makeup-driver.sh grew a --profile flag
+rather than being copied: w3 (4 arms x 2 reps, 7200s, rule v2) and w6 (5 arms x 3
+reps, 1200s, rule v3, into results/screening-batch1-makeup-w6/). One body, so the
+two passes cannot drift in what must not differ — isolation, egress, the quiet
+window, the resume rule, and every refusal. The w3 profile's values are the ones
+its live pass ran under and are unchanged, including its rule-v2 backfill: a
+driver must not silently re-describe a dataset already on disk. w6 runs v3 from
+the start because its long Gemini legs are exactly what the fixed 3M per-run
+ceiling refuses for duration rather than contamination (F).
+
+The w6 profile also refuses BEFORE buying anything if the sealed review-diff.patch
+is absent from this host: it is human-held, and without it every agent would
+review nothing and the pass would reproduce the void it exists to replace. The
+check stats the file; it never reads the sealed bytes.
+
+Both profiles verified by --list and a full --dry-run (stub adapters, tmp out-root,
+no Docker, no spend). The w6 rehearsal used a labelled SYNTHETIC stand-in supplied
+through HIDDEN_TESTS_DIR in /tmp; no synthetic byte went near results/.

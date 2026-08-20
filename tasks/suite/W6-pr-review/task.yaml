@@ -64,8 +64,16 @@ stack: none
 # it by the human. It is SEALED (gitignored, human-held) and lives beside the map —
 # publishing it next to the committed base_diff would let anyone recover the defect
 # locations with a two-way diff, which is the same as publishing the map.
+#
+# DELIVERY (fixed after screening batch 1). review_diff is COPIED into the subject
+# tree at run time, under its own basename, by the runner
+# (harness/runner/run.py stage_review_artifact / _container). Batch 1 read this
+# field nowhere: the agents got a bare hono checkout, had nothing to review, and
+# all 15 cells were voided. The copy is added to .git/info/exclude so the sealed
+# bytes never reach the committed agent-solution.diff.
 base_diff: review/base-diff.patch
 review_diff: hidden/review-diff.patch        # SEALED — see hidden/README-FOR-HUMAN.md
+review_report: review-report.txt             # what the agent writes; the gate reads it
 target_paths:
   - src/router/reg-exp-router/node.ts
   - src/router/reg-exp-router/router.ts
@@ -74,18 +82,26 @@ withheld_paths:
   - src/router/reg-exp-router/router.test.ts
 tests_dir: src/router/reg-exp-router
 
+# The prompt names both files by the names the harness actually uses: the diff it
+# delivers (review_diff's basename) and the report the gate reads (review_report).
+# tests/test_review_delivery.py pins the three to each other — batch 1's prompt
+# said "the following diff" with no diff attached and never named an output file,
+# so even an agent that had the diff would have had nowhere to put its findings.
 prompt: |
-  Review the following diff to Hono's RegExpRouter and report every defect you can
-  justify FROM THE DIFF: correctness bugs, security problems, and regression risks.
+  Your working directory contains `review-diff.patch`: a diff to Hono's
+  RegExpRouter. Read that file and report every defect you can justify FROM THE
+  DIFF: correctness bugs, security problems, and regression risks.
 
-  For each defect, report exactly one line in this form:
+  Write your findings to `review-report.txt` in your working directory, one defect
+  per line, in exactly this form:
 
       <path>:<line> — <one-sentence description>
 
   where <path> is the file path as it appears in the diff and <line> is the line
   number in the NEW (post-diff) file. Report only defects you can justify from the
   diff itself. Do not report style preferences, naming, formatting, or missing
-  tests. An issue you report that is not a real defect counts against you.
+  tests. An issue you report that is not a real defect counts against you. Put
+  nothing else in `review-report.txt`, and do not modify any other file.
 
   (The prompt must never ask the model to report its own token usage — SPEC/CLAUDE
   rule 2. It does not.)
