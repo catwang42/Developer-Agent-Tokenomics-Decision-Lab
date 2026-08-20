@@ -1,0 +1,205 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/src/tests/mappers/article.mapper.test.ts b/src/tests/mappers/article.mapper.test.ts
+new file mode 100644
+index 0000000..34fcf09
+--- /dev/null
++++ b/src/tests/mappers/article.mapper.test.ts
+@@ -0,0 +1,197 @@
++import articleMapper from '../../app/routes/article/article.mapper';
++import authorMapper from '../../app/routes/article/author.mapper';
++
++describe('Mappers', () => {
++  describe('authorMapper', () => {
++    const author = {
++      username: 'RealWorld',
++      bio: 'My happy life',
++      image: 'https://realworld.io/avatar.png',
++      followedBy: [{ id: 123 }, { id: 456 }],
++    };
++
++    test('should return an author followed by the given user', () => {
++      // Given
++      const id = 123;
++
++      // When
++      const actual = authorMapper(author, id);
++
++      // Then
++      expect(actual).toEqual({
++        username: 'RealWorld',
++        bio: 'My happy life',
++        image: 'https://realworld.io/avatar.png',
++        following: true,
++      });
++    });
++
++    test('should return an author not followed by the given user', () => {
++      // Given
++      const id = 789;
++
++      // When
++      const actual = authorMapper(author, id);
++
++      // Then
++      expect(actual).toEqual({
++        username: 'RealWorld',
++        bio: 'My happy life',
++        image: 'https://realworld.io/avatar.png',
++        following: false,
++      });
++    });
++
++    test('should not be following when no id is given', () => {
++      // Given
++      const anonymousAuthor = {
++        username: 'RealWorld',
++        bio: null,
++        image: null,
++        followedBy: [{ id: 123 }],
++      };
++
++      // When
++      const actual = authorMapper(anonymousAuthor);
++
++      // Then
++      expect(actual).toEqual({
++        username: 'RealWorld',
++        bio: null,
++        image: null,
++        following: false,
++      });
++    });
++
++    test('should not be following when the id is falsy', () => {
++      // Given
++      const id = 0;
++
++      // When
++      const actual = authorMapper(author, id);
++
++      // Then
++      expect(actual.following).toBe(false);
++    });
++  });
++
++  describe('articleMapper', () => {
++    const buildArticle = (overrides: any = {}) => ({
++      slug: 'how-to-train-your-dragon',
++      title: 'How to train your dragon',
++      description: 'Ever wonder how?',
++      body: 'It takes a Jacobian',
++      tagList: [{ name: 'dragons' }, { name: 'training' }],
++      createdAt: new Date('2023-01-01T00:00:00.000Z'),
++      updatedAt: new Date('2023-01-02T00:00:00.000Z'),
++      favoritedBy: [{ id: 123 }, { id: 456 }],
++      author: {
++        username: 'RealWorld',
++        bio: 'My happy life',
++        image: 'https://realworld.io/avatar.png',
++        followedBy: [{ id: 456 }],
++      },
++      ...overrides,
++    });
++
++    test('should map an article favorited and authored by a followed user', () => {
++      // Given
++      const article = buildArticle();
++      const id = 456;
++
++      // When
++      const actual = articleMapper(article, id);
++
++      // Then
++      expect(actual).toEqual({
++        slug: 'how-to-train-your-dragon',
++        title: 'How to train your dragon',
++        description: 'Ever wonder how?',
++        body: 'It takes a Jacobian',
++        tagList: ['dragons', 'training'],
++        createdAt: new Date('2023-01-01T00:00:00.000Z'),
++        updatedAt: new Date('2023-01-02T00:00:00.000Z'),
++        favorited: true,
++        favoritesCount: 2,
++        author: {
++          username: 'RealWorld',
++          bio: 'My happy life',
++          image: 'https://realworld.io/avatar.png',
++          following: true,
++        },
++      });
++    });
++
++    test('should not be favorited when the given id has not favorited the article', () => {
++      // Given
++      const article = buildArticle();
++      const id = 789;
++
++      // When
++      const actual = articleMapper(article, id);
++
++      // Then
++      expect(actual.favorited).toBe(false);
++      expect(actual.favoritesCount).toBe(2);
++      expect(actual.author.following).toBe(false);
++    });
++
++    test('should not be favorited when no id is given', () => {
++      // Given
++      const article = buildArticle();
++
++      // When
++      const actual = articleMapper(article);
++
++      // Then
++      expect(actual.favorited).toBe(false);
++      expect(actual.favoritesCount).toBe(2);
++      expect(actual.author.following).toBe(false);
++    });
++
++    test('should map an article without favorites nor tags', () => {
++      // Given
++      const article = buildArticle({ tagList: [], favoritedBy: [] });
++      const id = 123;
++
++      // When
++      const actual = articleMapper(article, id);
++
++      // Then
++      expect(actual).toEqual({
++        slug: 'how-to-train-your-dragon',
++        title: 'How to train your dragon',
++        description: 'Ever wonder how?',
++        body: 'It takes a Jacobian',
++        tagList: [],
++        createdAt: new Date('2023-01-01T00:00:00.000Z'),
++        updatedAt: new Date('2023-01-02T00:00:00.000Z'),
++        favorited: false,
++        favoritesCount: 0,
++        author: {
++          username: 'RealWorld',
++          bio: 'My happy life',
++          image: 'https://realworld.io/avatar.png',
++          following: false,
++        },
++      });
++    });
++
++    test('should map a single tag in order', () => {
++      // Given
++      const article = buildArticle({
++        tagList: [{ name: 'dragons' }],
++        favoritedBy: [{ id: 123 }],
++      });
++      const id = 123;
++
++      // When
++      const actual = articleMapper(article, id);
++
++      // Then
++      expect(actual.tagList).toEqual(['dragons']);
++      expect(actual.favorited).toBe(true);
++      expect(actual.favoritesCount).toBe(1);
++    });
++  });
++});

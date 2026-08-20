@@ -8,6 +8,20 @@ manifest_key: w4_task
 task_suite_version: pilot-v1
 class: complex_bugfix
 
+# --- Agent budget (workshop-owned timeout, SPEC 1.3) ---------------------------
+# Seconds allowed for ONE agent attempt of this task before the harness kills it
+# (and, under container isolation, force-removes the agent container). Mirrored in
+# manifest/delivery-manifest.yaml (w4_task.agent_timeout_s); the runner refuses to
+# start if the two disagree (harness/runner/run.py resolve_agent_timeout).
+#
+# WHY PER TASK: a flat 1800s across this suite censored the large tasks and told us
+# nothing about the small ones. Screening batch 1 agent-leg wallclocks
+# (results/screening-batch1/, 122 cells) are the basis for every value below.
+#   W4 batch-1: 17/17 completed, median 177s, max 411s. 1200s is ~2.9x the slowest
+#   observed attempt.
+agent_timeout_s: 1200
+
+
 # Source (commit-mined, WORKLOAD-SELECTION.md 4) — our first commit-mining exemplar.
 repo: https://github.com/gothinkster/node-express-realworld-example-app
 pinned_commit: 88b258ce54aaf54ff52511ba26edd52e36df201e

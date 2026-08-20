@@ -1,0 +1,104 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/src/tests/mappers/article-author.mapper.test.ts b/src/tests/mappers/article-author.mapper.test.ts
+new file mode 100644
+index 0000000..a81f9e4
+--- /dev/null
++++ b/src/tests/mappers/article-author.mapper.test.ts
+@@ -0,0 +1,96 @@
++import authorMapper from '../../app/routes/article/author.mapper';
++import articleMapper from '../../app/routes/article/article.mapper';
++
++const baseAuthor = {
++  username: 'jane',
++  bio: 'A writer',
++  image: 'https://example.com/jane.jpg',
++  followedBy: [{ id: 42 }, { id: 99 }],
++};
++
++describe('authorMapper', () => {
++  test('returns correct scalar fields', () => {
++    const result = authorMapper(baseAuthor);
++    expect(result.username).toBe('jane');
++    expect(result.bio).toBe('A writer');
++    expect(result.image).toBe('https://example.com/jane.jpg');
++  });
++
++  test('following is false when id is absent', () => {
++    const result = authorMapper(baseAuthor);
++    expect(result.following).toBe(false);
++  });
++
++  test('following is false when id is present but not in followedBy', () => {
++    const result = authorMapper(baseAuthor, 1);
++    expect(result.following).toBe(false);
++  });
++
++  test('following is true when id is present and in followedBy', () => {
++    const result = authorMapper(baseAuthor, 42);
++    expect(result.following).toBe(true);
++  });
++});
++
++const baseArticle = {
++  slug: 'test-slug',
++  title: 'Test Title',
++  description: 'Test description',
++  body: 'Test body',
++  tagList: [{ name: 'tag1' }, { name: 'tag2' }],
++  createdAt: new Date('2024-01-01'),
++  updatedAt: new Date('2024-01-02'),
++  favoritedBy: [{ id: 10 }, { id: 20 }],
++  author: { ...baseAuthor },
++};
++
++describe('articleMapper', () => {
++  test('maps scalar fields correctly', () => {
++    const result = articleMapper(baseArticle);
++    expect(result.slug).toBe('test-slug');
++    expect(result.title).toBe('Test Title');
++    expect(result.description).toBe('Test description');
++    expect(result.body).toBe('Test body');
++    expect(result.createdAt).toEqual(new Date('2024-01-01'));
++    expect(result.updatedAt).toEqual(new Date('2024-01-02'));
++  });
++
++  test('tagList maps tag objects to name strings', () => {
++    const result = articleMapper(baseArticle);
++    expect(result.tagList).toEqual(['tag1', 'tag2']);
++  });
++
++  test('tagList is empty array when there are no tags', () => {
++    const article = { ...baseArticle, tagList: [] };
++    const result = articleMapper(article);
++    expect(result.tagList).toEqual([]);
++  });
++
++  test('favoritesCount equals length of favoritedBy', () => {
++    const result = articleMapper(baseArticle);
++    expect(result.favoritesCount).toBe(2);
++  });
++
++  test('favorited is false when id is absent', () => {
++    const result = articleMapper(baseArticle);
++    expect(result.favorited).toBe(false);
++  });
++
++  test('favorited is false when id is not in favoritedBy', () => {
++    const result = articleMapper(baseArticle, 99);
++    expect(result.favorited).toBe(false);
++  });
++
++  test('favorited is true when id is in favoritedBy', () => {
++    const result = articleMapper(baseArticle, 10);
++    expect(result.favorited).toBe(true);
++  });
++
++  test('author field is mapped via authorMapper', () => {
++    const result = articleMapper(baseArticle, 42);
++    expect(result.author.username).toBe('jane');
++    expect(result.author.bio).toBe('A writer');
++    expect(result.author.image).toBe('https://example.com/jane.jpg');
++    expect(result.author.following).toBe(true);
++  });
++});

@@ -1,0 +1,1128 @@
+diff --git a/src/sqlfluff/core/dialects/common.py b/src/sqlfluff/core/dialects/common.py
+index 7c4b37c79..7b11c19f5 100644
+--- a/src/sqlfluff/core/dialects/common.py
++++ b/src/sqlfluff/core/dialects/common.py
+@@ -1,9 +1,13 @@
+-"""Common classes for dialects to use."""
++"""Common classes and reference/alias utilities for dialects to use."""
+ 
+-from typing import NamedTuple, Optional
++from enum import Enum
++from typing import TYPE_CHECKING, Generator, NamedTuple, Optional, Union
+ 
+ from sqlfluff.core.parser import BaseSegment
+ 
++if TYPE_CHECKING:
++    from sqlfluff.core.dialects.base import Dialect
++
+ 
+ class AliasInfo(NamedTuple):
+     """Details about a table alias."""
+@@ -22,3 +26,273 @@ class ColumnAliasInfo(NamedTuple):
+     alias_identifier_name: str
+     aliased_segment: BaseSegment
+     column_reference_segments: list[BaseSegment]
++
++
++class ObjectReferenceLevel(Enum):
++    """Labels for the "levels" of a reference."""
++
++    OBJECT = 1
++    TABLE = 2
++    SCHEMA = 3
++
++
++class ObjectReferencePart(NamedTuple):
++    """Details about an object reference part."""
++
++    part: str
++    segments: list[BaseSegment]
++
++
++def _level_to_int(level: Union[ObjectReferenceLevel, int]) -> int:
++    level_val = getattr(level, "value", level)
++    assert isinstance(level_val, int)
++    return level_val
++
++
++def _get_dialect_name(
++    segment: BaseSegment, dialect_name: Optional[Union[str, "Dialect"]]
++) -> str:
++    if dialect_name is not None:
++        return getattr(dialect_name, "name", dialect_name)
++    module = getattr(segment.__class__, "__module__", "")
++    if "bigquery" in module:
++        return "bigquery"
++    return "ansi"
++
++
++def iter_raw_references(
++    segment: BaseSegment, dialect_name: Optional[Union[str, "Dialect"]] = None
++) -> Generator[ObjectReferencePart, None, None]:
++    """Generate a list of reference strings and elements."""
++    d_name = _get_dialect_name(segment, dialect_name)
++
++    if d_name == "bigquery" and segment.is_type("table_reference"):
++        parts: list[str] = []
++        elems_for_parts: list[BaseSegment] = []
++
++        def flush():
++            nonlocal parts, elems_for_parts
++            result = ObjectReferencePart("".join(parts), elems_for_parts)
++            parts = []
++            elems_for_parts = []
++            return result
++
++        for elem in segment.recursive_crawl(
++            "identifier", "literal", "dash", "dot", "star"
++        ):
++            if not elem.is_type("dot"):
++                if elem.is_type("identifier"):
++                    elem_subparts = elem.raw_trimmed().split(".")
++                    for idx, part in enumerate(elem_subparts):
++                        parts.append(part)
++                        elems_for_parts.append(elem)
++                        if idx != len(elem_subparts) - 1:
++                            yield flush()
++                else:
++                    parts.append(elem.raw_trimmed())
++                    elems_for_parts.append(elem)
++            else:
++                yield flush()
++
++        if parts:
++            yield flush()
++    else:
++        crawl_types = (
++            ("identifier", "star")
++            if segment.is_type("wildcard_identifier")
++            else ("identifier",)
++        )
++        for elem in segment.recursive_crawl(*crawl_types):
++            if d_name == "bigquery":
++                for part in elem.raw_trimmed().split("."):
++                    yield ObjectReferencePart(part, [elem])
++            else:
++                yield ObjectReferencePart(elem.raw_trimmed(), [elem])
++
++
++def is_qualified(
++    segment: BaseSegment, dialect_name: Optional[Union[str, "Dialect"]] = None
++) -> bool:
++    """Return if there is more than one element to the reference."""
++    return len(list(iter_raw_references(segment, dialect_name=dialect_name))) > 1
++
++
++def qualification(
++    segment: BaseSegment, dialect_name: Optional[Union[str, "Dialect"]] = None
++) -> str:
++    """Return the qualification type of this reference."""
++    return (
++        "qualified"
++        if is_qualified(segment, dialect_name=dialect_name)
++        else "unqualified"
++    )
++
++
++def extract_possible_references(
++    segment: BaseSegment,
++    level: Union[ObjectReferenceLevel, int],
++    dialect_name: Optional[Union[str, "Dialect"]] = None,
++) -> list[ObjectReferencePart]:
++    """Extract possible references of a given level."""
++    d_name = _get_dialect_name(segment, dialect_name)
++    level_int = _level_to_int(level)
++    refs = list(iter_raw_references(segment, dialect_name=d_name))
++
++    if d_name == "bigquery" and segment.is_type("column_reference"):
++        if level_int == ObjectReferenceLevel.SCHEMA.value and len(refs) >= 3:
++            return [refs[0]]
++        if level_int == ObjectReferenceLevel.TABLE.value:
++            return refs[:3]
++        if level_int == ObjectReferenceLevel.OBJECT.value and len(refs) >= 3:
++            return [refs[1], refs[2]]
++
++    if len(refs) >= level_int:
++        return [refs[-level_int]]
++    return []
++
++
++def extract_possible_multipart_references(
++    segment: BaseSegment,
++    levels: list[Union[ObjectReferenceLevel, int]],
++    dialect_name: Optional[Union[str, "Dialect"]] = None,
++) -> list[tuple[ObjectReferencePart, ...]]:
++    """Extract possible multipart references, e.g. schema.table."""
++    d_name = _get_dialect_name(segment, dialect_name)
++    levels_tmp = [_level_to_int(lvl) for lvl in levels]
++    min_level = min(levels_tmp)
++    max_level = max(levels_tmp)
++    refs = list(iter_raw_references(segment, dialect_name=d_name))
++
++    if d_name == "bigquery" and segment.is_type("column_reference"):
++        if max_level == ObjectReferenceLevel.SCHEMA.value and len(refs) >= 3:
++            return [tuple(refs[0 : max_level - min_level + 1])]
++
++    if len(refs) >= max_level:
++        return [tuple(refs[-max_level : 1 - min_level])]
++    return []
++
++
++def get_from_expression_element_alias(
++    segment: BaseSegment, dialect_name: Optional[Union[str, "Dialect"]] = None
++) -> Generator[AliasInfo, None, None]:
++    """Return the eventual table name referred to by this table expression."""
++    tbl_expression = segment.get_child("table_expression")
++    if not tbl_expression:
++        _bracketed = segment.get_child("bracketed")
++        if _bracketed:
++            tbl_expression = _bracketed.get_child("table_expression")
++    if tbl_expression and not tbl_expression.get_child("object_reference"):
++        _bracketed = tbl_expression.get_child("bracketed")
++        if _bracketed:
++            tbl_expression = _bracketed.get_child("table_expression")
++
++    ref: Optional[BaseSegment] = None
++    if tbl_expression:
++        _ref = tbl_expression.get_child("object_reference")
++        if _ref:
++            ref = _ref
++
++    has_alias = False
++    alias_expressions = segment.get_children("alias_expression", "bracketed")
++    for alias_expression in alias_expressions:
++        if alias_expression.is_type("bracketed"):
++            _alias_expression = alias_expression.get_child("alias_expression")
++            if _alias_expression is None:
++                continue
++            alias_expression = _alias_expression
++        has_alias = True
++        elem = alias_expression.get_child("identifier")
++        if elem:
++            yield AliasInfo(
++                elem.raw_normalized(casefold=False),
++                elem,
++                True,
++                segment,
++                alias_expression,
++                ref,
++            )
++    if has_alias:
++        return
++
++    if ref:
++        references: list = list(iter_raw_references(ref, dialect_name=dialect_name))
++        if references:
++            penultimate_ref: ObjectReferencePart = references[-1]
++            yield AliasInfo(
++                penultimate_ref.part,
++                penultimate_ref.segments[0],
++                False,
++                segment,
++                None,
++                ref,
++            )
++            return
++    yield AliasInfo(
++        "",
++        None,
++        False,
++        segment,
++        None,
++        ref,
++    )
++
++
++def get_join_clause_aliases(
++    segment: BaseSegment, dialect_name: Optional[Union[str, "Dialect"]] = None
++) -> list[tuple[BaseSegment, AliasInfo]]:
++    """Return the eventual table name referred to by this join clause."""
++    buff: list[tuple[BaseSegment, AliasInfo]] = []
++    from_expression = segment.get_child("from_expression_element")
++    assert from_expression
++    from_aliases = get_from_expression_element_alias(
++        from_expression, dialect_name=dialect_name
++    )
++    for alias in from_aliases:
++        buff.append((from_expression, alias))
++
++    for join_clause in segment.recursive_crawl(
++        "join_clause", no_recursive_seg_type="select_statement"
++    ):
++        if join_clause is segment:
++            continue
++        aliases = get_join_clause_aliases(join_clause, dialect_name=dialect_name)
++        if aliases:
++            buff = buff + aliases
++    return buff
++
++
++def get_from_clause_aliases(
++    segment: BaseSegment, dialect_name: Optional[Union[str, "Dialect"]] = None
++) -> list[tuple[BaseSegment, AliasInfo]]:
++    """List the eventual aliases of this from clause or join clause."""
++    if segment.is_type("join_clause"):
++        return get_join_clause_aliases(segment, dialect_name=dialect_name)
++
++    buff: list[tuple[BaseSegment, AliasInfo]] = []
++    direct_table_children = []
++    join_clauses = []
++
++    for from_expression in segment.get_children("from_expression"):
++        direct_table_children += from_expression.get_children(
++            "from_expression_element"
++        )
++        join_clauses += from_expression.get_children("join_clause")
++
++    for clause in direct_table_children:
++        direct_table_aliases = get_from_expression_element_alias(
++            clause, dialect_name=dialect_name
++        )
++        table_expr = (
++            clause
++            if clause in direct_table_children
++            else clause.get_child("from_expression_element")
++        )
++        for alias in direct_table_aliases:
++            assert table_expr
++            buff.append((table_expr, alias))
++
++    for clause in join_clauses:
++        aliases = get_join_clause_aliases(clause, dialect_name=dialect_name)
++        if aliases:
++            buff = buff + aliases
++    return buff
+diff --git a/src/sqlfluff/dialects/dialect_ansi.py b/src/sqlfluff/dialects/dialect_ansi.py
+index b64873c03..6d2e6cbea 100644
+--- a/src/sqlfluff/dialects/dialect_ansi.py
++++ b/src/sqlfluff/dialects/dialect_ansi.py
+@@ -16,8 +16,23 @@ from collections.abc import Generator
+ from enum import Enum
+ from typing import NamedTuple, Optional, Union, cast
+ 
++import warnings
++
+ from sqlfluff.core.dialects.base import Dialect
+-from sqlfluff.core.dialects.common import AliasInfo, ColumnAliasInfo
++from sqlfluff.core.dialects.common import (
++    AliasInfo,
++    ColumnAliasInfo,
++    ObjectReferenceLevel,
++    ObjectReferencePart,
++    extract_possible_multipart_references,
++    extract_possible_references,
++    get_from_clause_aliases,
++    get_from_expression_element_alias,
++    get_join_clause_aliases,
++    is_qualified,
++    iter_raw_references,
++    qualification,
++)
+ from sqlfluff.core.parser import (
+     AnyNumberOf,
+     AnySetOf,
+@@ -1103,70 +1118,61 @@ class ObjectReferenceSegment(BaseSegment):
+         # trim on quotes and split out any dots.
+         yield cls.ObjectReferencePart(elem.raw_trimmed(), [elem])
+ 
+-    def iter_raw_references(self) -> Generator[ObjectReferencePart, None, None]:
+-        """Generate a list of reference strings and elements.
++    ObjectReferenceLevel = ObjectReferenceLevel
+ 
+-        Each reference is an ObjectReferencePart. If some are split, then a
+-        segment may appear twice, but the substring will only appear once.
+-        """
+-        # Extract the references from those identifiers (because some may be quoted)
+-        for elem in self.recursive_crawl("identifier"):
+-            yield from self._iter_reference_parts(cast(IdentifierSegment, elem))
++    def iter_raw_references(self) -> Generator[ObjectReferencePart, None, None]:
++        """Generate a list of reference strings and elements."""
++        warnings.warn(
++            "ObjectReferenceSegment.iter_raw_references is deprecated. "
++            "Use iter_raw_references free function instead.",
++            DeprecationWarning,
++            stacklevel=2,
++        )
++        return iter_raw_references(self, dialect_name="ansi")
+ 
+     def is_qualified(self) -> bool:
+         """Return if there is more than one element to the reference."""
+-        return len(list(self.iter_raw_references())) > 1
++        warnings.warn(
++            "ObjectReferenceSegment.is_qualified is deprecated. "
++            "Use is_qualified free function instead.",
++            DeprecationWarning,
++            stacklevel=2,
++        )
++        return is_qualified(self, dialect_name="ansi")
+ 
+     def qualification(self) -> str:
+         """Return the qualification type of this reference."""
+-        return "qualified" if self.is_qualified() else "unqualified"
+-
+-    class ObjectReferenceLevel(Enum):
+-        """Labels for the "levels" of a reference.
+-
+-        Note: Since SQLFluff does not have access to database catalog
+-        information, interpreting references will often be ambiguous.
+-        Typical example: The first part *may* refer to a schema, but that is
+-        almost always optional if referring to an object in some default or
+-        currently "active" schema. For this reason, use of this enum is optional
+-        and intended mainly to clarify the intent of the code -- no guarantees!
+-        Additionally, the terminology may vary by dialect, e.g. in BigQuery,
+-        "project" would be a more accurate term than "schema".
+-        """
+-
+-        OBJECT = 1
+-        TABLE = 2
+-        SCHEMA = 3
++        warnings.warn(
++            "ObjectReferenceSegment.qualification is deprecated. "
++            "Use qualification free function instead.",
++            DeprecationWarning,
++            stacklevel=2,
++        )
++        return qualification(self, dialect_name="ansi")
+ 
+     def extract_possible_references(
+         self, level: Union[ObjectReferenceLevel, int]
+     ) -> list[ObjectReferencePart]:
+-        """Extract possible references of a given level.
+-
+-        "level" may be (but is not required to be) a value from the
+-        ObjectReferenceLevel enum defined above.
+-
+-        NOTE: The base implementation here returns at most one part, but
+-        dialects such as BigQuery that support nesting (e.g. STRUCT) may return
+-        multiple reference parts.
+-        """
+-        level = self._level_to_int(level)
+-        refs = list(self.iter_raw_references())
+-        if len(refs) >= level:
+-            return [refs[-level]]
+-        return []
++        """Extract possible references of a given level."""
++        warnings.warn(
++            "ObjectReferenceSegment.extract_possible_references is deprecated. "
++            "Use extract_possible_references free function instead.",
++            DeprecationWarning,
++            stacklevel=2,
++        )
++        return extract_possible_references(self, level, dialect_name="ansi")
+ 
+     def extract_possible_multipart_references(
+         self, levels: list[Union[ObjectReferenceLevel, int]]
+     ) -> list[tuple[ObjectReferencePart, ...]]:
+         """Extract possible multipart references, e.g. schema.table."""
+-        levels_tmp = [self._level_to_int(level) for level in levels]
+-        min_level = min(levels_tmp)
+-        max_level = max(levels_tmp)
+-        refs = list(self.iter_raw_references())
+-        if len(refs) >= max_level:
+-            return [tuple(refs[-max_level : 1 - min_level])]
+-        return []
++        warnings.warn(
++            "ObjectReferenceSegment.extract_possible_multipart_references is deprecated. "
++            "Use extract_possible_multipart_references free function instead.",
++            DeprecationWarning,
++            stacklevel=2,
++        )
++        return extract_possible_multipart_references(self, levels, dialect_name="ansi")
+ 
+     @staticmethod
+     def _level_to_int(level: Union[ObjectReferenceLevel, int]) -> int:
+@@ -1672,84 +1678,14 @@ class FromExpressionElementSegment(BaseSegment):
+     )
+ 
+     def get_eventual_alias(self) -> Generator[AliasInfo, None, None]:
+-        """Return the eventual table name referred to by this table expression.
+-
+-        Returns:
+-            :obj:`tuple` of (:obj:`str`, :obj:`BaseSegment`, :obj:`bool`) containing
+-                a string representation of the alias, a reference to the
+-                segment containing it, and whether it's an alias.
+-
+-        """
+-        # Get any table expressions
+-        tbl_expression = self.get_child("table_expression")
+-        if not tbl_expression:  # pragma: no cover
+-            _bracketed = self.get_child("bracketed")
+-            if _bracketed:
+-                tbl_expression = _bracketed.get_child("table_expression")
+-        # For TSQL nested, bracketed tables get the first table as reference
+-        if tbl_expression and not tbl_expression.get_child("object_reference"):
+-            _bracketed = tbl_expression.get_child("bracketed")
+-            if _bracketed:
+-                tbl_expression = _bracketed.get_child("table_expression")
+-
+-        # Work out the references
+-        ref: Optional[ObjectReferenceSegment] = None
+-        if tbl_expression:
+-            _ref = tbl_expression.get_child("object_reference")
+-            if _ref:
+-                ref = cast(ObjectReferenceSegment, _ref)
+-
+-        # Handle any aliases
+-        has_alias = False
+-        alias_expressions = self.get_children("alias_expression", "bracketed")
+-        for alias_expression in alias_expressions:
+-            if alias_expression.is_type("bracketed"):  # pragma: no cover
+-                _alias_expression = alias_expression.get_child("alias_expression")
+-                if _alias_expression is None:
+-                    continue
+-                alias_expression = _alias_expression
+-            # If it has an alias, return that
+-            has_alias = True
+-            segment = alias_expression.get_child("identifier")
+-            if segment:
+-                segment = cast(IdentifierSegment, segment)
+-                yield AliasInfo(
+-                    segment.raw_normalized(casefold=False),
+-                    segment,
+-                    True,
+-                    self,
+-                    alias_expression,
+-                    ref,
+-                )
+-        if has_alias:
+-            return
+-
+-        # If not return the object name (or None if there isn't one)
+-        if ref:
+-            references: list = list(ref.iter_raw_references())
+-            # Return the last element of the reference.
+-            if references:
+-                penultimate_ref: ObjectReferenceSegment.ObjectReferencePart = (
+-                    references[-1]
+-                )
+-                yield AliasInfo(
+-                    penultimate_ref.part,
+-                    penultimate_ref.segments[0],
+-                    False,
+-                    self,
+-                    None,
+-                    ref,
+-                )
+-                return
+-        # No references or alias
+-        yield AliasInfo(
+-            "",
+-            None,
+-            False,
+-            self,
+-            None,
+-            ref,
++        """Return the eventual table name referred to by this table expression."""
++        warnings.warn(
++            "FromExpressionElementSegment.get_eventual_alias is deprecated. "
++            "Use get_from_expression_element_alias free function instead.",
++            DeprecationWarning,
++            stacklevel=2,
+         )
++        return get_from_expression_element_alias(self, dialect_name="ansi")
+ 
+ 
+ class FromExpressionSegment(BaseSegment):
+@@ -2023,36 +1959,13 @@ class JoinClauseSegment(BaseSegment):
+ 
+     def get_eventual_aliases(self) -> list[tuple[BaseSegment, AliasInfo]]:
+         """Return the eventual table name referred to by this join clause."""
+-        buff = []
+-
+-        from_expression = self.get_child("from_expression_element")
+-        # As per grammar above, there will always be a FromExpressionElementSegment
+-        assert from_expression
+-        from_aliases = cast(
+-            FromExpressionElementSegment, from_expression
+-        ).get_eventual_alias()
+-        # Only append if non-null. A None reference, may
+-        # indicate a generator expression or similar.
+-        for alias in from_aliases:
+-            buff.append((from_expression, alias))
+-
+-        # In some dialects, like TSQL, join clauses can have nested join clauses
+-        # recurse into them - but not if part of a sub-select statement (see #3144)
+-        for join_clause in self.recursive_crawl(
+-            "join_clause", no_recursive_seg_type="select_statement"
+-        ):
+-            if join_clause is self:
+-                # If the starting segment itself matches the list of types we're
+-                # searching for, recursive_crawl() will return it. Skip that.
+-                continue
+-            aliases: list[tuple[BaseSegment, AliasInfo]] = cast(
+-                JoinClauseSegment, join_clause
+-            ).get_eventual_aliases()
+-            # Only append if non-null. A None reference, may
+-            # indicate a generator expression or similar.
+-            if aliases:
+-                buff = buff + aliases
+-        return buff
++        warnings.warn(
++            "JoinClauseSegment.get_eventual_aliases is deprecated. "
++            "Use get_join_clause_aliases free function instead.",
++            DeprecationWarning,
++            stacklevel=2,
++        )
++        return get_join_clause_aliases(self, dialect_name="ansi")
+ 
+ 
+ class JoinOnConditionSegment(BaseSegment):
+@@ -2096,44 +2009,14 @@ class FromClauseSegment(BaseSegment):
+     )
+ 
+     def get_eventual_aliases(self) -> list[tuple[BaseSegment, AliasInfo]]:
+-        """List the eventual aliases of this from clause.
+-
+-        Comes as a list of tuples (table expr, tuple (string, segment, bool)).
+-        """
+-        buff: list[tuple[BaseSegment, AliasInfo]] = []
+-        direct_table_children = []
+-        join_clauses = []
+-
+-        for from_expression in self.get_children("from_expression"):
+-            direct_table_children += from_expression.get_children(
+-                "from_expression_element"
+-            )
+-            join_clauses += from_expression.get_children("join_clause")
+-
+-        # Iterate through the potential sources of aliases
+-        for clause in direct_table_children:
+-            direct_table_aliases = cast(
+-                FromExpressionElementSegment, clause
+-            ).get_eventual_alias()
+-            # Only append if non-null. A None reference, may
+-            # indicate a generator expression or similar.
+-            table_expr = (
+-                clause
+-                if clause in direct_table_children
+-                else clause.get_child("from_expression_element")
+-            )
+-            for alias in direct_table_aliases:
+-                assert table_expr
+-                buff.append((table_expr, alias))
+-        for clause in join_clauses:
+-            aliases: list[tuple[BaseSegment, AliasInfo]] = cast(
+-                JoinClauseSegment, clause
+-            ).get_eventual_aliases()
+-            # Only append if non-null. A None reference, may
+-            # indicate a generator expression or similar.
+-            if aliases:
+-                buff = buff + aliases
+-        return buff
++        """List the eventual aliases of this from clause."""
++        warnings.warn(
++            "FromClauseSegment.get_eventual_aliases is deprecated. "
++            "Use get_from_clause_aliases free function instead.",
++            DeprecationWarning,
++            stacklevel=2,
++        )
++        return get_from_clause_aliases(self, dialect_name="ansi")
+ 
+ 
+ class WhenClauseSegment(BaseSegment):
+diff --git a/src/sqlfluff/dialects/dialect_bigquery.py b/src/sqlfluff/dialects/dialect_bigquery.py
+index 2ae444ceb..429418c5a 100644
+--- a/src/sqlfluff/dialects/dialect_bigquery.py
++++ b/src/sqlfluff/dialects/dialect_bigquery.py
+@@ -8,7 +8,14 @@ https://cloud.google.com/bigquery/docs/reference/standard-sql/lexical#string_and
+ 
+ from collections.abc import Generator
+ 
++import warnings
++
+ from sqlfluff.core.dialects import load_raw_dialect
++from sqlfluff.core.dialects.common import (
++    extract_possible_multipart_references,
++    extract_possible_references,
++    iter_raw_references,
++)
+ from sqlfluff.core.parser import (
+     AnyNumberOf,
+     Anything,
+@@ -1811,48 +1818,24 @@ class ColumnReferenceSegment(SplittableObjectReferenceGrammar):
+ 
+     def extract_possible_references(self, level):
+         """Extract possible references of a given level.
+-
+-        Overrides the parent-class function. BigQuery's support for things like
+-        the following:
+-        - Functions that take a table as a parameter (e.g. TO_JSON_STRING)
+-          https://cloud.google.com/bigquery/docs/reference/standard-sql/
+-          json_functions#to_json_string
+-        - STRUCT
+-
+-        means that, without schema information (which SQLFluff does not have),
+-        references to data are often ambiguous.
+-        """
+-        level = self._level_to_int(level)
+-        refs = list(self.iter_raw_references())
+-        if level == self.ObjectReferenceLevel.SCHEMA.value and len(refs) >= 3:
+-            return [refs[0]]  # pragma: no cover
+-        if level == self.ObjectReferenceLevel.TABLE.value:
+-            # One part: Could be a table, e.g. TO_JSON_STRING(t)
+-            # Two parts: Could be dataset.table or table.column.
+-            # Three parts: Could be table.column.struct or dataset.table.column.
+-            # Four parts: dataset.table.column.struct
+-            # Five parts: project.dataset.table.column.struct
+-            # So... return the first 3 parts.
+-            return refs[:3]
+-        if (
+-            level == self.ObjectReferenceLevel.OBJECT.value and len(refs) >= 3
+-        ):  # pragma: no cover
+-            # Ambiguous case: The object (i.e. column) could be the first or
+-            # second part, so return both.
+-            return [refs[1], refs[2]]
+-        return super().extract_possible_references(level)  # pragma: no cover
++        """Extract possible references of a given level."""
++        warnings.warn(
++            "ColumnReferenceSegment.extract_possible_references is deprecated. "
++            "Use extract_possible_references free function instead.",
++            DeprecationWarning,
++            stacklevel=2,
++        )
++        return extract_possible_references(self, level, dialect_name="bigquery")
+ 
+     def extract_possible_multipart_references(self, levels):
+         """Extract possible multipart references, e.g. schema.table."""
+-        levels_tmp = [self._level_to_int(level) for level in levels]
+-        min_level = min(levels_tmp)
+-        max_level = max(levels_tmp)
+-        refs = list(self.iter_raw_references())
+-        if max_level == self.ObjectReferenceLevel.SCHEMA.value and len(refs) >= 3:
+-            return [tuple(refs[0 : max_level - min_level + 1])]
+-        # Note we aren't handling other possible cases. We'll add these as
+-        # needed.
+-        return super().extract_possible_multipart_references(levels)
++        warnings.warn(
++            "ColumnReferenceSegment.extract_possible_multipart_references is deprecated. "
++            "Use extract_possible_multipart_references free function instead.",
++            DeprecationWarning,
++            stacklevel=2,
++        )
++        return extract_possible_multipart_references(self, levels, dialect_name="bigquery")
+ 
+ 
+ class TableReferenceSegment(SplittableObjectReferenceGrammar):
+@@ -1891,51 +1874,14 @@ class TableReferenceSegment(SplittableObjectReferenceGrammar):
+     )
+ 
+     def iter_raw_references(self):
+-        """Generate a list of reference strings and elements.
+-
+-        Each reference is an ObjectReferencePart. Overrides the base class
+-        because hyphens (DashSegment) causes one logical part of the name to
+-        be split across multiple elements, e.g. "table-a" is parsed as three
+-        segments.
+-        """
+-        # For each descendant element, group them, using "dot" elements as a
+-        # delimiter.
+-        parts = []
+-        elems_for_parts = []
+-
+-        def flush():
+-            nonlocal parts, elems_for_parts
+-            result = self.ObjectReferencePart("".join(parts), elems_for_parts)
+-            parts = []
+-            elems_for_parts = []
+-            return result
+-
+-        for elem in self.recursive_crawl(
+-            "identifier", "literal", "dash", "dot", "star"
+-        ):
+-            if not elem.is_type("dot"):
+-                if elem.is_type("identifier"):
+-                    # Found an identifier (potentially with embedded dots).
+-                    elem_subparts = elem.raw_trimmed().split(".")
+-                    for idx, part in enumerate(elem_subparts):
+-                        # Save each part of the segment.
+-                        parts.append(part)
+-                        elems_for_parts.append(elem)
+-
+-                        if idx != len(elem_subparts) - 1:
+-                            # For each part except the last, flush.
+-                            yield flush()
+-
+-                else:
+-                    # For non-identifier segments, save the whole segment.
+-                    parts.append(elem.raw_trimmed())
+-                    elems_for_parts.append(elem)
+-            else:
+-                yield flush()
+-
+-        # Flush any leftovers.
+-        if parts:
+-            yield flush()
++        """Generate a list of reference strings and elements."""
++        warnings.warn(
++            "TableReferenceSegment.iter_raw_references is deprecated. "
++            "Use iter_raw_references free function instead.",
++            DeprecationWarning,
++            stacklevel=2,
++        )
++        return iter_raw_references(self, dialect_name="bigquery")
+ 
+ 
+ class SystemVariableSegment(BaseSegment):
+diff --git a/src/sqlfluff/rules/aliasing/AL05.py b/src/sqlfluff/rules/aliasing/AL05.py
+index 81b713f6b..3cc630add 100644
+--- a/src/sqlfluff/rules/aliasing/AL05.py
++++ b/src/sqlfluff/rules/aliasing/AL05.py
+@@ -4,7 +4,11 @@ from collections import Counter
+ from dataclasses import dataclass, field
+ from typing import cast
+ 
+-from sqlfluff.core.dialects.common import AliasInfo
++from sqlfluff.core.dialects.common import (
++    AliasInfo,
++    ObjectReferenceLevel,
++    extract_possible_references,
++)
+ from sqlfluff.core.parser.segments import BaseSegment
+ from sqlfluff.core.rules import (
+     BaseRule,
+@@ -311,8 +315,10 @@ class Rule_AL05(BaseRule):
+                 for r in (
+                     select_info.reference_buffer + select_info.table_reference_buffer
+                 ):
+-                    table_refs = r.extract_possible_references(
+-                        level=r.ObjectReferenceLevel.TABLE
++                    table_refs = extract_possible_references(
++                        r,
++                        level=ObjectReferenceLevel.TABLE,
++                        dialect_name=query.dialect,
+                     )
+                     for tr in table_refs:
+                         # This function walks up the query's parent stack if necessary.
+diff --git a/src/sqlfluff/rules/references/RF01.py b/src/sqlfluff/rules/references/RF01.py
+index ef3703971..0231ff837 100644
+--- a/src/sqlfluff/rules/references/RF01.py
++++ b/src/sqlfluff/rules/references/RF01.py
+@@ -4,7 +4,14 @@ from dataclasses import dataclass, field
+ from typing import Optional, cast
+ 
+ from sqlfluff.core.dialects.base import Dialect
+-from sqlfluff.core.dialects.common import AliasInfo
++from sqlfluff.core.dialects.common import (
++    AliasInfo,
++    ObjectReferenceLevel,
++    ObjectReferencePart,
++    extract_possible_multipart_references,
++    extract_possible_references,
++    iter_raw_references,
++)
+ from sqlfluff.core.parser import BaseSegment
+ from sqlfluff.core.rules import BaseRule, LintResult, RuleContext
+ from sqlfluff.core.rules.crawlers import SegmentSeekerCrawler
+@@ -107,12 +114,14 @@ class Rule_RF01(BaseRule):
+     def _table_ref_as_tuple(
+         self,
+         table_reference: ObjectReferenceSegment,
++        dialect: Optional[Dialect] = None,
+     ) -> list[tuple[str, ...]]:
++        refs = list(iter_raw_references(table_reference, dialect_name=dialect))
+         return [
+-            tuple(ref.part for ref in table_reference.iter_raw_references()),
++            tuple(ref.part for ref in refs),
+             tuple(
+                 ref.segments[0].normalize(ref.part)
+-                for ref in table_reference.iter_raw_references()
++                for ref in refs
+             ),
+         ]
+ 
+@@ -192,7 +201,7 @@ class Rule_RF01(BaseRule):
+         """
+         dialect_name = selectable.dialect.name
+ 
+-        reference_parts = list(reference.iter_raw_references())
++        reference_parts = list(iter_raw_references(reference, dialect_name=selectable.dialect))
+         if len(reference_parts) < 2:
+             return False
+ 
+@@ -217,17 +226,19 @@ class Rule_RF01(BaseRule):
+ 
+     def _get_table_refs(
+         self, ref: ObjectReferenceSegment, dialect: Dialect
+-    ) -> list[tuple[ObjectReferenceSegment.ObjectReferencePart, tuple[str, ...]]]:
++    ) -> list[tuple[ObjectReferencePart, tuple[str, ...]]]:
+         """Given ObjectReferenceSegment, determine possible table references."""
+         tbl_refs: list[
+-            tuple[ObjectReferenceSegment.ObjectReferencePart, tuple[str, ...]]
++            tuple[ObjectReferencePart, tuple[str, ...]]
+         ] = []
+         # First, handle any schema.table references.
+-        for sr, tr in ref.extract_possible_multipart_references(
++        for sr, tr in extract_possible_multipart_references(
++            ref,
+             levels=[
+-                ref.ObjectReferenceLevel.SCHEMA,
+-                ref.ObjectReferenceLevel.TABLE,
+-            ]
++                ObjectReferenceLevel.SCHEMA,
++                ObjectReferenceLevel.TABLE,
++            ],
++            dialect_name=dialect,
+         ):
+             tbl_refs.append((tr, (sr.part, tr.part)))
+             tbl_refs.append(
+@@ -249,10 +260,12 @@ class Rule_RF01(BaseRule):
+         #   We may need to genericize this code someday to support other
+         #   dialects. If so, this check should probably align somehow with
+         #   whether the dialect overrides
+-        #   ObjectReferenceSegment.extract_possible_references().
++        #   extract_possible_references().
+         if not tbl_refs or dialect.name in ["bigquery"]:
+-            for tr in ref.extract_possible_references(
+-                level=ref.ObjectReferenceLevel.TABLE
++            for tr in extract_possible_references(
++                ref,
++                level=ObjectReferenceLevel.TABLE,
++                dialect_name=dialect,
+             ):
+                 tbl_refs.append((tr, (tr.part,)))
+                 tbl_refs.append((tr, (tr.segments[0].normalize(tr.part),)))
+diff --git a/src/sqlfluff/rules/references/RF02.py b/src/sqlfluff/rules/references/RF02.py
+index 6754bf194..82f0233f8 100644
+--- a/src/sqlfluff/rules/references/RF02.py
++++ b/src/sqlfluff/rules/references/RF02.py
+@@ -4,7 +4,11 @@ from typing import Optional
+ 
+ import regex
+ 
+-from sqlfluff.core.dialects.common import AliasInfo, ColumnAliasInfo
++from sqlfluff.core.dialects.common import (
++    AliasInfo,
++    ColumnAliasInfo,
++    qualification,
++)
+ from sqlfluff.core.parser import BaseSegment
+ from sqlfluff.core.rules import LintResult, RuleContext
+ from sqlfluff.rules.aliasing.AL04 import Rule_AL04
+@@ -112,7 +116,7 @@ class Rule_RF02(Rule_AL04):
+             if self.ignore_words_regex and regex.search(self.ignore_words_regex, r.raw):
+                 continue
+ 
+-            this_ref_type = r.qualification()
++            this_ref_type = qualification(r, dialect_name=context.dialect)
+             # Discard column aliases that
+             # refer to the current column reference.
+             col_alias_names = [
+diff --git a/src/sqlfluff/rules/references/RF03.py b/src/sqlfluff/rules/references/RF03.py
+index 8d00bcac7..a36670fd9 100644
+--- a/src/sqlfluff/rules/references/RF03.py
++++ b/src/sqlfluff/rules/references/RF03.py
+@@ -3,7 +3,15 @@
+ from collections.abc import Iterator
+ from typing import Optional
+ 
+-from sqlfluff.core.dialects.common import AliasInfo, ColumnAliasInfo
++from sqlfluff.core.dialects.common import (
++    AliasInfo,
++    ColumnAliasInfo,
++    ObjectReferenceLevel,
++    extract_possible_references,
++    is_qualified,
++    iter_raw_references,
++    qualification,
++)
+ from sqlfluff.core.parser import IdentifierSegment
+ from sqlfluff.core.parser.segments import BaseSegment, SymbolSegment
+ from sqlfluff.core.rules import (
+@@ -187,7 +195,7 @@ def _check_references(
+     # Check all the references that we have.
+     seen_ref_types: set[str] = set()
+     for ref in references:
+-        this_ref_type: str = ref.qualification()
++        this_ref_type: str = qualification(ref)
+         # Skip unqualified templated references (e.g., placeholder parameters like
+         # :colname that get rendered as bare identifiers by the templater). These
+         # are not real column references and should not be qualified or flagged.
+@@ -195,7 +203,7 @@ def _check_references(
+             continue
+         if this_ref_type == "qualified" and is_struct_dialect:
+             # If this col appears "qualified" check if it is more logically a struct.
+-            if next(ref.iter_raw_references()).part != table_ref_str:
++            if next(iter_raw_references(ref)).part != table_ref_str:
+                 this_ref_type = "unqualified"
+ 
+         lint_res = _validate_one_reference(
+@@ -248,7 +256,7 @@ def _validate_one_reference(
+ ) -> Optional[LintResult]:
+     # We skip any unqualified wildcard references (i.e. *). They shouldn't
+     # count.
+-    if not ref.is_qualified() and ref.is_type("wildcard_identifier"):
++    if not is_qualified(ref) and ref.is_type("wildcard_identifier"):
+         return None
+     # Oddball case: Column aliases provided via function calls in by
+     # FROM or JOIN. References to these don't need to be qualified.
+@@ -260,10 +268,11 @@ def _validate_one_reference(
+ 
+     # If the reference is qualified, see that the table is not in the standalone_aliases
+     # namely for lambda expressions.
+-    if ref.is_qualified():
++    if is_qualified(ref):
+         standalone_alias_raws = [a.raw for a in standalone_aliases]
+-        for part in ref.extract_possible_references(
+-            level=ref.ObjectReferenceLevel.TABLE
++        for part in extract_possible_references(
++            ref,
++            level=ObjectReferenceLevel.TABLE,
+         ):
+             if part.part in standalone_alias_raws:
+                 return None
+@@ -271,7 +280,7 @@ def _validate_one_reference(
+         # references like `item.taskId.oid` (e.g. in Databricks higher-order
+         # functions), the lambda parameter `item` is at the SCHEMA level, not
+         # TABLE level. We need to check it against standalone aliases too.
+-        first_raw_ref = next(ref.iter_raw_references(), None)
++        first_raw_ref = next(iter_raw_references(ref), None)
+         if first_raw_ref and first_raw_ref.part in standalone_alias_raws:
+             return None
+ 
+diff --git a/src/sqlfluff/rules/structure/ST05.py b/src/sqlfluff/rules/structure/ST05.py
+index a16d711be..e48150c8e 100644
+--- a/src/sqlfluff/rules/structure/ST05.py
++++ b/src/sqlfluff/rules/structure/ST05.py
+@@ -5,7 +5,11 @@ from functools import partial
+ from typing import NamedTuple, Optional, TypeVar, cast
+ 
+ from sqlfluff.core.dialects.base import Dialect
+-from sqlfluff.core.dialects.common import AliasInfo
++from sqlfluff.core.dialects.common import (
++    AliasInfo,
++    ObjectReferenceLevel,
++    extract_possible_references,
++)
+ from sqlfluff.core.parser import (
+     BaseSegment,
+     CodeSegment,
+@@ -364,7 +368,9 @@ def _is_correlated_subquery(
+     nested_select_info = get_select_statement_info(select_statement, dialect)
+     if nested_select_info:
+         for r in nested_select_info.reference_buffer:
+-            for tr in r.extract_possible_references(level=r.ObjectReferenceLevel.TABLE):
++            for tr in extract_possible_references(
++                r, level=ObjectReferenceLevel.TABLE, dialect_name=dialect
++            ):
+                 # Check for correlated subquery, as indicated by use of a
+                 # parent reference.
+                 if tr.part in select_source_names:
+diff --git a/src/sqlfluff/rules/structure/ST09.py b/src/sqlfluff/rules/structure/ST09.py
+index a34d89dbb..ee81ca126 100644
+--- a/src/sqlfluff/rules/structure/ST09.py
++++ b/src/sqlfluff/rules/structure/ST09.py
+@@ -2,7 +2,11 @@
+ 
+ from typing import Optional, cast
+ 
+-from sqlfluff.core.dialects.common import AliasInfo
++from sqlfluff.core.dialects.common import (
++    AliasInfo,
++    get_from_expression_element_alias,
++    get_join_clause_aliases,
++)
+ from sqlfluff.core.parser import BaseSegment, SymbolSegment
+ from sqlfluff.core.rules import BaseRule, LintFix, LintResult, RuleContext
+ from sqlfluff.core.rules.crawlers import SegmentSeekerCrawler
+@@ -118,10 +122,10 @@ class Rule_ST09(BaseRule):
+ 
+         # the first alias comes from the from clause
+         from_expression_alias_info = next(
+-            cast(
+-                FromExpressionElementSegment,
++            get_from_expression_element_alias(
+                 children.recursive_crawl("from_expression_element")[0],
+-            ).get_eventual_alias()
++                dialect_name=context.dialect,
++            )
+         )
+         from_expression_alias: str = (
+             from_expression_alias_info.segment.raw_normalized(False)
+@@ -133,7 +137,7 @@ class Rule_ST09(BaseRule):
+ 
+         # the rest of the aliases come from the different join clauses
+         join_clause_alias_infos: list[AliasInfo] = [
+-            cast(JoinClauseSegment, join_clause).get_eventual_aliases()[0][1]
++            get_join_clause_aliases(join_clause, dialect_name=context.dialect)[0][1]
+             for join_clause in [clause for clause in join_clauses]
+         ]
+ 
+diff --git a/src/sqlfluff/rules/structure/ST11.py b/src/sqlfluff/rules/structure/ST11.py
+index 7c756de72..a6b62ba64 100644
+--- a/src/sqlfluff/rules/structure/ST11.py
++++ b/src/sqlfluff/rules/structure/ST11.py
+@@ -3,6 +3,7 @@
+ from collections.abc import Iterator
+ from typing import cast
+ 
++from sqlfluff.core.dialects.common import iter_raw_references
+ from sqlfluff.core.parser.segments import BaseSegment
+ from sqlfluff.core.rules import BaseRule, LintResult, RuleContext
+ from sqlfluff.core.rules.crawlers import SegmentSeekerCrawler
+@@ -117,7 +118,7 @@ class Rule_ST11(BaseRule):
+         # ``to_jsonb(my_table.*)``.
+         for ref in segment.recursive_crawl("column_reference", "wildcard_identifier"):
+             obj_ref = cast(ObjectReferenceSegment, ref)
+-            parts = list(obj_ref.iter_raw_references())
++            parts = list(iter_raw_references(obj_ref))
+             if len(parts) < 2:
+                 # A bare wildcard (``*``) doesn't identify a table on its own;
+                 # select-clause wildcards are resolved separately via
+diff --git a/src/sqlfluff/utils/analysis/query.py b/src/sqlfluff/utils/analysis/query.py
+index e87d2fe64..00382cc35 100644
+--- a/src/sqlfluff/utils/analysis/query.py
++++ b/src/sqlfluff/utils/analysis/query.py
+@@ -8,7 +8,7 @@ from functools import cached_property
+ from typing import Generic, NamedTuple, Optional, TypeVar, Union, cast
+ 
+ from sqlfluff.core.dialects.base import Dialect
+-from sqlfluff.core.dialects.common import AliasInfo
++from sqlfluff.core.dialects.common import AliasInfo, is_qualified
+ from sqlfluff.core.parser import BaseSegment
+ from sqlfluff.dialects.dialect_ansi import ObjectReferenceSegment
+ from sqlfluff.utils.analysis.select import (
+@@ -246,7 +246,7 @@ class Query(Generic[T]):
+             #    or to an external table.
+             if seg.is_type("table_reference"):
+                 _seg = cast(ObjectReferenceSegment, seg)
+-                if not _seg.is_qualified() and lookup_cte:
++                if not is_qualified(_seg, dialect_name=self.dialect) and lookup_cte:
+                     cte = self.lookup_cte(_seg.raw, pop=pop)
+                     if cte:
+                         # It's a CTE.
+diff --git a/src/sqlfluff/utils/analysis/select.py b/src/sqlfluff/utils/analysis/select.py
+index 8e0da44f2..c2b5cdc2a 100644
+--- a/src/sqlfluff/utils/analysis/select.py
++++ b/src/sqlfluff/utils/analysis/select.py
+@@ -3,7 +3,12 @@
+ from typing import NamedTuple, Optional, cast
+ 
+ from sqlfluff.core.dialects.base import Dialect
+-from sqlfluff.core.dialects.common import AliasInfo, ColumnAliasInfo
++from sqlfluff.core.dialects.common import (
++    AliasInfo,
++    ColumnAliasInfo,
++    get_from_clause_aliases,
++    is_qualified,
++)
+ from sqlfluff.core.parser.segments import BaseSegment
+ from sqlfluff.dialects.dialect_ansi import (
+     FromClauseSegment,
+@@ -147,7 +152,7 @@ def get_select_statement_info(
+                 # in functions such as LATERAL FLATTEN.
+                 if not seg.is_type("table_reference"):
+                     reference_buffer += _get_object_references(seg)
+-                elif cast(ObjectReferenceSegment, seg).is_qualified():
++                elif is_qualified(seg, dialect_name=dialect):
+                     table_reference_buffer += _get_object_references(seg)
+         for join_clause in fc.recursive_crawl(
+             "join_clause", no_recursive_seg_type="select_statement"
+@@ -193,7 +198,7 @@ def get_aliases_from_select(
+         # If there's no from clause then just abort.
+         return None, None
+     assert isinstance(fc, (FromClauseSegment, JoinClauseSegment))
+-    aliases = fc.get_eventual_aliases()
++    aliases = get_from_clause_aliases(fc, dialect_name=dialect)
+ 
+     # We only want table aliases, so filter out aliases for value table
+     # functions, lambda parameters, pivot columns and unpivot output aliases.

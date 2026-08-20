@@ -1,0 +1,60 @@
+{
+  "collected_at": "2026-08-19T23:15:09.142390Z",
+  "collector": "vertex_token_collector",
+  "guard": {
+    "contaminated": true,
+    "evidence": {
+      "baseline": {
+        "baseline_seconds": 300,
+        "windows": {
+          "post": {
+            "by_model": {
+              "gemini-3.7-flash": {
+                "input": 100610,
+                "output": 286
+              }
+            },
+            "end": "2026-08-19T21:58:22.568676Z",
+            "points": 2,
+            "start": "2026-08-19T21:53:22.568677Z"
+          },
+          "pre": {
+            "by_model": {},
+            "end": "2026-08-19T21:51:05.082464Z",
+            "points": 0,
+            "start": "2026-08-19T21:46:05.082465Z"
+          }
+        }
+      },
+      "ceiling": {
+        "input_side_tokens_ceiling": 3000000,
+        "observed_input_side_tokens": {
+          "gemini-3.7-flash": 111423
+        }
+      }
+    },
+    "reasons": [
+      "post-run baseline window 2026-08-19T21:53:22.568677Z..2026-08-19T21:58:22.568676Z is NOT quiet: 2 point(s), {'gemini-3.7-flash': {'input': 100610, 'output': 286}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+    ]
+  },
+  "metric_type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "note": "The provider meter for this window could not be attributed to this run, so NOTHING was written to events.jsonl or summary.json and the run's Product-B usage remains 'unavailable' (not zero). The totals below are what the window contained; they are NOT this run's usage.",
+  "refusal": "contaminated_window",
+  "run_id": "w6-hono-router-review__C3-med__rep1__20260819T215204",
+  "window_totals_refused": {
+    "by_model": {
+      "gemini-3.7-flash": {
+        "input": 111423,
+        "output": 3116
+      }
+    },
+    "points_in_window": 2,
+    "points_outside_window": 0,
+    "unmapped_types": {},
+    "window": {
+      "end": "2026-08-19T21:53:22.568676Z",
+      "guard_seconds": 60,
+      "start": "2026-08-19T21:51:05.082465Z"
+    }
+  }
+}

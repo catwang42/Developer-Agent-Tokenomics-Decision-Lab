@@ -1,0 +1,173 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/tests/test_block_and_mask_indexing_properties.py b/tests/test_block_and_mask_indexing_properties.py
+new file mode 100644
+index 00000000..185a932a
+--- /dev/null
++++ b/tests/test_block_and_mask_indexing_properties.py
+@@ -0,0 +1,165 @@
++import itertools
++from collections.abc import Generator
++from typing import Any
++
++import numpy as np
++import pytest
++from numpy.testing import assert_array_equal
++
++import zarr
++from zarr.core.indexing import BlockIndexer
++
++pytest.importorskip("hypothesis")
++
++import hypothesis.extra.numpy as npst
++import hypothesis.strategies as st
++from hypothesis import assume, given
++
++from zarr.testing.strategies import (
++    rectilinear_arrays,
++    simple_arrays,
++)
++
++
++@pytest.fixture(autouse=True)
++def _enable_rectilinear_chunks() -> Generator[None, None, None]:
++    """Enable rectilinear chunks for all property tests since strategies may generate them."""
++    with zarr.config.set({"array.rectilinear_chunks": True}):
++        yield
++
++
++@st.composite
++def zarr_and_block_selection(
++    draw: st.DrawFn,
++) -> tuple[zarr.Array, Any, tuple[int | slice | type(Ellipsis), ...]]:
++    z = draw(st.one_of(simple_arrays(), rectilinear_arrays()))
++    assume(all(s > 0 for s in z.shape))
++    grid_shape = z._chunk_grid.grid_shape
++    shape = z.shape
++    ndim = len(shape)
++
++    if ndim == 0:
++        return z, z[:], ()
++
++    dim_sels: list[int | slice] = []
++    for s, g in zip(shape, grid_shape, strict=True):
++        kind = draw(st.sampled_from(["int", "slice"]))
++        if kind == "int":
++            dim_sels.append(draw(st.integers(min_value=-g, max_value=g - 1)))
++        else:
++            step = draw(st.sampled_from([None, 1]))
++            start = draw(st.one_of(st.none(), st.integers(min_value=-g, max_value=g - 1)))
++            stop = draw(st.one_of(st.none(), st.integers(min_value=-g, max_value=g + 2)))
++            dim_sels.append(slice(start, stop, step))
++
++    sel_tuple: tuple[Any, ...] = tuple(dim_sels)
++
++    if ndim > 1 and draw(st.booleans()):
++        if draw(st.booleans()):
++            while len(sel_tuple) > 1 and sel_tuple[-1] == slice(None):
++                sel_tuple = sel_tuple[:-1]
++        else:
++            slice_none_indices = [i for i, x in enumerate(sel_tuple) if x == slice(None)]
++            if slice_none_indices:
++                idx_to_replace = draw(st.sampled_from(slice_none_indices))
++                sel_tuple_list = list(sel_tuple)
++                sel_tuple_list[idx_to_replace] = Ellipsis
++                sel_tuple = tuple(sel_tuple_list)
++
++    return z, z[:], sel_tuple
++
++
++@st.composite
++def zarr_and_mask_selection(draw: st.DrawFn) -> tuple[zarr.Array, Any, np.ndarray]:
++    z = draw(st.one_of(simple_arrays(), rectilinear_arrays()))
++    a = z[:]
++    mask = draw(npst.arrays(dtype=bool, shape=a.shape))
++    return z, a, mask
++
++
++@pytest.mark.filterwarnings("ignore::zarr.core.dtype.common.UnstableSpecificationWarning")
++@given(data=zarr_and_block_selection())
++def test_block_indexing_read(
++    data: tuple[zarr.Array, Any, tuple[int | slice | type(Ellipsis), ...]],
++) -> None:
++    z, a, selection = data
++    indexer = BlockIndexer(selection, z.shape, z._chunk_grid)
++    item_selection = tuple(
++        slice(dim_indexer.start, dim_indexer.stop, dim_indexer.step)
++        for dim_indexer in indexer.dim_indexers
++    )
++    expected = a[item_selection]
++
++    actual_get = z.get_block_selection(selection)
++    assert_array_equal(actual_get, expected)
++
++    actual_blocks = z.blocks[selection]
++    assert_array_equal(actual_blocks, expected)
++
++
++@pytest.mark.filterwarnings("ignore::zarr.core.dtype.common.UnstableSpecificationWarning")
++@given(data=st.data())
++def test_block_indexing_write(data: st.DataObject) -> None:
++    z, a, selection = data.draw(zarr_and_block_selection())
++    indexer = BlockIndexer(selection, z.shape, z._chunk_grid)
++    item_selection = tuple(
++        slice(dim_indexer.start, dim_indexer.stop, dim_indexer.step)
++        for dim_indexer in indexer.dim_indexers
++    )
++    expected_slice = a[item_selection]
++
++    value = data.draw(
++        st.one_of(
++            npst.from_dtype(a.dtype),
++            npst.arrays(dtype=a.dtype, shape=expected_slice.shape),
++        )
++    )
++
++    a_expected = a.copy()
++    a_expected[item_selection] = value
++
++    z[:] = a
++    z.set_block_selection(selection, value)
++    assert_array_equal(z[:], a_expected)
++
++    z[:] = a
++    z.blocks[selection] = value
++    assert_array_equal(z[:], a_expected)
++
++
++@pytest.mark.filterwarnings("ignore::zarr.core.dtype.common.UnstableSpecificationWarning")
++@given(data=zarr_and_mask_selection())
++def test_mask_indexing_read(data: tuple[zarr.Array, Any, np.ndarray]) -> None:
++    z, a, mask = data
++    expected = a[mask]
++
++    actual_get = z.get_mask_selection(mask)
++    assert_array_equal(actual_get, expected)
++
++    actual_vindex = z.vindex[mask]
++    assert_array_equal(actual_vindex, expected)
++
++
++@pytest.mark.filterwarnings("ignore::zarr.core.dtype.common.UnstableSpecificationWarning")
++@given(data=st.data())
++def test_mask_indexing_write(data: st.DataObject) -> None:
++    z, a, mask = data.draw(zarr_and_mask_selection())
++    num_selected = int(np.count_nonzero(mask))
++
++    value = data.draw(
++        st.one_of(
++            npst.from_dtype(a.dtype),
++            npst.arrays(dtype=a.dtype, shape=(num_selected,)),
++        )
++    )
++
++    a_expected = a.copy()
++    a_expected[mask] = value
++
++    z[:] = a
++    z.set_mask_selection(mask, value)
++    assert_array_equal(z[:], a_expected)
++
++    z[:] = a
++    z.vindex[mask] = value
++    assert_array_equal(z[:], a_expected)

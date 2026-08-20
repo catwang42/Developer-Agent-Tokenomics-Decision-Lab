@@ -183,6 +183,21 @@ print_timeout_basis: >
   own 1800s subprocess kill (agy.DEFAULT_TIMEOUT_S) so the product's timeout always
   fires first and yields a diagnosable product error instead of an opaque harness
   kill. Re-estimate from the first screening batch's completed runs.
+agent_budget_basis: >
+  PER-TASK agent budgets (`agent_timeout_s` on each task entry above, mirrored in
+  each tasks/**/task.yaml) replaced the flat 1800s adapter bound on 2026-08-20. The
+  values are pinned from screening batch 1's own agent-leg wallclocks: pilot/W1/W4
+  1200s (all completed, slowest 426s), W6 1200s (slowest completion 669s), W1b/W4b
+  2700s (slowest completions 1815s and 1503s — both ABOVE the old bound, i.e. 1800s
+  was censoring real work), W3 7200s (only 9 of 21 attempts completed; the rest ran
+  out the clock). Per-task rationale, including the W6 caveat, sits in each
+  task.yaml next to the pin.
+  LIMITATION — this bounds PRODUCT A only. Product B stops itself at its pinned
+  --print-timeout (15m0s, print_timeout_basis above), so raising a task budget to
+  7200s does not give a C3/C3-prev/C3-med or C5-executor leg 7200s; it gives it 900s
+  and then a product error. Any W3 Product-B result read against the new budget must
+  be read as right-censored at 900s. Re-pinning --print-timeout changes a recorded
+  run CONDITION and is a human decision, not a harness fix; it has NOT been taken.
 
 # Subject sandbox posture (SPEC 1.3; human decision 2026-07-19, cp-spend-batch2-plan
 # §3.1). Recorded per run in identity.permission_profile + identity.network_policy
@@ -332,6 +347,10 @@ routing_policies:
 # (not commit-mined): the feature does not exist at pinned_commit.
 pilot_task:
   task_id: pilot-realworld-draft-articles
+  # Workshop-owned agent budget for ONE attempt, seconds. Mirrors
+  # tasks/**/task.yaml agent_timeout_s (the runner refuses a disagreement);
+  # the per-task rationale and the batch-1 wallclock evidence live there.
+  agent_timeout_s: 1200
   repo: https://github.com/gothinkster/node-express-realworld-example-app
   pinned_commit: 30b68e1e881462b2f4164ea09ab4c4f5699c7b0b   # RealWorld HEAD; Draft feature absent
   license: MIT
@@ -355,6 +374,10 @@ pilot_task:
 # parent, where the bug is present). Our first commit-mining exemplar.
 w4_task:
   task_id: w4-realworld-missing-user-id
+  # Workshop-owned agent budget for ONE attempt, seconds. Mirrors
+  # tasks/**/task.yaml agent_timeout_s (the runner refuses a disagreement);
+  # the per-task rationale and the batch-1 wallclock evidence live there.
+  agent_timeout_s: 1200
   repo: https://github.com/gothinkster/node-express-realworld-example-app
   pinned_commit: 88b258ce54aaf54ff52511ba26edd52e36df201e   # parent of the fix; bug present pre-modification
   canonical_fix_commit: 30b68e1e881462b2f4164ea09ab4c4f5699c7b0b   # upstream "fix: missing user id"
@@ -373,6 +396,10 @@ w4_task:
 # mutation test (manifest/cp-spend-batch2-plan.md §3.2).
 w1_task:
   task_id: w1-realworld-mapper-tests
+  # Workshop-owned agent budget for ONE attempt, seconds. Mirrors
+  # tasks/**/task.yaml agent_timeout_s (the runner refuses a disagreement);
+  # the per-task rationale and the batch-1 wallclock evidence live there.
+  agent_timeout_s: 1200
   repo: https://github.com/gothinkster/node-express-realworld-example-app
   pinned_commit: 30b68e1e881462b2f4164ea09ab4c4f5699c7b0b   # same pin as pilot
   license: MIT
@@ -412,6 +439,10 @@ w1_task:
 #   PR https://github.com/zarr-developers/zarr-python/pull/4227 merged 2026-08-02
 w4b_task:
   task_id: w4b-zarr-consolidated-order
+  # Workshop-owned agent budget for ONE attempt, seconds. Mirrors
+  # tasks/**/task.yaml agent_timeout_s (the runner refuses a disagreement);
+  # the per-task rationale and the batch-1 wallclock evidence live there.
+  agent_timeout_s: 2700
   repo: https://github.com/zarr-developers/zarr-python
   pinned_commit: a994a4fc972fed428eab6a26d4f14bb95d22c144   # parent of the fix; bug present pre-modification
   canonical_fix_commit: 24f9ad19430dc88bc1d92b5e1936ac6b3e20f4fe   # upstream "fix: order-independent flat_to_nested"
@@ -435,6 +466,10 @@ w4b_task:
 #   PR https://github.com/sqlfluff/sqlfluff/pull/7962 merged 2026-06-17
 w3_task:
   task_id: w3-sqlfluff-segment-method-migration
+  # Workshop-owned agent budget for ONE attempt, seconds. Mirrors
+  # tasks/**/task.yaml agent_timeout_s (the runner refuses a disagreement);
+  # the per-task rationale and the batch-1 wallclock evidence live there.
+  agent_timeout_s: 7200
   repo: https://github.com/sqlfluff/sqlfluff
   pinned_commit: 7700446fdb424ba56a2b1963a624d3747df53744
   canonical_fix_commit: ee00054a89fe1850695601297d41d7e95559eb00
@@ -460,6 +495,10 @@ w3_task:
 #   PR https://github.com/zarr-developers/zarr-python/pull/4054 merged 2026-06-09
 w1b_task:
   task_id: w1b-zarr-block-mask-properties
+  # Workshop-owned agent budget for ONE attempt, seconds. Mirrors
+  # tasks/**/task.yaml agent_timeout_s (the runner refuses a disagreement);
+  # the per-task rationale and the batch-1 wallclock evidence live there.
+  agent_timeout_s: 2700
   repo: https://github.com/zarr-developers/zarr-python
   pinned_commit: b9d396460da369bea86f4bd978d3746f7a41076b
   canonical_fix_commit: 96a62b51f8fe86eeb056eee1684eef94b4114e35
@@ -483,6 +522,10 @@ w1b_task:
 #   PR https://github.com/honojs/hono/pull/5171 merged 2026-08-03
 w6_task:
   task_id: w6-hono-router-review
+  # Workshop-owned agent budget for ONE attempt, seconds. Mirrors
+  # tasks/**/task.yaml agent_timeout_s (the runner refuses a disagreement);
+  # the per-task rationale and the batch-1 wallclock evidence live there.
+  agent_timeout_s: 1200
   repo: https://github.com/honojs/hono
   pinned_commit: 3feb3551d46de1f633e82253f12cf1117316be93
   canonical_fix_commit: 8a0b18fd9b4d64dd2eb1d7f18e3536fc06cb54b2   # source of the base diff, NOT a solution patch

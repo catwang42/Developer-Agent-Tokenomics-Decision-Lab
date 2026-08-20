@@ -1,0 +1,252 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/src/tests/mappers/mappers.test.ts b/src/tests/mappers/mappers.test.ts
+new file mode 100644
+index 0000000..3c4e3c2
+--- /dev/null
++++ b/src/tests/mappers/mappers.test.ts
+@@ -0,0 +1,244 @@
++import articleMapper from '../../app/routes/article/article.mapper';
++import authorMapper from '../../app/routes/article/author.mapper';
++
++const buildAuthor = (overrides: any = {}) => ({
++  id: 456,
++  username: 'RealWorld',
++  bio: 'I work at statefarm',
++  image: 'https://i.stack.imgur.com/xHWG8.jpg',
++  followedBy: [],
++  ...overrides,
++});
++
++const buildArticle = (overrides: any = {}) => ({
++  id: 123,
++  slug: 'how-to-train-your-dragon',
++  title: 'How to train your dragon',
++  description: 'Ever wonder how?',
++  body: 'It takes a Jacobian',
++  tagList: [],
++  createdAt: new Date('2023-01-01T00:00:00.000Z'),
++  updatedAt: new Date('2023-01-02T00:00:00.000Z'),
++  favoritedBy: [],
++  author: buildAuthor(),
++  ...overrides,
++});
++
++describe('authorMapper', () => {
++  test('should map the author fields and set following to false when no id is given', () => {
++    // Given
++    const author = buildAuthor({ followedBy: [{ id: 789 }] });
++
++    // When
++    const result = authorMapper(author);
++
++    // Then
++    expect(result).toEqual({
++      username: 'RealWorld',
++      bio: 'I work at statefarm',
++      image: 'https://i.stack.imgur.com/xHWG8.jpg',
++      following: false,
++    });
++  });
++
++  test('should set following to false when the id is not in followedBy', () => {
++    // Given
++    const author = buildAuthor({ followedBy: [{ id: 789 }, { id: 999 }] });
++
++    // When
++    const result = authorMapper(author, 123);
++
++    // Then
++    expect(result.following).toBe(false);
++    expect(result.username).toBe('RealWorld');
++  });
++
++  test('should set following to true when the id is in followedBy', () => {
++    // Given
++    const author = buildAuthor({ followedBy: [{ id: 789 }, { id: 123 }] });
++
++    // When
++    const result = authorMapper(author, 123);
++
++    // Then
++    expect(result).toEqual({
++      username: 'RealWorld',
++      bio: 'I work at statefarm',
++      image: 'https://i.stack.imgur.com/xHWG8.jpg',
++      following: true,
++    });
++  });
++
++  test('should set following to false when followedBy is empty', () => {
++    // Given
++    const author = buildAuthor({ followedBy: [] });
++
++    // When
++    const result = authorMapper(author, 123);
++
++    // Then
++    expect(result.following).toBe(false);
++  });
++
++  test('should treat an id of 0 as no id and not read followedBy', () => {
++    // Given
++    const followedBy = { some: jest.fn().mockReturnValue(true) };
++    const author = buildAuthor({ followedBy });
++
++    // When
++    const result = authorMapper(author, 0);
++
++    // Then
++    expect(result.following).toBe(false);
++    expect(followedBy.some).not.toHaveBeenCalled();
++  });
++
++  test('should map null bio and image as null', () => {
++    // Given
++    const author = buildAuthor({ bio: null, image: null });
++
++    // When
++    const result = authorMapper(author, 123);
++
++    // Then
++    expect(result).toEqual({
++      username: 'RealWorld',
++      bio: null,
++      image: null,
++      following: false,
++    });
++  });
++
++  test('should only expose the public author fields', () => {
++    // Given
++    const author = buildAuthor({ email: 'realworld@me', password: '1234' });
++
++    // When
++    const result = authorMapper(author, 123);
++
++    // Then
++    expect(Object.keys(result).sort()).toEqual(['bio', 'following', 'image', 'username']);
++  });
++});
++
++describe('articleMapper', () => {
++  test('should map every article field with an empty tagList and no favorites', () => {
++    // Given
++    const article = buildArticle();
++
++    // When
++    const result = articleMapper(article, 123);
++
++    // Then
++    expect(result).toEqual({
++      slug: 'how-to-train-your-dragon',
++      title: 'How to train your dragon',
++      description: 'Ever wonder how?',
++      body: 'It takes a Jacobian',
++      tagList: [],
++      createdAt: new Date('2023-01-01T00:00:00.000Z'),
++      updatedAt: new Date('2023-01-02T00:00:00.000Z'),
++      favorited: false,
++      favoritesCount: 0,
++      author: {
++        username: 'RealWorld',
++        bio: 'I work at statefarm',
++        image: 'https://i.stack.imgur.com/xHWG8.jpg',
++        following: false,
++      },
++    });
++  });
++
++  test('should map the tagList to an array of tag names', () => {
++    // Given
++    const article = buildArticle({
++      tagList: [{ id: 1, name: 'dragons' }, { id: 2, name: 'training' }],
++    });
++
++    // When
++    const result = articleMapper(article, 123);
++
++    // Then
++    expect(result.tagList).toEqual(['dragons', 'training']);
++  });
++
++  test('should set favorited to true and count the favorites when the id favorited it', () => {
++    // Given
++    const article = buildArticle({
++      favoritedBy: [{ id: 789 }, { id: 123 }],
++    });
++
++    // When
++    const result = articleMapper(article, 123);
++
++    // Then
++    expect(result.favorited).toBe(true);
++    expect(result.favoritesCount).toBe(2);
++  });
++
++  test('should set favorited to false when the id did not favorite it but others did', () => {
++    // Given
++    const article = buildArticle({
++      favoritedBy: [{ id: 789 }, { id: 999 }, { id: 456 }],
++    });
++
++    // When
++    const result = articleMapper(article, 123);
++
++    // Then
++    expect(result.favorited).toBe(false);
++    expect(result.favoritesCount).toBe(3);
++  });
++
++  test('should set favorited to false when no id is given', () => {
++    // Given
++    const article = buildArticle({ favoritedBy: [{ id: 789 }] });
++
++    // When
++    const result = articleMapper(article);
++
++    // Then
++    expect(result.favorited).toBe(false);
++    expect(result.favoritesCount).toBe(1);
++  });
++
++  test('should delegate the author to the author mapper, including following', () => {
++    // Given
++    const article = buildArticle({
++      author: buildAuthor({ followedBy: [{ id: 123 }] }),
++    });
++
++    // When
++    const result = articleMapper(article, 123);
++
++    // Then
++    expect(result.author).toEqual({
++      username: 'RealWorld',
++      bio: 'I work at statefarm',
++      image: 'https://i.stack.imgur.com/xHWG8.jpg',
++      following: true,
++    });
++  });
++
++  test('should not leak internal article fields', () => {
++    // Given
++    const article = buildArticle({ authorId: 456, demo: true });
++
++    // When
++    const result = articleMapper(article, 123);
++
++    // Then
++    expect(Object.keys(result).sort()).toEqual([
++      'author',
++      'body',
++      'createdAt',
++      'description',
++      'favorited',
++      'favoritesCount',
++      'slug',
++      'tagList',
++      'title',
++      'updatedAt',
++    ]);
++  });
++});

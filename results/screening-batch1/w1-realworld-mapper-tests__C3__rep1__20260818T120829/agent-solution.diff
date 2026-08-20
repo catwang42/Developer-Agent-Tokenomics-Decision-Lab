@@ -1,0 +1,307 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/src/tests/mappers/article.mapper.test.ts b/src/tests/mappers/article.mapper.test.ts
+new file mode 100644
+index 0000000..b86f903
+--- /dev/null
++++ b/src/tests/mappers/article.mapper.test.ts
+@@ -0,0 +1,299 @@
++import articleMapper from '../../app/routes/article/article.mapper';
++import authorMapper from '../../app/routes/article/author.mapper';
++
++describe('Author and Article Mappers', () => {
++  describe('authorMapper', () => {
++    test('should map author correctly when id is not provided (following is false)', () => {
++      // Given
++      const author = {
++        username: 'john_doe',
++        bio: 'Software engineer and writer',
++        image: 'https://api.realworld.io/images/smiley-cyrus.jpg',
++        followedBy: [{ id: 1 }],
++      };
++
++      // When
++      const result = authorMapper(author);
++
++      // Then
++      expect(result).toEqual({
++        username: 'john_doe',
++        bio: 'Software engineer and writer',
++        image: 'https://api.realworld.io/images/smiley-cyrus.jpg',
++        following: false,
++      });
++    });
++
++    test('should map author correctly when id is undefined (following is false)', () => {
++      // Given
++      const author = {
++        username: 'john_doe',
++        bio: 'Software engineer and writer',
++        image: 'https://api.realworld.io/images/smiley-cyrus.jpg',
++        followedBy: [{ id: 1 }],
++      };
++
++      // When
++      const result = authorMapper(author, undefined);
++
++      // Then
++      expect(result).toEqual({
++        username: 'john_doe',
++        bio: 'Software engineer and writer',
++        image: 'https://api.realworld.io/images/smiley-cyrus.jpg',
++        following: false,
++      });
++    });
++
++    test('should map author with following true when requesting user is in followedBy', () => {
++      // Given
++      const author = {
++        username: 'jane_doe',
++        bio: 'Tech enthusiast',
++        image: 'https://api.realworld.io/images/demo-avatar.png',
++        followedBy: [{ id: 10 }, { id: 42 }],
++      };
++      const currentUserId = 42;
++
++      // When
++      const result = authorMapper(author, currentUserId);
++
++      // Then
++      expect(result).toEqual({
++        username: 'jane_doe',
++        bio: 'Tech enthusiast',
++        image: 'https://api.realworld.io/images/demo-avatar.png',
++        following: true,
++      });
++    });
++
++    test('should map author with following false when requesting user is not in followedBy', () => {
++      // Given
++      const author = {
++        username: 'jane_doe',
++        bio: 'Tech enthusiast',
++        image: 'https://api.realworld.io/images/demo-avatar.png',
++        followedBy: [{ id: 10 }, { id: 20 }],
++      };
++      const currentUserId = 42;
++
++      // When
++      const result = authorMapper(author, currentUserId);
++
++      // Then
++      expect(result).toEqual({
++        username: 'jane_doe',
++        bio: 'Tech enthusiast',
++        image: 'https://api.realworld.io/images/demo-avatar.png',
++        following: false,
++      });
++    });
++
++    test('should map author with following false when followedBy is empty', () => {
++      // Given
++      const author = {
++        username: 'alone_user',
++        bio: null,
++        image: null,
++        followedBy: [],
++      };
++      const currentUserId = 42;
++
++      // When
++      const result = authorMapper(author, currentUserId);
++
++      // Then
++      expect(result).toEqual({
++        username: 'alone_user',
++        bio: null,
++        image: null,
++        following: false,
++      });
++    });
++  });
++
++  describe('articleMapper', () => {
++    test('should map full article when requesting user has favorited it and follows author', () => {
++      // Given
++      const createdAt = new Date('2026-01-01T10:00:00.000Z');
++      const updatedAt = new Date('2026-01-02T15:30:00.000Z');
++
++      const article = {
++        slug: 'how-to-train-your-dragon',
++        title: 'How to Train Your Dragon',
++        description: 'Ever wonder how to train a dragon?',
++        body: 'It takes a lot of patience and fish.',
++        tagList: [{ name: 'dragons' }, { name: 'training' }],
++        createdAt,
++        updatedAt,
++        favoritedBy: [{ id: 1 }, { id: 42 }, { id: 99 }],
++        author: {
++          username: 'hiccup',
++          bio: 'Chief of Berk',
++          image: 'https://api.realworld.io/images/hiccup.png',
++          followedBy: [{ id: 42 }],
++        },
++      };
++      const currentUserId = 42;
++
++      // When
++      const result = articleMapper(article, currentUserId);
++
++      // Then
++      expect(result).toEqual({
++        slug: 'how-to-train-your-dragon',
++        title: 'How to Train Your Dragon',
++        description: 'Ever wonder how to train a dragon?',
++        body: 'It takes a lot of patience and fish.',
++        tagList: ['dragons', 'training'],
++        createdAt,
++        updatedAt,
++        favorited: true,
++        favoritesCount: 3,
++        author: {
++          username: 'hiccup',
++          bio: 'Chief of Berk',
++          image: 'https://api.realworld.io/images/hiccup.png',
++          following: true,
++        },
++      });
++    });
++
++    test('should map article with favorited false when requesting user is not in favoritedBy', () => {
++      // Given
++      const createdAt = new Date('2026-01-01T10:00:00.000Z');
++      const updatedAt = new Date('2026-01-02T15:30:00.000Z');
++
++      const article = {
++        slug: 'how-to-train-your-dragon',
++        title: 'How to Train Your Dragon',
++        description: 'Ever wonder how to train a dragon?',
++        body: 'It takes a lot of patience and fish.',
++        tagList: [{ name: 'dragons' }],
++        createdAt,
++        updatedAt,
++        favoritedBy: [{ id: 1 }, { id: 2 }],
++        author: {
++          username: 'hiccup',
++          bio: 'Chief of Berk',
++          image: 'https://api.realworld.io/images/hiccup.png',
++          followedBy: [],
++        },
++      };
++      const currentUserId = 42;
++
++      // When
++      const result = articleMapper(article, currentUserId);
++
++      // Then
++      expect(result).toEqual({
++        slug: 'how-to-train-your-dragon',
++        title: 'How to Train Your Dragon',
++        description: 'Ever wonder how to train a dragon?',
++        body: 'It takes a lot of patience and fish.',
++        tagList: ['dragons'],
++        createdAt,
++        updatedAt,
++        favorited: false,
++        favoritesCount: 2,
++        author: {
++          username: 'hiccup',
++          bio: 'Chief of Berk',
++          image: 'https://api.realworld.io/images/hiccup.png',
++          following: false,
++        },
++      });
++    });
++
++    test('should map article with empty tagList and empty favoritedBy', () => {
++      // Given
++      const createdAt = new Date('2026-02-01T10:00:00.000Z');
++      const updatedAt = new Date('2026-02-01T10:00:00.000Z');
++
++      const article = {
++        slug: 'minimal-article',
++        title: 'Minimal Article',
++        description: 'A short description',
++        body: 'Minimal content.',
++        tagList: [],
++        createdAt,
++        updatedAt,
++        favoritedBy: [],
++        author: {
++          username: 'author1',
++          bio: null,
++          image: null,
++          followedBy: [],
++        },
++      };
++      const currentUserId = 1;
++
++      // When
++      const result = articleMapper(article, currentUserId);
++
++      // Then
++      expect(result).toEqual({
++        slug: 'minimal-article',
++        title: 'Minimal Article',
++        description: 'A short description',
++        body: 'Minimal content.',
++        tagList: [],
++        createdAt,
++        updatedAt,
++        favorited: false,
++        favoritesCount: 0,
++        author: {
++          username: 'author1',
++          bio: null,
++          image: null,
++          following: false,
++        },
++      });
++    });
++
++    test('should map article when id is undefined (unauthenticated request)', () => {
++      // Given
++      const createdAt = new Date('2026-03-01T10:00:00.000Z');
++      const updatedAt = new Date('2026-03-01T10:00:00.000Z');
++
++      const article = {
++        slug: 'public-post',
++        title: 'Public Post',
++        description: 'Public description',
++        body: 'Public body.',
++        tagList: [{ name: 'general' }, { name: 'news' }],
++        createdAt,
++        updatedAt,
++        favoritedBy: [{ id: 10 }, { id: 20 }],
++        author: {
++          username: 'reporter',
++          bio: 'Journalist',
++          image: 'https://api.realworld.io/images/reporter.png',
++          followedBy: [{ id: 10 }],
++        },
++      };
++
++      // When
++      const result = articleMapper(article);
++
++      // Then
++      expect(result).toEqual({
++        slug: 'public-post',
++        title: 'Public Post',
++        description: 'Public description',
++        body: 'Public body.',
++        tagList: ['general', 'news'],
++        createdAt,
++        updatedAt,
++        favorited: false,
++        favoritesCount: 2,
++        author: {
++          username: 'reporter',
++          bio: 'Journalist',
++          image: 'https://api.realworld.io/images/reporter.png',
++          following: false,
++        },
++      });
++    });
++  });
++});

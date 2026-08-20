@@ -1,0 +1,213 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/src/tests/mappers/article.mapper.test.ts b/src/tests/mappers/article.mapper.test.ts
+new file mode 100644
+index 0000000..12ca80d
+--- /dev/null
++++ b/src/tests/mappers/article.mapper.test.ts
+@@ -0,0 +1,205 @@
++import articleMapper from '../../app/routes/article/article.mapper';
++import authorMapper from '../../app/routes/article/author.mapper';
++
++describe('AuthorMapper', () => {
++  test('should map author when id is absent', () => {
++    // Given
++    const author = {
++      username: 'johndoe',
++      bio: 'Software Engineer',
++      image: 'https://example.com/avatar.jpg',
++      followedBy: [{ id: 10 }],
++    };
++
++    // When
++    const result = authorMapper(author);
++
++    // Then
++    expect(result).toEqual({
++      username: 'johndoe',
++      bio: 'Software Engineer',
++      image: 'https://example.com/avatar.jpg',
++      following: false,
++    });
++  });
++
++  test('should map author with following=true when id is present and user is in followedBy', () => {
++    // Given
++    const author = {
++      username: 'johndoe',
++      bio: 'Software Engineer',
++      image: 'https://example.com/avatar.jpg',
++      followedBy: [{ id: 10 }, { id: 20 }],
++    };
++    const id = 10;
++
++    // When
++    const result = authorMapper(author, id);
++
++    // Then
++    expect(result).toEqual({
++      username: 'johndoe',
++      bio: 'Software Engineer',
++      image: 'https://example.com/avatar.jpg',
++      following: true,
++    });
++  });
++
++  test('should map author with following=false when id is present but user is not in followedBy', () => {
++    // Given
++    const author = {
++      username: 'johndoe',
++      bio: 'Software Engineer',
++      image: 'https://example.com/avatar.jpg',
++      followedBy: [{ id: 20 }],
++    };
++    const id = 10;
++
++    // When
++    const result = authorMapper(author, id);
++
++    // Then
++    expect(result).toEqual({
++      username: 'johndoe',
++      bio: 'Software Engineer',
++      image: 'https://example.com/avatar.jpg',
++      following: false,
++    });
++  });
++});
++
++describe('ArticleMapper', () => {
++  test('should map article with favorited=true, favoritesCount, non-empty tagList, and author', () => {
++    // Given
++    const createdAt = new Date('2026-01-01T00:00:00.000Z');
++    const updatedAt = new Date('2026-01-02T00:00:00.000Z');
++    const article = {
++      slug: 'test-article',
++      title: 'Test Article',
++      description: 'Test Description',
++      body: 'Test Body',
++      tagList: [{ name: 'jest' }, { name: 'typescript' }],
++      createdAt,
++      updatedAt,
++      favoritedBy: [{ id: 1 }, { id: 10 }],
++      author: {
++        username: 'janedoe',
++        bio: 'Tech Writer',
++        image: 'https://example.com/jane.jpg',
++        followedBy: [{ id: 10 }],
++      },
++    };
++    const id = 10;
++
++    // When
++    const result = articleMapper(article, id);
++
++    // Then
++    expect(result).toEqual({
++      slug: 'test-article',
++      title: 'Test Article',
++      description: 'Test Description',
++      body: 'Test Body',
++      tagList: ['jest', 'typescript'],
++      createdAt,
++      updatedAt,
++      favorited: true,
++      favoritesCount: 2,
++      author: {
++        username: 'janedoe',
++        bio: 'Tech Writer',
++        image: 'https://example.com/jane.jpg',
++        following: true,
++      },
++    });
++  });
++
++  test('should map article with favorited=false when requesting id is not in favoritedBy and empty tagList', () => {
++    // Given
++    const createdAt = new Date('2026-01-01T00:00:00.000Z');
++    const updatedAt = new Date('2026-01-02T00:00:00.000Z');
++    const article = {
++      slug: 'another-article',
++      title: 'Another Article',
++      description: 'Another Description',
++      body: 'Another Body',
++      tagList: [],
++      createdAt,
++      updatedAt,
++      favoritedBy: [{ id: 99 }],
++      author: {
++        username: 'janedoe',
++        bio: null,
++        image: null,
++        followedBy: [],
++      },
++    };
++    const id = 10;
++
++    // When
++    const result = articleMapper(article, id);
++
++    // Then
++    expect(result).toEqual({
++      slug: 'another-article',
++      title: 'Another Article',
++      description: 'Another Description',
++      body: 'Another Body',
++      tagList: [],
++      createdAt,
++      updatedAt,
++      favorited: false,
++      favoritesCount: 1,
++      author: {
++        username: 'janedoe',
++        bio: null,
++        image: null,
++        following: false,
++      },
++    });
++  });
++
++  test('should map article when id is absent', () => {
++    // Given
++    const createdAt = new Date('2026-01-01T00:00:00.000Z');
++    const updatedAt = new Date('2026-01-02T00:00:00.000Z');
++    const article = {
++      slug: 'public-article',
++      title: 'Public Article',
++      description: 'Public Description',
++      body: 'Public Body',
++      tagList: [{ name: 'public' }],
++      createdAt,
++      updatedAt,
++      favoritedBy: [{ id: 1 }],
++      author: {
++        username: 'janedoe',
++        bio: 'Writer',
++        image: 'https://example.com/jane.jpg',
++        followedBy: [{ id: 1 }],
++      },
++    };
++
++    // When
++    const result = articleMapper(article);
++
++    // Then
++    expect(result).toEqual({
++      slug: 'public-article',
++      title: 'Public Article',
++      description: 'Public Description',
++      body: 'Public Body',
++      tagList: ['public'],
++      createdAt,
++      updatedAt,
++      favorited: false,
++      favoritesCount: 1,
++      author: {
++        username: 'janedoe',
++        bio: 'Writer',
++        image: 'https://example.com/jane.jpg',
++        following: false,
++      },
++    });
++  });
++});

@@ -1,0 +1,59 @@
+{
+  "collected_at": "2026-08-19T23:15:09.142390Z",
+  "collector": "vertex_token_collector",
+  "guard": {
+    "contaminated": true,
+    "evidence": {
+      "baseline": {
+        "baseline_seconds": 300,
+        "windows": {
+          "post": {
+            "by_model": {
+              "gemini-3.7-flash": {
+                "output": 786
+              }
+            },
+            "end": "2026-08-19T22:14:57.376095Z",
+            "points": 1,
+            "start": "2026-08-19T22:09:57.376096Z"
+          },
+          "pre": {
+            "by_model": {},
+            "end": "2026-08-19T22:06:55.668673Z",
+            "points": 0,
+            "start": "2026-08-19T22:01:55.668674Z"
+          }
+        }
+      },
+      "ceiling": {
+        "input_side_tokens_ceiling": 3000000,
+        "observed_input_side_tokens": {
+          "gemini-3.7-flash": 318569
+        }
+      }
+    },
+    "reasons": [
+      "post-run baseline window 2026-08-19T22:09:57.376096Z..2026-08-19T22:14:57.376095Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'output': 786}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+    ]
+  },
+  "metric_type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "note": "The provider meter for this window could not be attributed to this run, so NOTHING was written to events.jsonl or summary.json and the run's Product-B usage remains 'unavailable' (not zero). The totals below are what the window contained; they are NOT this run's usage.",
+  "refusal": "contaminated_window",
+  "run_id": "w6-hono-router-review__C3-med__rep3__20260819T220755",
+  "window_totals_refused": {
+    "by_model": {
+      "gemini-3.7-flash": {
+        "input": 318569,
+        "output": 2411
+      }
+    },
+    "points_in_window": 3,
+    "points_outside_window": 0,
+    "unmapped_types": {},
+    "window": {
+      "end": "2026-08-19T22:09:57.376095Z",
+      "guard_seconds": 60,
+      "start": "2026-08-19T22:06:55.668674Z"
+    }
+  }
+}

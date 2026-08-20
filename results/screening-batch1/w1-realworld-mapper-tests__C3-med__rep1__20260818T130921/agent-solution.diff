@@ -1,0 +1,282 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/src/tests/mappers/article.mapper.test.ts b/src/tests/mappers/article.mapper.test.ts
+new file mode 100644
+index 0000000..7d94507
+--- /dev/null
++++ b/src/tests/mappers/article.mapper.test.ts
+@@ -0,0 +1,274 @@
++import articleMapper from '../../app/routes/article/article.mapper';
++import authorMapper from '../../app/routes/article/author.mapper';
++
++describe('Mappers', () => {
++  describe('authorMapper', () => {
++    test('should return author with following=false when id is not provided', () => {
++      // Given
++      const author = {
++        username: 'john_doe',
++        bio: 'Software engineer and writer',
++        image: 'https://example.com/avatar.jpg',
++        followedBy: [{ id: 1 }, { id: 2 }],
++      };
++
++      // When
++      const result = authorMapper(author);
++
++      // Then
++      expect(result).toEqual({
++        username: 'john_doe',
++        bio: 'Software engineer and writer',
++        image: 'https://example.com/avatar.jpg',
++        following: false,
++      });
++    });
++
++    test('should return author with following=true when user id is in followedBy', () => {
++      // Given
++      const author = {
++        username: 'jane_doe',
++        bio: 'Tech enthusiast',
++        image: 'https://example.com/jane.jpg',
++        followedBy: [{ id: 10 }, { id: 20 }, { id: 30 }],
++      };
++      const currentUserId = 20;
++
++      // When
++      const result = authorMapper(author, currentUserId);
++
++      // Then
++      expect(result).toEqual({
++        username: 'jane_doe',
++        bio: 'Tech enthusiast',
++        image: 'https://example.com/jane.jpg',
++        following: true,
++      });
++    });
++
++    test('should return author with following=false when user id is not in followedBy', () => {
++      // Given
++      const author = {
++        username: 'jane_doe',
++        bio: null,
++        image: null,
++        followedBy: [{ id: 10 }, { id: 30 }],
++      };
++      const currentUserId = 999;
++
++      // When
++      const result = authorMapper(author, currentUserId);
++
++      // Then
++      expect(result).toEqual({
++        username: 'jane_doe',
++        bio: null,
++        image: null,
++        following: false,
++      });
++    });
++
++    test('should return author with following=false when followedBy is empty and id is provided', () => {
++      // Given
++      const author = {
++        username: 'isolated_user',
++        bio: 'No followers',
++        image: 'https://example.com/iso.jpg',
++        followedBy: [],
++      };
++      const currentUserId = 1;
++
++      // When
++      const result = authorMapper(author, currentUserId);
++
++      // Then
++      expect(result).toEqual({
++        username: 'isolated_user',
++        bio: 'No followers',
++        image: 'https://example.com/iso.jpg',
++        following: false,
++      });
++    });
++  });
++
++  describe('articleMapper', () => {
++    test('should correctly map article with non-empty tagList and favorited=true when user id is in favoritedBy', () => {
++      // Given
++      const createdAt = new Date('2024-01-01T00:00:00.000Z');
++      const updatedAt = new Date('2024-01-02T00:00:00.000Z');
++      const article = {
++        slug: 'how-to-train-your-dragon',
++        title: 'How to Train Your Dragon',
++        description: 'Ever wonder how?',
++        body: 'It takes a lot of patience.',
++        tagList: [{ name: 'dragons' }, { name: 'training' }],
++        createdAt,
++        updatedAt,
++        favoritedBy: [{ id: 1 }, { id: 2 }],
++        author: {
++          username: 'hiccup',
++          bio: 'Dragon trainer',
++          image: 'https://example.com/hiccup.jpg',
++          followedBy: [{ id: 2 }],
++        },
++      };
++      const currentUserId = 2;
++
++      // When
++      const result = articleMapper(article, currentUserId);
++
++      // Then
++      expect(result).toEqual({
++        slug: 'how-to-train-your-dragon',
++        title: 'How to Train Your Dragon',
++        description: 'Ever wonder how?',
++        body: 'It takes a lot of patience.',
++        tagList: ['dragons', 'training'],
++        createdAt,
++        updatedAt,
++        favorited: true,
++        favoritesCount: 2,
++        author: {
++          username: 'hiccup',
++          bio: 'Dragon trainer',
++          image: 'https://example.com/hiccup.jpg',
++          following: true,
++        },
++      });
++    });
++
++    test('should correctly map article with favorited=false when user id is not in favoritedBy', () => {
++      // Given
++      const createdAt = new Date('2024-01-01T00:00:00.000Z');
++      const updatedAt = new Date('2024-01-02T00:00:00.000Z');
++      const article = {
++        slug: 'learning-typescript',
++        title: 'Learning TypeScript',
++        description: 'Type safety for JavaScript',
++        body: 'TypeScript adds static typing.',
++        tagList: [{ name: 'typescript' }],
++        createdAt,
++        updatedAt,
++        favoritedBy: [{ id: 10 }],
++        author: {
++          username: 'astrid',
++          bio: null,
++          image: null,
++          followedBy: [],
++        },
++      };
++      const currentUserId = 999;
++
++      // When
++      const result = articleMapper(article, currentUserId);
++
++      // Then
++      expect(result).toEqual({
++        slug: 'learning-typescript',
++        title: 'Learning TypeScript',
++        description: 'Type safety for JavaScript',
++        body: 'TypeScript adds static typing.',
++        tagList: ['typescript'],
++        createdAt,
++        updatedAt,
++        favorited: false,
++        favoritesCount: 1,
++        author: {
++          username: 'astrid',
++          bio: null,
++          image: null,
++          following: false,
++        },
++      });
++    });
++
++    test('should correctly map article with empty tagList, empty favoritedBy, and no user id provided', () => {
++      // Given
++      const createdAt = new Date('2024-01-01T00:00:00.000Z');
++      const updatedAt = new Date('2024-01-02T00:00:00.000Z');
++      const article = {
++        slug: 'minimal-post',
++        title: 'Minimal Post',
++        description: 'Just a simple post',
++        body: 'Minimal content here.',
++        tagList: [],
++        createdAt,
++        updatedAt,
++        favoritedBy: [],
++        author: {
++          username: 'stoick',
++          bio: 'Chief',
++          image: 'https://example.com/stoick.png',
++          followedBy: [{ id: 1 }],
++        },
++      };
++
++      // When
++      const result = articleMapper(article);
++
++      // Then
++      expect(result).toEqual({
++        slug: 'minimal-post',
++        title: 'Minimal Post',
++        description: 'Just a simple post',
++        body: 'Minimal content here.',
++        tagList: [],
++        createdAt,
++        updatedAt,
++        favorited: false,
++        favoritesCount: 0,
++        author: {
++          username: 'stoick',
++          bio: 'Chief',
++          image: 'https://example.com/stoick.png',
++          following: false,
++        },
++      });
++    });
++
++    test('should correctly map article with favorited=false when favoritedBy is empty and user id is provided', () => {
++      // Given
++      const createdAt = new Date('2024-01-01T00:00:00.000Z');
++      const updatedAt = new Date('2024-01-02T00:00:00.000Z');
++      const article = {
++        slug: 'unfavorited-post',
++        title: 'Unfavorited Post',
++        description: 'No one has favorited this yet',
++        body: 'Body text.',
++        tagList: [{ name: 'news' }],
++        createdAt,
++        updatedAt,
++        favoritedBy: [],
++        author: {
++          username: 'snotlout',
++          bio: null,
++          image: null,
++          followedBy: [],
++        },
++      };
++      const currentUserId = 42;
++
++      // When
++      const result = articleMapper(article, currentUserId);
++
++      // Then
++      expect(result).toEqual({
++        slug: 'unfavorited-post',
++        title: 'Unfavorited Post',
++        description: 'No one has favorited this yet',
++        body: 'Body text.',
++        tagList: ['news'],
++        createdAt,
++        updatedAt,
++        favorited: false,
++        favoritesCount: 0,
++        author: {
++          username: 'snotlout',
++          bio: null,
++          image: null,
++          following: false,
++        },
++      });
++    });
++  });
++});

@@ -1,0 +1,50 @@
+diff --git a/src/zarr/core/group.py b/src/zarr/core/group.py
+index 922eaf14..bcc97a47 100644
+--- a/src/zarr/core/group.py
++++ b/src/zarr/core/group.py
+@@ -1,7 +1,6 @@
+ from __future__ import annotations
+ 
+ import asyncio
+-import itertools
+ import logging
+ import unicodedata
+ import warnings
+@@ -237,10 +236,19 @@ class ConsolidatedMetadata:
+         # In the example, the group at `/a/b` will have consolidated metadata
+         # for its children `array-0` and `array-1`.
+ 
+-        keys = sorted(metadata, key=lambda k: k.count("/"))
+-        grouped = {
+-            k: list(v) for k, v in itertools.groupby(keys, key=lambda k: k.rsplit("/", 1)[0])
+-        }
++        # Sort by depth first, so that parents are always processed before their
++        # children. The full key is used as a tiebreaker so that the result does
++        # not depend on the (arbitrary) order of the input mapping.
++        keys = sorted(metadata, key=lambda k: (k.count("/"), k))
++        grouped: dict[str, list[str]] = {}
++        for k in keys:
++            # Note that keys sharing a parent need not be adjacent in `keys`, so we
++            # accumulate into a dict rather than grouping consecutive runs.
++            grouped.setdefault(k.rsplit("/", 1)[0], []).append(k)
++            # Reinsert in sorted order, so that the nodes left at the top level once
++            # the children have been moved below their parent are ordered the same
++            # way as the children we insert below.
++            metadata[k] = metadata.pop(k)
+ 
+         # we go top down and directly manipulate metadata.
+         for key, children_keys in grouped.items():
+
+# untracked files (agent-created), full content below:
+diff --git a/changes/4220.bugfix.md b/changes/4220.bugfix.md
+new file mode 100644
+index 00000000..53e6dab0
+--- /dev/null
++++ b/changes/4220.bugfix.md
+@@ -0,0 +1,6 @@
++Fixed `ConsolidatedMetadata` dropping child nodes when reconstructing the nested
++node tree from the flat, persisted metadata mapping. Children whose keys were not
++adjacent in the mapping (most visibly, siblings whose names differ only by case)
++were left as slash-containing keys at the top level instead of being nested under
++their parent group. The reconstructed hierarchy no longer depends on the order of
++the keys in the flat mapping.

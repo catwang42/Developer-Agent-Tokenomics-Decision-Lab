@@ -1,0 +1,18 @@
+diff --git a/src/zarr/core/group.py b/src/zarr/core/group.py
+index 922eaf14..e68141d7 100644
+--- a/src/zarr/core/group.py
++++ b/src/zarr/core/group.py
+@@ -237,10 +237,9 @@ class ConsolidatedMetadata:
+         # In the example, the group at `/a/b` will have consolidated metadata
+         # for its children `array-0` and `array-1`.
+ 
+-        keys = sorted(metadata, key=lambda k: k.count("/"))
+-        grouped = {
+-            k: list(v) for k, v in itertools.groupby(keys, key=lambda k: k.rsplit("/", 1)[0])
+-        }
++        grouped: dict[str, list[str]] = defaultdict(list)
++        for k in sorted(metadata, key=lambda k: k.count("/")):
++            grouped[k.rsplit("/", 1)[0]].append(k)
+ 
+         # we go top down and directly manipulate metadata.
+         for key, children_keys in grouped.items():

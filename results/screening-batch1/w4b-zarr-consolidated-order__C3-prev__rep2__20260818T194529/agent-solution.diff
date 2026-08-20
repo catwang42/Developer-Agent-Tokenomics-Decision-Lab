@@ -1,0 +1,102 @@
+diff --git a/src/zarr/core/group.py b/src/zarr/core/group.py
+index 922eaf14..1569d6a3 100644
+--- a/src/zarr/core/group.py
++++ b/src/zarr/core/group.py
+@@ -237,13 +237,19 @@ class ConsolidatedMetadata:
+         # In the example, the group at `/a/b` will have consolidated metadata
+         # for its children `array-0` and `array-1`.
+ 
+-        keys = sorted(metadata, key=lambda k: k.count("/"))
+-        grouped = {
+-            k: list(v) for k, v in itertools.groupby(keys, key=lambda k: k.rsplit("/", 1)[0])
+-        }
++        def sort_key(k: str) -> tuple[int, str, str]:
++            return (k.count("/"), unicodedata.normalize("NFKC", k).casefold(), k)
++
++        sorted_keys = sorted(metadata, key=sort_key)
++        grouped: dict[str, list[str]] = defaultdict(list)
++        for k in sorted_keys:
++            grouped[k.rsplit("/", 1)[0]].append(k)
++
++        parent_keys = sorted(grouped.keys(), key=sort_key)
+ 
+         # we go top down and directly manipulate metadata.
+-        for key, children_keys in grouped.items():
++        for key in parent_keys:
++            children_keys = grouped[key]
+             # key is a key like "a", "a/b", "a/b/c"
+             # The basic idea is to find the immediate parent (so "", "a", or "a/b")
+             # and update that node's consolidated metadata to include the metadata
+@@ -261,8 +267,10 @@ class ConsolidatedMetadata:
+                 # because we're walking top to bottom.
+                 parent = parent[part].consolidated_metadata.metadata  # type: ignore[union-attr]
+ 
++            if name not in parent:
++                continue
++
+             node = parent[name]
+-            children_keys = list(children_keys)
+ 
+             if isinstance(node, ArrayV2Metadata | ArrayV3Metadata):
+                 # These are already present, either thanks to being an array in the
+@@ -283,6 +291,15 @@ class ConsolidatedMetadata:
+                 node, consolidated_metadata=ConsolidatedMetadata(metadata=children)
+             )
+ 
++        sorted_top_metadata = dict(
++            sorted(
++                metadata.items(),
++                key=lambda item: sort_key(item[0]),
++            )
++        )
++        metadata.clear()
++        metadata.update(sorted_top_metadata)
++
+     @property
+     def flattened_metadata(self) -> dict[str, ArrayV2Metadata | ArrayV3Metadata | GroupMetadata]:
+         """
+diff --git a/tests/test_metadata/test_consolidated.py b/tests/test_metadata/test_consolidated.py
+index e6087435..6eb8bec9 100644
+--- a/tests/test_metadata/test_consolidated.py
++++ b/tests/test_metadata/test_consolidated.py
+@@ -839,3 +839,40 @@ async def test_open_group_in_non_consolidating_stores() -> None:
+     # Opening a group with use_consolidated=True should fail
+     with pytest.raises(ValueError, match="doesn't support consolidated metadata"):
+         await AsyncGroup.open(memory_store, use_consolidated=True)
++
++
++def test_consolidated_metadata_permutation_independence() -> None:
++    import itertools
++
++    flat_dict_base = {
++        "a": GroupMetadata(zarr_format=3).to_dict(),
++        "A": GroupMetadata(zarr_format=3).to_dict(),
++        "a/x": GroupMetadata(zarr_format=3).to_dict(),
++        "A/y": GroupMetadata(zarr_format=3).to_dict(),
++        "a/z": GroupMetadata(zarr_format=3).to_dict(),
++    }
++
++    keys = list(flat_dict_base.keys())
++    results = set()
++    for p in itertools.permutations(keys):
++        perm_dict = {k: flat_dict_base[k] for k in p}
++        d = {"kind": "inline", "must_understand": False, "metadata": perm_dict}
++        cm = ConsolidatedMetadata.from_dict(d)
++
++        top_keys = tuple(cm.metadata.keys())
++        a_child = cm.metadata.get("a")
++        a_children = (
++            tuple(a_child.consolidated_metadata.metadata.keys())
++            if isinstance(a_child, GroupMetadata) and a_child.consolidated_metadata
++            else ()
++        )
++        A_child = cm.metadata.get("A")
++        A_children = (
++            tuple(A_child.consolidated_metadata.metadata.keys())
++            if isinstance(A_child, GroupMetadata) and A_child.consolidated_metadata
++            else ()
++        )
++        results.add((top_keys, a_children, A_children))
++
++    assert len(results) == 1
++    assert ("a/x" not in results) and ("a/z" not in results)

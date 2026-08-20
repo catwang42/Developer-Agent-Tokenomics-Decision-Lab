@@ -1,0 +1,117 @@
+# Per-run agent-CLI invocation(s) — run artifact, NOT telemetry.
+# Full argv + product version + exit/stdout/stderr per billing leg;
+# credential-bearing values are redacted. Provenance for diagnosis.
+
+## leg: main (role: solver)
+product_version: 1.1.13
+cwd: (container: image workdir)
+exit_code: 0
+argv:
+["docker", "run", "--rm", "--network", "lab-egress", "-v", "/home/catwangzz_google_com/.config/gcloud:/creds/gcloud:ro", "-v", "/home/catwangzz_google_com/.gemini/antigravity-cli/antigravity-oauth-token:/creds/agy/antigravity-oauth-token:ro", "-v", "/home/catwangzz_google_com/.gemini/antigravity-cli/settings.json:/creds/agy/settings.json:ro", "-v", "/home/catwangzz_google_com/.gemini/antigravity-cli/installation_id:/creds/agy/installation_id:ro", "-v", "lab-subject-work-w1-realworld-mapper-tests__c3__rep3__20260818t124829:/subject:rw", "-w", "/subject", "-e", "ANTHROPIC_VERTEX_PROJECT_ID=vital-octagon-19612", "-e", "CLAUDE_CODE_USE_VERTEX=1", "-e", "CLOUDSDK_CONFIG=/creds/gcloud", "-e", "CLOUD_ML_REGION=global", "-e", "GOOGLE_APPLICATION_CREDENTIALS=/creds/gcloud/application_default_credentials.json", "-e", "GOOGLE_CLOUD_PROJECT=vital-octagon-19612", "-e", "HTTPS_PROXY=http://lab-egress-proxy:8888", "-e", "HTTP_PROXY=http://lab-egress-proxy:8888", "-e", "NO_PROXY=localhost,127.0.0.1,::1", "-e", "http_proxy=http://lab-egress-proxy:8888", "-e", "https_proxy=http://lab-egress-proxy:8888", "-e", "no_proxy=localhost,127.0.0.1,::1", "lab-subject-agent/w1-realworld-mapper-tests:30b68e1e8814", "agy", "--dangerously-skip-permissions", "--model", "Gemini 3.7 Flash (High)", "--print-timeout", "15m0s", "--print", "The article and author mappers have no unit tests. Add a Jest test file that\ncovers them with meaningful assertions:\n\n- Target files (do NOT modify them): src/app/routes/article/article.mapper.ts and\n  src/app/routes/article/author.mapper.ts.\n- Cover every REACHABLE branch of both mappers. article.mapper.ts reaches 100%\n  branch coverage; author.mapper.ts has one unreachable defensive branch, so its\n  reachable ceiling is 5/6 (see below). The branches to exercise:\n    * authorMapper `following`: id present vs absent; and, when present, the user\n      is vs is not in `followedBy`.\n    * articleMapper `favorited`: the requesting id is vs is not in `favoritedBy`;\n      `favoritesCount`; `tagList` mapping (empty and non-empty).\n- Assertions must be meaningful: assert the actual mapped output values (shape and\n  field values), not just that the function ran. A test that passes against a\n  broken mapper does not count.\n- All existing tests must stay green.\n\nAdd ONLY a new test file under src/tests/ (e.g. src/tests/mappers/*.test.ts). Do\nnot modify product code, config, or existing tests.\n"]
+stdout:
+A new unit test suite has been created at [`src/tests/mappers/article.mapper.test.ts`](file:///subject/src/tests/mappers/article.mapper.test.ts) covering both [`articleMapper`](file:///subject/src/app/routes/article/article.mapper.ts) and [`authorMapper`](file:///subject/src/app/routes/article/author.mapper.ts).
+
+### Test Coverage & Scenarios
+
+- **[`authorMapper`](file:///subject/src/app/routes/article/author.mapper.ts)** (83.33% / 5 of 6 branches covered, maximum reachable ceiling):
+  - **User ID absent / omitted / undefined**: Maps author fields (`username`, `bio`, `image`) and sets `following: false`.
+  - **User ID present & user in `followedBy`**: Sets `following: true`.
+  - **User ID present & user NOT in `followedBy`**: Sets `following: false`.
+  - **User ID present & `followedBy` is empty**: Sets `following: false`.
+
+- **[`articleMapper`](file:///subject/src/app/routes/article/article.mapper.ts)** (100% branch coverage, 100% statement/function/line coverage):
+  - **Full mapping (authenticated user, tag list, favorited & following)**: Verifies mapping of all fields (`slug`, `title`, `description`, `body`, `createdAt`, `updatedAt`, `tagList`, `favorited`, `favoritesCount`, and nested `author`).
+  - **Favorited status (user not in `favoritedBy`)**: Verifies `favorited: false` with accurate `favoritesCount`.
+  - **Unauthenticated requests (user ID omitted)**: Verifies `favorited: false` and nested `author.following: false`.
+  - **Empty collections**: Verifies `tagList: []`, `favoritedBy: []` mapped to `tagList: []`, `favoritesCount: 0`, and `favorited: false`.
+
+stderr:
+
+
+## environment (credential-bearing values redacted)
+AGY_CLI_DISABLE_AUTO_UPDATE=1
+AI_AGENT=claude-code_2-1-234_agent
+ANACONDA_PYTHON_VERSION=3.10
+ANTHROPIC_DEFAULT_HAIKU_MODEL=claude-haiku-4-5@20251001
+ANTHROPIC_DEFAULT_OPUS_MODEL=claude-opus-5
+ANTHROPIC_DEFAULT_SONNET_MODEL=claude-sonnet-4-5@20250929[1m]
+ANTHROPIC_VERTEX_PROJECT_ID=vital-octagon-19612
+BINARIES_PATH=/opt/deeplearning/binaries
+CLAUDECODE=1
+CLAUDE_CODE_CHILD_SESSION=<redacted>
+CLAUDE_CODE_ENTRYPOINT=cli
+CLAUDE_CODE_EXECPATH=/opt/conda/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe
+CLAUDE_CODE_SESSION_ID=<redacted>
+CLAUDE_CODE_USE_VERTEX=1
+CLAUDE_EFFORT=high
+CLAUDE_PID=5916
+CLOUD_ML_REGION=global
+CONDA_DEFAULT_ENV=base
+CONDA_EXE=/opt/conda/bin/conda
+CONDA_PREFIX=/opt/conda
+CONDA_PREFIX_1=/opt/conda/envs/jupyterlab
+CONDA_PREFIX_2=/opt/conda
+CONDA_PREFIX_3=/opt/conda/envs/jupyterlab
+CONDA_PROMPT_MODIFIER=(base) 
+CONDA_PYTHON_EXE=/opt/conda/bin/python
+CONDA_SHLVL=4
+COREPACK_ENABLE_AUTO_PIN=0
+DL_ANACONDA_HOME=/opt/conda
+DL_BIN_PATH=/opt/deeplearning/bin
+DL_METADATA_PATH=/opt/deeplearning/metadata
+DL_PATH=/opt/deeplearning
+DL_PATH_DEPS=/opt/deeplearning/deps
+ENABLE_MULTI_ENV=true
+ENABLE_MULTI_FRAMEWORK=true
+ENV_URI_FILE_PATH=/opt/deeplearning/metadata/env_uri
+ENV_VERSION_FILE_PATH=/opt/deeplearning/metadata/env_version
+FRAMEWORK_FILE_PATH=/opt/deeplearning/metadata/framework
+GCSFUSE_METADATA_IMAGE_TYPE=DLVM
+GIT_EDITOR=true
+GOOGLE_CLOUD_PROJECT=vital-octagon-19612
+GOOGLE_VM_CONFIG_LOCK_FILE=/root/google_vm_config.lock
+GRPC_FORK_SUPPORT_ENABLED=0
+HOME=/home/catwangzz_google_com
+JUPYTER_DEPS_PATH=/opt/deeplearning/jupyter
+LAB_ALLOW_SPEND=1
+LANG=C.UTF-8
+LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/nccl2/lib:/usr/local/cuda/extras/CUPTI/lib64:/usr/lib/x86_64-linux-gnu/:/opt/conda/lib
+LIT_PROXY_URL=/proxy/%PORT%/
+LOGNAME=catwangzz_google_com
+LS_COLORS=rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:
+MOTD_SHOWN=pam
+MOUNTS_ON_ALL_CONTAINERS=/usr/local/share/ca-certificates,/etc/ssl/certs,/etc/ca-certificates/update.d
+NoDefaultCurrentDirectoryInExePath=1
+OLDPWD=/home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab
+OPAL_PREFIX=/usr
+OS_NAME=DEBIAN_11
+PACKAGE_SOURCE_CODE_PATH=/opt/deeplearning/src/third_party
+PATH=/home/catwangzz_google_com/.local/bin:/home/catwangzz_google_com/.local/bin:/home/catwangzz_google_com/.local/bin:/home/catwangzz_google_com/.local/bin:/opt/conda/bin:/usr/local/cuda/bin:/opt/conda/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games
+POST_STARTUP_SCRIPT_PATH=/opt/c2d/post_start.sh
+PROXY_BIN=/opt/bin
+PWD=/home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab
+RESTRICTION_TYPE_FILE_PATH=/opt/deeplearning/restriction
+SHELL=/bin/bash
+SHLVL=4
+SRC_PATH=/opt/deeplearning/src
+SSH_AUTH_SOCK=<redacted>
+SSH_CLIENT=172.253.240.8 51189 22
+SSH_CONNECTION=172.253.240.8 51189 10.128.0.90 22
+SSH_TTY=/dev/pts/0
+TENSORBOARD_PROXY_URL=/proxy/%PORT%/
+TERM=screen
+TF_BINARIES_FOLDER=/opt/deeplearning/binaries/tensorflow
+TF_BINARIES_VERSION=2-11
+TITLE_FILE_PATH=/opt/deeplearning/metadata/title
+TMPDIR=/var/tmp
+TMUX=/tmp/tmux-706335951/default,2321,0
+TMUX_PANE=%0
+TUTORIALS_PATH=/opt/deeplearning/workspace/tutorials
+USER=catwangzz_google_com
+VERSION_FILE_PATH=/opt/deeplearning/metadata/version
+VERTEX_PRODUCT=WORKBENCH_INSTANCE
+WORKSPACE_PATH=/opt/deeplearning/workspace
+XML_CATALOG_FILES=file:///opt/conda/etc/xml/catalog file:///etc/xml/catalog
+_=/home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/.venv/bin/python
+_CE_CONDA=
+_CE_M=

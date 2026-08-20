@@ -1,0 +1,92 @@
+diff --git a/src/zarr/core/group.py b/src/zarr/core/group.py
+index 922eaf14..a081bf96 100644
+--- a/src/zarr/core/group.py
++++ b/src/zarr/core/group.py
+@@ -237,13 +237,14 @@ class ConsolidatedMetadata:
+         # In the example, the group at `/a/b` will have consolidated metadata
+         # for its children `array-0` and `array-1`.
+ 
+-        keys = sorted(metadata, key=lambda k: k.count("/"))
+-        grouped = {
+-            k: list(v) for k, v in itertools.groupby(keys, key=lambda k: k.rsplit("/", 1)[0])
+-        }
++        grouped: dict[str, list[str]] = {}
++        for k in metadata:
++            parent_key = k.rsplit("/", 1)[0]
++            grouped.setdefault(parent_key, []).append(k)
+ 
+         # we go top down and directly manipulate metadata.
+-        for key, children_keys in grouped.items():
++        for key in sorted(grouped, key=lambda k: (k.count("/"), k)):
++            children_keys = sorted(grouped[key])
+             # key is a key like "a", "a/b", "a/b/c"
+             # The basic idea is to find the immediate parent (so "", "a", or "a/b")
+             # and update that node's consolidated metadata to include the metadata
+@@ -262,7 +263,6 @@ class ConsolidatedMetadata:
+                 parent = parent[part].consolidated_metadata.metadata  # type: ignore[union-attr]
+ 
+             node = parent[name]
+-            children_keys = list(children_keys)
+ 
+             if isinstance(node, ArrayV2Metadata | ArrayV3Metadata):
+                 # These are already present, either thanks to being an array in the
+@@ -283,6 +283,10 @@ class ConsolidatedMetadata:
+                 node, consolidated_metadata=ConsolidatedMetadata(metadata=children)
+             )
+ 
++        sorted_top = dict(sorted(metadata.items(), key=lambda item: item[0]))
++        metadata.clear()
++        metadata.update(sorted_top)
++
+     @property
+     def flattened_metadata(self) -> dict[str, ArrayV2Metadata | ArrayV3Metadata | GroupMetadata]:
+         """
+diff --git a/tests/test_metadata/test_consolidated.py b/tests/test_metadata/test_consolidated.py
+index e6087435..54c544ec 100644
+--- a/tests/test_metadata/test_consolidated.py
++++ b/tests/test_metadata/test_consolidated.py
+@@ -839,3 +839,44 @@ async def test_open_group_in_non_consolidating_stores() -> None:
+     # Opening a group with use_consolidated=True should fail
+     with pytest.raises(ValueError, match="doesn't support consolidated metadata"):
+         await AsyncGroup.open(memory_store, use_consolidated=True)
++
++
++def test_flat_to_nested_permutation_invariant() -> None:
++    """Verify that ConsolidatedMetadata reconstruction from flat mapping is identical
++    for every permutation of the same key set, including case-differing sibling groups."""
++    import itertools
++
++    flat_1 = {
++        "a": GroupMetadata(),
++        "A": GroupMetadata(),
++        "a/b": GroupMetadata(),
++        "A/c": GroupMetadata(),
++        "a/d": GroupMetadata(),
++    }
++
++    base_dict = {
++        "kind": "inline",
++        "must_understand": False,
++        "metadata": {k: v.to_dict() for k, v in flat_1.items()},
++    }
++
++    reference = None
++    for p in itertools.permutations(flat_1.keys()):
++        permuted_data = {
++            "kind": "inline",
++            "must_understand": False,
++            "metadata": {k: base_dict["metadata"][k] for k in p},
++        }
++        res = ConsolidatedMetadata.from_dict(permuted_data)
++        if reference is None:
++            reference = res
++        else:
++            assert res == reference
++            assert list(res.metadata.keys()) == list(reference.metadata.keys())
++            assert list(res.metadata["a"].consolidated_metadata.metadata.keys()) == list(
++                reference.metadata["a"].consolidated_metadata.metadata.keys()
++            )
++            assert list(res.metadata["A"].consolidated_metadata.metadata.keys()) == list(
++                reference.metadata["A"].consolidated_metadata.metadata.keys()
++            )
++

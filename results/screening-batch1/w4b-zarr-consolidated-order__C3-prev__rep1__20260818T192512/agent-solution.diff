@@ -1,0 +1,68 @@
+diff --git a/src/zarr/core/group.py b/src/zarr/core/group.py
+index 922eaf14..04e5d9a2 100644
+--- a/src/zarr/core/group.py
++++ b/src/zarr/core/group.py
+@@ -1,7 +1,6 @@
+ from __future__ import annotations
+ 
+ import asyncio
+-import itertools
+ import logging
+ import unicodedata
+ import warnings
+@@ -237,10 +236,9 @@ class ConsolidatedMetadata:
+         # In the example, the group at `/a/b` will have consolidated metadata
+         # for its children `array-0` and `array-1`.
+ 
+-        keys = sorted(metadata, key=lambda k: k.count("/"))
+-        grouped = {
+-            k: list(v) for k, v in itertools.groupby(keys, key=lambda k: k.rsplit("/", 1)[0])
+-        }
++        grouped: dict[str, list[str]] = defaultdict(list)
++        for k in sorted(metadata, key=lambda k: (k.count("/"), k)):
++            grouped[k.rsplit("/", 1)[0]].append(k)
+ 
+         # we go top down and directly manipulate metadata.
+         for key, children_keys in grouped.items():
+diff --git a/tests/test_metadata/test_consolidated.py b/tests/test_metadata/test_consolidated.py
+index e6087435..dbadf614 100644
+--- a/tests/test_metadata/test_consolidated.py
++++ b/tests/test_metadata/test_consolidated.py
+@@ -839,3 +839,37 @@ async def test_open_group_in_non_consolidating_stores() -> None:
+     # Opening a group with use_consolidated=True should fail
+     with pytest.raises(ValueError, match="doesn't support consolidated metadata"):
+         await AsyncGroup.open(memory_store, use_consolidated=True)
++
++
++def test_consolidated_metadata_flat_to_nested_order_independence() -> None:
++    raw_metadata = {
++        "a": {"zarr_format": 3, "node_type": "group"},
++        "A": {"zarr_format": 3, "node_type": "group"},
++        "a/x": {"zarr_format": 3, "node_type": "group"},
++        "A/y": {"zarr_format": 3, "node_type": "group"},
++        "a/z": {"zarr_format": 3, "node_type": "group"},
++        "a/x/1": {"zarr_format": 3, "node_type": "group"},
++        "A/y/2": {"zarr_format": 3, "node_type": "group"},
++    }
++    items = list(raw_metadata.items())
++    base_data = {
++        "kind": "inline",
++        "must_understand": False,
++        "metadata": raw_metadata,
++    }
++    expected_cm = ConsolidatedMetadata.from_dict(base_data)
++
++    import random
++
++    for seed in range(20):
++        shuffled_items = list(items)
++        random.seed(seed)
++        random.shuffle(shuffled_items)
++        data = {
++            "kind": "inline",
++            "must_understand": False,
++            "metadata": dict(shuffled_items),
++        }
++        cm = ConsolidatedMetadata.from_dict(data)
++        assert cm == expected_cm
++

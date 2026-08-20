@@ -1,0 +1,228 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/tests/test_indexing_properties.py b/tests/test_indexing_properties.py
+new file mode 100644
+index 00000000..2219a0a1
+--- /dev/null
++++ b/tests/test_indexing_properties.py
+@@ -0,0 +1,220 @@
++"""
++Property tests for block indexing (Array.blocks / get_block_selection / set_block_selection)
++and mask indexing (Array.vindex[mask] / get_mask_selection / set_mask_selection).
++
++Each property compares zarr against a numpy oracle: the same selection is applied to
++the equivalent numpy array and the results must be equal.
++"""
++
++import warnings
++
++import numpy as np
++import numpy.testing as npt
++import pytest
++import hypothesis.strategies as st
++import hypothesis.extra.numpy as npst
++from hypothesis import assume, given, settings
++
++import zarr
++import zarr.testing.strategies as zst
++from zarr.core.indexing import replace_ellipsis
++from zarr.errors import UnstableSpecificationWarning
++
++
++# ---------------------------------------------------------------------------
++# Fixture: enable rectilinear chunk grids (behind a config flag) and suppress
++# the UnstableSpecificationWarning that some zarr v3 dtypes emit on creation.
++# ---------------------------------------------------------------------------
++
++
++@pytest.fixture(autouse=True)
++def _enable_rectilinear_chunks():
++    with zarr.config.set({"array.rectilinear_chunks": True}):
++        with warnings.catch_warnings():
++            warnings.filterwarnings("ignore", category=UnstableSpecificationWarning)
++            yield
++
++
++# ---------------------------------------------------------------------------
++# Helpers for block indexing
++# ---------------------------------------------------------------------------
++
++
++def _block_sel_to_numpy_sel(zarr_array: zarr.Array, block_sel: tuple) -> tuple:
++    """Translate a block-space selection to an element-space numpy selection.
++
++    Mirrors the BlockIndexer mapping so that ``nparray[result]`` is the exact
++    numpy oracle for ``zarr_array.get_block_selection(block_sel)``.
++
++    Integers and step-1 slices in chunk-space become plain slices in element-
++    space.  Numpy clips out-of-bound slice stops at the array boundary, which
++    matches zarr's handling of the last (partial) chunk.
++    """
++    if not isinstance(block_sel, tuple):
++        block_sel = (block_sel,)
++    block_sel = replace_ellipsis(block_sel, zarr_array.shape)
++
++    numpy_sel = []
++    for dim_sel, dim_len, dim_grid in zip(
++        block_sel, zarr_array.shape, zarr_array._chunk_grid._dimensions
++    ):
++        nchunks = dim_grid.nchunks
++        if isinstance(dim_sel, (int, np.integer)):
++            b = int(dim_sel)
++            if b < 0:
++                b += nchunks
++            start = dim_grid.chunk_offset(b)
++            # chunk_size() returns the buffer edge, which may overshoot the
++            # array boundary for the last chunk; numpy slicing clips it.
++            stop = start + dim_grid.chunk_size(b)
++        else:  # slice with step=1 or None
++            a = dim_sel.start if dim_sel.start is not None else 0
++            b = dim_sel.stop if dim_sel.stop is not None else nchunks
++            if a < 0:
++                a += nchunks
++            if b < 0:
++                b += nchunks
++            start = dim_grid.chunk_offset(a) if a < nchunks else dim_len
++            stop = dim_grid.chunk_offset(b) if b < nchunks else dim_len
++        numpy_sel.append(slice(start, stop))
++
++    return tuple(numpy_sel)
++
++
++@st.composite
++def _block_indices(draw: st.DrawFn, zarr_array: zarr.Array) -> tuple:
++    """Draw a valid block-space index tuple for *zarr_array*.
++
++    Per dimension, independently chooses either:
++    - a chunk integer in [-nchunks, nchunks-1]  (negative means wrap-around)
++    - a step-1 slice of chunk indices slice(lo, hi) with 0 <= lo < nchunks
++      and lo <= hi <= nchunks
++
++    Precondition: every dimension must have at least one chunk (no 0-size dims).
++    Use ``assume(all(d > 0 for d in zarr_array.shape))`` before calling this.
++    """
++    idx = []
++    for dim_grid in zarr_array._chunk_grid._dimensions:
++        nchunks = dim_grid.nchunks
++        if draw(st.booleans()):
++            # Integer chunk index (possibly negative for wrap-around)
++            idx.append(draw(st.integers(min_value=-nchunks, max_value=nchunks - 1)))
++        else:
++            # Step-1 slice: lo must reference an existing chunk (lo < nchunks)
++            # so that chunk_offset(lo) < dim_len; hi may equal nchunks (clips to end).
++            lo = draw(st.integers(min_value=0, max_value=nchunks - 1))
++            hi = draw(st.integers(min_value=lo, max_value=nchunks))
++            idx.append(slice(lo, hi))
++    return tuple(idx)
++
++
++# ---------------------------------------------------------------------------
++# Array strategy: regular and rectilinear chunk grids
++# ---------------------------------------------------------------------------
++
++_arrays = zst.simple_arrays() | zst.rectilinear_arrays()
++
++
++# ---------------------------------------------------------------------------
++# Block indexing property tests
++# ---------------------------------------------------------------------------
++
++
++@given(data=st.data())
++@settings(deadline=None)
++def test_block_get_selection(data: st.DataObject) -> None:
++    """get_block_selection and .blocks[...] both return what numpy returns for the
++    corresponding element-space slice.
++    """
++    zarr_arr = data.draw(_arrays)
++    # Block indexing requires every dimension to be non-empty.
++    assume(all(d > 0 for d in zarr_arr.shape))
++
++    block_sel = data.draw(_block_indices(zarr_arr))
++    np_arr = zarr_arr[:]
++    numpy_sel = _block_sel_to_numpy_sel(zarr_arr, block_sel)
++    expected = np_arr[numpy_sel]
++
++    # dedicated method
++    npt.assert_array_equal(zarr_arr.get_block_selection(block_sel), expected)
++    # indexer property
++    npt.assert_array_equal(zarr_arr.blocks[block_sel], expected)
++
++
++@given(data=st.data())
++@settings(deadline=None)
++def test_block_set_selection(data: st.DataObject) -> None:
++    """set_block_selection and .blocks[...]=... both write the same region that
++    numpy modifies with the equivalent element-space slice.
++    """
++    zarr_arr = data.draw(_arrays)
++    assume(all(d > 0 for d in zarr_arr.shape))
++
++    block_sel = data.draw(_block_indices(zarr_arr))
++    np_arr = zarr_arr[:]
++    numpy_sel = _block_sel_to_numpy_sel(zarr_arr, block_sel)
++    write_shape = np_arr[numpy_sel].shape
++
++    new_vals = data.draw(zst.numpy_arrays(shapes=st.just(write_shape), dtype=zarr_arr.dtype))
++
++    # --- dedicated method ---
++    np_expected = np_arr.copy()
++    np_expected[numpy_sel] = new_vals
++    zarr_arr.set_block_selection(block_sel, new_vals)
++    npt.assert_array_equal(zarr_arr[:], np_expected)
++
++    # --- indexer property ---
++    zarr_arr[:] = np_arr  # restore original before second write
++    np_expected2 = np_arr.copy()
++    np_expected2[numpy_sel] = new_vals
++    zarr_arr.blocks[block_sel] = new_vals
++    npt.assert_array_equal(zarr_arr[:], np_expected2)
++
++
++# ---------------------------------------------------------------------------
++# Mask indexing property tests
++# ---------------------------------------------------------------------------
++
++
++@given(data=st.data())
++@settings(deadline=None)
++def test_mask_get_selection(data: st.DataObject) -> None:
++    """get_mask_selection and .vindex[mask] both return what numpy returns for
++    boolean-mask fancy indexing on the same array.
++    """
++    zarr_arr = data.draw(_arrays)
++    np_arr = zarr_arr[:]
++    mask = data.draw(npst.arrays(dtype=np.bool_, shape=st.just(zarr_arr.shape)))
++    expected = np_arr[mask]
++
++    # dedicated method
++    npt.assert_array_equal(zarr_arr.get_mask_selection(mask), expected)
++    # indexer property
++    npt.assert_array_equal(zarr_arr.vindex[mask], expected)
++
++
++@given(data=st.data())
++@settings(deadline=None)
++def test_mask_set_selection(data: st.DataObject) -> None:
++    """set_mask_selection and .vindex[mask]=... both write the same elements that
++    numpy modifies with boolean-mask fancy indexing.
++    """
++    zarr_arr = data.draw(_arrays)
++    np_arr = zarr_arr[:]
++    mask = data.draw(npst.arrays(dtype=np.bool_, shape=st.just(zarr_arr.shape)))
++    n_selected = int(mask.sum())
++
++    new_vals = data.draw(zst.numpy_arrays(shapes=st.just((n_selected,)), dtype=zarr_arr.dtype))
++
++    # --- dedicated method ---
++    np_expected = np_arr.copy()
++    np_expected[mask] = new_vals
++    zarr_arr.set_mask_selection(mask, new_vals)
++    npt.assert_array_equal(zarr_arr[:], np_expected)
++
++    # --- indexer property ---
++    zarr_arr[:] = np_arr  # restore original before second write
++    np_expected2 = np_arr.copy()
++    np_expected2[mask] = new_vals
++    zarr_arr.vindex[mask] = new_vals
++    npt.assert_array_equal(zarr_arr[:], np_expected2)

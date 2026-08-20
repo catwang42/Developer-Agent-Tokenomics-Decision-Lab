@@ -1,0 +1,36 @@
+diff --git a/src/zarr/core/group.py b/src/zarr/core/group.py
+index 922eaf14..349929b0 100644
+--- a/src/zarr/core/group.py
++++ b/src/zarr/core/group.py
+@@ -1,7 +1,6 @@
+ from __future__ import annotations
+ 
+ import asyncio
+-import itertools
+ import logging
+ import unicodedata
+ import warnings
+@@ -237,10 +236,20 @@ class ConsolidatedMetadata:
+         # In the example, the group at `/a/b` will have consolidated metadata
+         # for its children `array-0` and `array-1`.
+ 
++        # Group the keys by their parent prefix. `itertools.groupby` is not usable
++        # here: it only groups *consecutive* keys, so keys sharing a parent but
++        # separated by an unrelated key (which happens for some orderings of the
++        # flat mapping, e.g. siblings whose names differ only by case) would end up
++        # in distinct groups, and all but the last of them would be discarded.
++        # Accumulating into a dict instead makes the result independent of the order
++        # in which the flat keys were persisted.
+         keys = sorted(metadata, key=lambda k: k.count("/"))
+-        grouped = {
+-            k: list(v) for k, v in itertools.groupby(keys, key=lambda k: k.rsplit("/", 1)[0])
+-        }
++        grouped: dict[str, list[str]] = {}
++        for k in keys:
++            # sorting by depth first guarantees that a parent is inserted into
++            # `grouped` before any of its own children, so the loop below can
++            # still walk the hierarchy top down.
++            grouped.setdefault(k.rsplit("/", 1)[0], []).append(k)
+ 
+         # we go top down and directly manipulate metadata.
+         for key, children_keys in grouped.items():

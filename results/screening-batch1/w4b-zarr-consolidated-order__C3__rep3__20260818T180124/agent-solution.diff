@@ -1,0 +1,23 @@
+diff --git a/src/zarr/core/group.py b/src/zarr/core/group.py
+index 922eaf14..336b8364 100644
+--- a/src/zarr/core/group.py
++++ b/src/zarr/core/group.py
+@@ -237,13 +237,13 @@ class ConsolidatedMetadata:
+         # In the example, the group at `/a/b` will have consolidated metadata
+         # for its children `array-0` and `array-1`.
+ 
+-        keys = sorted(metadata, key=lambda k: k.count("/"))
+-        grouped = {
+-            k: list(v) for k, v in itertools.groupby(keys, key=lambda k: k.rsplit("/", 1)[0])
+-        }
++        grouped: dict[str, list[str]] = defaultdict(list)
++        for k in metadata:
++            grouped[k.rsplit("/", 1)[0]].append(k)
+ 
+         # we go top down and directly manipulate metadata.
+-        for key, children_keys in grouped.items():
++        for key in sorted(grouped, key=lambda k: k.count("/")):
++            children_keys = grouped[key]
+             # key is a key like "a", "a/b", "a/b/c"
+             # The basic idea is to find the immediate parent (so "", "a", or "a/b")
+             # and update that node's consolidated metadata to include the metadata

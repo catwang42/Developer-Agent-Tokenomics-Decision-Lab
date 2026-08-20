@@ -1,0 +1,30 @@
+diff --git a/src/zarr/core/group.py b/src/zarr/core/group.py
+index 922eaf14..b471557d 100644
+--- a/src/zarr/core/group.py
++++ b/src/zarr/core/group.py
+@@ -1,7 +1,6 @@
+ from __future__ import annotations
+ 
+ import asyncio
+-import itertools
+ import logging
+ import unicodedata
+ import warnings
+@@ -237,10 +236,14 @@ class ConsolidatedMetadata:
+         # In the example, the group at `/a/b` will have consolidated metadata
+         # for its children `array-0` and `array-1`.
+ 
++        # The keys of `metadata` come in an arbitrary order, so we group by parent
++        # prefix explicitly rather than by *runs* of keys sharing a prefix: siblings
++        # of the same parent need not be adjacent in `keys`. Sorting by depth ensures
++        # that a node is always visited before its children.
+         keys = sorted(metadata, key=lambda k: k.count("/"))
+-        grouped = {
+-            k: list(v) for k, v in itertools.groupby(keys, key=lambda k: k.rsplit("/", 1)[0])
+-        }
++        grouped: dict[str, list[str]] = defaultdict(list)
++        for k in keys:
++            grouped[k.rsplit("/", 1)[0]].append(k)
+ 
+         # we go top down and directly manipulate metadata.
+         for key, children_keys in grouped.items():
