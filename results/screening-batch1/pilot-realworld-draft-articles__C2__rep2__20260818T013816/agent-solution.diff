@@ -1,0 +1,42 @@
+diff --git a/src/app/routes/article/article.service.ts b/src/app/routes/article/article.service.ts
+index c8fdc0c..8fab430 100644
+--- a/src/app/routes/article/article.service.ts
++++ b/src/app/routes/article/article.service.ts
+@@ -63,6 +63,8 @@ const buildFindAllQuery = (query: any, id: number | undefined) => {
+     });
+   }
+ 
++  queries.push({ draft: false });
++
+   return queries;
+ };
+ 
+@@ -160,7 +162,7 @@ export const getFeed = async (offset: number, limit: number, id: number) => {
+ };
+ 
+ export const createArticle = async (article: any, id: number) => {
+-  const { title, description, body, tagList } = article;
++  const { title, description, body, tagList, draft } = article;
+   const tags = Array.isArray(tagList) ? tagList : [];
+ 
+   if (!title) {
+@@ -200,6 +202,7 @@ export const createArticle = async (article: any, id: number) => {
+       description,
+       body,
+       slug,
++      draft: draft ?? false,
+       tagList: {
+         connectOrCreate: tags.map((tag: string) => ({
+           create: { name: tag },
+diff --git a/src/prisma/schema.prisma b/src/prisma/schema.prisma
+index 3d767b7..0c8ec94 100644
+--- a/src/prisma/schema.prisma
++++ b/src/prisma/schema.prisma
+@@ -21,6 +21,7 @@ model Article {
+   authorId    Int
+   favoritedBy User[]    @relation("UserFavorites")
+   comments    Comment[]
++  draft       Boolean   @default(false)
+ }
+ 
+ model Comment {

@@ -1,0 +1,59 @@
+{
+  "collected_at": "2026-08-19T23:15:09.142390Z",
+  "collector": "vertex_token_collector",
+  "guard": {
+    "contaminated": true,
+    "evidence": {
+      "baseline": {
+        "baseline_seconds": 300,
+        "windows": {
+          "post": {
+            "by_model": {
+              "gemini-3.6-flash": {
+                "output": 31983
+              }
+            },
+            "end": "2026-08-19T22:53:48.377296Z",
+            "points": 1,
+            "start": "2026-08-19T22:48:48.377297Z"
+          },
+          "pre": {
+            "by_model": {},
+            "end": "2026-08-19T22:41:47.165286Z",
+            "points": 0,
+            "start": "2026-08-19T22:36:47.165287Z"
+          }
+        }
+      },
+      "ceiling": {
+        "input_side_tokens_ceiling": 3000000,
+        "observed_input_side_tokens": {
+          "gemini-3.6-flash": 1068251
+        }
+      }
+    },
+    "reasons": [
+      "post-run baseline window 2026-08-19T22:48:48.377297Z..2026-08-19T22:53:48.377296Z is NOT quiet: 1 point(s), {'gemini-3.6-flash': {'output': 31983}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+    ]
+  },
+  "metric_type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "note": "The provider meter for this window could not be attributed to this run, so NOTHING was written to events.jsonl or summary.json and the run's Product-B usage remains 'unavailable' (not zero). The totals below are what the window contained; they are NOT this run's usage.",
+  "refusal": "contaminated_window",
+  "run_id": "w6-hono-router-review__C3-prev__rep2__20260819T224246",
+  "window_totals_refused": {
+    "by_model": {
+      "gemini-3.6-flash": {
+        "input": 1068251,
+        "output": 38696
+      }
+    },
+    "points_in_window": 8,
+    "points_outside_window": 0,
+    "unmapped_types": {},
+    "window": {
+      "end": "2026-08-19T22:48:48.377296Z",
+      "guard_seconds": 60,
+      "start": "2026-08-19T22:41:47.165287Z"
+    }
+  }
+}

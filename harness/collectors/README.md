@@ -147,6 +147,53 @@ observed window. The `model_user_id` filter excludes anything on a *different*
 model; nothing but the time window separates a subject run from a background job
 on the *same* model.
 
+## Attribution rules: v1 (silence) and v2 (ownership)
+
+`--attribution-rule` selects how a run's window is drawn and what the quiet probe
+looks at. Both rules keep the same confidence tiers (counts authoritative,
+per-run attribution derived) and the same 3M input-side plausibility ceiling.
+
+**v1 — `time_window_serialized_runs`** (the default, unchanged). A run's window is
+`[start - guard, end + guard]`, and the `baseline_seconds` either side of it must
+be *silent* on the subject models. Simple, and wrong in one direction: Cloud
+Monitoring ingests this metric with a delay, so a run deposits some of its **own**
+last points after its own window closes. v1 cannot tell that tail from a third
+party and refuses the run. In screening batch 1, 8 of 43 refusals were runs
+refused for their own tail — the post-probe totals were a fraction of the run's
+own, with a dead-quiet pre-window.
+
+**v2 — `serialized_run_ownership_with_ingestion_tail`.** Uses the fact the
+CP-SPEND line above already asserts: the batch is *serialized*. Then each run owns
+the meter from its own start until the next subject run's window opens:
+
+```
+[start_i - guard,  min(end_i + guard + tail,  start_{i+1} - guard) )
+```
+
+The v1 window, extended by an ingestion `tail` (default 300s), never reaching into
+the next run's guard band. The quiet probes are kept but moved to the only region
+where a third party is still distinguishable — the no-man's-land between one run's
+ownership window and its neighbours'. Traffic there still refuses the run; a probe
+the neighbours squeeze to nothing is reported `not_applicable`, not as silence.
+
+v2 needs the **whole serialized batch** in the plan, because a run's boundary is
+its neighbour's start. Collecting a subset against a partial plan would hand each
+run its neighbour's traffic. Passing the full batch is safe: runs already
+backfilled are skipped by the idempotence guard.
+
+Two ways the ownership premise fails, both refused rather than papered over:
+
+- the runs **overlap** (`start_{i+1} < end_i`) — the batch was not serialized
+  there and no boundary exists;
+- the runs are **closer than the guard bands** — the boundary exists but leaves
+  the run no tail, so its late points land in its neighbour's window. Both runs
+  are refused, because the meter cannot say which produced them.
+
+v2 writes `provider_usage_backfill_v2` events, a distinct type from v1's. The two
+rules can disagree about which run a point belongs to, so an analysis must be able
+to say which rule it is reading; and the distinct type keeps a v2 pass append-only
+with respect to an earlier v1 one.
+
 ## How backfill works (and why it appends events)
 
 `telemetry.validate` is audit-grade: it re-derives the summary from `events.jsonl`
@@ -166,8 +213,10 @@ append-only.
 
 Guards:
 
-- **Idempotence** — a run that already has a `provider_usage_backfill` event is
-  skipped, never double-counted.
+- **Idempotence** — a run that already has a `provider_usage_backfill` **or**
+  `provider_usage_backfill_v2` event is skipped, never double-counted. Re-running
+  under a different attribution rule does not re-fill a leg; to change a leg's
+  attribution, delete its backfill event first.
 - **Ambiguity** — if two legs of a run declare the same `model_user_id`, the
   billing plane cannot separate them and the collector refuses to attribute.
 - **No data** — an empty window fills nothing and says so; usage stays

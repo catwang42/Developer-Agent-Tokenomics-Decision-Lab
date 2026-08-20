@@ -1,0 +1,3389 @@
+{
+  "attribution": {
+    "counts_confidence": "authoritative",
+    "method": "time_window_serialized_runs",
+    "per_run_attribution_confidence": "derived"
+  },
+  "collected_at": "2026-08-19T23:15:09.142390Z",
+  "collector": "vertex_token_collector",
+  "contamination_guard": {
+    "baseline_probe_seconds": 300,
+    "input_side_ceiling_tokens": 3000000,
+    "on_trip": "nothing is written; the run is stamped contaminated_window and its usage stays unavailable",
+    "runs_refused": [
+      "results/screening-batch1/pilot-realworld-draft-articles__C3-med__rep1__20260818T022024",
+      "results/screening-batch1/pilot-realworld-draft-articles__C3-med__rep2__20260818T023949",
+      "results/screening-batch1/pilot-realworld-draft-articles__C3__rep1__20260818T014056",
+      "results/screening-batch1/pilot-realworld-draft-articles__C3__rep2__20260818T015604",
+      "results/screening-batch1/pilot-realworld-draft-articles__C5__rep2__20260818T041132",
+      "results/screening-batch1/w1-realworld-mapper-tests__C5__rep1__20260818T150210",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep1__20260819T151616",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep2__20260819T154521",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep3__20260819T161257",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep1__20260819T164327",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep2__20260819T170812",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep3__20260819T173437",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep1__20260819T135448",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep2__20260819T142519",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep3__20260819T145045",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C5__rep1__20260819T180024",
+      "results/screening-batch1/w1b-zarr-block-mask-properties__C5__rep3__20260819T192950",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep1__20260819T031526",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep2__20260819T034548",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep3__20260819T041620",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep1__20260819T044639",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep2__20260819T051201",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep3__20260819T054239",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep1__20260819T014403",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep2__20260819T021438",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep3__20260819T024501",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C5__rep1__20260819T061257",
+      "results/screening-batch1/w3-sqlfluff-segment-method-migration__C5__rep3__20260819T075340",
+      "results/screening-batch1/w4b-zarr-consolidated-order__C3-prev__rep2__20260818T194529",
+      "results/screening-batch1/w4b-zarr-consolidated-order__C3-prev__rep3__20260818T200548",
+      "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep1__20260818T170326",
+      "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep2__20260818T173239",
+      "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep3__20260818T180124",
+      "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep1__20260818T202810",
+      "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep2__20260818T212328",
+      "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep3__20260818T222348",
+      "results/screening-batch1/w6-hono-router-review__C3-med__rep1__20260819T215204",
+      "results/screening-batch1/w6-hono-router-review__C3-med__rep2__20260819T215224",
+      "results/screening-batch1/w6-hono-router-review__C3-med__rep3__20260819T220755",
+      "results/screening-batch1/w6-hono-router-review__C3-prev__rep2__20260819T224246",
+      "results/screening-batch1/w6-hono-router-review__C3__rep1__20260819T210047",
+      "results/screening-batch1/w6-hono-router-review__C3__rep2__20260819T212707",
+      "results/screening-batch1/w6-hono-router-review__C3__rep3__20260819T215139"
+    ]
+  },
+  "economics_note": "Usage only. This collector does not recompute economics: costs stay as the runner recorded them. Re-cost with harness/runner/run.py's build_economics against the pinned pricing snapshot once usage is filled.",
+  "guard_seconds": 60,
+  "metric_type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "project": "vital-octagon-19612",
+  "report": "provider-side token backfill",
+  "runs": [
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T04:43:27.670643Z",
+                "points": 0,
+                "start": "2026-08-18T04:38:27.670644Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T02:19:24.527687Z",
+                "points": 0,
+                "start": "2026-08-18T02:14:24.527688Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 4644542
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 4644542 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 4644542 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-med__rep1__20260818T022024",
+      "run_id": "pilot-realworld-draft-articles__C3-med__rep1__20260818T022024",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T04:38:27.670643Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T02:19:24.527688Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T04:43:27.670643Z",
+                "points": 0,
+                "start": "2026-08-18T04:38:27.670644Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T02:38:49.813037Z",
+                "points": 0,
+                "start": "2026-08-18T02:33:49.813038Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 3382579
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 3382579 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 3382579 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-med__rep2__20260818T023949",
+      "run_id": "pilot-realworld-draft-articles__C3-med__rep2__20260818T023949",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T04:38:27.670643Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T02:38:49.813038Z"
+      }
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-med__rep3__20260818T025827",
+      "run_id": "pilot-realworld-draft-articles__C3-med__rep3__20260818T025827",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-prev__rep1__20260818T031215",
+      "run_id": "pilot-realworld-draft-articles__C3-prev__rep1__20260818T031215",
+      "status": "skipped"
+    },
+    {
+      "detail": "already backfilled for legs ['main'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-prev__rep2__20260818T032946",
+      "run_id": "pilot-realworld-draft-articles__C3-prev__rep2__20260818T032946",
+      "status": "skipped"
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T04:43:27.670643Z",
+                "points": 0,
+                "start": "2026-08-18T04:38:27.670644Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T01:39:57.111338Z",
+                "points": 0,
+                "start": "2026-08-18T01:34:57.111339Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 7169450
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 7169450 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 7169450 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3__rep1__20260818T014056",
+      "run_id": "pilot-realworld-draft-articles__C3__rep1__20260818T014056",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T04:38:27.670643Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T01:39:57.111339Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T04:43:27.670643Z",
+                "points": 0,
+                "start": "2026-08-18T04:38:27.670644Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T01:55:04.901400Z",
+                "points": 0,
+                "start": "2026-08-18T01:50:04.901401Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 6148189
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 6148189 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 6148189 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3__rep2__20260818T015604",
+      "run_id": "pilot-realworld-draft-articles__C3__rep2__20260818T015604",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T04:38:27.670643Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T01:55:04.901401Z"
+      }
+    },
+    {
+      "detail": "already backfilled for legs ['executor'] \u2014 re-running would double-count; delete the events to redo it",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C5__rep1__20260818T035153",
+      "run_id": "pilot-realworld-draft-articles__C5__rep1__20260818T035153",
+      "status": "skipped"
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "input": 487699,
+                    "output": 4473
+                  }
+                },
+                "end": "2026-08-18T04:21:38.763672Z",
+                "points": 8,
+                "start": "2026-08-18T04:16:38.763673Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T04:10:33.018373Z",
+                "points": 0,
+                "start": "2026-08-18T04:05:33.018374Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 370010
+            }
+          }
+        },
+        "reasons": [
+          "post-run baseline window 2026-08-18T04:16:38.763673Z..2026-08-18T04:21:38.763672Z is NOT quiet: 8 point(s), {'gemini-3.7-flash': {'input': 487699, 'output': 4473}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "post-run baseline window 2026-08-18T04:16:38.763673Z..2026-08-18T04:21:38.763672Z is NOT quiet: 8 point(s), {'gemini-3.7-flash': {'input': 487699, 'output': 4473}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C5__rep2__20260818T041132",
+      "run_id": "pilot-realworld-draft-articles__C5__rep2__20260818T041132",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T04:16:38.763672Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T04:10:33.018374Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T13:19:44.859393Z",
+                "points": 0,
+                "start": "2026-08-18T13:14:44.859394Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T13:08:21.746250Z",
+                "points": 0,
+                "start": "2026-08-18T13:03:21.746251Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1114190
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1114190,
+          "output_tokens": 11836
+        }
+      },
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-med__rep1__20260818T130921",
+      "run_id": "w1-realworld-mapper-tests__C3-med__rep1__20260818T130921",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T13:14:44.859393Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T13:08:21.746251Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T13:37:47.904634Z",
+                "points": 0,
+                "start": "2026-08-18T13:32:47.904635Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T13:27:51.688253Z",
+                "points": 0,
+                "start": "2026-08-18T13:22:51.688254Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 586857
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 586857,
+          "output_tokens": 7309
+        }
+      },
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-med__rep2__20260818T132851",
+      "run_id": "w1-realworld-mapper-tests__C3-med__rep2__20260818T132851",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T13:32:47.904634Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T13:27:51.688254Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T13:56:31.336929Z",
+                "points": 0,
+                "start": "2026-08-18T13:51:31.336930Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T13:45:54.323749Z",
+                "points": 0,
+                "start": "2026-08-18T13:40:54.323750Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1117430
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1117430,
+          "output_tokens": 10576
+        }
+      },
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-med__rep3__20260818T134653",
+      "run_id": "w1-realworld-mapper-tests__C3-med__rep3__20260818T134653",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T13:51:31.336929Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T13:45:54.323750Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T14:15:57.318889Z",
+                "points": 0,
+                "start": "2026-08-18T14:10:57.318890Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T14:04:37.856627Z",
+                "points": 0,
+                "start": "2026-08-18T13:59:37.856628Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 1243695
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1243695,
+          "output_tokens": 19623
+        }
+      },
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-prev__rep1__20260818T140537",
+      "run_id": "w1-realworld-mapper-tests__C3-prev__rep1__20260818T140537",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T14:10:57.318889Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T14:04:37.856628Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T14:34:28.075099Z",
+                "points": 0,
+                "start": "2026-08-18T14:29:28.075100Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T14:24:05.649954Z",
+                "points": 0,
+                "start": "2026-08-18T14:19:05.649955Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 887427
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 887427,
+          "output_tokens": 13193
+        }
+      },
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-prev__rep2__20260818T142504",
+      "run_id": "w1-realworld-mapper-tests__C3-prev__rep2__20260818T142504",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T14:29:28.075099Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T14:24:05.649955Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T14:53:01.332487Z",
+                "points": 0,
+                "start": "2026-08-18T14:48:01.332488Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T14:42:34.673448Z",
+                "points": 0,
+                "start": "2026-08-18T14:37:34.673449Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 1241911
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1241911,
+          "output_tokens": 14553
+        }
+      },
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-prev__rep3__20260818T144334",
+      "run_id": "w1-realworld-mapper-tests__C3-prev__rep3__20260818T144334",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T14:48:01.332487Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T14:42:34.673449Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T12:19:15.703228Z",
+                "points": 0,
+                "start": "2026-08-18T12:14:15.703229Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T12:07:29.761283Z",
+                "points": 0,
+                "start": "2026-08-18T12:02:29.761284Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1347864
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1347864,
+          "output_tokens": 15638
+        }
+      },
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3__rep1__20260818T120829",
+      "run_id": "w1-realworld-mapper-tests__C3__rep1__20260818T120829",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T12:14:15.703228Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T12:07:29.761284Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T12:39:23.400931Z",
+                "points": 0,
+                "start": "2026-08-18T12:34:23.400932Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T12:27:21.983940Z",
+                "points": 0,
+                "start": "2026-08-18T12:22:21.983941Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1228435
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1228435,
+          "output_tokens": 17736
+        }
+      },
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3__rep2__20260818T122821",
+      "run_id": "w1-realworld-mapper-tests__C3__rep2__20260818T122821",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T12:34:23.400931Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T12:27:21.983941Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T13:00:15.520364Z",
+                "points": 0,
+                "start": "2026-08-18T12:55:15.520365Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T12:47:29.878065Z",
+                "points": 0,
+                "start": "2026-08-18T12:42:29.878066Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1299051
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1299051,
+          "output_tokens": 15297
+        }
+      },
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3__rep3__20260818T124829",
+      "run_id": "w1-realworld-mapper-tests__C3__rep3__20260818T124829",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T12:55:15.520364Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T12:47:29.878066Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "input": 25871,
+                    "output": 61
+                  }
+                },
+                "end": "2026-08-18T15:14:31.131578Z",
+                "points": 2,
+                "start": "2026-08-18T15:09:31.131579Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T15:01:11.355408Z",
+                "points": 0,
+                "start": "2026-08-18T14:56:11.355409Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 251259
+            }
+          }
+        },
+        "reasons": [
+          "post-run baseline window 2026-08-18T15:09:31.131579Z..2026-08-18T15:14:31.131578Z is NOT quiet: 2 point(s), {'gemini-3.7-flash': {'input': 25871, 'output': 61}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "post-run baseline window 2026-08-18T15:09:31.131579Z..2026-08-18T15:14:31.131578Z is NOT quiet: 2 point(s), {'gemini-3.7-flash': {'input': 25871, 'output': 61}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C5__rep1__20260818T150210",
+      "run_id": "w1-realworld-mapper-tests__C5__rep1__20260818T150210",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T15:09:31.131578Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T15:01:11.355409Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T16:00:40.167562Z",
+                "points": 0,
+                "start": "2026-08-18T15:55:40.167563Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T15:45:59.849772Z",
+                "points": 0,
+                "start": "2026-08-18T15:40:59.849773Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1386564
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "executor": {
+          "input_tokens": 1386564,
+          "output_tokens": 11999
+        }
+      },
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C5__rep2__20260818T154657",
+      "run_id": "w1-realworld-mapper-tests__C5__rep2__20260818T154657",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T15:55:40.167562Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T15:45:59.849773Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T16:23:01.417778Z",
+                "points": 0,
+                "start": "2026-08-18T16:18:01.417779Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T16:08:47.248125Z",
+                "points": 0,
+                "start": "2026-08-18T16:03:47.248126Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1633810
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "executor": {
+          "input_tokens": 1633810,
+          "output_tokens": 15962
+        }
+      },
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C5__rep3__20260818T160946",
+      "run_id": "w1-realworld-mapper-tests__C5__rep3__20260818T160946",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T16:18:01.417778Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T16:08:47.248126Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T15:36:09.074999Z",
+                "points": 0,
+                "start": "2026-08-19T15:31:09.075000Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T15:15:17.462935Z",
+                "points": 0,
+                "start": "2026-08-19T15:10:17.462936Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 5272647
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 5272647 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 5272647 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep1__20260819T151616",
+      "run_id": "w1b-zarr-block-mask-properties__C3-med__rep1__20260819T151616",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T15:31:09.074999Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T15:15:17.462936Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T16:03:42.032803Z",
+                "points": 0,
+                "start": "2026-08-19T15:58:42.032804Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T15:44:23.007366Z",
+                "points": 0,
+                "start": "2026-08-19T15:39:23.007367Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 6193483
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 6193483 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 6193483 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep2__20260819T154521",
+      "run_id": "w1b-zarr-block-mask-properties__C3-med__rep2__20260819T154521",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T15:58:42.032803Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T15:44:23.007367Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T16:34:17.093633Z",
+                "points": 0,
+                "start": "2026-08-19T16:29:17.093634Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T16:11:58.707077Z",
+                "points": 0,
+                "start": "2026-08-19T16:06:58.707078Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 8741286
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 8741286 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 8741286 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep3__20260819T161257",
+      "run_id": "w1b-zarr-block-mask-properties__C3-med__rep3__20260819T161257",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T16:29:17.093633Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T16:11:58.707078Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T16:59:00.443222Z",
+                "points": 0,
+                "start": "2026-08-19T16:54:00.443223Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T16:42:28.759043Z",
+                "points": 0,
+                "start": "2026-08-19T16:37:28.759044Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 6193964
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.6-flash: 6193964 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.6-flash: 6193964 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep1__20260819T164327",
+      "run_id": "w1b-zarr-block-mask-properties__C3-prev__rep1__20260819T164327",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T16:54:00.443222Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T16:42:28.759044Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T17:25:27.372877Z",
+                "points": 0,
+                "start": "2026-08-19T17:20:27.372878Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T17:07:13.374992Z",
+                "points": 0,
+                "start": "2026-08-19T17:02:13.374993Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 8188593
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.6-flash: 8188593 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.6-flash: 8188593 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep2__20260819T170812",
+      "run_id": "w1b-zarr-block-mask-properties__C3-prev__rep2__20260819T170812",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T17:20:27.372877Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T17:07:13.374993Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T17:51:14.188385Z",
+                "points": 0,
+                "start": "2026-08-19T17:46:14.188386Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T17:33:39.118974Z",
+                "points": 0,
+                "start": "2026-08-19T17:28:39.118975Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 9546211
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.6-flash: 9546211 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.6-flash: 9546211 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep3__20260819T173437",
+      "run_id": "w1b-zarr-block-mask-properties__C3-prev__rep3__20260819T173437",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T17:46:14.188385Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T17:33:39.118975Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T14:16:09.278057Z",
+                "points": 0,
+                "start": "2026-08-19T14:11:09.278058Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T13:53:49.574748Z",
+                "points": 0,
+                "start": "2026-08-19T13:48:49.574749Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 8480407
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 8480407 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 8480407 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep1__20260819T135448",
+      "run_id": "w1b-zarr-block-mask-properties__C3__rep1__20260819T135448",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T14:11:09.278057Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T13:53:49.574749Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T14:46:37.808166Z",
+                "points": 0,
+                "start": "2026-08-19T14:41:37.808167Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T14:24:20.842881Z",
+                "points": 0,
+                "start": "2026-08-19T14:19:20.842882Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 5497476
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 5497476 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 5497476 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep2__20260819T142519",
+      "run_id": "w1b-zarr-block-mask-properties__C3__rep2__20260819T142519",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T14:41:37.808166Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T14:24:20.842882Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T15:12:03.402481Z",
+                "points": 0,
+                "start": "2026-08-19T15:07:03.402482Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T14:49:46.662975Z",
+                "points": 0,
+                "start": "2026-08-19T14:44:46.662976Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 7295148
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 7295148 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 7295148 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep3__20260819T145045",
+      "run_id": "w1b-zarr-block-mask-properties__C3__rep3__20260819T145045",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T15:07:03.402481Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T14:49:46.662976Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T18:36:48.393455Z",
+                "points": 0,
+                "start": "2026-08-19T18:31:48.393456Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T17:59:25.996069Z",
+                "points": 0,
+                "start": "2026-08-19T17:54:25.996070Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 12128207
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 12128207 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 12128207 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C5__rep1__20260819T180024",
+      "run_id": "w1b-zarr-block-mask-properties__C5__rep1__20260819T180024",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T18:31:48.393455Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T17:59:25.996070Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T19:20:41.738578Z",
+                "points": 0,
+                "start": "2026-08-19T19:15:41.738579Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T18:45:00.525372Z",
+                "points": 0,
+                "start": "2026-08-19T18:40:00.525373Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 2876409
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "executor": {
+          "input_tokens": 2876409,
+          "output_tokens": 18692
+        }
+      },
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C5__rep2__20260819T184559",
+      "run_id": "w1b-zarr-block-mask-properties__C5__rep2__20260819T184559",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T19:15:41.738578Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T18:45:00.525373Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T20:05:15.564712Z",
+                "points": 0,
+                "start": "2026-08-19T20:00:15.564713Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T19:28:50.748655Z",
+                "points": 0,
+                "start": "2026-08-19T19:23:50.748656Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 12612290
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 12612290 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 12612290 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C5__rep3__20260819T192950",
+      "run_id": "w1b-zarr-block-mask-properties__C5__rep3__20260819T192950",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T20:00:15.564712Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T19:28:50.748656Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "input": 0
+                  }
+                },
+                "end": "2026-08-19T03:36:38.964045Z",
+                "points": 1,
+                "start": "2026-08-19T03:31:38.964046Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T03:14:26.811945Z",
+                "points": 0,
+                "start": "2026-08-19T03:09:26.811946Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 10661426
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 10661426 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+          "post-run baseline window 2026-08-19T03:31:38.964046Z..2026-08-19T03:36:38.964045Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'input': 0}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 10661426 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced; post-run baseline window 2026-08-19T03:31:38.964046Z..2026-08-19T03:36:38.964045Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'input': 0}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep1__20260819T031526",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-med__rep1__20260819T031526",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T03:31:38.964045Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T03:14:26.811946Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T04:07:10.854395Z",
+                "points": 0,
+                "start": "2026-08-19T04:02:10.854396Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T03:44:49.580237Z",
+                "points": 0,
+                "start": "2026-08-19T03:39:49.580238Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 9231530
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 9231530 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 9231530 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep2__20260819T034548",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-med__rep2__20260819T034548",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T04:02:10.854395Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T03:44:49.580238Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "input": 0
+                  }
+                },
+                "end": "2026-08-19T04:37:33.450355Z",
+                "points": 1,
+                "start": "2026-08-19T04:32:33.450356Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T04:15:21.334135Z",
+                "points": 0,
+                "start": "2026-08-19T04:10:21.334136Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 12012011
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 12012011 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+          "post-run baseline window 2026-08-19T04:32:33.450356Z..2026-08-19T04:37:33.450355Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'input': 0}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 12012011 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced; post-run baseline window 2026-08-19T04:32:33.450356Z..2026-08-19T04:37:33.450355Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'input': 0}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep3__20260819T041620",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-med__rep3__20260819T041620",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T04:32:33.450355Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T04:15:21.334136Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T05:07:53.623708Z",
+                "points": 0,
+                "start": "2026-08-19T05:02:53.623709Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T04:45:40.307304Z",
+                "points": 0,
+                "start": "2026-08-19T04:40:40.307305Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 10538223
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.6-flash: 10538223 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.6-flash: 10538223 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep1__20260819T044639",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-prev__rep1__20260819T044639",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T05:02:53.623708Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T04:45:40.307305Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.6-flash": {
+                    "input": 106267
+                  }
+                },
+                "end": "2026-08-19T05:33:33.326600Z",
+                "points": 1,
+                "start": "2026-08-19T05:28:33.326601Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T05:11:04.472863Z",
+                "points": 0,
+                "start": "2026-08-19T05:06:04.472864Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 13506055
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.6-flash: 13506055 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+          "post-run baseline window 2026-08-19T05:28:33.326601Z..2026-08-19T05:33:33.326600Z is NOT quiet: 1 point(s), {'gemini-3.6-flash': {'input': 106267}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "gemini-3.6-flash: 13506055 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced; post-run baseline window 2026-08-19T05:28:33.326601Z..2026-08-19T05:33:33.326600Z is NOT quiet: 1 point(s), {'gemini-3.6-flash': {'input': 106267}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep2__20260819T051201",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-prev__rep2__20260819T051201",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T05:28:33.326600Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T05:11:04.472864Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.6-flash": {
+                    "output": 0
+                  }
+                },
+                "end": "2026-08-19T06:03:51.942811Z",
+                "points": 1,
+                "start": "2026-08-19T05:58:51.942812Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T05:41:40.322233Z",
+                "points": 0,
+                "start": "2026-08-19T05:36:40.322234Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 12765740
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.6-flash: 12765740 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+          "post-run baseline window 2026-08-19T05:58:51.942812Z..2026-08-19T06:03:51.942811Z is NOT quiet: 1 point(s), {'gemini-3.6-flash': {'output': 0}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "gemini-3.6-flash: 12765740 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced; post-run baseline window 2026-08-19T05:58:51.942812Z..2026-08-19T06:03:51.942811Z is NOT quiet: 1 point(s), {'gemini-3.6-flash': {'output': 0}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep3__20260819T054239",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3-prev__rep3__20260819T054239",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T05:58:51.942811Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T05:41:40.322234Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T02:05:29.867322Z",
+                "points": 0,
+                "start": "2026-08-19T02:00:29.867323Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T01:43:05.676019Z",
+                "points": 0,
+                "start": "2026-08-19T01:38:05.676020Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 12823219
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 12823219 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 12823219 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep1__20260819T014403",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3__rep1__20260819T014403",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T02:00:29.867322Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T01:43:05.676020Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "output": 0
+                  }
+                },
+                "end": "2026-08-19T02:35:54.520798Z",
+                "points": 1,
+                "start": "2026-08-19T02:30:54.520799Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T02:13:39.411328Z",
+                "points": 0,
+                "start": "2026-08-19T02:08:39.411329Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 11950053
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 11950053 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+          "post-run baseline window 2026-08-19T02:30:54.520799Z..2026-08-19T02:35:54.520798Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'output': 0}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 11950053 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced; post-run baseline window 2026-08-19T02:30:54.520799Z..2026-08-19T02:35:54.520798Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'output': 0}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep2__20260819T021438",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3__rep2__20260819T021438",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T02:30:54.520798Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T02:13:39.411329Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "input": 0
+                  }
+                },
+                "end": "2026-08-19T03:06:20.626836Z",
+                "points": 1,
+                "start": "2026-08-19T03:01:20.626837Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T02:44:02.433182Z",
+                "points": 0,
+                "start": "2026-08-19T02:39:02.433183Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 10667130
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 10667130 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+          "post-run baseline window 2026-08-19T03:01:20.626837Z..2026-08-19T03:06:20.626836Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'input': 0}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 10667130 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced; post-run baseline window 2026-08-19T03:01:20.626837Z..2026-08-19T03:06:20.626836Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'input': 0}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep3__20260819T024501",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3__rep3__20260819T024501",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T03:01:20.626836Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T02:44:02.433183Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T07:04:14.263742Z",
+                "points": 0,
+                "start": "2026-08-19T06:59:14.263743Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T06:11:58.202747Z",
+                "points": 0,
+                "start": "2026-08-19T06:06:58.202748Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 16441612
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 16441612 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 16441612 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C5__rep1__20260819T061257",
+      "run_id": "w3-sqlfluff-segment-method-migration__C5__rep1__20260819T061257",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T06:59:14.263742Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T06:11:58.202748Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T07:59:36.943134Z",
+                "points": 0,
+                "start": "2026-08-19T07:54:36.943135Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T07:07:23.675102Z",
+                "points": 0,
+                "start": "2026-08-19T07:02:23.675103Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 2887852
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "executor": {
+          "input_tokens": 2887852,
+          "output_tokens": 14934
+        }
+      },
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C5__rep2__20260819T070822",
+      "run_id": "w3-sqlfluff-segment-method-migration__C5__rep2__20260819T070822",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T07:54:36.943134Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T07:07:23.675103Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T08:45:01.138569Z",
+                "points": 0,
+                "start": "2026-08-19T08:40:01.138570Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T07:52:41.787083Z",
+                "points": 0,
+                "start": "2026-08-19T07:47:41.787084Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 3213461
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 3213461 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 3213461 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C5__rep3__20260819T075340",
+      "run_id": "w3-sqlfluff-segment-method-migration__C5__rep3__20260819T075340",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T08:40:01.138569Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T07:52:41.787084Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T09:34:46.085377Z",
+                "points": 0,
+                "start": "2026-08-18T09:29:46.085378Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T09:24:44.919691Z",
+                "points": 0,
+                "start": "2026-08-18T09:19:44.919692Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 707846
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 707846,
+          "output_tokens": 7755
+        }
+      },
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-med__rep1__20260818T092544",
+      "run_id": "w4-realworld-missing-user-id__C3-med__rep1__20260818T092544",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T09:29:46.085377Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T09:24:44.919692Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T09:53:41.276459Z",
+                "points": 0,
+                "start": "2026-08-18T09:48:41.276460Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T09:42:52.552618Z",
+                "points": 0,
+                "start": "2026-08-18T09:37:52.552619Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 966462
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 966462,
+          "output_tokens": 8696
+        }
+      },
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-med__rep2__20260818T094352",
+      "run_id": "w4-realworld-missing-user-id__C3-med__rep2__20260818T094352",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T09:48:41.276459Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T09:42:52.552619Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T10:14:23.396800Z",
+                "points": 0,
+                "start": "2026-08-18T10:09:23.396801Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T10:01:50.958824Z",
+                "points": 0,
+                "start": "2026-08-18T09:56:50.958825Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 814510
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 814510,
+          "output_tokens": 7830
+        }
+      },
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-med__rep3__20260818T100250",
+      "run_id": "w4-realworld-missing-user-id__C3-med__rep3__20260818T100250",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T10:09:23.396800Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T10:01:50.958825Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T10:28:22.027512Z",
+                "points": 0,
+                "start": "2026-08-18T10:23:22.027513Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T10:17:28.826844Z",
+                "points": 0,
+                "start": "2026-08-18T10:12:28.826845Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 1543424
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1543424,
+          "output_tokens": 11742
+        }
+      },
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-prev__rep1__20260818T101828",
+      "run_id": "w4-realworld-missing-user-id__C3-prev__rep1__20260818T101828",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T10:23:22.027512Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T10:17:28.826845Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T10:47:05.270164Z",
+                "points": 0,
+                "start": "2026-08-18T10:42:05.270165Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T10:36:29.016735Z",
+                "points": 0,
+                "start": "2026-08-18T10:31:29.016736Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 1116139
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1116139,
+          "output_tokens": 11223
+        }
+      },
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-prev__rep2__20260818T103728",
+      "run_id": "w4-realworld-missing-user-id__C3-prev__rep2__20260818T103728",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T10:42:05.270164Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T10:36:29.016736Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T11:00:59.900159Z",
+                "points": 0,
+                "start": "2026-08-18T10:55:59.900160Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T10:50:11.565864Z",
+                "points": 0,
+                "start": "2026-08-18T10:45:11.565865Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 1504044
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1504044,
+          "output_tokens": 13747
+        }
+      },
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-prev__rep3__20260818T105110",
+      "run_id": "w4-realworld-missing-user-id__C3-prev__rep3__20260818T105110",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T10:55:59.900159Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T10:50:11.565865Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T08:45:59.607048Z",
+                "points": 0,
+                "start": "2026-08-18T08:40:59.607049Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T08:33:31.281730Z",
+                "points": 0,
+                "start": "2026-08-18T08:28:31.281731Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 2006124
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 2006124,
+          "output_tokens": 14796
+        }
+      },
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3__rep1__20260818T083430",
+      "run_id": "w4-realworld-missing-user-id__C3__rep1__20260818T083430",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T08:40:59.607048Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T08:33:31.281731Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T09:16:38.409281Z",
+                "points": 0,
+                "start": "2026-08-18T09:11:38.409282Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T09:04:11.073872Z",
+                "points": 0,
+                "start": "2026-08-18T08:59:11.073873Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1562063
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1562063,
+          "output_tokens": 14986
+        }
+      },
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3__rep3__20260818T090510",
+      "run_id": "w4-realworld-missing-user-id__C3__rep3__20260818T090510",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T09:11:38.409281Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T09:04:11.073873Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T11:18:35.962831Z",
+                "points": 0,
+                "start": "2026-08-18T11:13:35.962832Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T11:04:06.354163Z",
+                "points": 0,
+                "start": "2026-08-18T10:59:06.354164Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1809799
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "executor": {
+          "input_tokens": 1809799,
+          "output_tokens": 14444
+        }
+      },
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C5__rep1__20260818T110505",
+      "run_id": "w4-realworld-missing-user-id__C5__rep1__20260818T110505",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T11:13:35.962831Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T11:04:06.354164Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T11:41:23.475183Z",
+                "points": 0,
+                "start": "2026-08-18T11:36:23.475184Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T11:26:43.598758Z",
+                "points": 0,
+                "start": "2026-08-18T11:21:43.598759Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1543993
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "executor": {
+          "input_tokens": 1543993,
+          "output_tokens": 9216
+        }
+      },
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C5__rep2__20260818T112742",
+      "run_id": "w4-realworld-missing-user-id__C5__rep2__20260818T112742",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T11:36:23.475183Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T11:26:43.598759Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T12:02:14.636868Z",
+                "points": 0,
+                "start": "2026-08-18T11:57:14.636869Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T11:49:30.522815Z",
+                "points": 0,
+                "start": "2026-08-18T11:44:30.522816Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1528089
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "executor": {
+          "input_tokens": 1528089,
+          "output_tokens": 11700
+        }
+      },
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C5__rep3__20260818T115029",
+      "run_id": "w4-realworld-missing-user-id__C5__rep3__20260818T115029",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T11:57:14.636868Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T11:49:30.522816Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T18:35:09.713079Z",
+                "points": 0,
+                "start": "2026-08-18T18:30:09.713080Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T18:22:42.682181Z",
+                "points": 0,
+                "start": "2026-08-18T18:17:42.682182Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1733525
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1733525,
+          "output_tokens": 22819
+        }
+      },
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-med__rep1__20260818T182342",
+      "run_id": "w4b-zarr-consolidated-order__C3-med__rep1__20260818T182342",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T18:30:09.713079Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T18:22:42.682182Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T19:05:37.864051Z",
+                "points": 0,
+                "start": "2026-08-18T19:00:37.864052Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T18:43:20.882876Z",
+                "points": 0,
+                "start": "2026-08-18T18:38:20.882877Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1052029
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1052029,
+          "output_tokens": 19226
+        }
+      },
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-med__rep2__20260818T184420",
+      "run_id": "w4b-zarr-consolidated-order__C3-med__rep2__20260818T184420",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T19:00:37.864051Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T18:43:20.882877Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T19:26:09.334530Z",
+                "points": 0,
+                "start": "2026-08-18T19:21:09.334531Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T19:03:43.766076Z",
+                "points": 0,
+                "start": "2026-08-18T18:58:43.766077Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 2038151
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 2038151,
+          "output_tokens": 30134
+        }
+      },
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-med__rep3__20260818T190443",
+      "run_id": "w4b-zarr-consolidated-order__C3-med__rep3__20260818T190443",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T19:21:09.334530Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T19:03:43.766077Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T19:46:26.247842Z",
+                "points": 0,
+                "start": "2026-08-18T19:41:26.247843Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T19:24:13.274749Z",
+                "points": 0,
+                "start": "2026-08-18T19:19:13.274750Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 2629126
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 2629126,
+          "output_tokens": 31291
+        }
+      },
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-prev__rep1__20260818T192512",
+      "run_id": "w4b-zarr-consolidated-order__C3-prev__rep1__20260818T192512",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-18T19:41:26.247842Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T19:24:13.274750Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.6-flash": {
+                    "input": 62121
+                  }
+                },
+                "end": "2026-08-18T20:06:45.436502Z",
+                "points": 1,
+                "start": "2026-08-18T20:01:45.436503Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T19:44:30.006442Z",
+                "points": 0,
+                "start": "2026-08-18T19:39:30.006443Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 2261886
+            }
+          }
+        },
+        "reasons": [
+          "post-run baseline window 2026-08-18T20:01:45.436503Z..2026-08-18T20:06:45.436502Z is NOT quiet: 1 point(s), {'gemini-3.6-flash': {'input': 62121}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "post-run baseline window 2026-08-18T20:01:45.436503Z..2026-08-18T20:06:45.436502Z is NOT quiet: 1 point(s), {'gemini-3.6-flash': {'input': 62121}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-prev__rep2__20260818T194529",
+      "run_id": "w4b-zarr-consolidated-order__C3-prev__rep2__20260818T194529",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T20:01:45.436502Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T19:44:30.006443Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T20:19:03.518101Z",
+                "points": 0,
+                "start": "2026-08-18T20:14:03.518102Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T20:04:49.516973Z",
+                "points": 0,
+                "start": "2026-08-18T19:59:49.516974Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 4680517
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.6-flash: 4680517 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.6-flash: 4680517 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-prev__rep3__20260818T200548",
+      "run_id": "w4b-zarr-consolidated-order__C3-prev__rep3__20260818T200548",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T20:14:03.518101Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T20:04:49.516974Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T17:23:33.416603Z",
+                "points": 0,
+                "start": "2026-08-18T17:18:33.416604Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T17:02:26.781180Z",
+                "points": 0,
+                "start": "2026-08-18T16:57:26.781181Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 6785379
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 6785379 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 6785379 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep1__20260818T170326",
+      "run_id": "w4b-zarr-consolidated-order__C3__rep1__20260818T170326",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T17:18:33.416603Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T17:02:26.781181Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T17:52:18.076936Z",
+                "points": 0,
+                "start": "2026-08-18T17:47:18.076937Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T17:31:40.008263Z",
+                "points": 0,
+                "start": "2026-08-18T17:26:40.008264Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 8588222
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 8588222 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 8588222 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep2__20260818T173239",
+      "run_id": "w4b-zarr-consolidated-order__C3__rep2__20260818T173239",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T17:47:18.076936Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T17:31:40.008264Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "input": 92229
+                  }
+                },
+                "end": "2026-08-18T18:14:35.720806Z",
+                "points": 1,
+                "start": "2026-08-18T18:09:35.720807Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T18:00:24.768990Z",
+                "points": 0,
+                "start": "2026-08-18T17:55:24.768991Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 3807445
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 3807445 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+          "post-run baseline window 2026-08-18T18:09:35.720807Z..2026-08-18T18:14:35.720806Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'input': 92229}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 3807445 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced; post-run baseline window 2026-08-18T18:09:35.720807Z..2026-08-18T18:14:35.720806Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'input': 92229}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep3__20260818T180124",
+      "run_id": "w4b-zarr-consolidated-order__C3__rep3__20260818T180124",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T18:09:35.720806Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T18:00:24.768991Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T21:19:23.445231Z",
+                "points": 0,
+                "start": "2026-08-18T21:14:23.445232Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T20:27:11.069473Z",
+                "points": 0,
+                "start": "2026-08-18T20:22:11.069474Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 4837417
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 4837417 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 4837417 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep1__20260818T202810",
+      "run_id": "w4b-zarr-consolidated-order__C5__rep1__20260818T202810",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T21:14:23.445231Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T20:27:11.069474Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T22:14:41.346083Z",
+                "points": 0,
+                "start": "2026-08-18T22:09:41.346084Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T21:22:28.871781Z",
+                "points": 0,
+                "start": "2026-08-18T21:17:28.871782Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 6467769
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 6467769 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 6467769 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep2__20260818T212328",
+      "run_id": "w4b-zarr-consolidated-order__C5__rep2__20260818T212328",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T22:09:41.346083Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T21:22:28.871782Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-18T22:48:06.035449Z",
+                "points": 0,
+                "start": "2026-08-18T22:43:06.035450Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-18T22:22:48.589870Z",
+                "points": 0,
+                "start": "2026-08-18T22:17:48.589871Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 7808284
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 7808284 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 7808284 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep3__20260818T222348",
+      "run_id": "w4b-zarr-consolidated-order__C5__rep3__20260818T222348",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-18T22:43:06.035449Z",
+        "guard_seconds": 60,
+        "start": "2026-08-18T22:22:48.589871Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "input": 100610,
+                    "output": 286
+                  }
+                },
+                "end": "2026-08-19T21:58:22.568676Z",
+                "points": 2,
+                "start": "2026-08-19T21:53:22.568677Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T21:51:05.082464Z",
+                "points": 0,
+                "start": "2026-08-19T21:46:05.082465Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 111423
+            }
+          }
+        },
+        "reasons": [
+          "post-run baseline window 2026-08-19T21:53:22.568677Z..2026-08-19T21:58:22.568676Z is NOT quiet: 2 point(s), {'gemini-3.7-flash': {'input': 100610, 'output': 286}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "post-run baseline window 2026-08-19T21:53:22.568677Z..2026-08-19T21:58:22.568676Z is NOT quiet: 2 point(s), {'gemini-3.7-flash': {'input': 100610, 'output': 286}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-med__rep1__20260819T215204",
+      "run_id": "w6-hono-router-review__C3-med__rep1__20260819T215204",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T21:53:22.568676Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T21:51:05.082465Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "output": 286
+                  }
+                },
+                "end": "2026-08-19T21:58:49.055423Z",
+                "points": 1,
+                "start": "2026-08-19T21:53:49.055424Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T21:51:25.189956Z",
+                "points": 0,
+                "start": "2026-08-19T21:46:25.189957Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 212033
+            }
+          }
+        },
+        "reasons": [
+          "post-run baseline window 2026-08-19T21:53:49.055424Z..2026-08-19T21:58:49.055423Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'output': 286}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "post-run baseline window 2026-08-19T21:53:49.055424Z..2026-08-19T21:58:49.055423Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'output': 286}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-med__rep2__20260819T215224",
+      "run_id": "w6-hono-router-review__C3-med__rep2__20260819T215224",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T21:53:49.055423Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T21:51:25.189957Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "output": 786
+                  }
+                },
+                "end": "2026-08-19T22:14:57.376095Z",
+                "points": 1,
+                "start": "2026-08-19T22:09:57.376096Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T22:06:55.668673Z",
+                "points": 0,
+                "start": "2026-08-19T22:01:55.668674Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 318569
+            }
+          }
+        },
+        "reasons": [
+          "post-run baseline window 2026-08-19T22:09:57.376096Z..2026-08-19T22:14:57.376095Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'output': 786}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "post-run baseline window 2026-08-19T22:09:57.376096Z..2026-08-19T22:14:57.376095Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'output': 786}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-med__rep3__20260819T220755",
+      "run_id": "w6-hono-router-review__C3-med__rep3__20260819T220755",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T22:09:57.376095Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T22:06:55.668674Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T22:33:40.096651Z",
+                "points": 0,
+                "start": "2026-08-19T22:28:40.096652Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T22:23:06.637524Z",
+                "points": 0,
+                "start": "2026-08-19T22:18:06.637525Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 1386345
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1386345,
+          "output_tokens": 36051
+        }
+      },
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-prev__rep1__20260819T222405",
+      "run_id": "w6-hono-router-review__C3-prev__rep1__20260819T222405",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T22:28:40.096651Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T22:23:06.637525Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.6-flash": {
+                    "output": 31983
+                  }
+                },
+                "end": "2026-08-19T22:53:48.377296Z",
+                "points": 1,
+                "start": "2026-08-19T22:48:48.377297Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T22:41:47.165286Z",
+                "points": 0,
+                "start": "2026-08-19T22:36:47.165287Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 1068251
+            }
+          }
+        },
+        "reasons": [
+          "post-run baseline window 2026-08-19T22:48:48.377297Z..2026-08-19T22:53:48.377296Z is NOT quiet: 1 point(s), {'gemini-3.6-flash': {'output': 31983}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "post-run baseline window 2026-08-19T22:48:48.377297Z..2026-08-19T22:53:48.377296Z is NOT quiet: 1 point(s), {'gemini-3.6-flash': {'output': 31983}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-prev__rep2__20260819T224246",
+      "run_id": "w6-hono-router-review__C3-prev__rep2__20260819T224246",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T22:48:48.377296Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T22:41:47.165287Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T23:16:08.787583Z",
+                "points": 0,
+                "start": "2026-08-19T23:11:08.787584Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T23:01:55.087295Z",
+                "points": 0,
+                "start": "2026-08-19T22:56:55.087296Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 635844
+            }
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 635844,
+          "output_tokens": 48156
+        }
+      },
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-prev__rep3__20260819T230254",
+      "run_id": "w6-hono-router-review__C3-prev__rep3__20260819T230254",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-19T23:11:08.787583Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T23:01:55.087296Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-19T21:17:59.612950Z",
+                "points": 0,
+                "start": "2026-08-19T21:12:59.612951Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T20:59:47.846202Z",
+                "points": 0,
+                "start": "2026-08-19T20:54:47.846203Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 5796793
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 5796793 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 5796793 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3__rep1__20260819T210047",
+      "run_id": "w6-hono-router-review__C3__rep1__20260819T210047",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T21:12:59.612950Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T20:59:47.846203Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "input": 105080
+                  }
+                },
+                "end": "2026-08-19T21:42:33.105556Z",
+                "points": 1,
+                "start": "2026-08-19T21:37:33.105557Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T21:26:08.368068Z",
+                "points": 0,
+                "start": "2026-08-19T21:21:08.368069Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 4551067
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 4551067 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+          "post-run baseline window 2026-08-19T21:37:33.105557Z..2026-08-19T21:42:33.105556Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'input': 105080}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 4551067 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced; post-run baseline window 2026-08-19T21:37:33.105557Z..2026-08-19T21:42:33.105556Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'input': 105080}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3__rep2__20260819T212707",
+      "run_id": "w6-hono-router-review__C3__rep2__20260819T212707",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T21:37:33.105556Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T21:26:08.368069Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "input": 100610,
+                    "output": 286
+                  }
+                },
+                "end": "2026-08-19T21:58:01.440561Z",
+                "points": 2,
+                "start": "2026-08-19T21:53:01.440562Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-19T21:50:39.868878Z",
+                "points": 0,
+                "start": "2026-08-19T21:45:39.868879Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 111423
+            }
+          }
+        },
+        "reasons": [
+          "post-run baseline window 2026-08-19T21:53:01.440562Z..2026-08-19T21:58:01.440561Z is NOT quiet: 2 point(s), {'gemini-3.7-flash': {'input': 100610, 'output': 286}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "post-run baseline window 2026-08-19T21:53:01.440562Z..2026-08-19T21:58:01.440561Z is NOT quiet: 2 point(s), {'gemini-3.7-flash': {'input': 100610, 'output': 286}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3__rep3__20260819T215139",
+      "run_id": "w6-hono-router-review__C3__rep3__20260819T215139",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-19T21:53:01.440561Z",
+        "guard_seconds": 60,
+        "start": "2026-08-19T21:50:39.868879Z"
+      }
+    }
+  ],
+  "status_counts": {
+    "backfilled": 30,
+    "contaminated_window": 43,
+    "skipped": 4
+  },
+  "unmapped_types_note": "Type labels with no mapping to a schema usage field. They are recorded verbatim in each run's event log and are NOT counted in any token class. A thinking/reasoning-flavoured type appearing here is a finding, not noise: it is the thinking share of the bill and must be mapped or reported explicitly before any Product-B cost is published.",
+  "unmapped_types_observed": {}
+}

@@ -16,10 +16,9 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 from typing import Any, Dict, List, Optional, Tuple
 
-from harness.container.exec import resolve_spawn
+from harness.container.exec import leg_container_name, resolve_spawn, spawn_with_timeout
 from harness.telemetry.telemetry import tiered, unavailable
 
 from .base import (
@@ -39,6 +38,12 @@ from .base import (
 # Workshop-owned timeout (SPEC 1.3): our timeout bounds a hung agentic run so one
 # leg cannot stall a batch. Generous — an agentic coding turn can legitimately run
 # for minutes. On timeout usage is unavailable (never zero), like any lost telemetry.
+#
+# This is only the FALLBACK. The budget in force is per task, pinned in the task's
+# task.yaml and mirrored in the manifest (`agent_timeout_s`) and carried here on
+# ``AttemptSpec.timeout_s`` — a flat bound charged the same 1800s to a 12-file
+# migration and a one-file mapper test, and screening batch 1 shows what that costs
+# (every W3 attempt right-censored at 1800s). A spec with no pin falls back here.
 DEFAULT_TIMEOUT_S = 1800
 
 # claude -p JSON usage keys -> our token classes. Anything absent -> unavailable.
@@ -381,28 +386,32 @@ class ClaudeCodeAdapter(Adapter):
         # (offline by default). Only the argv/cwd differ — timeout, JSON parsing and
         # telemetry emission below are identical (the container leg's model-API
         # egress network is a CP-SPEND item; see harness/container/README.md).
-        argv, cwd = resolve_spawn(self.container, cmd, subject_dir)
+        cname = leg_container_name(self.container, spec.leg_id)
+        argv, cwd = resolve_spawn(self.container, cmd, subject_dir, name=cname)
+        timeout_s = spec.timeout_s or DEFAULT_TIMEOUT_S
         # Exact command executed, for the per-run invocation.txt artifact (run
         # provenance, not telemetry). Full argv is recorded; the runner redacts any
         # credential-bearing environment values when it writes the file.
         invocation = {
             "leg": spec.leg_id, "role": spec.role,
             "product_version": cli_version("claude", self.container),
-            "argv": list(argv), "cwd": cwd,
+            "argv": list(argv), "cwd": cwd, "timeout_s": timeout_s,
+            "container_name": cname or "host-mode",
         }
-        try:
-            proc = subprocess.run(  # noqa: S603 - workshop-owned command
-                argv, cwd=cwd, capture_output=True, text=True, check=False,
-                timeout=DEFAULT_TIMEOUT_S, env=agent_env(),  # scrub task pointers (FIX B)
-            )
-        except subprocess.TimeoutExpired as exc:
+        proc = spawn_with_timeout(
+            argv, cwd=cwd, env=agent_env(),  # scrub task pointers (FIX B)
+            timeout_s=timeout_s, container_name=cname,
+        )
+        if proc.timed_out:
             # Record the CLI's exit/output (partial, if any) for invocation.txt — a
             # command that produced no output is itself the diagnosis (the runner
             # redacts credentials when writing the file).
             invocation.update(exit_code="timeout",
-                              stdout=exc.stdout or "", stderr=exc.stderr or "")
+                              stdout=proc.stdout, stderr=proc.stderr,
+                              container_disposition=proc.container or "no-container")
             emit("failure", leg=spec.leg_id, category="claude_timeout",
-                 timeout_s=DEFAULT_TIMEOUT_S)
+                 timeout_s=timeout_s, container_name=cname or "host-mode",
+                 container_disposition=proc.container or "no-container")
             _emit_lost_usage(emit, spec, "run timed out before product JSON returned")
             return AttemptOutcome(identity=_identity(r), invocation=invocation)
         invocation.update(exit_code=proc.returncode, stdout=proc.stdout, stderr=proc.stderr)

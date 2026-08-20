@@ -96,23 +96,15 @@ PY
 # Every diff-scope judgement below, and every "restore to pristine" that keeps an
 # agent from grading itself, is a git call whose stderr was discarded. When git
 # refuses the repo those calls return EMPTY, which is indistinguishable from a
-# clean tree: P6/T1 pass vacuously and the restores silently do nothing. That is
-# not hypothetical — under container isolation the tree is a Docker volume owned
-# by the agent's uid while this gate runs as root, and git's safe.directory guard
-# refuses it ("detected dubious ownership"). So: trust this specific path (the
-# harness mounted it; ownership is the harness's own doing) via env, never by
-# writing to the operator's gitconfig, and if git STILL cannot read the repo, fail
-# the gate loudly rather than grading a tree we cannot see.
-if ! git -C "$SUBJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  export GIT_CONFIG_COUNT=1
-  export GIT_CONFIG_KEY_0=safe.directory
-  export GIT_CONFIG_VALUE_0="$SUBJECT_DIR"
-fi
-if git -C "$SUBJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+# clean tree: P6/T1 pass vacuously and the restores silently do nothing. The
+# mechanism and the batch-1 evidence are documented once, on git_trust_subject in
+# lib.sh — which the HIDDEN gate now calls too. Both gates are separate `docker
+# run` invocations, so a fix exported in one cannot reach the other; that is
+# precisely how the hidden gate went without this guard for a whole batch.
+if git_trust_subject; then
   mark G0-subject-readable "git can read the subject tree (diff-scope is meaningful)" 0
 else
-  why="$(git -C "$SUBJECT_DIR" rev-parse --is-inside-work-tree 2>&1 | head -1)"
-  mark G0-subject-readable "git cannot read $SUBJECT_DIR: $why" 1
+  mark G0-subject-readable "git cannot read $SUBJECT_DIR: $(git_subject_error)" 1
   emit_report
   echo "== public gate: FAIL (subject tree unreadable; nothing was graded) =="
   exit 1

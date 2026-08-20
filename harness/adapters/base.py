@@ -199,6 +199,12 @@ class AttemptSpec:
     product's own per-model usage metadata into one leg each. It is ``None``
     everywhere else, and an adapter that does not implement delegation must say so
     rather than silently running the conductor leg alone.
+
+    ``timeout_s`` is the TASK's agent budget (``agent_timeout_s``, pinned in
+    task.yaml and mirrored in the manifest), not a tuning knob the adapter picks: a
+    flat bound across a suite spanning a one-file mapper test and a twelve-file
+    migration right-censors the big tasks and says nothing about the small ones.
+    ``None`` falls back to the adapter's own default.
     """
 
     leg_id: str
@@ -209,6 +215,7 @@ class AttemptSpec:
     session_id: Optional[str] = None
     resume: bool = False
     delegation: Optional[DelegationPlan] = None
+    timeout_s: Optional[int] = None
 
 
 def session_payload(spec: "AttemptSpec") -> Dict[str, Any]:

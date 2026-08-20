@@ -1,0 +1,261 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/tests/test_indexing_properties.py b/tests/test_indexing_properties.py
+new file mode 100644
+index 00000000..6c13a52a
+--- /dev/null
++++ b/tests/test_indexing_properties.py
+@@ -0,0 +1,253 @@
++"""Property tests for block and mask indexing.
++
++Covers all four combinations of (mode × direction):
++  - Block indexing via get_block_selection / set_block_selection
++  - Block indexing via the .blocks[...] property
++  - Mask indexing via get_mask_selection / set_mask_selection
++  - Mask indexing via the .vindex[mask] property
++
++Each test verifies against a numpy oracle: perform the same selection on the
++equivalent numpy array and assert results are equal.
++"""
++
++from __future__ import annotations
++
++from collections.abc import Generator
++from typing import Any
++
++import numpy as np
++import pytest
++from numpy.testing import assert_array_equal
++
++pytest.importorskip("hypothesis")
++
++import hypothesis.extra.numpy as npst
++import hypothesis.strategies as st
++from hypothesis import assume, given, settings
++
++import zarr
++from zarr.testing.strategies import numpy_arrays, rectilinear_arrays, simple_arrays
++
++pytestmark = pytest.mark.filterwarnings(
++    "ignore::zarr.core.dtype.common.UnstableSpecificationWarning"
++)
++
++
++@pytest.fixture(autouse=True)
++def _enable_rectilinear_chunks() -> Generator[None, None, None]:
++    """Enable rectilinear chunk grids so strategies can produce them."""
++    with zarr.config.set({"array.rectilinear_chunks": True}):
++        yield
++
++
++# ---------------------------------------------------------------------------
++# Block-indexing helpers
++# ---------------------------------------------------------------------------
++
++
++def _block_sel_to_np_sel(
++    block_sel: tuple[int | slice, ...],
++    chunk_grid: Any,
++    shape: tuple[int, ...],
++) -> tuple[slice, ...]:
++    """Convert a block-space selection to element-space slices.
++
++    Mirrors the mapping performed by BlockIndexer (zarr.core.indexing) for
++    both FixedDimension (regular) and VaryingDimension (rectilinear) grids.
++    """
++    np_sel: list[slice] = []
++    for dim_sel, dim_grid, dim_len in zip(
++        block_sel, chunk_grid._dimensions, shape, strict=True
++    ):
++        nchunks = dim_grid.nchunks
++        if isinstance(dim_sel, int):
++            if dim_sel < 0:
++                dim_sel = nchunks + dim_sel
++            elem_start = dim_grid.chunk_offset(dim_sel)
++            # chunk_size is always the full buffer size; numpy slicing clips to extent.
++            elem_stop = elem_start + dim_grid.chunk_size(dim_sel)
++        else:  # step-1 or None slice
++            b_start = dim_sel.start if dim_sel.start is not None else 0
++            b_stop = dim_sel.stop if dim_sel.stop is not None else nchunks
++            if b_start < 0:
++                b_start = nchunks + b_start
++            if b_stop < 0:
++                b_stop = nchunks + b_stop
++            elem_start = dim_grid.chunk_offset(b_start) if b_start < nchunks else dim_len
++            elem_stop = dim_grid.chunk_offset(b_stop) if b_stop < nchunks else dim_len
++        np_sel.append(slice(elem_start, elem_stop))
++    return tuple(np_sel)
++
++
++@st.composite
++def _block_selection(draw: st.DrawFn, nchunks_per_dim: tuple[int, ...]) -> tuple:
++    """Generate a valid block-space selection (ints and step-1 slices).
++
++    Constraints enforced by BlockIndexer:
++      - Integer must be in [0, nchunks - 1] (all non-negative).
++      - Slice start must be in [0, nchunks - 1]; stop in [start, nchunks].
++        (start must reference an existing chunk so the element offset is valid.)
++    """
++    sel: list[int | slice] = []
++    for n in nchunks_per_dim:
++        if draw(st.booleans()):
++            sel.append(draw(st.integers(0, n - 1)))
++        else:
++            start = draw(st.integers(0, n - 1))
++            stop = draw(st.integers(start, n))
++            sel.append(slice(start, stop))
++    return tuple(sel)
++
++
++# ---------------------------------------------------------------------------
++# Block indexing – READ
++# ---------------------------------------------------------------------------
++
++
++@settings(deadline=None)
++@given(data=st.data())
++def test_block_get_selection(data: st.DataObject) -> None:
++    """get_block_selection returns the same elements as numpy sliced at the same block range."""
++    z = data.draw(simple_arrays())
++    assume(z.ndim > 0)
++    dim_grids = z._chunk_grid._dimensions
++    nchunks_per_dim = tuple(d.nchunks for d in dim_grids)
++    assume(all(n > 0 for n in nchunks_per_dim))
++
++    sel = data.draw(_block_selection(nchunks_per_dim))
++    np_sel = _block_sel_to_np_sel(sel, z._chunk_grid, z.shape)
++    np_array = z[:]
++    assert_array_equal(z.get_block_selection(sel), np_array[np_sel])
++
++
++@settings(deadline=None)
++@given(data=st.data())
++def test_block_get_via_blocks_property(data: st.DataObject) -> None:
++    """.blocks[sel] returns the same elements as numpy sliced at the same block range."""
++    z = data.draw(simple_arrays())
++    assume(z.ndim > 0)
++    dim_grids = z._chunk_grid._dimensions
++    nchunks_per_dim = tuple(d.nchunks for d in dim_grids)
++    assume(all(n > 0 for n in nchunks_per_dim))
++
++    sel = data.draw(_block_selection(nchunks_per_dim))
++    np_sel = _block_sel_to_np_sel(sel, z._chunk_grid, z.shape)
++    np_array = z[:]
++    assert_array_equal(z.blocks[sel], np_array[np_sel])
++
++
++# ---------------------------------------------------------------------------
++# Block indexing – WRITE
++# ---------------------------------------------------------------------------
++
++
++@settings(deadline=None)
++@given(data=st.data())
++def test_block_set_selection(data: st.DataObject) -> None:
++    """set_block_selection writes selected blocks; the full array matches the numpy oracle."""
++    z = data.draw(simple_arrays())
++    assume(z.ndim > 0)
++    dim_grids = z._chunk_grid._dimensions
++    nchunks_per_dim = tuple(d.nchunks for d in dim_grids)
++    assume(all(n > 0 for n in nchunks_per_dim))
++
++    sel = data.draw(_block_selection(nchunks_per_dim))
++    np_sel = _block_sel_to_np_sel(sel, z._chunk_grid, z.shape)
++    np_array = z[:]
++    target_shape = np_array[np_sel].shape
++    new_vals = data.draw(numpy_arrays(shapes=st.just(target_shape), dtype=z.dtype))
++
++    np_array[np_sel] = new_vals
++    z.set_block_selection(sel, new_vals)
++    assert_array_equal(z[:], np_array)
++
++
++@settings(deadline=None)
++@given(data=st.data())
++def test_block_set_via_blocks_property(data: st.DataObject) -> None:
++    """.blocks[sel] = value writes selected blocks; the full array matches the numpy oracle."""
++    z = data.draw(simple_arrays())
++    assume(z.ndim > 0)
++    dim_grids = z._chunk_grid._dimensions
++    nchunks_per_dim = tuple(d.nchunks for d in dim_grids)
++    assume(all(n > 0 for n in nchunks_per_dim))
++
++    sel = data.draw(_block_selection(nchunks_per_dim))
++    np_sel = _block_sel_to_np_sel(sel, z._chunk_grid, z.shape)
++    np_array = z[:]
++    target_shape = np_array[np_sel].shape
++    new_vals = data.draw(numpy_arrays(shapes=st.just(target_shape), dtype=z.dtype))
++
++    np_array[np_sel] = new_vals
++    z.blocks[sel] = new_vals
++    assert_array_equal(z[:], np_array)
++
++
++# ---------------------------------------------------------------------------
++# Mask-indexing helpers
++# ---------------------------------------------------------------------------
++
++
++def _bool_mask_st(shape: tuple[int, ...]) -> st.SearchStrategy[np.ndarray]:
++    """Strategy producing a boolean mask of the given shape."""
++    return npst.arrays(dtype=np.dtype("bool"), shape=shape)
++
++
++# ---------------------------------------------------------------------------
++# Mask indexing – READ
++# ---------------------------------------------------------------------------
++
++
++@settings(deadline=None)
++@given(data=st.data())
++def test_mask_get_selection(data: st.DataObject) -> None:
++    """get_mask_selection returns the same elements as numpy boolean fancy-indexing."""
++    z = data.draw(st.one_of(simple_arrays(), rectilinear_arrays()))
++    mask = data.draw(_bool_mask_st(z.shape))
++    np_array = z[:]
++    assert_array_equal(z.get_mask_selection(mask), np_array[mask])
++
++
++@settings(deadline=None)
++@given(data=st.data())
++def test_mask_get_via_vindex_property(data: st.DataObject) -> None:
++    """.vindex[mask] returns the same elements as numpy boolean fancy-indexing."""
++    z = data.draw(st.one_of(simple_arrays(), rectilinear_arrays()))
++    mask = data.draw(_bool_mask_st(z.shape))
++    np_array = z[:]
++    assert_array_equal(z.vindex[mask], np_array[mask])
++
++
++# ---------------------------------------------------------------------------
++# Mask indexing – WRITE
++# ---------------------------------------------------------------------------
++
++
++@settings(deadline=None)
++@given(data=st.data())
++def test_mask_set_selection(data: st.DataObject) -> None:
++    """set_mask_selection writes selected items; the full array matches the numpy oracle."""
++    z = data.draw(st.one_of(simple_arrays(), rectilinear_arrays()))
++    mask = data.draw(_bool_mask_st(z.shape))
++    np_array = z[:]
++    n_selected = int(mask.sum())
++    new_vals = data.draw(numpy_arrays(shapes=st.just((n_selected,)), dtype=z.dtype))
++
++    np_array[mask] = new_vals
++    z.set_mask_selection(mask, new_vals)
++    assert_array_equal(z[:], np_array)
++
++
++@settings(deadline=None)
++@given(data=st.data())
++def test_mask_set_via_vindex_property(data: st.DataObject) -> None:
++    """.vindex[mask] = value writes selected items; the full array matches the numpy oracle."""
++    z = data.draw(st.one_of(simple_arrays(), rectilinear_arrays()))
++    mask = data.draw(_bool_mask_st(z.shape))
++    np_array = z[:]
++    n_selected = int(mask.sum())
++    new_vals = data.draw(numpy_arrays(shapes=st.just((n_selected,)), dtype=z.dtype))
++
++    np_array[mask] = new_vals
++    z.vindex[mask] = new_vals
++    assert_array_equal(z[:], np_array)

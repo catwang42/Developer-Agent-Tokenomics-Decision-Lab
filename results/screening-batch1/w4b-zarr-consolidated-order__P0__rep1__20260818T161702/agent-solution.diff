@@ -1,0 +1,43 @@
+diff --git a/src/zarr/core/group.py b/src/zarr/core/group.py
+index 922eaf14..a0702b4d 100644
+--- a/src/zarr/core/group.py
++++ b/src/zarr/core/group.py
+@@ -1,7 +1,6 @@
+ from __future__ import annotations
+ 
+ import asyncio
+-import itertools
+ import logging
+ import unicodedata
+ import warnings
+@@ -237,13 +236,17 @@ class ConsolidatedMetadata:
+         # In the example, the group at `/a/b` will have consolidated metadata
+         # for its children `array-0` and `array-1`.
+ 
+-        keys = sorted(metadata, key=lambda k: k.count("/"))
+-        grouped = {
+-            k: list(v) for k, v in itertools.groupby(keys, key=lambda k: k.rsplit("/", 1)[0])
+-        }
++        # Group every key under its parent path. The keys of the flat mapping come
++        # in an arbitrary order, so we accumulate into a dict rather than relying on
++        # same-parent keys being adjacent: siblings may be interleaved with the
++        # children of other nodes (e.g. sibling groups whose names differ only by case).
++        grouped: dict[str, list[str]] = {}
++        for k in sorted(metadata, key=lambda k: k.count("/")):
++            grouped.setdefault(k.rsplit("/", 1)[0], []).append(k)
+ 
+         # we go top down and directly manipulate metadata.
+-        for key, children_keys in grouped.items():
++        for key in sorted(grouped, key=lambda k: k.count("/")):
++            children_keys = grouped[key]
+             # key is a key like "a", "a/b", "a/b/c"
+             # The basic idea is to find the immediate parent (so "", "a", or "a/b")
+             # and update that node's consolidated metadata to include the metadata
+@@ -262,7 +265,6 @@ class ConsolidatedMetadata:
+                 parent = parent[part].consolidated_metadata.metadata  # type: ignore[union-attr]
+ 
+             node = parent[name]
+-            children_keys = list(children_keys)
+ 
+             if isinstance(node, ArrayV2Metadata | ArrayV3Metadata):
+                 # These are already present, either thanks to being an array in the

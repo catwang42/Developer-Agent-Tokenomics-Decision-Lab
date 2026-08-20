@@ -1,0 +1,221 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/src/tests/mappers/article.mapper.test.ts b/src/tests/mappers/article.mapper.test.ts
+new file mode 100644
+index 0000000..9bca897
+--- /dev/null
++++ b/src/tests/mappers/article.mapper.test.ts
+@@ -0,0 +1,213 @@
++import articleMapper from '../../app/routes/article/article.mapper';
++import authorMapper from '../../app/routes/article/author.mapper';
++
++describe('AuthorMapper', () => {
++  const authorSample = {
++    username: 'johndoe',
++    bio: 'Software engineer and writer',
++    image: 'https://example.com/avatar.jpg',
++    followedBy: [
++      { id: 1, username: 'alice' },
++      { id: 2, username: 'bob' },
++    ],
++  };
++
++  test('should map author correctly when id is provided and user is in followedBy', () => {
++    const requestingUserId = 1;
++
++    const result = authorMapper(authorSample, requestingUserId);
++
++    expect(result).toEqual({
++      username: 'johndoe',
++      bio: 'Software engineer and writer',
++      image: 'https://example.com/avatar.jpg',
++      following: true,
++    });
++  });
++
++  test('should map author correctly when id is provided and user is NOT in followedBy', () => {
++    const requestingUserId = 999;
++
++    const result = authorMapper(authorSample, requestingUserId);
++
++    expect(result).toEqual({
++      username: 'johndoe',
++      bio: 'Software engineer and writer',
++      image: 'https://example.com/avatar.jpg',
++      following: false,
++    });
++  });
++
++  test('should map author with following false when followedBy is empty and id is provided', () => {
++    const authorWithoutFollowers = {
++      username: 'janedoe',
++      bio: null,
++      image: null,
++      followedBy: [],
++    };
++    const requestingUserId = 1;
++
++    const result = authorMapper(authorWithoutFollowers, requestingUserId);
++
++    expect(result).toEqual({
++      username: 'janedoe',
++      bio: null,
++      image: null,
++      following: false,
++    });
++  });
++
++  test('should map author with following false when id is omitted or undefined', () => {
++    const resultWithoutId = authorMapper(authorSample);
++    const resultWithUndefined = authorMapper(authorSample, undefined);
++
++    const expected = {
++      username: 'johndoe',
++      bio: 'Software engineer and writer',
++      image: 'https://example.com/avatar.jpg',
++      following: false,
++    };
++
++    expect(resultWithoutId).toEqual(expected);
++    expect(resultWithUndefined).toEqual(expected);
++  });
++});
++
++describe('ArticleMapper', () => {
++  const fixedCreatedAt = new Date('2026-01-01T00:00:00.000Z');
++  const fixedUpdatedAt = new Date('2026-01-02T00:00:00.000Z');
++
++  const fullArticleSample = {
++    slug: 'understanding-jest-coverage',
++    title: 'Understanding Jest Coverage',
++    description: 'A comprehensive guide to code coverage in Jest',
++    body: 'Code coverage helps measure the quality of test suites...',
++    tagList: [{ name: 'jest' }, { name: 'testing' }, { name: 'typescript' }],
++    createdAt: fixedCreatedAt,
++    updatedAt: fixedUpdatedAt,
++    favoritedBy: [
++      { id: 10, username: 'alice' },
++      { id: 20, username: 'bob' },
++    ],
++    author: {
++      username: 'author1',
++      bio: 'Tech writer',
++      image: 'https://example.com/author1.png',
++      followedBy: [{ id: 10 }],
++    },
++  };
++
++  test('should map full article with non-empty tagList, favorited true when requesting user in favoritedBy', () => {
++    const requestingUserId = 10;
++
++    const result = articleMapper(fullArticleSample, requestingUserId);
++
++    expect(result).toEqual({
++      slug: 'understanding-jest-coverage',
++      title: 'Understanding Jest Coverage',
++      description: 'A comprehensive guide to code coverage in Jest',
++      body: 'Code coverage helps measure the quality of test suites...',
++      tagList: ['jest', 'testing', 'typescript'],
++      createdAt: fixedCreatedAt,
++      updatedAt: fixedUpdatedAt,
++      favorited: true,
++      favoritesCount: 2,
++      author: {
++        username: 'author1',
++        bio: 'Tech writer',
++        image: 'https://example.com/author1.png',
++        following: true,
++      },
++    });
++  });
++
++  test('should map article with favorited false when requesting user is NOT in favoritedBy', () => {
++    const requestingUserId = 999;
++
++    const result = articleMapper(fullArticleSample, requestingUserId);
++
++    expect(result).toEqual({
++      slug: 'understanding-jest-coverage',
++      title: 'Understanding Jest Coverage',
++      description: 'A comprehensive guide to code coverage in Jest',
++      body: 'Code coverage helps measure the quality of test suites...',
++      tagList: ['jest', 'testing', 'typescript'],
++      createdAt: fixedCreatedAt,
++      updatedAt: fixedUpdatedAt,
++      favorited: false,
++      favoritesCount: 2,
++      author: {
++        username: 'author1',
++        bio: 'Tech writer',
++        image: 'https://example.com/author1.png',
++        following: false,
++      },
++    });
++  });
++
++  test('should map article with empty tagList and empty favoritedBy correctly', () => {
++    const emptyArticleSample = {
++      slug: 'minimal-article',
++      title: 'Minimal Article',
++      description: 'Description here',
++      body: 'Body content here',
++      tagList: [],
++      createdAt: fixedCreatedAt,
++      updatedAt: fixedUpdatedAt,
++      favoritedBy: [],
++      author: {
++        username: 'minimal_author',
++        bio: null,
++        image: null,
++        followedBy: [],
++      },
++    };
++
++    const requestingUserId = 10;
++    const result = articleMapper(emptyArticleSample, requestingUserId);
++
++    expect(result).toEqual({
++      slug: 'minimal-article',
++      title: 'Minimal Article',
++      description: 'Description here',
++      body: 'Body content here',
++      tagList: [],
++      createdAt: fixedCreatedAt,
++      updatedAt: fixedUpdatedAt,
++      favorited: false,
++      favoritesCount: 0,
++      author: {
++        username: 'minimal_author',
++        bio: null,
++        image: null,
++        following: false,
++      },
++    });
++  });
++
++  test('should map article correctly when id is omitted or undefined', () => {
++    const resultWithoutId = articleMapper(fullArticleSample);
++    const resultWithUndefined = articleMapper(fullArticleSample, undefined);
++
++    const expectedOutput = {
++      slug: 'understanding-jest-coverage',
++      title: 'Understanding Jest Coverage',
++      description: 'A comprehensive guide to code coverage in Jest',
++      body: 'Code coverage helps measure the quality of test suites...',
++      tagList: ['jest', 'testing', 'typescript'],
++      createdAt: fixedCreatedAt,
++      updatedAt: fixedUpdatedAt,
++      favorited: false,
++      favoritesCount: 2,
++      author: {
++        username: 'author1',
++        bio: 'Tech writer',
++        image: 'https://example.com/author1.png',
++        following: false,
++      },
++    };
++
++    expect(resultWithoutId).toEqual(expectedOutput);
++    expect(resultWithUndefined).toEqual(expectedOutput);
++  });
++});

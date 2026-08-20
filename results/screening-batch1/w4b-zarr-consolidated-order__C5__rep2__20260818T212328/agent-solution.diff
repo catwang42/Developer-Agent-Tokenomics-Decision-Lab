@@ -1,0 +1,86 @@
+diff --git a/src/zarr/core/group.py b/src/zarr/core/group.py
+index 922eaf14..e6b6690a 100644
+--- a/src/zarr/core/group.py
++++ b/src/zarr/core/group.py
+@@ -1,7 +1,6 @@
+ from __future__ import annotations
+ 
+ import asyncio
+-import itertools
+ import logging
+ import unicodedata
+ import warnings
+@@ -135,6 +134,19 @@ def _parse_async_node(
+         raise TypeError(f"Unknown node type, got {type(node)}")
+ 
+ 
++def _consolidated_key_order(key: str) -> tuple[int, str, str]:
++    """
++    Canonical sort key for the (slash-separated) keys of consolidated metadata.
++
++    Shallower nodes sort before deeper ones, so that parents are always visited
++    before their children. The raw key is included as a final tie-breaker to make
++    this a *total* order: without it, sibling names that differ only by case (or
++    only by unicode normalization) compare equal, and their relative order would
++    depend on the order the keys happened to be persisted in.
++    """
++    return (key.count("/"), unicodedata.normalize("NFKC", key).casefold(), key)
++
++
+ @dataclass(frozen=True)
+ class ConsolidatedMetadata:
+     """
+@@ -156,10 +168,7 @@ class ConsolidatedMetadata:
+                 k: v.to_dict()
+                 for k, v in sorted(
+                     self.flattened_metadata.items(),
+-                    key=lambda item: (
+-                        item[0].count("/"),
+-                        unicodedata.normalize("NFKC", item[0]).casefold(),
+-                    ),
++                    key=lambda item: _consolidated_key_order(item[0]),
+                 )
+             },
+         }
+@@ -237,10 +246,16 @@ class ConsolidatedMetadata:
+         # In the example, the group at `/a/b` will have consolidated metadata
+         # for its children `array-0` and `array-1`.
+ 
+-        keys = sorted(metadata, key=lambda k: k.count("/"))
+-        grouped = {
+-            k: list(v) for k, v in itertools.groupby(keys, key=lambda k: k.rsplit("/", 1)[0])
+-        }
++        # Sort into the canonical order, so that the reconstructed tree doesn't depend
++        # on the order the keys happened to be persisted in. Sorting by depth first
++        # also means we visit parents before their children.
++        keys = sorted(metadata, key=_consolidated_key_order)
++        # Keys sharing a parent need not be *adjacent* in `keys` (e.g. "a/x", "A/y",
++        # "a/z"), so accumulate every key under its parent rather than grouping
++        # consecutive runs, which would silently discard all but the last run.
++        grouped: dict[str, list[str]] = {}
++        for k in keys:
++            grouped.setdefault(k.rsplit("/", 1)[0], []).append(k)
+ 
+         # we go top down and directly manipulate metadata.
+         for key, children_keys in grouped.items():
+@@ -262,7 +277,6 @@ class ConsolidatedMetadata:
+                 parent = parent[part].consolidated_metadata.metadata  # type: ignore[union-attr]
+ 
+             node = parent[name]
+-            children_keys = list(children_keys)
+ 
+             if isinstance(node, ArrayV2Metadata | ArrayV3Metadata):
+                 # These are already present, either thanks to being an array in the
+@@ -283,6 +297,12 @@ class ConsolidatedMetadata:
+                 node, consolidated_metadata=ConsolidatedMetadata(metadata=children)
+             )
+ 
++        # Nested children were inserted in canonical order above, but the remaining
++        # top-level entries are still in their original insertion order. Reorder them
++        # in place so that every level of the tree is canonically ordered.
++        for root_key in sorted(metadata, key=_consolidated_key_order):
++            metadata[root_key] = metadata.pop(root_key)
++
+     @property
+     def flattened_metadata(self) -> dict[str, ArrayV2Metadata | ArrayV3Metadata | GroupMetadata]:
+         """

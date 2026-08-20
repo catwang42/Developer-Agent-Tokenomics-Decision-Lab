@@ -186,7 +186,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C2",
       "ecst": {
@@ -308,6 +321,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -406,6 +426,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -426,7 +456,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3",
       "ecst": {
@@ -550,6 +593,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -650,6 +700,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -670,7 +730,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3-med",
       "ecst": {
@@ -794,6 +867,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -894,6 +974,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -914,7 +1004,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3-prev",
       "ecst": {
@@ -1038,6 +1141,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -1138,6 +1248,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -1158,7 +1278,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C5",
       "ecst": {
@@ -1356,6 +1489,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -1454,6 +1594,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -1474,7 +1624,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "P0",
       "ecst": {
@@ -1596,6 +1759,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -1694,6 +1864,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -1714,7 +1894,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "P2",
       "ecst": {
@@ -1907,6 +2100,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -2005,6 +2205,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -2025,7 +2235,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C2",
       "ecst": {
@@ -2151,6 +2374,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -2249,6 +2479,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -2269,7 +2509,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3",
       "ecst": {
@@ -2393,6 +2646,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -2493,6 +2753,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -2513,7 +2783,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3-med",
       "ecst": {
@@ -2637,6 +2920,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -2737,6 +3027,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -2757,7 +3057,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3-prev",
       "ecst": {
@@ -2881,6 +3194,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -2981,6 +3301,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -3001,7 +3331,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C5",
       "ecst": {
@@ -3199,6 +3542,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -3297,6 +3647,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -3317,7 +3677,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "P0",
       "ecst": {
@@ -3443,6 +3816,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -3541,6 +3921,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -3561,7 +3951,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "P2",
       "ecst": {
@@ -3754,6 +4157,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -3852,6 +4262,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -3872,7 +4292,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C2",
       "ecst": {
@@ -3998,6 +4431,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -4096,6 +4536,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -4116,7 +4566,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3",
       "ecst": {
@@ -4240,6 +4703,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -4340,6 +4810,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -4361,7 +4841,20 @@
         },
         "confidence": "authoritative",
         "display": "2/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3-med",
       "ecst": {
@@ -4485,6 +4978,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -4585,6 +5085,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -4605,7 +5115,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3-prev",
       "ecst": {
@@ -4729,6 +5252,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -4829,6 +5359,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -4849,7 +5389,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C5",
       "ecst": {
@@ -5047,6 +5600,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -5145,6 +5705,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -5165,7 +5735,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "P0",
       "ecst": {
@@ -5291,6 +5874,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -5389,6 +5979,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -5409,7 +6009,20 @@
         },
         "confidence": "authoritative",
         "display": "0/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C2",
       "ecst": {
@@ -5533,6 +6146,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -5635,6 +6255,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -5655,7 +6285,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3",
       "ecst": {
@@ -5779,6 +6422,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -5879,6 +6529,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -5899,7 +6559,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3-med",
       "ecst": {
@@ -6023,6 +6696,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -6123,6 +6803,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -6143,7 +6833,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3-prev",
       "ecst": {
@@ -6267,6 +6970,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -6367,6 +7077,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -6387,7 +7107,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C5",
       "ecst": {
@@ -6585,6 +7318,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -6683,6 +7423,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -6703,7 +7453,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "P0",
       "ecst": {
@@ -6825,6 +7588,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -6923,6 +7693,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -6943,7 +7723,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "P1",
       "ecst": {
@@ -7136,6 +7929,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -7234,6 +8034,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -7254,7 +8064,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C2",
       "ecst": {
@@ -7376,6 +8199,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -7474,6 +8304,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -7494,7 +8334,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3",
       "ecst": {
@@ -7618,6 +8471,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -7718,6 +8578,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -7738,7 +8608,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3-med",
       "ecst": {
@@ -7862,6 +8745,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -7962,6 +8852,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -7982,7 +8882,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3-prev",
       "ecst": {
@@ -8106,6 +9019,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -8206,6 +9126,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -8226,7 +9156,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C5",
       "ecst": {
@@ -8424,6 +9367,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -8522,6 +9472,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -8542,7 +9502,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "P0",
       "ecst": {
@@ -8664,6 +9637,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -8762,6 +9742,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -8782,7 +9772,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C2",
       "ecst": {
@@ -8904,6 +9907,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -9002,6 +10012,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -9022,7 +10042,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3",
       "ecst": {
@@ -9146,6 +10179,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -9246,6 +10286,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -9266,7 +10316,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3-med",
       "ecst": {
@@ -9390,6 +10453,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -9490,6 +10560,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -9510,7 +10590,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C5",
       "ecst": {
@@ -9708,6 +10801,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -9806,6 +10906,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -9826,7 +10936,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "P0",
       "ecst": {
@@ -9948,6 +11071,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -10046,6 +11176,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -10066,7 +11206,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C2",
       "ecst": {
@@ -10188,6 +11341,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -10286,6 +11446,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -10306,7 +11476,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3",
       "ecst": {
@@ -10430,6 +11613,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -10530,6 +11720,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -10550,7 +11750,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3-med",
       "ecst": {
@@ -10674,6 +11887,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -10774,6 +11994,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -10794,7 +12024,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "C3-prev",
       "ecst": {
@@ -10918,6 +12161,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -11018,6 +12268,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -11038,7 +12298,20 @@
         },
         "confidence": "authoritative",
         "display": "3/3",
-        "of": 3
+        "gradable": 3,
+        "of": 3,
+        "provenance": {
+          "all_original": true,
+          "amended": 0,
+          "n_runs": 3,
+          "original": 3,
+          "reasons": null,
+          "sources": null,
+          "transitions": null,
+          "verdicts_changed": 0,
+          "verdicts_unavailable": 0,
+          "voided": 0
+        }
       },
       "configuration_or_policy": "P0",
       "ecst": {
@@ -11160,6 +12433,13 @@
       },
       "n_runs": 3,
       "registered_arm": true,
+      "run_budget": {
+        "basis": "behavior.failures_by_category, timeout categories",
+        "confounded": false,
+        "n_runs": 3,
+        "n_timed_out": 0,
+        "timed_out_runs": null
+      },
       "scope": {
         "cache_state": [
           "cold"
@@ -11258,6 +12538,16 @@
           "value": null
         }
       },
+      "usage_provenance": {
+        "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+        "n_runs": 3,
+        "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+        "runs_refused_under_an_earlier_rule": 0,
+        "runs_run_telemetry_only": 3,
+        "runs_with_backfill_and_refusal": 0,
+        "runs_with_backfill_by_event": null,
+        "runs_with_refusal_by_rule": null
+      },
       "wallclock_s": {
         "basis": "first to last event-log timestamp",
         "confidence": "derived",
@@ -11277,6 +12567,32 @@
     "unavailable"
   ],
   "cp_findings_gate": "No figure in this table may appear in docs, on the site, or in any external-facing report before **CP-FINDINGS**.",
+  "dataset_provenance": {
+    "adjudication": null,
+    "note": "An amended verdict is the same sealed set re-run against the same archived agent output after an instrument defect was fixed \u2014 it is not a re-run of the agent and cost no model spend. A voided cell is unscoreable, which is neither an accept nor a reject.",
+    "runs_timed_out": 0,
+    "usage": {
+      "earlier_rule_note": "These runs were refused under `v1` and attributed under `v2`. Both records stand: the rules draw different windows, and the v1 refusal is still true of v1.",
+      "n_runs": 129,
+      "note": "A refused window leaves the leg's tokens `unavailable`; they are never inferred from a sibling run. A run carrying a backfill AND a refusal under that same rule has a stale marker \u2014 the attributed number stands and the marker is a known collector defect, now fixed.",
+      "runs_refused_under_an_earlier_rule": 0,
+      "runs_run_telemetry_only": 129,
+      "runs_with_backfill_and_refusal": 0,
+      "runs_with_backfill_by_event": null,
+      "runs_with_refusal_by_rule": null
+    },
+    "verdict_sources": null,
+    "verdicts": {
+      "all_original": true,
+      "amended": 0,
+      "n_runs": 129,
+      "original": 129,
+      "transitions": null,
+      "verdicts_changed": 0,
+      "verdicts_unavailable": 0,
+      "voided": 0
+    }
+  },
   "generator": "tests/fixtures/make_decision_table_SYNTHETIC.py",
   "loaded_rate_usd_per_min": 1.6,
   "manifest_ref": "SYNTHETIC (no manifest \u2014 generated fixture)",
@@ -11575,6 +12891,7 @@
       }
     },
     "w3_escalation": {
+      "confound": null,
       "economical_arm": "C2",
       "economical_solo": {
         "acceptance": "0/3",
@@ -11942,7 +13259,12 @@
             }
           ],
           "result": "accepted",
-          "run_id": "SYNTHETIC__w3-sqlfluff-segment-method-migration__P1__rep1__20260101T000000"
+          "run_budget": {
+            "timed_out": false,
+            "timeout_events": 0
+          },
+          "run_id": "SYNTHETIC__w3-sqlfluff-segment-method-migration__P1__rep1__20260101T000000",
+          "verdict_provenance": "original"
         },
         {
           "completed_route": "strong",
@@ -12109,7 +13431,12 @@
             }
           ],
           "result": "accepted",
-          "run_id": "SYNTHETIC__w3-sqlfluff-segment-method-migration__P1__rep2__20260101T000000"
+          "run_budget": {
+            "timed_out": false,
+            "timeout_events": 0
+          },
+          "run_id": "SYNTHETIC__w3-sqlfluff-segment-method-migration__P1__rep2__20260101T000000",
+          "verdict_provenance": "original"
         },
         {
           "completed_route": "strong",
@@ -12276,7 +13603,12 @@
             }
           ],
           "result": "accepted",
-          "run_id": "SYNTHETIC__w3-sqlfluff-segment-method-migration__P1__rep3__20260101T000000"
+          "run_budget": {
+            "timed_out": false,
+            "timeout_events": 0
+          },
+          "run_id": "SYNTHETIC__w3-sqlfluff-segment-method-migration__P1__rep3__20260101T000000",
+          "verdict_provenance": "original"
         }
       ]
     }

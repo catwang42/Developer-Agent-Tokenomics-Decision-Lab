@@ -1,0 +1,33 @@
+diff --git a/src/zarr/core/group.py b/src/zarr/core/group.py
+index 922eaf14..2d3a4da4 100644
+--- a/src/zarr/core/group.py
++++ b/src/zarr/core/group.py
+@@ -1,7 +1,6 @@
+ from __future__ import annotations
+ 
+ import asyncio
+-import itertools
+ import logging
+ import unicodedata
+ import warnings
+@@ -237,10 +236,16 @@ class ConsolidatedMetadata:
+         # In the example, the group at `/a/b` will have consolidated metadata
+         # for its children `array-0` and `array-1`.
+ 
+-        keys = sorted(metadata, key=lambda k: k.count("/"))
+-        grouped = {
+-            k: list(v) for k, v in itertools.groupby(keys, key=lambda k: k.rsplit("/", 1)[0])
+-        }
++        # Sort shallowest-first so that parents are always processed before their
++        # children, and break ties on the key itself so that the result does not
++        # depend on the (arbitrary) order of the flat mapping.
++        keys = sorted(metadata, key=lambda k: (k.count("/"), k))
++        grouped: dict[str, list[str]] = {}
++        for k in keys:
++            # Accumulate *all* keys sharing a parent. Keys with the same parent are
++            # not necessarily adjacent in `keys`, so they cannot simply be grouped
++            # by runs of equal parents.
++            grouped.setdefault(k.rsplit("/", 1)[0], []).append(k)
+ 
+         # we go top down and directly manipulate metadata.
+         for key, children_keys in grouped.items():

@@ -1,0 +1,55 @@
+{
+  "collected_at": "2026-08-19T23:15:09.142390Z",
+  "collector": "vertex_token_collector",
+  "guard": {
+    "contaminated": true,
+    "evidence": {
+      "baseline": {
+        "baseline_seconds": 300,
+        "windows": {
+          "post": {
+            "by_model": {},
+            "end": "2026-08-18T20:19:03.518101Z",
+            "points": 0,
+            "start": "2026-08-18T20:14:03.518102Z"
+          },
+          "pre": {
+            "by_model": {},
+            "end": "2026-08-18T20:04:49.516973Z",
+            "points": 0,
+            "start": "2026-08-18T19:59:49.516974Z"
+          }
+        }
+      },
+      "ceiling": {
+        "input_side_tokens_ceiling": 3000000,
+        "observed_input_side_tokens": {
+          "gemini-3.6-flash": 4680517
+        }
+      }
+    },
+    "reasons": [
+      "gemini-3.6-flash: 4680517 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+    ]
+  },
+  "metric_type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "note": "The provider meter for this window could not be attributed to this run, so NOTHING was written to events.jsonl or summary.json and the run's Product-B usage remains 'unavailable' (not zero). The totals below are what the window contained; they are NOT this run's usage.",
+  "refusal": "contaminated_window",
+  "run_id": "w4b-zarr-consolidated-order__C3-prev__rep3__20260818T200548",
+  "window_totals_refused": {
+    "by_model": {
+      "gemini-3.6-flash": {
+        "input": 4680517,
+        "output": 43415
+      }
+    },
+    "points_in_window": 16,
+    "points_outside_window": 0,
+    "unmapped_types": {},
+    "window": {
+      "end": "2026-08-18T20:14:03.518101Z",
+      "guard_seconds": 60,
+      "start": "2026-08-18T20:04:49.516974Z"
+    }
+  }
+}

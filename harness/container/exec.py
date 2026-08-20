@@ -75,6 +75,7 @@ def docker_run_argv(
     network: str = NETWORK_NONE,
     env: Optional[Dict[str, str]] = None,
     remove: bool = True,
+    name: Optional[str] = None,
 ) -> List[str]:
     """Build a ``docker run`` argv (pure; no execution).
 
@@ -82,12 +83,20 @@ def docker_run_argv(
     or ``"ro"``). ``network`` defaults to ``none`` (offline) — the recorded batch-2
     posture. ``env`` values are passed with ``-e KEY=VALUE`` in sorted order so the
     command is deterministic (stable across runs and easy to assert in tests).
+
+    ``name`` gives the container a deterministic, addressable ``--name``. It is what
+    makes a timeout ENFORCEABLE: ``docker run`` is a client attached to a daemon-side
+    container, so killing the client (which is all ``subprocess.run(timeout=...)``
+    can do) leaves the container running. Without a name there is no reliable handle
+    to kill it with — see :func:`kill_container` and :func:`spawn_with_timeout`.
     """
     if not image:
         raise ValueError("docker_run_argv requires a non-empty image")
     argv: List[str] = ["docker", "run"]
     if remove:
         argv.append("--rm")
+    if name:
+        argv += ["--name", name]
     argv += ["--network", network]
     for src, dst, mode in (mounts or []):
         argv += ["-v", f"{src}:{dst}:{mode}"]
@@ -144,6 +153,11 @@ class ContainerLaunch:
     #: Free-text description of what this launch actually enforces, stamped into
     #: identity.permission_profile. Set by the runner, which knows the mode.
     profile: str = ""
+    #: Run-scoped prefix for the container's ``--name``. The adapter appends the leg
+    #: id (:func:`leg_container_name`) so every attempt of a run has its own handle
+    #: and a timeout can kill the right container. Empty => unnamed (host mode, and
+    #: any caller that has not opted in).
+    name_prefix: str = ""
 
     def all_mounts(self) -> List[Tuple[str, str, str]]:
         """Declared mounts plus the agent volume (if any), in a stable order."""
@@ -153,8 +167,24 @@ class ContainerLaunch:
         return mounts
 
 
+def leg_container_name(
+    launch: Optional[ContainerLaunch], leg_id: str,
+) -> Optional[str]:
+    """Deterministic ``--name`` for one leg's agent container, or ``None``.
+
+    ``None`` in host mode and for any launch without a ``name_prefix`` — those
+    callers get the historical unnamed behaviour. Per LEG, not per run: a P1 run
+    spawns an economical attempt and then a strong one, and a timeout must kill the
+    container that is actually hung rather than a name shared with its sibling.
+    """
+    if launch is None or not launch.name_prefix:
+        return None
+    return f"{launch.name_prefix}-{_slug(leg_id)}"[:120]
+
+
 def resolve_spawn(
     launch: Optional[ContainerLaunch], cmd: Sequence[str], subject_dir: str,
+    *, name: Optional[str] = None,
 ) -> Tuple[List[str], Optional[str]]:
     """Resolve ``(argv, cwd)`` for spawning a subject command.
 
@@ -164,15 +194,124 @@ def resolve_spawn(
     workdir), carrying the launch's mounts, network and environment. This is the
     single seam that routes the agent leg through the container; both branches are
     pure and unit-testable.
+
+    ``name`` is the container handle a timeout will kill (see
+    :func:`leg_container_name`); it is ignored in host mode, where there is no
+    container and ``subprocess`` already owns the process.
     """
     if launch is None:
         return list(cmd), subject_dir
     argv = docker_run_argv(
         launch.image, cmd, mounts=launch.all_mounts(),
         workdir=launch.subject_root, network=launch.network,
-        env=launch.env or None,
+        env=launch.env or None, name=name,
     )
     return argv, None
+
+
+# --------------------------------------------------------------------------- #
+# Enforceable timeouts
+# --------------------------------------------------------------------------- #
+@dataclass
+class SpawnResult:
+    """Outcome of :func:`spawn_with_timeout` (mirrors what adapters read).
+
+    ``timed_out`` distinguishes a workshop kill from a product exit; ``container``
+    records what the kill actually achieved, so a run whose container could not be
+    reaped says so in the event log instead of looking clean.
+    """
+
+    returncode: Optional[int]
+    stdout: str
+    stderr: str
+    timed_out: bool = False
+    #: ``None`` when nothing needed killing (no container, or it exited normally);
+    #: else ``"killed"`` / ``"already_gone"`` / ``"kill_failed: <stderr>"``.
+    container: Optional[str] = None
+
+
+def _container_ids(name: str, *, running_only: bool) -> str:
+    argv = ["docker", "ps", "--quiet", "--filter", f"name=^{name}$"]
+    if not running_only:
+        argv.insert(2, "--all")
+    proc = subprocess.run(argv, capture_output=True, text=True, check=False)  # noqa: S603
+    return proc.stdout.strip() if proc.returncode == 0 else ""
+
+
+def container_is_running(name: str) -> bool:
+    """True if a container called ``name`` exists and is running (no side effects)."""
+    return bool(_container_ids(name, running_only=True))
+
+
+def container_exists(name: str) -> bool:
+    """True if a container called ``name`` exists in any state (no side effects)."""
+    return bool(_container_ids(name, running_only=False))
+
+
+def kill_container(name: str) -> str:
+    """Force-remove the container called ``name``; report what happened.
+
+    This is the other half of an enforceable timeout. ``subprocess.run(timeout=...)``
+    kills the ``docker run`` CLI, which is only a client attached to a daemon-side
+    container: the container keeps running, keeps its volume mounted, and — for a
+    live agent leg — keeps spending. That is the orphan defect observed in screening
+    batch 1, where a killed wait left a container running under the daemon's own
+    name. ``docker rm -f`` addresses the container directly, so the kill lands.
+
+    Never raises: it runs on the failure path, and a cleanup error must not replace
+    the timeout as the reported cause. Returns ``"killed"``, ``"already_gone"``, or
+    ``"kill_failed: <detail>"`` for the caller to record — the distinction matters,
+    because "the timeout fired and the container was already gone" and "the timeout
+    fired and we could not stop it" are different facts about a run.
+
+    Existence is checked FIRST rather than inferred from the exit code: ``docker rm
+    -f`` exits 0 on a container that never existed, so trusting rc alone would report
+    a kill that did not happen.
+    """
+    if not container_exists(name):
+        return "already_gone"
+    proc = subprocess.run(  # noqa: S603 - fixed argv
+        ["docker", "rm", "--force", "--volumes=false", name],
+        capture_output=True, text=True, check=False,
+    )
+    if proc.returncode == 0:
+        return "killed"
+    return f"kill_failed: {(proc.stderr or '').strip()[:200]}"
+
+
+def spawn_with_timeout(
+    argv: Sequence[str],
+    *,
+    cwd: Optional[str],
+    env: Optional[Dict[str, str]],
+    timeout_s: float,
+    container_name: Optional[str] = None,
+) -> SpawnResult:
+    """Run ``argv`` under a workshop-owned timeout that actually stops the work.
+
+    One seam for both product adapters, so "the timeout killed the agent" means the
+    same thing for Product A and Product B. On expiry the child (the ``docker run``
+    client, or the bare CLI in host mode) is terminated by ``subprocess``, and — when
+    ``container_name`` is set — the container itself is force-removed, because
+    killing the client does not stop the container (see :func:`kill_container`).
+
+    Partial stdout/stderr from the killed child is preserved: for a timed-out attempt
+    that output is often the only diagnosis there is.
+    """
+    try:
+        proc = subprocess.run(  # noqa: S603 - workshop-owned command
+            list(argv), cwd=cwd, capture_output=True, text=True, check=False,
+            timeout=timeout_s, env=env,
+        )
+    except subprocess.TimeoutExpired as exc:
+        killed = kill_container(container_name) if container_name else None
+        return SpawnResult(
+            returncode=None, stdout=exc.stdout or "", stderr=exc.stderr or "",
+            timed_out=True, container=killed,
+        )
+    return SpawnResult(
+        returncode=proc.returncode, stdout=proc.stdout, stderr=proc.stderr,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -388,18 +527,27 @@ class ContainerExecutor:
         network: str = NETWORK_NONE,
         env: Optional[Dict[str, str]] = None,
         timeout: Optional[float] = None,
+        name: Optional[str] = None,
     ) -> ContainerResult:
         argv = docker_run_argv(
             self.image, cmd, mounts=mounts,
             workdir=workdir or self.subject_root, network=network, env=env,
+            name=name,
         )
         try:
             proc = subprocess.run(  # noqa: S603 - workshop-owned command
                 argv, capture_output=True, text=True, check=False, timeout=timeout,
             )
         except subprocess.TimeoutExpired as exc:
+            # Same orphan hazard as the agent leg: the timeout kills the client, not
+            # the container. A named gate container is reaped here so a hung grade
+            # cannot hold its volume and outlive the batch.
+            killed = kill_container(name) if name else None
+            stderr = exc.stderr or ""
+            if killed:
+                stderr += f"\n[harness] container {name}: {killed}"
             return ContainerResult(
-                returncode=124, stdout=exc.stdout or "", stderr=exc.stderr or "",
+                returncode=124, stdout=exc.stdout or "", stderr=stderr,
                 timed_out=True, argv=argv,
             )
         return ContainerResult(
@@ -501,6 +649,15 @@ def build_subject_image(
 # --------------------------------------------------------------------------- #
 # Agent -> gate handoff volume
 # --------------------------------------------------------------------------- #
+def agent_container_prefix(run_id: str) -> str:
+    """Run-scoped ``--name`` prefix for this run's agent containers.
+
+    Distinct from :func:`agent_volume_name` on purpose: the volume outlives the
+    attempt (the gate grades it), the container must not.
+    """
+    return f"lab-agent-{_slug(run_id)}"[:100]
+
+
 def agent_volume_name(run_id: str) -> str:
     """Per-run named volume carrying the agent's edits to the gate container.
 

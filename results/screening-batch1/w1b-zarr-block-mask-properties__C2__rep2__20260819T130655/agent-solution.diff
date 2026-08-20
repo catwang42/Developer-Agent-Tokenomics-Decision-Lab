@@ -1,0 +1,223 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/tests/test_indexing_properties.py b/tests/test_indexing_properties.py
+new file mode 100644
+index 00000000..097fe1bb
+--- /dev/null
++++ b/tests/test_indexing_properties.py
+@@ -0,0 +1,215 @@
++"""Property tests for block and mask indexing against a numpy oracle."""
++
++from __future__ import annotations
++
++from typing import Generator
++
++import hypothesis.extra.numpy as npst
++import hypothesis.strategies as st
++import numpy as np
++import numpy.testing as npt
++import pytest
++from hypothesis import given, settings
++
++import zarr
++from zarr.core.chunk_grids import ChunkGrid
++from zarr.testing.strategies import numpy_arrays, rectilinear_arrays, simple_arrays
++
++# min_side=1 ensures every dimension has at least one element so block indexing
++# always has at least one chunk to select and mask indexing is well-shaped.
++_shapes = npst.array_shapes(min_dims=1, max_dims=4, min_side=1, max_side=5)
++_rect_shapes = npst.array_shapes(min_dims=1, max_dims=3, min_side=1, max_side=20)
++
++_arr_strategy = simple_arrays(shapes=_shapes) | rectilinear_arrays(shapes=_rect_shapes)
++
++# All tests that draw arrays must ignore UnstableSpecificationWarning because
++# the strategies may produce bytes/unicode dtypes that carry this warning
++# (same pattern used throughout test_properties.py).
++_UNSTABLE_WARN = pytest.mark.filterwarnings(
++    "ignore::zarr.core.dtype.common.UnstableSpecificationWarning"
++)
++
++
++@pytest.fixture(autouse=True)
++def _enable_rectilinear_chunks() -> Generator[None, None, None]:
++    with zarr.config.set({"array.rectilinear_chunks": True}):
++        yield
++
++
++# ── helpers ──────────────────────────────────────────────────────────────────
++
++
++def _chunk_boundaries(z: zarr.Array) -> list[list[int]]:
++    """Return per-dim cumulative chunk boundaries [0, end0, end1, ..., dim_size].
++
++    Uses ChunkGrid.from_metadata() to avoid the DeprecationWarning emitted by
++    ArrayV2Metadata.chunk_grid, and to handle regular and rectilinear grids
++    uniformly.
++    """
++    grid = ChunkGrid.from_metadata(z.metadata)
++    result: list[list[int]] = []
++    for dim_sizes in grid.chunk_sizes:
++        b: list[int] = [0]
++        for cs in dim_sizes:
++            b.append(b[-1] + cs)
++        result.append(b)
++    return result
++
++
++@st.composite
++def _block_selection(draw: st.DrawFn, z: zarr.Array) -> tuple:
++    """Draw a valid block selection in chunk-index space.
++
++    Generates only non-negative integers and step-1 slices whose start is a
++    valid chunk index (i.e. start < nchunks), which is what zarr's BlockIndexer
++    requires.  Stop may equal nchunks (exclusive end that maps to dim_size).
++    """
++    bounds = _chunk_boundaries(z)
++    sel = []
++    for dim_bounds in bounds:
++        nchunks = len(dim_bounds) - 1
++        if nchunks == 0:
++            # Degenerate empty dimension — empty slice is the only valid choice.
++            sel.append(slice(0, 0))
++            continue
++        if draw(st.booleans()):
++            # Integer: any valid chunk index [0, nchunks).
++            sel.append(draw(st.integers(min_value=0, max_value=nchunks - 1)))
++        else:
++            # Slice: start must be < nchunks; stop may be up to nchunks.
++            a = draw(st.integers(min_value=0, max_value=nchunks - 1))
++            b = draw(st.integers(min_value=a, max_value=nchunks))
++            sel.append(slice(a, b))
++    return tuple(sel)
++
++
++def _block_to_elem(block_sel: tuple, bounds: list[list[int]]) -> tuple:
++    """Translate a chunk-index selection to an element-index slice tuple."""
++    elem = []
++    for sel, dim_bounds in zip(block_sel, bounds, strict=True):
++        nchunks = len(dim_bounds) - 1
++        if isinstance(sel, int):
++            elem.append(slice(dim_bounds[sel], dim_bounds[sel + 1]))
++        else:
++            start = sel.start if sel.start is not None else 0
++            stop = sel.stop if sel.stop is not None else nchunks
++            elem.append(slice(dim_bounds[start], dim_bounds[stop]))
++    return tuple(elem)
++
++
++# ── block indexing ────────────────────────────────────────────────────────────
++
++
++@_UNSTABLE_WARN
++@settings(deadline=None)
++@given(data=st.data())
++def test_block_get_method(data: st.DataObject) -> None:
++    """get_block_selection returns the same region as numpy element-space indexing."""
++    z = data.draw(_arr_strategy)
++    np_arr = z[:]
++    bounds = _chunk_boundaries(z)
++    block_sel = data.draw(_block_selection(z))
++    elem_sel = _block_to_elem(block_sel, bounds)
++    npt.assert_array_equal(z.get_block_selection(block_sel), np_arr[elem_sel])
++
++
++@_UNSTABLE_WARN
++@settings(deadline=None)
++@given(data=st.data())
++def test_block_get_via_blocks_property(data: st.DataObject) -> None:
++    """Array.blocks[...] returns the same region as numpy element-space indexing."""
++    z = data.draw(_arr_strategy)
++    np_arr = z[:]
++    bounds = _chunk_boundaries(z)
++    block_sel = data.draw(_block_selection(z))
++    elem_sel = _block_to_elem(block_sel, bounds)
++    npt.assert_array_equal(z.blocks[block_sel], np_arr[elem_sel])
++
++
++@_UNSTABLE_WARN
++@settings(deadline=None)
++@given(data=st.data())
++def test_block_set_method(data: st.DataObject) -> None:
++    """set_block_selection writes exactly the selected region; unselected data is unchanged."""
++    z = data.draw(_arr_strategy)
++    np_arr = z[:].copy()
++    bounds = _chunk_boundaries(z)
++    block_sel = data.draw(_block_selection(z))
++    elem_sel = _block_to_elem(block_sel, bounds)
++    sel_shape = np_arr[elem_sel].shape
++    new_vals = data.draw(numpy_arrays(shapes=st.just(sel_shape), dtype=z.dtype))
++    np_arr[elem_sel] = new_vals
++    z.set_block_selection(block_sel, new_vals)
++    npt.assert_array_equal(z[:], np_arr)
++
++
++@_UNSTABLE_WARN
++@settings(deadline=None)
++@given(data=st.data())
++def test_block_set_via_blocks_property(data: st.DataObject) -> None:
++    """Array.blocks[...] = value writes exactly the selected region."""
++    z = data.draw(_arr_strategy)
++    np_arr = z[:].copy()
++    bounds = _chunk_boundaries(z)
++    block_sel = data.draw(_block_selection(z))
++    elem_sel = _block_to_elem(block_sel, bounds)
++    sel_shape = np_arr[elem_sel].shape
++    new_vals = data.draw(numpy_arrays(shapes=st.just(sel_shape), dtype=z.dtype))
++    np_arr[elem_sel] = new_vals
++    z.blocks[block_sel] = new_vals
++    npt.assert_array_equal(z[:], np_arr)
++
++
++# ── mask indexing ─────────────────────────────────────────────────────────────
++
++
++@_UNSTABLE_WARN
++@settings(deadline=None)
++@given(data=st.data())
++def test_mask_get_method(data: st.DataObject) -> None:
++    """get_mask_selection returns the same elements as numpy boolean indexing."""
++    z = data.draw(_arr_strategy)
++    np_arr = z[:]
++    mask = data.draw(npst.arrays(dtype=np.bool_, shape=z.shape))
++    npt.assert_array_equal(z.get_mask_selection(mask), np_arr[mask])
++
++
++@_UNSTABLE_WARN
++@settings(deadline=None)
++@given(data=st.data())
++def test_mask_get_via_vindex_property(data: st.DataObject) -> None:
++    """Array.vindex[mask] returns the same elements as numpy boolean indexing."""
++    z = data.draw(_arr_strategy)
++    np_arr = z[:]
++    mask = data.draw(npst.arrays(dtype=np.bool_, shape=z.shape))
++    npt.assert_array_equal(z.vindex[mask], np_arr[mask])
++
++
++@_UNSTABLE_WARN
++@settings(deadline=None)
++@given(data=st.data())
++def test_mask_set_method(data: st.DataObject) -> None:
++    """set_mask_selection writes exactly the masked elements; unmasked data is unchanged."""
++    z = data.draw(_arr_strategy)
++    np_arr = z[:].copy()
++    mask = data.draw(npst.arrays(dtype=np.bool_, shape=z.shape))
++    n = int(mask.sum())
++    new_vals = data.draw(numpy_arrays(shapes=st.just((n,)), dtype=z.dtype))
++    np_arr[mask] = new_vals
++    z.set_mask_selection(mask, new_vals)
++    npt.assert_array_equal(z[:], np_arr)
++
++
++@_UNSTABLE_WARN
++@settings(deadline=None)
++@given(data=st.data())
++def test_mask_set_via_vindex_property(data: st.DataObject) -> None:
++    """Array.vindex[mask] = value writes exactly the masked elements."""
++    z = data.draw(_arr_strategy)
++    np_arr = z[:].copy()
++    mask = data.draw(npst.arrays(dtype=np.bool_, shape=z.shape))
++    n = int(mask.sum())
++    new_vals = data.draw(numpy_arrays(shapes=st.just((n,)), dtype=z.dtype))
++    np_arr[mask] = new_vals
++    z.vindex[mask] = new_vals
++    npt.assert_array_equal(z[:], np_arr)

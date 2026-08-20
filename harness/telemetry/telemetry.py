@@ -52,10 +52,18 @@ EVENT_TYPES = (
     # behaviour counts. Appending one keeps the log immutable — the original
     # `unavailable` model_call_completed events stay exactly as recorded.
     "provider_usage_backfill",
+    # Same shape and the same rules as above, written by the SAME collector under
+    # a revised attribution rule (serialized-run ownership: a run owns the meter
+    # up to the next subject run's window, so its own ingestion tail counts as
+    # its own — see harness/collectors/README.md). It is a distinct type, not a
+    # flag on the old one, because the two rules can disagree about which run a
+    # point belongs to and an analysis must be able to say which rule it used.
+    "provider_usage_backfill_v2",
 )
 
 # Event types whose ``usage`` block contributes to a leg's token totals.
-_USAGE_EVENT_TYPES = ("model_call_completed", "provider_usage_backfill")
+_USAGE_EVENT_TYPES = ("model_call_completed", "provider_usage_backfill",
+                      "provider_usage_backfill_v2")
 
 _SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema-v2.json")
 

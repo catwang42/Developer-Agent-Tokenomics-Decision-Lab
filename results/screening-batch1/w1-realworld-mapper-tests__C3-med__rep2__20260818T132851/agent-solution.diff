@@ -1,0 +1,199 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/src/tests/mappers/article.mapper.test.ts b/src/tests/mappers/article.mapper.test.ts
+new file mode 100644
+index 0000000..84d2d44
+--- /dev/null
++++ b/src/tests/mappers/article.mapper.test.ts
+@@ -0,0 +1,191 @@
++import articleMapper from '../../app/routes/article/article.mapper';
++import authorMapper from '../../app/routes/article/author.mapper';
++
++describe('Mappers', () => {
++  describe('authorMapper', () => {
++    const baseAuthor = {
++      username: 'johndoe',
++      bio: 'Software engineer and writer',
++      image: 'https://example.com/avatar.jpg',
++      followedBy: [
++        { id: 10, username: 'user10' },
++        { id: 20, username: 'user20' },
++      ],
++    };
++
++    test('should map author fields correctly when id is not provided (following = false)', () => {
++      const result = authorMapper(baseAuthor);
++
++      expect(result).toEqual({
++        username: 'johndoe',
++        bio: 'Software engineer and writer',
++        image: 'https://example.com/avatar.jpg',
++        following: false,
++      });
++    });
++
++    test('should map author fields correctly when id is undefined explicitly', () => {
++      const result = authorMapper(baseAuthor, undefined);
++
++      expect(result).toEqual({
++        username: 'johndoe',
++        bio: 'Software engineer and writer',
++        image: 'https://example.com/avatar.jpg',
++        following: false,
++      });
++    });
++
++    test('should return following = true when requesting user id is present in followedBy', () => {
++      const requestingUserId = 20;
++      const result = authorMapper(baseAuthor, requestingUserId);
++
++      expect(result).toEqual({
++        username: 'johndoe',
++        bio: 'Software engineer and writer',
++        image: 'https://example.com/avatar.jpg',
++        following: true,
++      });
++    });
++
++    test('should return following = false when requesting user id is not present in followedBy', () => {
++      const requestingUserId = 99;
++      const result = authorMapper(baseAuthor, requestingUserId);
++
++      expect(result).toEqual({
++        username: 'johndoe',
++        bio: 'Software engineer and writer',
++        image: 'https://example.com/avatar.jpg',
++        following: false,
++      });
++    });
++
++    test('should return following = false when followedBy is empty and id is provided', () => {
++      const authorWithNoFollowers = {
++        username: 'solitary',
++        bio: null,
++        image: null,
++        followedBy: [],
++      };
++      const requestingUserId = 1;
++      const result = authorMapper(authorWithNoFollowers, requestingUserId);
++
++      expect(result).toEqual({
++        username: 'solitary',
++        bio: null,
++        image: null,
++        following: false,
++      });
++    });
++  });
++
++  describe('articleMapper', () => {
++    const createdAt = new Date('2026-01-01T00:00:00.000Z');
++    const updatedAt = new Date('2026-01-02T00:00:00.000Z');
++
++    const rawArticle = {
++      slug: 'how-to-train-your-dragon',
++      title: 'How to train your dragon',
++      description: 'Ever wonder how?',
++      body: 'It takes a lot of courage and patience.',
++      tagList: [{ name: 'dragons' }, { name: 'training' }],
++      createdAt,
++      updatedAt,
++      favoritedBy: [
++        { id: 1, username: 'fan1' },
++        { id: 2, username: 'fan2' },
++      ],
++      author: {
++        username: 'hiccup',
++        bio: 'Viking hero',
++        image: 'https://example.com/hiccup.png',
++        followedBy: [{ id: 1, username: 'fan1' }],
++      },
++    };
++
++    test('should map all article fields correctly when no user id is provided', () => {
++      const result = articleMapper(rawArticle);
++
++      expect(result).toEqual({
++        slug: 'how-to-train-your-dragon',
++        title: 'How to train your dragon',
++        description: 'Ever wonder how?',
++        body: 'It takes a lot of courage and patience.',
++        tagList: ['dragons', 'training'],
++        createdAt,
++        updatedAt,
++        favorited: false,
++        favoritesCount: 2,
++        author: {
++          username: 'hiccup',
++          bio: 'Viking hero',
++          image: 'https://example.com/hiccup.png',
++          following: false,
++        },
++      });
++    });
++
++    test('should map article when tagList is empty', () => {
++      const articleWithEmptyTags = {
++        ...rawArticle,
++        tagList: [],
++      };
++
++      const result = articleMapper(articleWithEmptyTags);
++
++      expect(result.tagList).toEqual([]);
++      expect(result.slug).toBe('how-to-train-your-dragon');
++    });
++
++    test('should return favorited = true and correct favoritesCount when requesting user id is in favoritedBy', () => {
++      const requestingUserId = 1;
++      const result = articleMapper(rawArticle, requestingUserId);
++
++      expect(result.favorited).toBe(true);
++      expect(result.favoritesCount).toBe(2);
++      expect(result.author.following).toBe(true);
++      expect(result).toEqual({
++        slug: 'how-to-train-your-dragon',
++        title: 'How to train your dragon',
++        description: 'Ever wonder how?',
++        body: 'It takes a lot of courage and patience.',
++        tagList: ['dragons', 'training'],
++        createdAt,
++        updatedAt,
++        favorited: true,
++        favoritesCount: 2,
++        author: {
++          username: 'hiccup',
++          bio: 'Viking hero',
++          image: 'https://example.com/hiccup.png',
++          following: true,
++        },
++      });
++    });
++
++    test('should return favorited = false when requesting user id is not in favoritedBy', () => {
++      const requestingUserId = 99;
++      const result = articleMapper(rawArticle, requestingUserId);
++
++      expect(result.favorited).toBe(false);
++      expect(result.favoritesCount).toBe(2);
++      expect(result.author.following).toBe(false);
++    });
++
++    test('should return favorited = false and favoritesCount = 0 when favoritedBy is empty', () => {
++      const articleWithNoFavorites = {
++        ...rawArticle,
++        favoritedBy: [],
++        author: {
++          ...rawArticle.author,
++          followedBy: [],
++        },
++      };
++      const requestingUserId = 1;
++      const result = articleMapper(articleWithNoFavorites, requestingUserId);
++
++      expect(result.favorited).toBe(false);
++      expect(result.favoritesCount).toBe(0);
++      expect(result.author.following).toBe(false);
++    });
++  });
++});

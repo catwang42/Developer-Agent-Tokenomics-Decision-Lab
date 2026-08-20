@@ -794,5 +794,331 @@ class TestScreeningTableSurface(unittest.TestCase):
             self.assertIn("H-effort", md)
 
 
+def _write_regrade(run_dir, status="graded", result="accepted", changed=True,
+                   reason="SYNTHETIC instrument error"):
+    """SYNTHETIC ``regrade-summary.json`` beside a run — what the offline re-grade
+    writes when a gate defect is fixed after the fact."""
+    with open(os.path.join(run_dir, "regrade-summary.json"), "w", encoding="utf-8") as fh:
+        json.dump({"SYNTHETIC": "SYNTHETIC test fixture — not a measurement",
+                   "status": status, "changed": changed, "reason": reason,
+                   "provenance": "amended",
+                   "amended": {"acceptance_result": result}}, fh)
+
+
+def _write_adjudication(batch, task_id, label="SYNTHETIC void"):
+    with open(os.path.join(batch, "adjudication.json"), "w", encoding="utf-8") as fh:
+        json.dump({"SYNTHETIC": "SYNTHETIC test fixture — not a measurement",
+                   "schema": "dataset-adjudication-v1",
+                   "documented_in": "SYNTHETIC.log",
+                   "entries": [{"scope": {"task_id": task_id}, "disposition": "void",
+                                "label": label, "reason": "SYNTHETIC"}]}, fh)
+
+
+def _add_event(run_dir, **fields):
+    with open(os.path.join(run_dir, "events.jsonl"), "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(fields) + "\n")
+
+
+def _mark_timed_out(run_dir, n=1):
+    path = os.path.join(run_dir, "summary.json")
+    with open(path, encoding="utf-8") as fh:
+        summary = json.load(fh)
+    summary.setdefault("behavior", {})["failures_by_category"] = _slot(
+        {"claude_timeout": n})
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(summary, fh)
+
+
+class TestVerdictProvenance(unittest.TestCase):
+    """An amended verdict must reach the figures, and never erase the original.
+
+    A run summary is frozen once written, so the offline re-grade lands beside it. If
+    the summarizer read only the summary, a repaired dataset would still report the
+    broken instrument's verdicts; if it read only the re-grade, the record of what the
+    instrument originally said would vanish. Both have to be true at once.
+    """
+
+    def _batch(self, tmp, **kwargs):
+        batch = os.path.join(tmp, "screening-batchX")
+        os.makedirs(batch)
+        return batch
+
+    def test_an_amended_verdict_is_what_the_cell_is_scored_on(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            batch = self._batch(tmp)
+            run = _synthetic_run(batch, "r1", "t", "C2", False, 0.4,
+                                 {"input_tokens": _slot(10, "authoritative")})
+            _write_regrade(run, result="accepted")
+            cell = build(batch)["cells"][0]
+            self.assertEqual(1, cell["acceptance"]["accepted"])
+            self.assertEqual(1, cell["acceptance"]["provenance"]["amended"])
+            self.assertEqual({"rejected → accepted": 1},
+                             cell["acceptance"]["provenance"]["transitions"])
+
+    def test_the_original_verdict_is_still_on_the_record(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            batch = self._batch(tmp)
+            run = _synthetic_run(batch, "r1", "t", "C2", False, 0.4,
+                                 {"input_tokens": _slot(10, "authoritative")})
+            _write_regrade(run, result="accepted")
+            runs = load_runs(batch)
+            self.assertEqual("rejected", runs[0]["acceptance"]["original_result"])
+            self.assertEqual("accepted", runs[0]["acceptance"]["result"])
+            self.assertIn("SYNTHETIC instrument error", runs[0]["acceptance"]["reason"])
+
+    def test_an_amended_verdict_reaches_the_ecst_denominator(self):
+        # ECST = Σ cost / accepted. If the amended verdict did not reach the divisor the
+        # cell would stay `undefined` while carrying real spend, which reads as "this
+        # cell cost nothing to fail" — the opposite of what happened.
+        with tempfile.TemporaryDirectory() as tmp:
+            batch = self._batch(tmp)
+            run = _synthetic_run(batch, "r1", "t", "C2", False, 2.0,
+                                 {"input_tokens": _slot(10, "authoritative")})
+            before = build(batch)["cells"][0]["ecst"]["marginal_operating_usd"]
+            self.assertEqual("undefined", before["status"])
+            _write_regrade(run, result="accepted")
+            after = build(batch)["cells"][0]["ecst"]["marginal_operating_usd"]
+            self.assertEqual(2.0, after["value"])
+            self.assertEqual(1, after["n_accepted"])
+
+    def test_a_regrade_that_could_not_reconstruct_the_run_is_unavailable(self):
+        # Not "rejected": the original verdict came from an instrument now known to be
+        # broken for this run, so it is not evidence either. CLAUDE.md rule 3.
+        with tempfile.TemporaryDirectory() as tmp:
+            batch = self._batch(tmp)
+            run = _synthetic_run(batch, "r1", "t", "C2", False, 0.4,
+                                 {"input_tokens": _slot(10, "authoritative")})
+            _write_regrade(run, status="unavailable", result=None,
+                           reason="no archived diff")
+            cell = build(batch)["cells"][0]
+            self.assertEqual(0, cell["acceptance"]["accepted"])
+            self.assertEqual(0, cell["acceptance"]["gradable"])
+            self.assertEqual(1, cell["acceptance"]["provenance"]["verdicts_unavailable"])
+            self.assertIn("unavailable", cell["acceptance"]["breakdown"])
+
+    def test_a_dataset_with_no_regrades_says_every_verdict_is_original(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            batch = self._batch(tmp)
+            _synthetic_run(batch, "r1", "t", "C2", True, 0.4,
+                           {"input_tokens": _slot(10, "authoritative")})
+            table = build(batch)
+            self.assertTrue(table["cells"][0]["acceptance"]["provenance"]["all_original"])
+            self.assertNotIn("What this dataset has been through",
+                             render_markdown(table))
+
+
+class TestAdjudicatedVoid(unittest.TestCase):
+    """A void cell is unscoreable — neither accepted nor rejected."""
+
+    def test_a_voided_cell_is_not_counted_as_a_rejection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            batch = os.path.join(tmp, "screening-batchX")
+            os.makedirs(batch)
+            _synthetic_run(batch, "r1", "t", "C2", False, 0.4,
+                           {"input_tokens": _slot(10, "authoritative")})
+            _write_adjudication(batch, "t")
+            cell = build(batch)["cells"][0]
+            self.assertEqual("void", cell["acceptance"]["breakdown"].popitem()[0])
+            self.assertEqual(0, cell["acceptance"]["gradable"])
+            self.assertEqual(1, cell["acceptance"]["provenance"]["voided"])
+            self.assertIn("not gradable", cell["acceptance"]["display"])
+
+    def test_an_adjudication_cannot_assert_an_outcome(self):
+        # The only disposition the reader honours is `void`. An entry inventing a pass
+        # must change nothing — an adjudication can withdraw a measurement, never
+        # manufacture one (CLAUDE.md rule 1).
+        with tempfile.TemporaryDirectory() as tmp:
+            batch = os.path.join(tmp, "screening-batchX")
+            os.makedirs(batch)
+            _synthetic_run(batch, "r1", "t", "C2", False, 0.4,
+                           {"input_tokens": _slot(10, "authoritative")})
+            with open(os.path.join(batch, "adjudication.json"), "w",
+                      encoding="utf-8") as fh:
+                json.dump({"SYNTHETIC": "SYNTHETIC test fixture — not a measurement",
+                           "entries": [{"scope": {"task_id": "t"},
+                                        "disposition": "accepted"}]}, fh)
+            cell = build(batch)["cells"][0]
+            self.assertEqual(0, cell["acceptance"]["accepted"])
+            self.assertEqual(1, cell["acceptance"]["provenance"]["original"])
+
+    def test_an_entry_scoped_to_another_task_leaves_this_one_alone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            batch = os.path.join(tmp, "screening-batchX")
+            os.makedirs(batch)
+            _synthetic_run(batch, "r1", "t", "C2", True, 0.4,
+                           {"input_tokens": _slot(10, "authoritative")})
+            _write_adjudication(batch, "some-other-task")
+            cell = build(batch)["cells"][0]
+            self.assertEqual(1, cell["acceptance"]["accepted"])
+            self.assertEqual(0, cell["acceptance"]["provenance"]["voided"])
+
+
+class TestPostHocEventsDoNotStretchWallClock(unittest.TestCase):
+    """A backfill event is stamped when the collector ran, not when the run did."""
+
+    def test_a_backfill_event_hours_later_does_not_become_the_run_length(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run = _synthetic_run(tmp, "r1", "t", "C2", True, 0.4,
+                                 {"input_tokens": _slot(10, "authoritative")})
+            self.assertEqual(42.0, wallclock_seconds(run)["value"])
+            _add_event(run, event_type="provider_usage_backfill",
+                       ts="2026-08-15T14:00:00Z")
+            after = wallclock_seconds(run)
+            self.assertEqual(42.0, after["value"])
+            self.assertEqual(1, after["excluded_post_hoc_events"])
+
+    def test_a_z_suffixed_timestamp_is_parsed_rather_than_dropped(self):
+        # A run event stamped `…Z` must count. Silently dropping it (what
+        # fromisoformat did before 3.11) makes the run look shorter than it was.
+        with tempfile.TemporaryDirectory() as tmp:
+            run = _synthetic_run(tmp, "r1", "t", "C2", True, 0.4,
+                                 {"input_tokens": _slot(10, "authoritative")})
+            _add_event(run, event_type="acceptance", ts="2026-08-15T10:02:00Z")
+            self.assertEqual(120.0, wallclock_seconds(run)["value"])
+
+
+class TestUsageProvenance(unittest.TestCase):
+    """Which token totals include a post-hoc backfill, and under which rule."""
+
+    def _cell(self, tmp, *, events=(), markers=()):
+        batch = os.path.join(tmp, "screening-batchX")
+        os.makedirs(batch)
+        run = _synthetic_run(batch, "r1", "t", "C2", True, 0.4,
+                             {"input_tokens": _slot(10, "authoritative")})
+        for event_type in events:
+            _add_event(run, event_type=event_type, ts="2026-08-15T14:00:00Z")
+        for marker in markers:
+            with open(os.path.join(run, marker), "w", encoding="utf-8") as fh:
+                json.dump({"SYNTHETIC": "SYNTHETIC test fixture"}, fh)
+        return build(batch)["cells"][0]
+
+    def test_a_cell_from_run_telemetry_alone_says_so(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            prov = self._cell(tmp)["usage_provenance"]
+            self.assertEqual(1, prov["runs_run_telemetry_only"])
+            self.assertIsNone(prov["runs_with_backfill_by_event"])
+
+    def test_the_attribution_rule_that_filled_a_cell_is_named(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            prov = self._cell(tmp, events=("provider_usage_backfill_v2",))
+            self.assertEqual({"provider_usage_backfill_v2": 1},
+                             prov["usage_provenance"]["runs_with_backfill_by_event"])
+            self.assertEqual(0, prov["usage_provenance"]["runs_run_telemetry_only"])
+
+    def test_a_refused_window_is_reported_not_hidden(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            prov = self._cell(tmp, markers=("PROVIDER-BACKFILL-REFUSED-v2.json",))
+            self.assertEqual({"provider_usage_backfill_v2": 1},
+                             prov["usage_provenance"]["runs_with_refusal_by_rule"])
+
+    def test_a_run_carrying_both_a_number_and_a_refusal_is_flagged(self):
+        # Four batch-1 runs are in exactly this state, from a collector that judged
+        # before checking idempotence. The table must not silently pick a side.
+        with tempfile.TemporaryDirectory() as tmp:
+            prov = self._cell(tmp, events=("provider_usage_backfill",),
+                              markers=("PROVIDER-BACKFILL-REFUSED.json",))
+            self.assertEqual(1,
+                             prov["usage_provenance"]["runs_with_backfill_and_refusal"])
+            self.assertEqual(
+                0, prov["usage_provenance"]["runs_refused_under_an_earlier_rule"])
+
+    def test_a_v1_refusal_beside_a_v2_number_is_not_a_contradiction(self):
+        # v1 refused this window; v2 drew a different one and attributed it. Both
+        # records are true of their own rule — flagging it as a stale marker would
+        # erase a refusal that still stands, and would inflate the defect count.
+        with tempfile.TemporaryDirectory() as tmp:
+            prov = self._cell(tmp, events=("provider_usage_backfill_v2",),
+                              markers=("PROVIDER-BACKFILL-REFUSED.json",))
+            usage = prov["usage_provenance"]
+            self.assertEqual(0, usage["runs_with_backfill_and_refusal"])
+            self.assertEqual(1, usage["runs_refused_under_an_earlier_rule"])
+
+
+class TestRunBudgetConfound(unittest.TestCase):
+    """A run the harness killed is an instrument observation, not a capability one."""
+
+    def _batch(self, tmp, timeouts_in=()):
+        batch = os.path.join(tmp, "screening-batchX")
+        os.makedirs(batch)
+        for arm in ("C3", "C3-med"):
+            for rep in (1, 2):
+                run = _synthetic_run(batch, f"{arm}-r{rep}", "t", arm, rep == 1, 1.0,
+                                     {"input_tokens": _slot(10, "authoritative")})
+                if arm in timeouts_in and rep == 2:
+                    _mark_timed_out(run)
+        return batch
+
+    def test_a_clean_cell_is_not_flagged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            table = build(self._batch(tmp))
+            for cell in table["cells"]:
+                self.assertFalse(cell["run_budget"]["confounded"])
+            verdicts = {r["verdict"] for r in
+                        table["prereg_grading"]["h_effort"]["by_task"]}
+            self.assertNotIn("confounded_not_graded", verdicts)
+
+    def test_a_timed_out_arm_is_counted_and_named(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            table = build(self._batch(tmp, timeouts_in=("C3-med",)))
+            cell = next(c for c in table["cells"]
+                        if c["configuration_or_policy"] == "C3-med")
+            self.assertTrue(cell["run_budget"]["confounded"])
+            self.assertEqual(1, cell["run_budget"]["n_timed_out"])
+            self.assertEqual(["C3-med-r2"], cell["run_budget"]["timed_out_runs"])
+
+    def test_a_prediction_is_not_graded_against_an_interrupted_arm(self):
+        # The cheap arm "costing less" because the harness stopped it early is the
+        # exact artefact that would otherwise be published as a saving.
+        with tempfile.TemporaryDirectory() as tmp:
+            table = build(self._batch(tmp, timeouts_in=("C3-med",)))
+            row = table["prereg_grading"]["h_effort"]["by_task"][0]
+            self.assertEqual("confounded_not_graded", row["verdict"])
+            self.assertIn("before the agent finished", row["reason"])
+            self.assertEqual(0, table["prereg_grading"]["h_effort"]["n_graded"])
+
+    def test_the_escalation_probe_reports_both_halves_but_withholds_the_verdict(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            batch = os.path.join(tmp, "screening-batchX")
+            os.makedirs(batch)
+            registry = {"probe": {"task_id": "probe", "task_class": "migration",
+                                  "registered_arms": ["C2", "P1"], "companion_arms": [],
+                                  "label": "probe", "arm_key": "configurations"}}
+            for arm in ("C2", "P1"):
+                run = _synthetic_run(batch, f"{arm}-r1", "probe", arm, False, 1.0,
+                                     {"input_tokens": _slot(10, "authoritative")})
+                _mark_timed_out(run)
+            runs = load_runs(batch)
+            grouped = {}
+            for r in runs:
+                grouped.setdefault(("probe", r["summary"]["configuration_id"]),
+                                   []).append(r)
+            cells = {k: build_cell(k[0], k[1], v, 1.6, task_class="migration")
+                     for k, v in grouped.items()}
+            grading = grade_w3_escalation(cells, grouped, registry)
+            self.assertEqual("confounded_by_run_budget", grading["outcome"])
+            # the observations survive; only the verdict is withheld
+            self.assertEqual("failed", grading["economical_tier_gate"])
+            self.assertEqual(2, grading["confound"]["n_timed_out"])
+            self.assertIn("agent_timeout_s", grading["confound"]["remedy"])
+
+
+class TestRepairedDatasetMarkdown(unittest.TestCase):
+    """The markdown has to say what was repaired before it shows any figure."""
+
+    def test_the_provenance_section_precedes_the_first_table(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            batch = os.path.join(tmp, "screening-batchX")
+            os.makedirs(batch)
+            run = _synthetic_run(batch, "r1", "t", "C2", False, 0.4,
+                                 {"input_tokens": _slot(10, "authoritative")})
+            _write_regrade(run, result="accepted")
+            md = render_markdown(build(batch))
+            self.assertIn("What this dataset has been through", md)
+            self.assertLess(md.index("What this dataset has been through"),
+                            md.index("## Acceptance, ECST and wall-clock"))
+            self.assertIn("rejected → accepted", md)
+            self.assertIn("| Verdict |", md)
+
+
 if __name__ == "__main__":
     unittest.main()

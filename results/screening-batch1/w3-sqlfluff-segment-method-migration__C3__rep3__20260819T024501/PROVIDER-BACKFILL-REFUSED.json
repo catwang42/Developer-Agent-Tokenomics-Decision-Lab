@@ -1,0 +1,60 @@
+{
+  "collected_at": "2026-08-19T23:15:09.142390Z",
+  "collector": "vertex_token_collector",
+  "guard": {
+    "contaminated": true,
+    "evidence": {
+      "baseline": {
+        "baseline_seconds": 300,
+        "windows": {
+          "post": {
+            "by_model": {
+              "gemini-3.7-flash": {
+                "input": 0
+              }
+            },
+            "end": "2026-08-19T03:06:20.626836Z",
+            "points": 1,
+            "start": "2026-08-19T03:01:20.626837Z"
+          },
+          "pre": {
+            "by_model": {},
+            "end": "2026-08-19T02:44:02.433182Z",
+            "points": 0,
+            "start": "2026-08-19T02:39:02.433183Z"
+          }
+        }
+      },
+      "ceiling": {
+        "input_side_tokens_ceiling": 3000000,
+        "observed_input_side_tokens": {
+          "gemini-3.7-flash": 10667130
+        }
+      }
+    },
+    "reasons": [
+      "gemini-3.7-flash: 10667130 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "post-run baseline window 2026-08-19T03:01:20.626837Z..2026-08-19T03:06:20.626836Z is NOT quiet: 1 point(s), {'gemini-3.7-flash': {'input': 0}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+    ]
+  },
+  "metric_type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "note": "The provider meter for this window could not be attributed to this run, so NOTHING was written to events.jsonl or summary.json and the run's Product-B usage remains 'unavailable' (not zero). The totals below are what the window contained; they are NOT this run's usage.",
+  "refusal": "contaminated_window",
+  "run_id": "w3-sqlfluff-segment-method-migration__C3__rep3__20260819T024501",
+  "window_totals_refused": {
+    "by_model": {
+      "gemini-3.7-flash": {
+        "input": 10667130,
+        "output": 90596
+      }
+    },
+    "points_in_window": 32,
+    "points_outside_window": 0,
+    "unmapped_types": {},
+    "window": {
+      "end": "2026-08-19T03:01:20.626836Z",
+      "guard_seconds": 60,
+      "start": "2026-08-19T02:44:02.433183Z"
+    }
+  }
+}

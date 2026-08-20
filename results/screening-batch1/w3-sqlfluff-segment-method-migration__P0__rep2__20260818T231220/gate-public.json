@@ -1,0 +1,40 @@
+{
+  "gate": "public",
+  "checks": [
+    {
+      "id": "G0-subject-readable",
+      "status": "pass",
+      "detail": "git can read the subject tree (diff-scope is meaningful)"
+    },
+    {
+      "id": "P6-diff-scope",
+      "status": "fail",
+      "detail": "unexpected changes (incl. any test-file edit): src/sqlfluff/AGENTS.md src/sqlfluff/dialects/AGENTS.md"
+    },
+    {
+      "id": "P5-no-leakage",
+      "status": "pass",
+      "detail": "no canonical patch / solution markers in tree"
+    },
+    {
+      "id": "P3-typecheck",
+      "status": "pass",
+      "detail": "no typecheck declared (skipped)"
+    },
+    {
+      "id": "P4-build",
+      "status": "pass",
+      "detail": ".venv/bin/python -c 'import sqlfluff, sqlfluff.core.dialects.common'"
+    },
+    {
+      "id": "P1-public-test",
+      "status": "fail",
+      "detail": "upstream's test/core/dialects/common_test.py \u2014 9 tests over the free functions and their deprecated wrappers (ansi + bigquery)"
+    },
+    {
+      "id": "P2-regression",
+      "status": "fail",
+      "detail": "baseline suite (test/core + test/utils + test/dialects/bigquery_test.py + test/rules[AL05,RF01,RF02,RF03,ST05,ST09,ST11])"
+    }
+  ]
+}

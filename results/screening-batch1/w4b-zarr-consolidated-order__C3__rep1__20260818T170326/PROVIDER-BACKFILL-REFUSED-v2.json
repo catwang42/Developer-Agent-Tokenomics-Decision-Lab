@@ -1,0 +1,78 @@
+{
+  "attribution_rule": {
+    "attribution_window": {
+      "end": "2026-08-18T17:18:59.000000Z",
+      "start": "2026-08-18T17:02:26.781181Z"
+    },
+    "bounded_by": "next_subject_run",
+    "guard_seconds": 60,
+    "id": "serialized_run_ownership_with_ingestion_tail",
+    "last_point_attributed": "2026-08-18T17:17:59.000000Z",
+    "next_run_window_opens": "2026-08-18T17:31:40.008264Z",
+    "prev_run_owns_until": "2026-08-18T16:33:01.417778Z",
+    "run_window": {
+      "end": "2026-08-18T17:17:33.416603Z",
+      "start": "2026-08-18T17:03:26.781181Z"
+    },
+    "statement": "a serialized subject run owns the provider meter from its own start until the next subject run's window opens; its own ingestion tail is its own",
+    "tail_cap_seconds": 900,
+    "tail_ended_by": "silence",
+    "tail_granted_seconds": 25.583397,
+    "tail_seconds": 900,
+    "tail_silence_seconds": 300
+  },
+  "collected_at": "2026-08-20T05:18:52.915850Z",
+  "collector": "vertex_token_collector",
+  "guard": {
+    "contaminated": true,
+    "evidence": {
+      "baseline": {
+        "baseline_seconds": 300,
+        "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+        "windows": {
+          "post": {
+            "by_model": {},
+            "end": "2026-08-18T17:31:40.008263Z",
+            "points": 0,
+            "start": "2026-08-18T17:18:59.000001Z"
+          },
+          "pre": {
+            "by_model": {},
+            "end": "2026-08-18T17:02:26.781180Z",
+            "points": 0,
+            "start": "2026-08-18T16:57:26.781181Z"
+          }
+        }
+      },
+      "ceiling": {
+        "input_side_tokens_ceiling": 3000000,
+        "observed_input_side_tokens": {
+          "gemini-3.7-flash": 6785379
+        }
+      }
+    },
+    "reasons": [
+      "gemini-3.7-flash: 6785379 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+    ]
+  },
+  "metric_type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "note": "The provider meter for this window could not be attributed to this run, so NOTHING was written to events.jsonl or summary.json and the run's Product-B usage remains 'unavailable' (not zero). The totals below are what the window contained; they are NOT this run's usage.",
+  "refusal": "contaminated_window",
+  "run_id": "w4b-zarr-consolidated-order__C3__rep1__20260818T170326",
+  "window_totals_refused": {
+    "by_model": {
+      "gemini-3.7-flash": {
+        "input": 6785379,
+        "output": 39848
+      }
+    },
+    "points_in_window": 29,
+    "points_outside_window": 0,
+    "unmapped_types": {},
+    "window": {
+      "end": "2026-08-18T17:18:59.000000Z",
+      "guard_seconds": 60,
+      "start": "2026-08-18T17:02:26.781181Z"
+    }
+  }
+}

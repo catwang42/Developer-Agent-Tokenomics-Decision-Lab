@@ -1,0 +1,22 @@
+--- diff apply ---
+?? src/tests/mappers/mappers.test.ts
+
+--- hidden gate (stdout) ---
+== hidden gate (w1-realworld-mapper-tests) [test_generation] ==
+  source: /lab/tasks/suite/W1-test-generation/hidden
+  version: sealed-w1-v1 2026-07-20 6-mutants
+  hash:    sha256:37f3acd685fd03e0624a98f328e38edffe8faef5179263e502035c707c51f4e9
+  runner:  check.sh (sealed; contents never shown)
+  -- sealed runner (stderr) --
+  | hidden: caught: m1-following-always-false
+  | hidden: caught: m2-following-always-true
+  | hidden: caught: m3-some-predicate-flip
+  | hidden: caught: m4-favorited-always-false
+  | hidden: caught: m5-count-off-by-one
+  | hidden: caught: m6-taglist-wrong-shape
+  | hidden: all 6 mutants caught
+== hidden gate: PASS ==
+
+--- hidden gate (stderr) ---
+
+--- exit: 0

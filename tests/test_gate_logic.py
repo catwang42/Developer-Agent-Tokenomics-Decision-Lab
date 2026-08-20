@@ -252,10 +252,14 @@ class SubjectReadableGuardTest(unittest.TestCase):
 
     def test_ownership_is_trusted_by_env_not_by_the_operators_gitconfig(self) -> None:
         # Writing safe.directory into ~/.gitconfig would silence the same guard for
-        # every repo on the machine, well outside this gate's remit.
-        text = (GATE / "check-public.sh").read_text(encoding="utf-8")
+        # every repo on the machine, well outside this gate's remit. The mechanism
+        # now lives in lib.sh's git_trust_subject, shared by both gates — the hidden
+        # gate needs the identical trust and they run in separate containers.
+        text = (GATE.parent / "lib.sh").read_text(encoding="utf-8")
         self.assertIn("GIT_CONFIG_VALUE_0=\"$SUBJECT_DIR\"", text)
-        self.assertNotIn("git config --global", text)
+        for script in ("lib.sh", "gate/check-public.sh", "gate/check-hidden.sh"):
+            self.assertNotIn("git config --global",
+                             (GATE.parent / script).read_text(encoding="utf-8"))
 
 
 class SyntheticFixtureLabelingTest(unittest.TestCase):

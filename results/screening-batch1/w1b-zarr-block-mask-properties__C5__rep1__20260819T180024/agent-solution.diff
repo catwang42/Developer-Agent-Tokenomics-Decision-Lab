@@ -1,0 +1,298 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/tests/test_indexing_properties.py b/tests/test_indexing_properties.py
+new file mode 100644
+index 00000000..e9d16c96
+--- /dev/null
++++ b/tests/test_indexing_properties.py
+@@ -0,0 +1,290 @@
++"""Property tests for block indexing and mask indexing.
++
++Both indexing modes are compared against a numpy oracle: the same selection is
++performed on the equivalent numpy array and the results must match.
++
++Block indexing is basic indexing over the *grid of chunks*, so the oracle
++translates a block selection into the equivalent element selection using the
++chunk boundaries reported by ``Array.write_chunk_sizes`` (which describes the
++grid that block indexing addresses, i.e. shards for a sharded array).
++"""
++
++from collections.abc import Generator
++from typing import Any
++
++import numpy as np
++import pytest
++from numpy.testing import assert_array_equal
++
++import zarr
++
++pytest.importorskip("hypothesis")
++
++import hypothesis.extra.numpy as npst
++import hypothesis.strategies as st
++from hypothesis import given
++
++from zarr.testing.strategies import (
++    basic_indices,
++    np_array_and_chunks,
++    numpy_arrays,
++    rectilinear_arrays,
++    shard_shapes,
++    simple_arrays,
++    stores,
++)
++
++# Keep the number of chunks (and therefore the size of the block grid) modest so
++# that examples stay fast.  min_side=1 because block indexing has no meaningful
++# behaviour for zero-sized dimensions: every block index is out of bounds.
++_shapes = npst.array_shapes(max_dims=3, min_side=1, max_side=6)
++
++
++@pytest.fixture(autouse=True)
++def _enable_rectilinear_chunks() -> Generator[None, None, None]:
++    """Enable rectilinear chunks since the strategies below may generate them."""
++    with zarr.config.set({"array.rectilinear_chunks": True}):
++        yield
++
++
++def indexable_arrays() -> st.SearchStrategy[Any]:
++    """Zarr arrays with regular (possibly sharded) and rectilinear chunk grids."""
++    return st.one_of(simple_arrays(shapes=_shapes), rectilinear_arrays(shapes=_shapes))
++
++
++# -----------------------------------------------------------------------------
++# block indexing
++# -----------------------------------------------------------------------------
++
++
++def block_offsets(sizes: tuple[int, ...]) -> tuple[int, ...]:
++    """Element offset of every block along one dimension, plus the extent.
++
++    ``len(result) == len(sizes) + 1`` so ``result[i]:result[i + 1]`` is the
++    element range covered by block ``i``.
++    """
++    offsets = [0]
++    for size in sizes:
++        offsets.append(offsets[-1] + size)
++    return tuple(offsets)
++
++
++def _chunk_sizes(extent: int, chunk: int) -> tuple[int, ...]:
++    """Sizes of every chunk of length *chunk* covering *extent*, last one clipped."""
++    return tuple(min(chunk, extent - start) for start in range(0, extent, chunk))
++
++
++def block_selection_to_element_selection(
++    selection: tuple[int | slice, ...], block_sizes: tuple[tuple[int, ...], ...]
++) -> tuple[slice, ...]:
++    """Translate a (fully specified) block selection into an element selection.
++
++    This is the numpy oracle for block indexing: indexing a numpy array with the
++    returned tuple of slices must give the same answer as indexing the zarr
++    array with ``selection``.  Note that an integer block index selects a whole
++    block rather than dropping the dimension, so the result is always a tuple of
++    slices.
++    """
++    element_selection: list[slice] = []
++    for dim_sel, sizes in zip(selection, block_sizes, strict=True):
++        nblocks = len(sizes)
++        offsets = block_offsets(sizes)
++        if isinstance(dim_sel, slice):
++            assert dim_sel.step in (None, 1)
++            start = 0 if dim_sel.start is None else dim_sel.start
++            stop = nblocks if dim_sel.stop is None else dim_sel.stop
++            if start < 0:
++                start += nblocks
++            if stop < 0:
++                stop += nblocks
++            assert 0 <= start < nblocks, "block selection must start at an existing block"
++            assert stop >= 0
++            # a block index past the end of the grid selects up to the extent
++            element_selection.append(slice(offsets[start], offsets[min(stop, nblocks)]))
++        else:
++            block = dim_sel + nblocks if dim_sel < 0 else dim_sel
++            element_selection.append(slice(offsets[block], offsets[block + 1]))
++    return tuple(element_selection)
++
++
++def dim_block_indices(nblocks: int) -> st.SearchStrategy[int | slice]:
++    """Block indices zarr supports for one dimension.
++
++    Only integers and step-1 slices are supported, and the start of a slice must
++    reference an existing block, so ``start`` is bounded by the block count while
++    ``stop`` may run past the end of the grid.
++    """
++    integers = st.integers(min_value=-nblocks, max_value=nblocks - 1)
++    slices = st.builds(
++        slice,
++        st.none() | st.integers(min_value=-nblocks, max_value=nblocks - 1),
++        st.none() | st.integers(min_value=-nblocks, max_value=nblocks + 1),
++        st.sampled_from([None, 1]),
++    )
++    return integers | slices
++
++
++@st.composite
++def block_indices(
++    draw: st.DrawFn, *, block_sizes: tuple[tuple[int, ...], ...]
++) -> tuple[Any, tuple[int | slice, ...]]:
++    """Generate a block selection for an array with the given block grid.
++
++    Returns a tuple of
++
++    1. the selection to hand to zarr, which may be abbreviated (fewer entries
++       than the array has dimensions), may contain an ellipsis, or may be a bare
++       integer/slice instead of a tuple, and
++    2. the equivalent fully specified selection, one entry per dimension, used
++       to build the numpy oracle.
++    """
++    ndim = len(block_sizes)
++    canonical: list[int | slice] = [draw(dim_block_indices(len(sizes))) for sizes in block_sizes]
++
++    form = draw(st.sampled_from(["full", "abbreviated", "ellipsis"]))
++    surface: Any
++    if form == "abbreviated":
++        # trailing dimensions are implicitly selected in full
++        nkept = draw(st.integers(min_value=0, max_value=ndim))
++        for axis in range(nkept, ndim):
++            canonical[axis] = slice(None)
++        surface = tuple(canonical[:nkept])
++    elif form == "ellipsis":
++        # the dimensions the ellipsis expands to are selected in full
++        nleft = draw(st.integers(min_value=0, max_value=ndim))
++        nright = draw(st.integers(min_value=0, max_value=ndim - nleft))
++        for axis in range(nleft, ndim - nright):
++            canonical[axis] = slice(None)
++        surface = (*canonical[:nleft], ..., *canonical[ndim - nright :])
++    else:
++        surface = tuple(canonical)
++
++    if len(surface) == 1 and surface[0] is not Ellipsis and draw(st.booleans()):
++        # zarr also accepts a bare index rather than a length-1 tuple
++        surface = surface[0]
++
++    return surface, tuple(canonical)
++
++
++@pytest.mark.filterwarnings("ignore::zarr.core.dtype.common.UnstableSpecificationWarning")
++@given(data=st.data())
++def test_get_block_selection(data: st.DataObject) -> None:
++    zarray = data.draw(indexable_arrays())
++    nparray = zarray[:]
++    selection, canonical = data.draw(block_indices(block_sizes=zarray.write_chunk_sizes))
++    expected = nparray[block_selection_to_element_selection(canonical, zarray.write_chunk_sizes)]
++
++    assert_array_equal(expected, zarray.get_block_selection(selection))
++    assert_array_equal(expected, zarray.blocks[selection])
++
++
++@pytest.mark.filterwarnings("ignore::zarr.core.dtype.common.UnstableSpecificationWarning")
++@given(data=st.data())
++def test_set_block_selection(data: st.DataObject) -> None:
++    zarray = data.draw(indexable_arrays())
++    nparray = zarray[:]
++    selection, canonical = data.draw(block_indices(block_sizes=zarray.write_chunk_sizes))
++    element_selection = block_selection_to_element_selection(canonical, zarray.write_chunk_sizes)
++    block_shape = nparray[element_selection].shape
++
++    new_data = data.draw(numpy_arrays(shapes=st.just(block_shape), dtype=nparray.dtype))
++    zarray.set_block_selection(selection, new_data)
++    nparray[element_selection] = new_data
++    assert_array_equal(nparray, zarray[:])
++
++    other_data = data.draw(numpy_arrays(shapes=st.just(block_shape), dtype=nparray.dtype))
++    zarray.blocks[selection] = other_data
++    nparray[element_selection] = other_data
++    assert_array_equal(nparray, zarray[:])
++
++
++@pytest.mark.filterwarnings("ignore::zarr.core.dtype.common.UnstableSpecificationWarning")
++@given(data=st.data())
++def test_block_selection_of_sharded_array(data: st.DataObject) -> None:
++    """Block indexing addresses the write (shard) grid, not the inner chunk grid.
++
++    The oracle here is a numpy array that was never read back from zarr.
++    """
++    nparray, chunks = data.draw(np_array_and_chunks(arrays=numpy_arrays(shapes=_shapes)))
++    shards = data.draw(st.none() | shard_shapes(shape=nparray.shape, chunk_shape=chunks))
++    store = data.draw(stores)
++    zarray = zarr.create_array(
++        store, shape=nparray.shape, chunks=chunks, shards=shards, dtype=nparray.dtype
++    )
++    zarray[:] = nparray
++
++    block_sizes = zarray.write_chunk_sizes
++    if shards is not None:
++        # blocks are shards, which may hold several chunks each
++        assert block_sizes == tuple(
++            _chunk_sizes(size, shard) for size, shard in zip(nparray.shape, shards, strict=True)
++        )
++
++    selection, canonical = data.draw(block_indices(block_sizes=block_sizes))
++    element_selection = block_selection_to_element_selection(canonical, block_sizes)
++    assert_array_equal(nparray[element_selection], zarray.get_block_selection(selection))
++    assert_array_equal(nparray[element_selection], zarray.blocks[selection])
++
++    # every block is covered exactly once by iterating over the whole grid
++    reconstructed = np.empty_like(nparray)
++    for coord in np.ndindex(*(len(sizes) for sizes in block_sizes)):
++        reconstructed[block_selection_to_element_selection(coord, block_sizes)] = zarray.blocks[
++            coord
++        ]
++    assert_array_equal(nparray, reconstructed)
++
++
++# -----------------------------------------------------------------------------
++# mask indexing
++# -----------------------------------------------------------------------------
++
++
++def masks(shape: tuple[int, ...]) -> st.SearchStrategy[Any]:
++    """Boolean masks with the same shape as the target array."""
++    return numpy_arrays(shapes=st.just(shape), dtype=np.dtype(bool))
++
++
++@pytest.mark.filterwarnings("ignore::zarr.core.dtype.common.UnstableSpecificationWarning")
++@given(data=st.data())
++def test_get_mask_selection(data: st.DataObject) -> None:
++    zarray = data.draw(indexable_arrays())
++    nparray = zarray[:]
++    mask = data.draw(masks(nparray.shape))
++    expected = nparray[mask]
++
++    assert_array_equal(expected, zarray.get_mask_selection(mask))
++    assert_array_equal(expected, zarray.vindex[mask])
++
++
++@pytest.mark.filterwarnings("ignore::zarr.core.dtype.common.UnstableSpecificationWarning")
++@given(data=st.data())
++def test_set_mask_selection(data: st.DataObject) -> None:
++    zarray = data.draw(indexable_arrays())
++    nparray = zarray[:]
++    mask = data.draw(masks(nparray.shape))
++    nselected = (int(mask.sum()),)
++
++    new_data = data.draw(numpy_arrays(shapes=st.just(nselected), dtype=nparray.dtype))
++    zarray.set_mask_selection(mask, new_data)
++    nparray[mask] = new_data
++    assert_array_equal(nparray, zarray[:])
++
++    other_data = data.draw(numpy_arrays(shapes=st.just(nselected), dtype=nparray.dtype))
++    zarray.vindex[mask] = other_data
++    nparray[mask] = other_data
++    assert_array_equal(nparray, zarray[:])
++
++
++@pytest.mark.filterwarnings("ignore::zarr.core.dtype.common.UnstableSpecificationWarning")
++@given(data=st.data())
++def test_mask_selection_agrees_with_basic_selection(data: st.DataObject) -> None:
++    """A mask built from a basic selection reads back the same elements."""
++    zarray = data.draw(indexable_arrays())
++    nparray = zarray[:]
++    indexer = data.draw(basic_indices(shape=nparray.shape, allow_ellipsis=False))
++
++    mask = np.zeros(nparray.shape, dtype=bool)
++    mask[indexer] = True
++
++    assert_array_equal(nparray[mask], zarray.get_mask_selection(mask))
++    assert_array_equal(nparray[mask], zarray.vindex[mask])

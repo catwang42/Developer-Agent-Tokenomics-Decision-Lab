@@ -56,6 +56,7 @@ from harness.container.exec import (
     ContainerLaunch,
     agent_build_args,
     agent_container_env,
+    agent_container_prefix,
     agent_credential_mounts,
     agent_image_tag,
     agent_volume_name,
@@ -90,6 +91,12 @@ COST_BASIS_QUALIFIERS = ("cache_blind_upper_bound",)
 # harness/container/README.md and manifest subject_isolation).
 SUBJECT_DOCKERFILE = os.path.join(REPO_ROOT, "harness", "container", "Dockerfile.subject")
 CONTAINER_LAB_ROOT = "/lab"
+
+# Fallback agent budget for a task that pins none. Every roster task DOES pin one
+# (task.yaml + manifest `agent_timeout_s`, enforced by tests/test_tasks.py); this
+# only covers synthetic fixture tasks, and matches the adapters' historical flat
+# bound so nothing changes silently for them.
+DEFAULT_AGENT_TIMEOUT_S = 1800
 
 # Values that mean "not resolved yet" — a live run must not proceed on these.
 _PLACEHOLDERS = {
@@ -463,9 +470,49 @@ class Task:
     pinned_commit: Optional[str] = None
     task_dir_rel: Optional[str] = None  # repo-root-relative (for the container image)
     manifest_key: Optional[str] = None  # where this task's pins live in the manifest
+    #: Workshop-owned agent budget for ONE attempt of this task, in seconds.
+    #: Pinned per task because the suite's tasks are not the same size.
+    agent_timeout_s: int = DEFAULT_AGENT_TIMEOUT_S
     # The parsed task.yaml, kept so policies that must agree with the task's own
     # declarations (P2's split file vs the gate's write scope) can check, not assume.
     task_yaml: Dict[str, Any] = field(default_factory=dict)
+
+
+def resolve_agent_timeout(task_id: str, ty: Dict[str, Any],
+                          mentry: Dict[str, Any]) -> int:
+    """The task's pinned agent budget, cross-checked across its two declarations.
+
+    ``agent_timeout_s`` is a RUN CONDITION: it decides whether a slow attempt is a
+    measurement or a right-censored non-result, so it is pinned like any other
+    condition — in task.yaml (next to the task it bounds) and in the manifest (the
+    single place volatile pins resolve). Both must agree; a disagreement is refused
+    rather than resolved by precedence, because either value could be the stale one
+    and picking silently would mislabel every run in the batch.
+
+    Absent from both, the adapter default applies — the historical behaviour, kept so
+    a synthetic fixture task need not pin one. ``tests/test_tasks.py`` is what
+    requires every roster task to pin it in both places.
+    """
+    declared = {"task.yaml": ty.get("agent_timeout_s"),
+                "manifest": mentry.get("agent_timeout_s")}
+    values = {}
+    for where, raw in declared.items():
+        if raw is None:
+            continue
+        if not isinstance(raw, int) or isinstance(raw, bool) or raw <= 0:
+            raise RunnerError(
+                f"{task_id}: {where} agent_timeout_s must be a positive integer "
+                f"number of seconds, got {raw!r}"
+            )
+        values[where] = raw
+    if len(values) == 2 and values["task.yaml"] != values["manifest"]:
+        raise RunnerError(
+            f"{task_id}: agent_timeout_s disagrees between task.yaml "
+            f"({values['task.yaml']}s) and the manifest ({values['manifest']}s). "
+            f"The agent budget is a pinned run condition; reconcile the two rather "
+            f"than letting the runner pick one."
+        )
+    return next(iter(values.values()), DEFAULT_AGENT_TIMEOUT_S)
 
 
 def load_task(task_arg: str, manifest: Dict[str, Any]) -> Task:
@@ -488,6 +535,7 @@ def load_task(task_arg: str, manifest: Dict[str, Any]) -> Task:
         pinned_commit=mentry.get("pinned_commit"),
         task_dir_rel=os.path.relpath(task_dir, REPO_ROOT),
         manifest_key=mkey,
+        agent_timeout_s=resolve_agent_timeout(ty.get("task_id", task_dir), ty, mentry),
         task_yaml=ty,
     )
 
@@ -577,6 +625,31 @@ def real_gate(task_dir: str, run_dir: str, subject_dir: str
     return _gate_verdict(pub_rc, hid_rc, _read_gate_reports(run_dir))
 
 
+def _write_gate_log(run_dir: str, which: str, result) -> None:
+    """Persist a gate container's transcript next to its JSON report.
+
+    Batch 1 threw this away: the gate's stdout lived only in a ``ContainerResult``
+    the runner dropped on the floor, so when W6 cells came back `rejected` there was
+    no sealed-runner stderr anywhere to say WHY — the per-defect matcher lines that
+    distinguish "the review missed the defects" from "the review report was not
+    where the matcher looked" existed for a few milliseconds and were discarded.
+    Diagnosing it after the fact meant re-running the gate.
+
+    What lands here is what the gate already prints: its own check lines plus the
+    sealed runner's stderr, which check-hidden.sh surfaces by design. The sealed
+    ARTEFACTS are never read or printed by the harness, and nothing here changes
+    that — only the runner's habit of discarding its own instrument's output.
+    """
+    path = os.path.join(run_dir, f"gate-{which}.log")
+    body = getattr(result, "stdout", "") or ""
+    if getattr(result, "stderr", ""):
+        body += f"\n--- stderr ---\n{result.stderr}"
+    timed_out = " (TIMED OUT)" if getattr(result, "timed_out", False) else ""
+    body += f"\n--- exit: {result.returncode}{timed_out}\n"
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(body)
+
+
 def container_gate(launch: ContainerLaunch, task: "Task", run_dir: str
                    ) -> Tuple[bool, str, Dict[str, Any]]:
     """Run the deterministic gate OFFLINE inside the subject-gate container (--network=none).
@@ -624,11 +697,13 @@ def container_gate(launch: ContainerLaunch, task: "Task", run_dir: str
         mounts=mounts, network="none", workdir=repo_c,
         env={**base_env, "GATE_REPORT": "/out/gate-public.json"},
     )
+    _write_gate_log(run_dir, "public", pub)
     hid = ex.run(
         ["bash", f"{CONTAINER_LAB_ROOT}/harness/task-tools/gate/check-hidden.sh"],
         mounts=mounts, network="none", workdir=repo_c,
         env={**base_env, "HIDDEN_REPORT": "/out/gate-hidden.json"},
     )
+    _write_gate_log(run_dir, "hidden", hid)
     return _gate_verdict(pub.returncode, hid.returncode, _read_gate_reports(run_dir))
 
 
@@ -758,7 +833,8 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
         else:
             leg_session = str(uuid.uuid4())
         spec = AttemptSpec(leg.leg_id, leg.role, leg.resolved, task.prompt,
-                           cache_state=cache_state, session_id=leg_session, resume=resume)
+                           cache_state=cache_state, session_id=leg_session,
+                           resume=resume, timeout_s=task.agent_timeout_s)
         record_outcome(leg, adapter.run_attempt(spec, subject_dir, emit))
 
     # Fix 5: archive the agent's diff the instant its work is complete and BEFORE
@@ -814,7 +890,8 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
         spec = AttemptSpec(conductor.leg_id, conductor.role, conductor.resolved,
                            task.prompt, cache_state=cache_state,
                            session_id=base_session, resume=resume,
-                           delegation=plan.delegation)
+                           delegation=plan.delegation,
+                           timeout_s=task.agent_timeout_s)
         outcome = adapter.run_attempt(spec, subject_dir, emit)
         record_outcome(conductor, outcome)
         for leg in others:
@@ -1243,6 +1320,11 @@ def _ensure_agent_launch(
     return ContainerLaunch(
         image=tag, network=network, mounts=tuple(agent_credential_mounts()),
         env=env, agent_volume=volume, profile=SUBJECT_PROFILE_CONTAINER_AGENT,
+        # Names the run's agent containers so a timeout has something to kill. An
+        # unnamed container can only be reached through the docker CLI client the
+        # timeout already killed, which is how batch 1 left an orphan running past
+        # its own run (exec.kill_container).
+        name_prefix=agent_container_prefix(run_id),
     ), label
 
 

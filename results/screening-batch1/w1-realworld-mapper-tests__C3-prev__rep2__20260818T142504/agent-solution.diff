@@ -1,0 +1,185 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/src/tests/mappers/mappers.test.ts b/src/tests/mappers/mappers.test.ts
+new file mode 100644
+index 0000000..2b8c430
+--- /dev/null
++++ b/src/tests/mappers/mappers.test.ts
+@@ -0,0 +1,177 @@
++import articleMapper from '../../app/routes/article/article.mapper';
++import authorMapper from '../../app/routes/article/author.mapper';
++
++describe('Author Mapper', () => {
++  test('maps author correctly when id is absent (undefined)', () => {
++    const authorInput = {
++      username: 'johndoe',
++      bio: 'Developer and writer',
++      image: 'https://example.com/avatar.jpg',
++      followedBy: [{ id: 1 }, { id: 2 }],
++    };
++
++    const mapped = authorMapper(authorInput);
++
++    expect(mapped).toEqual({
++      username: 'johndoe',
++      bio: 'Developer and writer',
++      image: 'https://example.com/avatar.jpg',
++      following: false,
++    });
++  });
++
++  test('maps author correctly when id is present and user is in followedBy', () => {
++    const authorInput = {
++      username: 'janedoe',
++      bio: null,
++      image: null,
++      followedBy: [{ id: 10 }, { id: 20 }],
++    };
++
++    const mapped = authorMapper(authorInput, 10);
++
++    expect(mapped).toEqual({
++      username: 'janedoe',
++      bio: null,
++      image: null,
++      following: true,
++    });
++  });
++
++  test('maps author correctly when id is present and user is not in followedBy', () => {
++    const authorInput = {
++      username: 'bobsmith',
++      bio: 'Code enthusiast',
++      image: 'https://example.com/bob.jpg',
++      followedBy: [{ id: 10 }, { id: 20 }],
++    };
++
++    const mapped = authorMapper(authorInput, 99);
++
++    expect(mapped).toEqual({
++      username: 'bobsmith',
++      bio: 'Code enthusiast',
++      image: 'https://example.com/bob.jpg',
++      following: false,
++    });
++  });
++});
++
++describe('Article Mapper', () => {
++  test('maps article correctly when user favorited it, with non-empty tagList', () => {
++    const articleInput = {
++      slug: 'how-to-learn-typescript',
++      title: 'How to Learn TypeScript',
++      description: 'A comprehensive guide to TS',
++      body: 'TypeScript adds type safety to JavaScript...',
++      tagList: [{ name: 'typescript' }, { name: 'javascript' }],
++      createdAt: new Date('2026-01-01T10:00:00.000Z'),
++      updatedAt: new Date('2026-01-02T12:00:00.000Z'),
++      favoritedBy: [{ id: 5 }, { id: 15 }],
++      author: {
++        username: 'alice',
++        bio: 'Tech lead',
++        image: 'https://example.com/alice.png',
++        followedBy: [{ id: 5 }],
++      },
++    };
++
++    const mapped = articleMapper(articleInput, 5);
++
++    expect(mapped).toEqual({
++      slug: 'how-to-learn-typescript',
++      title: 'How to Learn TypeScript',
++      description: 'A comprehensive guide to TS',
++      body: 'TypeScript adds type safety to JavaScript...',
++      tagList: ['typescript', 'javascript'],
++      createdAt: new Date('2026-01-01T10:00:00.000Z'),
++      updatedAt: new Date('2026-01-02T12:00:00.000Z'),
++      favorited: true,
++      favoritesCount: 2,
++      author: {
++        username: 'alice',
++        bio: 'Tech lead',
++        image: 'https://example.com/alice.png',
++        following: true,
++      },
++    });
++  });
++
++  test('maps article correctly when user did not favorite it, with empty tagList', () => {
++    const articleInput = {
++      slug: 'intro-to-jest',
++      title: 'Intro to Jest',
++      description: 'Testing made easy',
++      body: 'Jest is a delightful JavaScript Testing Framework...',
++      tagList: [],
++      createdAt: '2026-02-01T00:00:00.000Z',
++      updatedAt: '2026-02-01T00:00:00.000Z',
++      favoritedBy: [{ id: 100 }],
++      author: {
++        username: 'charlie',
++        bio: null,
++        image: null,
++        followedBy: [],
++      },
++    };
++
++    const mapped = articleMapper(articleInput, 5);
++
++    expect(mapped).toEqual({
++      slug: 'intro-to-jest',
++      title: 'Intro to Jest',
++      description: 'Testing made easy',
++      body: 'Jest is a delightful JavaScript Testing Framework...',
++      tagList: [],
++      createdAt: '2026-02-01T00:00:00.000Z',
++      updatedAt: '2026-02-01T00:00:00.000Z',
++      favorited: false,
++      favoritesCount: 1,
++      author: {
++        username: 'charlie',
++        bio: null,
++        image: null,
++        following: false,
++      },
++    });
++  });
++
++  test('maps article correctly when requesting id is absent (undefined)', () => {
++    const articleInput = {
++      slug: 'standalone-article',
++      title: 'Standalone Article',
++      description: 'No request context',
++      body: 'Content goes here',
++      tagList: [{ name: 'general' }],
++      createdAt: '2026-03-01T00:00:00.000Z',
++      updatedAt: '2026-03-01T00:00:00.000Z',
++      favoritedBy: [],
++      author: {
++        username: 'dana',
++        bio: 'Blogger',
++        image: 'https://example.com/dana.jpg',
++        followedBy: [{ id: 1 }],
++      },
++    };
++
++    const mapped = articleMapper(articleInput);
++
++    expect(mapped).toEqual({
++      slug: 'standalone-article',
++      title: 'Standalone Article',
++      description: 'No request context',
++      body: 'Content goes here',
++      tagList: ['general'],
++      createdAt: '2026-03-01T00:00:00.000Z',
++      updatedAt: '2026-03-01T00:00:00.000Z',
++      favorited: false,
++      favoritesCount: 0,
++      author: {
++        username: 'dana',
++        bio: 'Blogger',
++        image: 'https://example.com/dana.jpg',
++        following: false,
++      },
++    });
++  });
++});

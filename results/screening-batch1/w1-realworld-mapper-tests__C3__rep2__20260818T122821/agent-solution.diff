@@ -1,0 +1,344 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/src/tests/mappers/article.mapper.test.ts b/src/tests/mappers/article.mapper.test.ts
+new file mode 100644
+index 0000000..5d9636b
+--- /dev/null
++++ b/src/tests/mappers/article.mapper.test.ts
+@@ -0,0 +1,336 @@
++import articleMapper from '../../app/routes/article/article.mapper';
++import authorMapper from '../../app/routes/article/author.mapper';
++
++describe('Article and Author Mappers', () => {
++  describe('authorMapper', () => {
++    test('should return an author profile with following false when id is not provided', () => {
++      // Given
++      const author = {
++        username: 'johndoe',
++        bio: 'Software engineer and writer',
++        image: 'https://example.com/avatar.jpg',
++        followedBy: [{ id: 1 }, { id: 2 }],
++      };
++
++      // When
++      const result = authorMapper(author);
++
++      // Then
++      expect(result).toEqual({
++        username: 'johndoe',
++        bio: 'Software engineer and writer',
++        image: 'https://example.com/avatar.jpg',
++        following: false,
++      });
++    });
++
++    test('should return an author profile with following false when id is explicitly undefined', () => {
++      // Given
++      const author = {
++        username: 'johndoe',
++        bio: null,
++        image: null,
++        followedBy: [{ id: 1 }],
++      };
++
++      // When
++      const result = authorMapper(author, undefined);
++
++      // Then
++      expect(result).toEqual({
++        username: 'johndoe',
++        bio: null,
++        image: null,
++        following: false,
++      });
++    });
++
++    test('should return following true when the requesting user is in followedBy', () => {
++      // Given
++      const author = {
++        username: 'johndoe',
++        bio: 'Tech enthusiast',
++        image: 'https://example.com/avatar.jpg',
++        followedBy: [{ id: 10 }, { id: 42 }, { id: 99 }],
++      };
++      const userId = 42;
++
++      // When
++      const result = authorMapper(author, userId);
++
++      // Then
++      expect(result).toEqual({
++        username: 'johndoe',
++        bio: 'Tech enthusiast',
++        image: 'https://example.com/avatar.jpg',
++        following: true,
++      });
++    });
++
++    test('should return following false when the requesting user is not in followedBy', () => {
++      // Given
++      const author = {
++        username: 'johndoe',
++        bio: 'Tech enthusiast',
++        image: 'https://example.com/avatar.jpg',
++        followedBy: [{ id: 10 }, { id: 99 }],
++      };
++      const userId = 42;
++
++      // When
++      const result = authorMapper(author, userId);
++
++      // Then
++      expect(result).toEqual({
++        username: 'johndoe',
++        bio: 'Tech enthusiast',
++        image: 'https://example.com/avatar.jpg',
++        following: false,
++      });
++    });
++
++    test('should return following false when followedBy is empty and id is provided', () => {
++      // Given
++      const author = {
++        username: 'johndoe',
++        bio: null,
++        image: null,
++        followedBy: [],
++      };
++      const userId = 42;
++
++      // When
++      const result = authorMapper(author, userId);
++
++      // Then
++      expect(result).toEqual({
++        username: 'johndoe',
++        bio: null,
++        image: null,
++        following: false,
++      });
++    });
++  });
++
++  describe('articleMapper', () => {
++    const fixedCreatedAt = new Date('2026-01-01T10:00:00.000Z');
++    const fixedUpdatedAt = new Date('2026-01-02T15:30:00.000Z');
++
++    test('should map all article fields correctly when favorited by the requesting user and non-empty tagList', () => {
++      // Given
++      const article = {
++        slug: 'how-to-train-your-dragon',
++        title: 'How to Train Your Dragon',
++        description: 'Ever wonder how to train a dragon?',
++        body: 'It takes patience, fish, and flying gear.',
++        tagList: [
++          { name: 'dragons' },
++          { name: 'training' },
++          { name: 'adventure' },
++        ],
++        createdAt: fixedCreatedAt,
++        updatedAt: fixedUpdatedAt,
++        favoritedBy: [{ id: 10 }, { id: 42 }, { id: 99 }],
++        author: {
++          username: 'hiccup',
++          bio: 'Dragon Rider',
++          image: 'https://example.com/hiccup.png',
++          followedBy: [{ id: 42 }],
++        },
++      };
++      const currentUserId = 42;
++
++      // When
++      const result = articleMapper(article, currentUserId);
++
++      // Then
++      expect(result).toEqual({
++        slug: 'how-to-train-your-dragon',
++        title: 'How to Train Your Dragon',
++        description: 'Ever wonder how to train a dragon?',
++        body: 'It takes patience, fish, and flying gear.',
++        tagList: ['dragons', 'training', 'adventure'],
++        createdAt: fixedCreatedAt,
++        updatedAt: fixedUpdatedAt,
++        favorited: true,
++        favoritesCount: 3,
++        author: {
++          username: 'hiccup',
++          bio: 'Dragon Rider',
++          image: 'https://example.com/hiccup.png',
++          following: true,
++        },
++      });
++    });
++
++    test('should return favorited false when requesting user is not in favoritedBy', () => {
++      // Given
++      const article = {
++        slug: 'dragon-flying-tips',
++        title: 'Dragon Flying Tips',
++        description: 'Tips for high altitude flying',
++        body: 'Always wear a warm jacket.',
++        tagList: [{ name: 'flying' }],
++        createdAt: fixedCreatedAt,
++        updatedAt: fixedUpdatedAt,
++        favoritedBy: [{ id: 10 }, { id: 99 }],
++        author: {
++          username: 'astrid',
++          bio: 'Warrior',
++          image: null,
++          followedBy: [],
++        },
++      };
++      const currentUserId = 42;
++
++      // When
++      const result = articleMapper(article, currentUserId);
++
++      // Then
++      expect(result).toEqual({
++        slug: 'dragon-flying-tips',
++        title: 'Dragon Flying Tips',
++        description: 'Tips for high altitude flying',
++        body: 'Always wear a warm jacket.',
++        tagList: ['flying'],
++        createdAt: fixedCreatedAt,
++        updatedAt: fixedUpdatedAt,
++        favorited: false,
++        favoritesCount: 2,
++        author: {
++          username: 'astrid',
++          bio: 'Warrior',
++          image: null,
++          following: false,
++        },
++      });
++    });
++
++    test('should return favorited false and author following false when id is omitted', () => {
++      // Given
++      const article = {
++        slug: 'night-fury-guide',
++        title: 'Night Fury Guide',
++        description: 'The rarest dragon species',
++        body: 'Very fast and stealthy.',
++        tagList: [{ name: 'dragons' }],
++        createdAt: fixedCreatedAt,
++        updatedAt: fixedUpdatedAt,
++        favoritedBy: [{ id: 10 }],
++        author: {
++          username: 'hiccup',
++          bio: 'Dragon Rider',
++          image: null,
++          followedBy: [{ id: 10 }],
++        },
++      };
++
++      // When
++      const result = articleMapper(article);
++
++      // Then
++      expect(result).toEqual({
++        slug: 'night-fury-guide',
++        title: 'Night Fury Guide',
++        description: 'The rarest dragon species',
++        body: 'Very fast and stealthy.',
++        tagList: ['dragons'],
++        createdAt: fixedCreatedAt,
++        updatedAt: fixedUpdatedAt,
++        favorited: false,
++        favoritesCount: 1,
++        author: {
++          username: 'hiccup',
++          bio: 'Dragon Rider',
++          image: null,
++          following: false,
++        },
++      });
++    });
++
++    test('should return favorited false and author following false when id is undefined', () => {
++      // Given
++      const article = {
++        slug: 'night-fury-guide',
++        title: 'Night Fury Guide',
++        description: 'The rarest dragon species',
++        body: 'Very fast and stealthy.',
++        tagList: [],
++        createdAt: fixedCreatedAt,
++        updatedAt: fixedUpdatedAt,
++        favoritedBy: [{ id: 10 }],
++        author: {
++          username: 'hiccup',
++          bio: 'Dragon Rider',
++          image: null,
++          followedBy: [{ id: 10 }],
++        },
++      };
++
++      // When
++      const result = articleMapper(article, undefined);
++
++      // Then
++      expect(result).toEqual({
++        slug: 'night-fury-guide',
++        title: 'Night Fury Guide',
++        description: 'The rarest dragon species',
++        body: 'Very fast and stealthy.',
++        tagList: [],
++        createdAt: fixedCreatedAt,
++        updatedAt: fixedUpdatedAt,
++        favorited: false,
++        favoritesCount: 1,
++        author: {
++          username: 'hiccup',
++          bio: 'Dragon Rider',
++          image: null,
++          following: false,
++        },
++      });
++    });
++
++    test('should correctly map empty tagList and empty favoritedBy with zero count', () => {
++      // Given
++      const article = {
++        slug: 'empty-article',
++        title: 'Empty Article',
++        description: 'Description without tags or favorites',
++        body: 'Article body text.',
++        tagList: [],
++        createdAt: fixedCreatedAt,
++        updatedAt: fixedUpdatedAt,
++        favoritedBy: [],
++        author: {
++          username: 'author1',
++          bio: null,
++          image: null,
++          followedBy: [],
++        },
++      };
++      const currentUserId = 42;
++
++      // When
++      const result = articleMapper(article, currentUserId);
++
++      // Then
++      expect(result).toEqual({
++        slug: 'empty-article',
++        title: 'Empty Article',
++        description: 'Description without tags or favorites',
++        body: 'Article body text.',
++        tagList: [],
++        createdAt: fixedCreatedAt,
++        updatedAt: fixedUpdatedAt,
++        favorited: false,
++        favoritesCount: 0,
++        author: {
++          username: 'author1',
++          bio: null,
++          image: null,
++          following: false,
++        },
++      });
++    });
++  });
++});

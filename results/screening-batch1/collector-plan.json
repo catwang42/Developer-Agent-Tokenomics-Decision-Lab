@@ -1,0 +1,467 @@
+{
+  "project": "vital-octagon-19612",
+  "runs": [
+    {
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-med__rep1__20260818T022024",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-med__rep2__20260818T023949",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-med__rep3__20260818T025827",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-prev__rep1__20260818T031215",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3-prev__rep2__20260818T032946",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3__rep1__20260818T014056",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C3__rep2__20260818T015604",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C5__rep1__20260818T035153",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/pilot-realworld-draft-articles__C5__rep2__20260818T041132",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-med__rep1__20260818T130921",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-med__rep2__20260818T132851",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-med__rep3__20260818T134653",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-prev__rep1__20260818T140537",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-prev__rep2__20260818T142504",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3-prev__rep3__20260818T144334",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3__rep1__20260818T120829",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3__rep2__20260818T122821",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C3__rep3__20260818T124829",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C5__rep1__20260818T150210",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C5__rep2__20260818T154657",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1-realworld-mapper-tests__C5__rep3__20260818T160946",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep1__20260819T151616",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep2__20260819T154521",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-med__rep3__20260819T161257",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep1__20260819T164327",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep2__20260819T170812",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3-prev__rep3__20260819T173437",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep1__20260819T135448",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep2__20260819T142519",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C3__rep3__20260819T145045",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C5__rep1__20260819T180024",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C5__rep2__20260819T184559",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w1b-zarr-block-mask-properties__C5__rep3__20260819T192950",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep1__20260819T031526",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep2__20260819T034548",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-med__rep3__20260819T041620",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep1__20260819T044639",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep2__20260819T051201",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3-prev__rep3__20260819T054239",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep1__20260819T014403",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep2__20260819T021438",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C3__rep3__20260819T024501",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C5__rep1__20260819T061257",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C5__rep2__20260819T070822",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w3-sqlfluff-segment-method-migration__C5__rep3__20260819T075340",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-med__rep1__20260818T092544",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-med__rep2__20260818T094352",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-med__rep3__20260818T100250",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-prev__rep1__20260818T101828",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-prev__rep2__20260818T103728",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3-prev__rep3__20260818T105110",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3__rep1__20260818T083430",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C3__rep3__20260818T090510",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C5__rep1__20260818T110505",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C5__rep2__20260818T112742",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4-realworld-missing-user-id__C5__rep3__20260818T115029",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-med__rep1__20260818T182342",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-med__rep2__20260818T184420",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-med__rep3__20260818T190443",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-prev__rep1__20260818T192512",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-prev__rep2__20260818T194529",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3-prev__rep3__20260818T200548",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep1__20260818T170326",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep2__20260818T173239",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C3__rep3__20260818T180124",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep1__20260818T202810",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep2__20260818T212328",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w4b-zarr-consolidated-order__C5__rep3__20260818T222348",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-med__rep1__20260819T215204",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-med__rep2__20260819T215224",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-med__rep3__20260819T220755",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-prev__rep1__20260819T222405",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-prev__rep2__20260819T224246",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3-prev__rep3__20260819T230254",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3__rep1__20260819T210047",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3__rep2__20260819T212707",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1/w6-hono-router-review__C3__rep3__20260819T215139",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    }
+  ]
+}

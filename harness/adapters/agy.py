@@ -14,10 +14,9 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 from typing import Any, Dict, List, Optional
 
-from harness.container.exec import resolve_spawn
+from harness.container.exec import leg_container_name, resolve_spawn, spawn_with_timeout
 from harness.telemetry.telemetry import tiered, unavailable
 
 from .base import (
@@ -37,9 +36,20 @@ EXIT_OK = 0
 EXIT_PRODUCT_ERROR = 40
 EXIT_TIMEOUT = 41
 
-# OUR subprocess kill. It must stay strictly ABOVE the manifest-pinned
+# OUR subprocess kill, as a FALLBACK. It must stay strictly ABOVE the manifest-pinned
 # --print-timeout (15m0s = 900s) so the product's own timeout fires first and leaves
 # a diagnosable product error, rather than this opaque kill truncating the evidence.
+#
+# The budget in force is per task (task.yaml + manifest `agent_timeout_s`, carried on
+# ``AttemptSpec.timeout_s``); this value applies only when a spec pins nothing. The
+# invariant above is checked against the EFFECTIVE timeout, not this constant, so a
+# per-task budget can never be pinned below the product's own timeout.
+#
+# LIMITATION, recorded rather than silently worked around: raising a task's
+# agent_timeout_s lengthens OUR leash only. Product B still stops itself at its
+# pinned --print-timeout, so a 7200s task budget does not give Product B 7200s — it
+# gives it 900s and then a product error. Re-pinning --print-timeout is a run-
+# CONDITION change (manifest notes.print_timeout_basis) and belongs to the human.
 DEFAULT_TIMEOUT_S = 1800
 
 # agy self-updates in-process: its shipped binary carries
@@ -93,7 +103,8 @@ def print_timeout_seconds(value: str) -> float:
 
 
 def build_command(prompt: str, selector_label: str,
-                  print_timeout: Optional[str] = None) -> List[str]:
+                  print_timeout: Optional[str] = None,
+                  *, kill_timeout_s: float = DEFAULT_TIMEOUT_S) -> List[str]:
     """Build the headless ``agy`` command (pure; no execution).
 
     ``print_timeout`` is the manifest-pinned ``--print-timeout`` value (a Go
@@ -129,10 +140,10 @@ def build_command(prompt: str, selector_label: str,
     """
     cmd = ["agy", "--dangerously-skip-permissions", "--model", selector_label]
     if print_timeout:
-        if print_timeout_seconds(print_timeout) >= DEFAULT_TIMEOUT_S:
+        if print_timeout_seconds(print_timeout) >= kill_timeout_s:
             raise ValueError(
                 f"pinned --print-timeout {print_timeout!r} is not below our own "
-                f"{DEFAULT_TIMEOUT_S}s subprocess kill; the product's timeout must "
+                f"{kill_timeout_s}s subprocess kill; the product's timeout must "
                 f"fire first so a slow attempt yields a diagnosable product error"
             )
         cmd += ["--print-timeout", print_timeout]
@@ -187,10 +198,13 @@ class AgyAdapter(Adapter):
                 f"or install the pinned version."
             )
 
-        cmd = build_command(spec.prompt, r.model_or_selector, r.print_timeout)
+        timeout_s = spec.timeout_s or DEFAULT_TIMEOUT_S
+        cmd = build_command(spec.prompt, r.model_or_selector, r.print_timeout,
+                            kill_timeout_s=timeout_s)
         # Host mode runs cmd in subject_dir; container mode wraps it in `docker run`
         # (offline default; agent-leg egress is a CP-SPEND item). Only argv/cwd differ.
-        argv, cwd = resolve_spawn(self.container, cmd, subject_dir)
+        cname = leg_container_name(self.container, spec.leg_id)
+        argv, cwd = resolve_spawn(self.container, cmd, subject_dir, name=cname)
         # Exact command executed, for the per-run invocation.txt artifact (run
         # provenance, not telemetry; the runner redacts credential-bearing env).
         invocation = {
@@ -200,14 +214,23 @@ class AgyAdapter(Adapter):
             "auto_update": AUTO_UPDATE_CONDITION,
             "print_timeout": r.print_timeout or "product_default",
             "effort_pin": r.effort_pin or "unpinned",
-            "argv": list(argv), "cwd": cwd,
+            "argv": list(argv), "cwd": cwd, "timeout_s": timeout_s,
+            "container_name": cname or "host-mode",
         }
         payload: Optional[Dict[str, Any]] = None
-        try:
-            proc = subprocess.run(  # noqa: S603 - workshop-owned command
-                argv, cwd=cwd, capture_output=True, text=True,
-                check=False, timeout=DEFAULT_TIMEOUT_S, env=agy_env(),  # FIX B
-            )
+        proc = spawn_with_timeout(
+            argv, cwd=cwd, env=agy_env(),  # FIX B
+            timeout_s=timeout_s, container_name=cname,
+        )
+        if proc.timed_out:
+            invocation.update(exit_code="timeout", stdout=proc.stdout,
+                              stderr=proc.stderr,
+                              container_disposition=proc.container or "no-container")
+            emit("failure", leg=spec.leg_id, category="agy_timeout",
+                 exit_code=EXIT_TIMEOUT, timeout_s=timeout_s,
+                 container_name=cname or "host-mode",
+                 container_disposition=proc.container or "no-container")
+        else:
             # Record the product's exit/output for invocation.txt (redacted by the
             # runner). For a black-box product this raw stdout is the only place its
             # usage block — if any — can be inspected; an empty stdout IS the
@@ -218,10 +241,6 @@ class AgyAdapter(Adapter):
                 payload = json.loads(proc.stdout)
             except json.JSONDecodeError:
                 payload = None
-        except subprocess.TimeoutExpired as exc:
-            invocation.update(exit_code="timeout", stdout=exc.stdout or "",
-                              stderr=exc.stderr or "")
-            emit("failure", leg=spec.leg_id, category="agy_timeout", exit_code=EXIT_TIMEOUT)
 
         usage = usage_from_agy_json(payload)
         emit("model_call_completed", usage=usage, **leg_meta)

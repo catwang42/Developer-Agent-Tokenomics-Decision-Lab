@@ -28,6 +28,44 @@ SUBJECT_DIR="$WORKDIR/repo"
 MANIFEST="${DELIVERY_MANIFEST:-$REPO_ROOT/manifest/delivery-manifest.yaml}"
 VENV_PY="$REPO_ROOT/.venv/bin/python"
 
+# --- git must be able to READ the subject tree --------------------------------
+# THE screening-batch-1 instrument defect (results/screening-batch1/batch1.log,
+# "W1 HIDDEN-GATE REJECTS ARE AN INSTRUMENT ERROR"). Under container isolation the
+# subject tree is a Docker volume seeded from the AGENT image, so its files are
+# owned by the agent's uid, while the gate container runs as root. git's
+# safe.directory guard refuses a repo it considers dubiously owned:
+#
+#     fatal: detected dubious ownership in repository at '/lab/.../.work/repo'
+#
+# Every git call then fails. The failure is silent in the worst possible way: a
+# discovery step like "list the agent's new test files" returns EMPTY, which reads
+# exactly like "the agent wrote no tests" — so all 16 W1 cells were graded
+# `rejected` on a tree the grader could not see. The split in the batch-1 data is
+# the signature: gate_type `solution` (no git discovery) 32/32 hidden-pass,
+# `test_generation` (git discovery) 15/15 hidden-fail.
+#
+# We trust THIS path only, through env rather than the operator's gitconfig, and we
+# export it so a sealed runner invoked as a child inherits the trust — the sealed
+# runner is human-held and must not have to know about our uid arrangement. Callers
+# check the return value: git still unable to read the tree means NOTHING can be
+# graded, and each gate says so loudly instead of scoring an invisible tree.
+#
+# Returns 0 if git can read $SUBJECT_DIR (possibly after trusting it), else 1.
+git_trust_subject() {
+  if git -C "$SUBJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    return 0
+  fi
+  export GIT_CONFIG_COUNT=1
+  export GIT_CONFIG_KEY_0=safe.directory
+  export GIT_CONFIG_VALUE_0="$SUBJECT_DIR"
+  git -C "$SUBJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1
+}
+
+# Why git refuses the subject tree, one line, for a gate's failure message.
+git_subject_error() {
+  git -C "$SUBJECT_DIR" rev-parse --is-inside-work-tree 2>&1 | head -1
+}
+
 # Prefer the project venv python; fall back to python3 (containers without .venv).
 pilot_python() {
   if [ -x "$VENV_PY" ]; then
