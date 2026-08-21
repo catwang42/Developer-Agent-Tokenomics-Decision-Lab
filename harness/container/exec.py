@@ -18,12 +18,13 @@ tooling setup, not model spend (CLAUDE.md rule 5).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 import subprocess
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
 # Network modes we recognise. ``none`` = fully offline (the gate posture, always).
 # Any other value is passed verbatim to ``docker run --network`` — the agent leg
@@ -45,14 +46,88 @@ def _slug(task_id: str) -> str:
     return _SLUG_RE.sub("-", (task_id or "task").lower()).strip("-") or "task"
 
 
-def subject_image_tag(task_id: str, pin: str) -> str:
-    """Deterministic per-task GATE image tag: ``lab-subject/<task_id>:<pin12>``.
+# What the GATE image bakes that decides a verdict. Dockerfile.subject COPYs
+# harness/task-tools/ and the task tree into the image, so the grader that runs is
+# the one frozen at build time — not the one in the working tree.
+GATE_CONTENT_PATHS = (
+    "harness/task-tools",
+    "harness/container/Dockerfile.subject",
+    "harness/container/assert-no-task-material.sh",
+)
 
-    Task id is slugified to a Docker-safe repository name; the 12-char commit
-    prefix pins the baked deps to the exact subject tree, so a re-pin yields a new
-    tag (never a stale image silently reused).
+# Never descend into these. ``hidden`` is the sealed, human-held test material: it
+# is gitignored, mounted at run time rather than baked, and must not be read here
+# (CLAUDE.md — sealed sets are off-limits to the harness). ``.work`` is the local
+# subject clone, which is not image content.
+_DIGEST_SKIP_DIRS = frozenset(
+    {"hidden", ".work", ".git", "__pycache__", "node_modules", ".venv"})
+
+
+def _digest_files(repo_root: str, rel: str) -> Iterator[Tuple[str, str]]:
+    """(relative path, absolute path) for one digest root, in a stable order."""
+    abs_root = os.path.join(repo_root, rel)
+    if os.path.isfile(abs_root):
+        yield rel, abs_root
+        return
+    for dirpath, dirnames, filenames in os.walk(abs_root):
+        dirnames[:] = sorted(d for d in dirnames if d not in _DIGEST_SKIP_DIRS)
+        for name in sorted(filenames):
+            abs_p = os.path.join(dirpath, name)
+            yield os.path.relpath(abs_p, repo_root), abs_p
+
+
+def gate_image_content_digest(repo_root: str, task_dir_rel: str = "") -> str:
+    """8 hex chars over the gate logic AND task material baked into the image.
+
+    THE STALE-GATE GUARD. The tag used to be a function of the task id and the
+    subject commit alone, and the runner builds only when the tag is absent
+    locally. So a change to a gate script left the tag untouched, the cached image
+    won, and the OLD grader ran — silently, with no signal anywhere in the run
+    record. That is not hypothetical: the W6 makeup pass of 2026-08-20 was graded
+    by an image built two days earlier, missing both the pr_review diff-scope fix
+    and the git-ownership repair, and every one of its 15 cells was rejected on
+    the instrument rather than on the work.
+
+    The baked TASK tree is included for the same reason: check-public.sh reads
+    ``/lab/tasks/<task>/task.yaml`` from inside the image, so a task.yaml change is
+    as capable of changing a verdict as a script change. The sealed ``hidden``
+    directory is skipped — it is mounted, not baked, and is not ours to read.
+
+    File modes are hashed alongside contents: a gate script that loses its execute
+    bit changes behaviour without changing a byte of text.
     """
-    return f"lab-subject/{_slug(task_id)}:{(pin or 'nopin')[:12]}"
+    h = hashlib.sha256()
+    roots = list(GATE_CONTENT_PATHS) + ([task_dir_rel] if task_dir_rel else [])
+    for rel in roots:
+        found = False
+        for rel_path, abs_path in _digest_files(repo_root, rel.rstrip("/")):
+            found = True
+            h.update(rel_path.encode("utf-8"))
+            h.update(b"\0")
+            h.update(b"x" if os.access(abs_path, os.X_OK) else b"-")
+            with open(abs_path, "rb") as fh:
+                h.update(hashlib.sha256(fh.read()).digest())
+        if not found:
+            # An absent root must hash differently from an empty one, and must not
+            # silently collapse two different trees onto one tag.
+            h.update(f"<absent:{rel}>".encode("utf-8"))
+    return h.hexdigest()[:8]
+
+
+def subject_image_tag(task_id: str, pin: str, content_digest: str = "") -> str:
+    """Deterministic per-task GATE image tag.
+
+    ``lab-subject/<task_id>:<pin12>[-<content8>]``. Task id is slugified to a
+    Docker-safe repository name; the 12-char commit prefix pins the baked deps to
+    the exact subject tree. ``content_digest`` — see
+    :func:`gate_image_content_digest` — pins the baked GRADER, so a gate-logic
+    change yields a new tag and the cache cannot serve a stale verdict.
+
+    The digest is optional so that pure tag-shape callers (and the manifest's
+    recorded tags) keep working; production callers in the runner always pass it.
+    """
+    suffix = f"-{content_digest}" if content_digest else ""
+    return f"lab-subject/{_slug(task_id)}:{(pin or 'nopin')[:12]}{suffix}"
 
 
 def agent_image_tag(task_id: str, pin: str) -> str:

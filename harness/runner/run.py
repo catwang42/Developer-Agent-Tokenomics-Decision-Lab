@@ -64,6 +64,7 @@ from harness.container.exec import (
     assert_image_uid_matches_host,
     build_subject_image,
     create_volume,
+    gate_image_content_digest,
     image_exists,
     remove_volume,
     subject_image_tag,
@@ -1262,7 +1263,12 @@ def _require_pin(task: Task) -> None:
 def _ensure_gate_launch(task: Task, agent_volume: Optional[str] = None) -> ContainerLaunch:
     """The deterministic gate's launch: ``subject-gate`` image, always offline."""
     _require_pin(task)
-    tag = subject_image_tag(task.task_id, task.pinned_commit)
+    # The content digest is part of the tag on purpose: _ensure_image builds only
+    # when the tag is absent, so without it a gate-logic change is served from
+    # cache and the old grader decides the run. See gate_image_content_digest.
+    tag = subject_image_tag(
+        task.task_id, task.pinned_commit,
+        gate_image_content_digest(REPO_ROOT, task.task_dir_rel))
     _ensure_image(task, tag, TARGET_GATE)
     return ContainerLaunch(
         image=tag, network=egress_mod.NETWORK_NONE_LABEL,
