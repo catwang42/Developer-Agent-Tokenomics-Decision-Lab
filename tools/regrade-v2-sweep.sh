@@ -28,7 +28,13 @@ DRY=()
 [ "${1:-}" = "--dry-run" ] && DRY=(--dry-run)
 
 # task_id -> task dir. Only tasks with a sealed set can be graded at all.
+#
+# The pilot task is here because screening-batch1 contains 15 of its runs and they
+# were graded by the same pre-#27 images as everything else. Its sealed set lives
+# outside tasks/suite/ (tasks/pilot-realworld/hidden), which is the only reason it
+# was missed on the first pass — not a scoping decision.
 TASKS=(
+  "pilot-realworld-draft-articles:tasks/pilot-realworld"
   "w1-realworld-mapper-tests:tasks/suite/W1-test-generation"
   "w1b-zarr-block-mask-properties:tasks/suite/W1b-zarr-block-mask-properties"
   "w3-sqlfluff-segment-method-migration:tasks/suite/W3-migration"

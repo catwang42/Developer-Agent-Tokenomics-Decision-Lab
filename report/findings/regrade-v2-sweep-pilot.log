@@ -1,0 +1,105 @@
+runner: building subject image lab-subject/pilot-realworld-draft-articles:30b68e1e8814-a6dff3bb (target subject-gate; build-time network; not model spend)
+Sending build context to Docker daemon  4.028MB
+Step 1/23 : FROM node:20-bookworm-slim AS subject-base
+ ---> 9da6b4e352d0
+Step 2/23 : RUN apt-get update -qq     && apt-get install -y --no-install-recommends git ca-certificates python3 python3-yaml     && rm -rf /var/lib/apt/lists/*
+ ---> Using cache
+ ---> eaf95c189492
+Step 3/23 : ARG UV_VERSION=0.12.5
+ ---> Using cache
+ ---> 976021d892a3
+Step 4/23 : COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /uvx /usr/local/bin/
+ ---> Using cache
+ ---> 1d5db4b46df7
+Step 5/23 : ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
+ ---> Using cache
+ ---> 11e8ebf27573
+Step 6/23 : ENV UV_VENV_RELOCATABLE=1
+ ---> Using cache
+ ---> 55c6009c586b
+Step 7/23 : RUN mkdir -p /opt/uv-python
+ ---> Using cache
+ ---> bfd2686901cc
+Step 8/23 : RUN uv --version | grep -qE "^uv ${UV_VERSION}( |\$)"     || { echo "uv pin mismatch: wanted ${UV_VERSION}, got $(uv --version)" >&2; exit 1; }
+ ---> Using cache
+ ---> e156f87de0e6
+Step 9/23 : WORKDIR /lab
+ ---> Using cache
+ ---> 433707450b67
+Step 10/23 : COPY manifest/ /lab/manifest/
+ ---> Using cache
+ ---> 3e5d3168b32a
+Step 11/23 : COPY tasks/ /lab/tasks/
+ ---> Using cache
+ ---> 724039b48101
+Step 12/23 : COPY harness/task-tools/ /lab/harness/task-tools/
+ ---> Using cache
+ ---> 0e6b2e4f1487
+Step 13/23 : COPY harness/container/assert-no-task-material.sh /usr/local/bin/assert-no-task-material
+ ---> Using cache
+ ---> c4faea81914c
+Step 14/23 : RUN chmod +x /usr/local/bin/assert-no-task-material
+ ---> Using cache
+ ---> 94f50a496ed5
+Step 15/23 : ARG BAKE_TASK_DIR=tasks/pilot-realworld
+ ---> Using cache
+ ---> 2d5aae0f2da9
+Step 16/23 : ENV NX_DAEMON=false NX_CLOUD_ACCESS_TOKEN='' CI=true TASK_IN_CONTAINER=1
+ ---> Using cache
+ ---> eb77cb6c077a
+Step 17/23 : RUN TASK_DIR="/lab/${BAKE_TASK_DIR}" bash /lab/harness/task-tools/setup.sh
+ ---> Running in f2cc8da3c8d2
+== task setup (pilot-realworld-draft-articles) ==
+  repo:   https://github.com/gothinkster/node-express-realworld-example-app
+  commit: 30b68e1e881462b2f4164ea09ab4c4f5699c7b0b
+  target: /lab/tasks/pilot-realworld/.work/repo
+  -> cloning
+  ok    SHA verified: 30b68e1e881462b2f4164ea09ab4c4f5699c7b0b
+  -> installing deps (node stack)
+
+added 734 packages in 24s
+  ok    setup complete
+Removing intermediate container f2cc8da3c8d2
+ ---> ac4a4e7209e3
+Step 18/23 : ENV TASK_DIR="/lab/${BAKE_TASK_DIR}"
+ ---> Running in 7b1d0b5c20b8
+Removing intermediate container 7b1d0b5c20b8
+ ---> 25138e04800a
+Step 19/23 : ENV BAKE_TASK_DIR="${BAKE_TASK_DIR}"
+ ---> Running in 0d020a30dd23
+Removing intermediate container 0d020a30dd23
+ ---> d47f07eb0bc2
+Step 20/23 : FROM subject-base AS subject-gate
+ ---> d47f07eb0bc2
+Step 21/23 : ARG UV_VERSION=0.12.5
+ ---> Running in 1fcaff335da6
+Removing intermediate container 1fcaff335da6
+ ---> c48cd372909b
+Step 22/23 : LABEL lab.image.role="subject-gate"       lab.image.network_posture="none (docker run --network=none)"       lab.image.task_material="present — the deterministic gate requires task.yaml"       lab.tool.uv.version="${UV_VERSION}"
+ ---> Running in fbaeadf38639
+Removing intermediate container fbaeadf38639
+ ---> f6c35c1f9138
+Step 23/23 : CMD ["bash", "-lc", "echo 'subject gate image ready; pass a command to docker run'"]
+ ---> Running in de84a35ff6a4
+Removing intermediate container de84a35ff6a4
+ ---> 40808af815d4
+Successfully built 40808af815d4
+Successfully tagged lab-subject/pilot-realworld-draft-articles:30b68e1e8814-a6dff3bb
+gate image: lab-subject/pilot-realworld-draft-articles:30b68e1e8814-a6dff3bb (built now)
+regrading 15 run(s) of pilot-realworld-draft-articles at generation 2 [gate_type=solution]
+  pilot-realworld-draft-articles__C2__rep1__20260818T013656: accepted == accepted (hidden pass -> pass)
+  pilot-realworld-draft-articles__C2__rep2__20260818T013816: accepted == accepted (hidden pass -> pass)
+  pilot-realworld-draft-articles__C2__rep3__20260818T013934: accepted == accepted (hidden pass -> pass)
+  pilot-realworld-draft-articles__C3-med__rep1__20260818T022024: accepted == accepted (hidden pass -> pass)
+  pilot-realworld-draft-articles__C3-med__rep2__20260818T023949: accepted == accepted (hidden pass -> pass)
+  pilot-realworld-draft-articles__C3-med__rep3__20260818T025827: accepted == accepted (hidden pass -> pass)
+  pilot-realworld-draft-articles__C3-prev__rep1__20260818T031215: accepted == accepted (hidden pass -> pass)
+  pilot-realworld-draft-articles__C3-prev__rep2__20260818T032946: accepted == accepted (hidden pass -> pass)
+  pilot-realworld-draft-articles__C3__rep1__20260818T014056: accepted == accepted (hidden pass -> pass)
+  pilot-realworld-draft-articles__C3__rep2__20260818T015604: accepted == accepted (hidden pass -> pass)
+  pilot-realworld-draft-articles__C5__rep1__20260818T035153: accepted == accepted (hidden pass -> pass)
+  pilot-realworld-draft-articles__C5__rep2__20260818T041132: accepted == accepted (hidden pass -> pass)
+  pilot-realworld-draft-articles__P0__rep1__20260818T013039: accepted == accepted (hidden pass -> pass)
+  pilot-realworld-draft-articles__P0__rep2__20260818T013222: accepted == accepted (hidden pass -> pass)
+  pilot-realworld-draft-articles__P0__rep3__20260818T013459: accepted == accepted (hidden pass -> pass)
+0/15 verdict(s) amended
