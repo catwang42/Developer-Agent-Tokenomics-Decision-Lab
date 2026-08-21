@@ -247,16 +247,35 @@ stack_na_checks() { :; }
 # they are vendor bytes, not participant-visible material.
 # Returns 0 when leakage IS found, so callers read `if leak_found; then ...`.
 leak_found() {
-  local src_root grep_excl=(--exclude-dir=.git) find_prune=() keep
+  local src_root grep_excl=(--exclude-dir=.git) find_prune=() keep review_exempt=()
   src_root="$SUBJECT_DIR/$(task_field_opt source_root src)"
   while IFS= read -r keep; do
     [ -n "$keep" ] || continue
     grep_excl+=(--exclude-dir="$keep")
     find_prune+=(-path "$SUBJECT_DIR/$keep" -prune -o)
   done < <(stack_clean_keep)
+
+  # A pr_review task's subject tree legitimately CONTAINS a patch: the artifact
+  # under review, which the runner delivers into the tree so the agent has
+  # something to review at all. The stray-patch rule below exists to catch a
+  # canonical answer patch smuggled in beside the work — but it cannot tell one
+  # patch from another, so on a review task it fired on the harness's own
+  # delivery and failed all 15 cells of the W6 makeup pass, every one of them for
+  # the file the harness itself had put there.
+  #
+  # Exempt EXACTLY that one path: the declared artifact, at the subject root
+  # where the runner stages it, and only for the gate type that delivers it. A
+  # second patch, a patch under another name, or the same name anywhere else in
+  # the tree still counts as leakage.
+  if [ "$(task_field_opt gate_type solution)" = "pr_review" ]; then
+    review_exempt=(!  -path \
+      "$SUBJECT_DIR/$(basename "$(task_field_opt review_diff review-diff.patch)")")
+  fi
+
   grep -rIl "${grep_excl[@]}" -e 'CANONICAL SOLUTION' -e 'PILOT-ANSWER' \
     "$src_root" >/dev/null 2>&1 && return 0
-  find "$SUBJECT_DIR" "${find_prune[@]+"${find_prune[@]}"}" -name '*.patch' -print \
+  find "$SUBJECT_DIR" "${find_prune[@]+"${find_prune[@]}"}" -name '*.patch' \
+    "${review_exempt[@]+"${review_exempt[@]}"}" -print \
     2>/dev/null | grep -q . && return 0
   return 1
 }
