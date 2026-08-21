@@ -1,0 +1,68 @@
+== confound-makeup enumeration ==
+STATUS: AUTHORITATIVE (2026-08-21). Supersedes nothing; this file is the plan of
+record for results/screening-batch1-confound-makeup/ and the derivation of the
+cell list hard-coded in scripts/screening-batch1-makeup-driver.sh --profile confound.
+
+WHAT THIS ENUMERATES. Every archived evidence run that is TRUNCATED — a
+truncating stop reason, or an absent/zero-byte agent-solution.diff — and that no
+later untruncated run of the SAME (task, configuration, rep) has replaced. A
+truncated run is not evidence about the model: the harness stopped it. Grading
+such a cell would convert a harness fault into a model result.
+
+Non-evidence datasets (smoke*, pilot-reference, revalidation,
+screening-batch1-aborted) are excluded from both sides: they neither count as
+evidence nor supersede a lost sample.
+
+Reproduce:  .venv/bin/python -m harness.analysis.archive results --truncated
+
+generated: 2026-08-21T03:53:45Z
+harness:   4796df8 (feat/final-analysis)
+
+dataset                                task::config                                         rep  accept    hidden      diff  truncated
+screening-batch1                       w1-realworld-mapper-tests::C5                          1  rejected  None           0  zero-byte agent-solution.diff
+screening-batch1                       w1b-zarr-block-mask-properties::P0                     1  rejected  fail       10753  stop_reason=claude_timeout
+screening-batch1                       w3-sqlfluff-segment-method-migration::C2               3  rejected  fail       62845  stop_reason=claude_timeout
+screening-batch1                       w3-sqlfluff-segment-method-migration::C5               1  rejected  fail       74221  stop_reason=claude_timeout
+screening-batch1                       w3-sqlfluff-segment-method-migration::C5               2  rejected  fail       66800  stop_reason=claude_timeout
+screening-batch1                       w3-sqlfluff-segment-method-migration::C5               3  rejected  fail       69894  stop_reason=claude_timeout
+screening-batch1                       w3-sqlfluff-segment-method-migration::P0               1  rejected  fail       64515  stop_reason=claude_timeout
+screening-batch1-makeup                w3-sqlfluff-segment-method-migration::P0               1  rejected  fail       69215  stop_reason=claude_timeout
+screening-batch1                       w3-sqlfluff-segment-method-migration::P0               3  rejected  fail       67261  stop_reason=claude_timeout
+screening-batch1                       w3-sqlfluff-segment-method-migration::P1               1  rejected  fail       58180  stop_reason=claude_timeout
+screening-batch1-makeup                w3-sqlfluff-segment-method-migration::P1               1  rejected  fail       61772  stop_reason=claude_timeout
+screening-batch1                       w3-sqlfluff-segment-method-migration::P1               3  rejected  fail       57853  stop_reason=claude_timeout
+screening-batch1                       w4b-zarr-consolidated-order::C5                        1  rejected  fail        2305  stop_reason=claude_timeout
+screening-batch1                       w4b-zarr-consolidated-order::C5                        2  rejected  fail        3792  stop_reason=claude_timeout
+screening-batch1                       w6-hono-router-review::C2                              2  rejected  fail           0  zero-byte agent-solution.diff
+screening-batch1-makeup-w6             w6-hono-router-review::C2                              2  rejected  fail           0  stop_reason=claude_timeout
+
+16 run(s)
+
+-- from 16 runs to 11 slots --
+
+The 16 rows above collapse to 13 distinct (task, configuration, rep) SLOTS. Three
+tasks contributed two attempts at the same slot:
+
+  w3 P0 rep1   screening-batch1 (1800s flat bound) + screening-batch1-makeup (7200s, the task's own pinned budget)
+  w3 P1 rep1   screening-batch1 (1800s flat bound) + screening-batch1-makeup (7200s, the task's own pinned budget)
+  w6 C2 rep2   screening-batch1 (0-byte diff, VOID on the review_diff delivery defect) + screening-batch1-makeup-w6 (1200s claude_timeout)
+
+The two W3 slots are NOT bought again. They were re-bought once already, at the
+budget their own task pins, and cut off again. "Does not complete within 2h at
+this task's pinned budget" is a RESULT, not a hole — a budget-exhaustion finding
+carried in the limitation ledger, citing both attempts. Buying a third would be
+buying the same answer.
+
+The W6 slot IS bought. Its batch-1 attempt is void on a delivery defect (no
+review_diff reached the agent), so it is not a second observation of anything:
+this pass is only its second attempt under a working instrument, and one
+truncation is a loss, not a measurement. It lands in this dataset rather than in
+screening-batch1-makeup-w6 because that dataset already holds a run for the cell
+and its resume index would count the slot settled and skip it.
+
+  13 slots - 2 budget-exhaustion findings = 11 runs planned.
+
+Every slot is re-bought under ITS OWN task's pinned agent_timeout_s, not the flat
+1800s bound that censored it; the driver refuses any task whose task.yaml does not
+carry the expected budget. A truncated original and its replacement are never
+pooled: they are observations under different instrument settings.
