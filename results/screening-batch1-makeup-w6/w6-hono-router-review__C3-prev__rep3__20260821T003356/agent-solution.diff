@@ -1,0 +1,14 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/review-report.txt b/review-report.txt
+new file mode 100644
+index 00000000..18e47844
+--- /dev/null
++++ b/review-report.txt
+@@ -0,0 +1,6 @@
++src/router/reg-exp-router/node.ts:30 — Returning -1 when a or b is a wildcard causes compareKey to return -1 for both compareKey(a, b) and compareKey(b, a), violating strict weak ordering required for sorting.
++src/router/reg-exp-router/node.ts:65 — The condition i <= len - 1 is always true in the loop, causing mid-path wildcard tokens to be incorrectly treated as full trailing wildcards instead of single-segment label matchers.
++src/router/reg-exp-router/node.ts:203 — Omitting the backslash escape sequence when regExpMetaChars.has(k) is true causes regex special characters to remain unescaped in the generated regular expression.
++src/router/reg-exp-router/router.ts:76 — Assigning this.#tries![method] directly to the METHOD_NAME_ALL Trie reference shares the same Trie instance across methods, causing route insertions for one HTTP method to mutate and pollute other methods.
++src/router/reg-exp-router/trie.ts:47 — The marker string is split across single-character tokens, causing indexOf(mark) to always return -1 and failing to restore custom parameter regular expression patterns.
++src/router/reg-exp-router/trie.ts:55 — Pre-incrementing this.#index when assigning to this.paths[path] records an index one higher than the index passed to node insert, leading to mismatched handler indexes and undefined handler lookups.

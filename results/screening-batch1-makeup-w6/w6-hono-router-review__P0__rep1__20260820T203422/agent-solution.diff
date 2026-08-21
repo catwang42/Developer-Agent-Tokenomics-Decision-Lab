@@ -1,0 +1,14 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/review-report.txt b/review-report.txt
+new file mode 100644
+index 00000000..31e8aa10
+--- /dev/null
++++ b/review-report.txt
+@@ -0,0 +1,6 @@
++src/router/reg-exp-router/trie.ts:55 — `this.paths[path] = [++this.#index, paramAssoc]` records an index one higher than the `this.#index` value just embedded in the node, so `#buildMatcher` stores handlers at the wrong slot and every dynamic route resolves to an undefined handler list (TypeError on `handlerData[i].length` while building the matcher).
++src/router/reg-exp-router/router.ts:76 — `this.#tries![method] = this.#tries![METHOD_NAME_ALL]` aliases the shared ALL trie instead of allocating a new one, so the immediately following copy loop re-inserts already-registered paths into that same trie (duplicate terminal → PATH_ERROR/UnsupportedPathError for e.g. `app.get('/foo')` + `app.post('/foo')`) and every method's matcher is built from a regexp/index space polluted by other methods' routes.
++src/router/reg-exp-router/node.ts:94 — the sibling-conflict check now fires only when the new pattern is exactly `.*`, so a param pattern may silently coexist with literal siblings instead of raising UnsupportedPathError, and the resulting single-alternative regexp drops handlers (`/post/new` + `/post/:id` returns only the static handler for `/post/new`, and `/entry/:name` + `/:user/entries` returns only the first route), while the unchanged literal-branch check still throws in the reverse registration order, making acceptance order-dependent.
++src/router/reg-exp-router/node.ts:150 — the `\\${k}` escape was replaced by a bare `${k}`, so literal regexp metacharacters in a path are emitted unescaped: `/v1.0/:id` now also matches `/v1X0/abc`, and a path containing `(` or `)` produces an invalid RegExp (SyntaxError, not UnsupportedPathError, so SmartRouter cannot fall back).
++src/router/reg-exp-router/node.ts:65 — `i <= len - 1` is always true inside the `i < len` loop (the old test was `restTokens.length === 0`), so a non-terminal `*` token compiles to `.*` instead of `[^/]+` and `/a/*/b` now matches across slashes, e.g. `/a/x/y/z/b`.
++src/router/reg-exp-router/node.ts:30 — the wildcard branch returns `-1` when `b` is any non-tail key, so `compareKey('.*', '[^/]+')` and `compareKey('[^/]+', '.*')` both return `-1`, an inconsistent (non-antisymmetric) comparator that leaves the documented "wildcard sorts last" priority dependent on child insertion order, and it also orders the tail wildcard before `.*`, the opposite of what the added comment states.

@@ -1,0 +1,117 @@
+{
+  "amended": {
+    "acceptance_result": "rejected",
+    "gate_exit_code": 1,
+    "hidden_hash": "sha256:acb4b0a0b50bf30e1bd1e093cabc296397ca86688c1eae5556afada57d932ce7",
+    "hidden_status": "fail",
+    "hidden_version": "sealed-w4b-v1 2026-08-17 permutation+depth3",
+    "public_checks": {
+      "G0-subject-readable": "pass",
+      "P1-public-test": "fail",
+      "P2-regression": "fail",
+      "P3-typecheck": "pass",
+      "P4-build": "pass",
+      "P5-no-leakage": "pass",
+      "P6-diff-scope": "pass"
+    },
+    "public_exit_code": 1
+  },
+  "changed": false,
+  "method": {
+    "gates_re_run": [
+      "public",
+      "hidden"
+    ],
+    "harness": {
+      "note": "the gate image's baked harness is overmounted with the working tree's, so the FIXED gate does the grading",
+      "repo_head": "4796df8349df955f1b77d2ef6a660847bb56de8a",
+      "task_tools_sha256": "sha256:a686bd1e5c141ff63a9785034d4b3a8ee685ba3bcb3da05d4dd0b461eaedfa14",
+      "task_tools_uncommitted": "no"
+    },
+    "images": {
+      "agent_image": "lab-subject-agent/w4b-zarr-consolidated-order:a994a4fc972f",
+      "agent_image_built_now": false,
+      "gate_content_digest": "5f2f874b",
+      "gate_image": "lab-subject/w4b-zarr-consolidated-order:a994a4fc972f-5f2f874b",
+      "gate_image_built_now": true,
+      "note": "the gate tag carries a hash of the gate scripts + Dockerfile + task.yaml (harness/container/exec.py: gate_image_content_digest), so a pre-fix image cannot answer to it"
+    },
+    "model_spend": "none",
+    "network": "none (all containers)",
+    "subject_tree": "fresh volume seeded from the agent image, archived agent-solution.diff applied as the agent uid"
+  },
+  "original": {
+    "acceptance_result": "rejected",
+    "hidden_hash": "sha256:acb4b0a0b50bf30e1bd1e093cabc296397ca86688c1eae5556afada57d932ce7",
+    "hidden_status": "fail",
+    "hidden_version": "sealed-w4b-v1 2026-08-17 permutation+depth3",
+    "public_checks": {
+      "G0-subject-readable": "pass",
+      "P1-public-test": "fail",
+      "P2-regression": "fail",
+      "P3-typecheck": "pass",
+      "P4-build": "pass",
+      "P5-no-leakage": "pass",
+      "P6-diff-scope": "pass"
+    }
+  },
+  "provenance": "regrade-v2",
+  "public_check_delta": {
+    "checks": [
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "G0-subject-readable"
+      },
+      {
+        "after": "fail",
+        "before": "fail",
+        "id": "P1-public-test"
+      },
+      {
+        "after": "fail",
+        "before": "fail",
+        "id": "P2-regression"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "P3-typecheck"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "P4-build"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "P5-no-leakage"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "P6-diff-scope"
+      }
+    ],
+    "cleared": [],
+    "newly_failing": [],
+    "still_failing": [
+      "P1-public-test",
+      "P2-regression"
+    ],
+    "unchanged_pass": [
+      "G0-subject-readable",
+      "P3-typecheck",
+      "P4-build",
+      "P5-no-leakage",
+      "P6-diff-scope"
+    ]
+  },
+  "reason": "re-graded under the post-#27 harness: D1 (the gate image tag ignored gate content, so a fixed grader was served from cache) and D2 (the delivered review artifact was counted as leakage by a public check). Both gates were re-run against the same archived agent output; no model was invoked.",
+  "regrade_version": "2",
+  "regraded_at": "2026-08-21T03:33:41Z",
+  "run_id": "w4b-zarr-consolidated-order__C3-med__rep2__20260818T184420",
+  "status": "graded",
+  "task_id": "w4b-zarr-consolidated-order"
+}

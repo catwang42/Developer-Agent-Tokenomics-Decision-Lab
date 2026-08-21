@@ -1,0 +1,117 @@
+{
+  "amended": {
+    "acceptance_result": "accepted",
+    "gate_exit_code": 0,
+    "hidden_hash": "sha256:350bf452c631dec30b413b422b871c4d974fa4df19adc9668b1d10266b4d1002",
+    "hidden_status": "pass",
+    "hidden_version": "sealed-w6-v1 2026-08-17 k=6",
+    "public_checks": {
+      "G0-subject-readable": "pass",
+      "P1-public-test": "pass",
+      "P2-regression": "pass",
+      "P3-typecheck": "pass",
+      "P4-build": "pass",
+      "P5-no-leakage": "pass",
+      "P6-diff-scope": "pass"
+    },
+    "public_exit_code": 0
+  },
+  "changed": true,
+  "method": {
+    "gates_re_run": [
+      "public",
+      "hidden"
+    ],
+    "harness": {
+      "note": "the gate image's baked harness is overmounted with the working tree's, so the FIXED gate does the grading",
+      "repo_head": "4796df8349df955f1b77d2ef6a660847bb56de8a",
+      "task_tools_sha256": "sha256:a686bd1e5c141ff63a9785034d4b3a8ee685ba3bcb3da05d4dd0b461eaedfa14",
+      "task_tools_uncommitted": "no"
+    },
+    "images": {
+      "agent_image": "lab-subject-agent/w6-hono-router-review:3feb3551d46d",
+      "agent_image_built_now": false,
+      "gate_content_digest": "5c838042",
+      "gate_image": "lab-subject/w6-hono-router-review:3feb3551d46d-5c838042",
+      "gate_image_built_now": false,
+      "note": "the gate tag carries a hash of the gate scripts + Dockerfile + task.yaml (harness/container/exec.py: gate_image_content_digest), so a pre-fix image cannot answer to it"
+    },
+    "model_spend": "none",
+    "network": "none (all containers)",
+    "subject_tree": "fresh volume seeded from the agent image, archived agent-solution.diff applied as the agent uid"
+  },
+  "original": {
+    "acceptance_result": "rejected",
+    "hidden_hash": "sha256:350bf452c631dec30b413b422b871c4d974fa4df19adc9668b1d10266b4d1002",
+    "hidden_status": "pass",
+    "hidden_version": "sealed-w6-v1 2026-08-17 k=6",
+    "public_checks": {
+      "G0-subject-readable": "pass",
+      "P1-public-test": "pass",
+      "P2-regression": "pass",
+      "P3-typecheck": "pass",
+      "P4-build": "pass",
+      "P5-no-leakage": "fail",
+      "P6-diff-scope": "fail"
+    }
+  },
+  "provenance": "regrade-v2",
+  "public_check_delta": {
+    "checks": [
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "G0-subject-readable"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "P1-public-test"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "P2-regression"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "P3-typecheck"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "P4-build"
+      },
+      {
+        "after": "pass",
+        "before": "fail",
+        "id": "P5-no-leakage"
+      },
+      {
+        "after": "pass",
+        "before": "fail",
+        "id": "P6-diff-scope"
+      }
+    ],
+    "cleared": [
+      "P5-no-leakage",
+      "P6-diff-scope"
+    ],
+    "newly_failing": [],
+    "still_failing": [],
+    "unchanged_pass": [
+      "G0-subject-readable",
+      "P1-public-test",
+      "P2-regression",
+      "P3-typecheck",
+      "P4-build"
+    ]
+  },
+  "reason": "re-graded under the post-#27 harness: D1 (the gate image tag ignored gate content, so a fixed grader was served from cache) and D2 (the delivered review artifact was counted as leakage by a public check). Both gates were re-run against the same archived agent output; no model was invoked.",
+  "regrade_version": "2",
+  "regraded_at": "2026-08-21T03:37:39Z",
+  "run_id": "w6-hono-router-review__P0__rep2__20260820T204601",
+  "status": "graded",
+  "task_id": "w6-hono-router-review"
+}

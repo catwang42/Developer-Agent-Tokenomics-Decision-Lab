@@ -1,0 +1,40 @@
+{
+  "gate": "public",
+  "checks": [
+    {
+      "id": "G0-subject-readable",
+      "status": "pass",
+      "detail": "git can read the subject tree (diff-scope is meaningful)"
+    },
+    {
+      "id": "P6-diff-scope",
+      "status": "pass",
+      "detail": "only allowed path(s) changed vs pin"
+    },
+    {
+      "id": "P5-no-leakage",
+      "status": "pass",
+      "detail": "no canonical patch / solution markers in tree"
+    },
+    {
+      "id": "P3-typecheck",
+      "status": "pass",
+      "detail": "no typecheck declared (skipped)"
+    },
+    {
+      "id": "P4-build",
+      "status": "pass",
+      "detail": ".venv/bin/python -c \"import zarr; import zarr.core.group\""
+    },
+    {
+      "id": "P1-public-test",
+      "status": "fail",
+      "detail": "consolidated-metadata nesting is order-independent (upstream PR repro)"
+    },
+    {
+      "id": "P2-regression",
+      "status": "fail",
+      "detail": "baseline suite (tests/test_metadata)"
+    }
+  ]
+}

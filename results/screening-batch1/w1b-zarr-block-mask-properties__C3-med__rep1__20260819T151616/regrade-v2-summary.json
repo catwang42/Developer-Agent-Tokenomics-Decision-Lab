@@ -1,0 +1,101 @@
+{
+  "amended": {
+    "acceptance_result": "rejected",
+    "gate_exit_code": 0,
+    "hidden_hash": "sha256:f380d1424f796166353bf959939eb552492140edaf92d87c76e896d4eaa12fb6",
+    "hidden_status": "pass",
+    "hidden_version": "sealed-w1b-v1 2026-08-17 m=8 (M6=control)",
+    "public_checks": {
+      "G0-subject-readable": "pass",
+      "T1-diff-scope": "pass",
+      "T2-suite-green": "fail",
+      "T3-coverage": "fail",
+      "T4-tests-pass": "fail"
+    },
+    "public_exit_code": 1
+  },
+  "changed": false,
+  "method": {
+    "gates_re_run": [
+      "public",
+      "hidden"
+    ],
+    "harness": {
+      "note": "the gate image's baked harness is overmounted with the working tree's, so the FIXED gate does the grading",
+      "repo_head": "7516b3070fbc03a941809f53d56fab930ced967e",
+      "task_tools_sha256": "sha256:a686bd1e5c141ff63a9785034d4b3a8ee685ba3bcb3da05d4dd0b461eaedfa14",
+      "task_tools_uncommitted": "no"
+    },
+    "images": {
+      "agent_image": "lab-subject-agent/w1b-zarr-block-mask-properties:b9d396460da3",
+      "agent_image_built_now": false,
+      "gate_content_digest": "d81ff362",
+      "gate_image": "lab-subject/w1b-zarr-block-mask-properties:b9d396460da3-d81ff362",
+      "gate_image_built_now": true,
+      "note": "the gate tag carries a hash of the gate scripts + Dockerfile + task.yaml (harness/container/exec.py: gate_image_content_digest), so a pre-fix image cannot answer to it"
+    },
+    "model_spend": "none",
+    "network": "none (all containers)",
+    "subject_tree": "fresh volume seeded from the agent image, archived agent-solution.diff applied as the agent uid"
+  },
+  "original": {
+    "acceptance_result": "rejected",
+    "hidden_hash": "sha256:f380d1424f796166353bf959939eb552492140edaf92d87c76e896d4eaa12fb6",
+    "hidden_status": "fail",
+    "hidden_version": "sealed-w1b-v1 2026-08-17 m=8 (M6=control)",
+    "public_checks": {
+      "G0-subject-readable": "pass",
+      "T1-diff-scope": "pass",
+      "T2-suite-green": "fail",
+      "T3-coverage": "fail",
+      "T4-tests-pass": "fail"
+    }
+  },
+  "provenance": "regrade-v2",
+  "public_check_delta": {
+    "checks": [
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "G0-subject-readable"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "T1-diff-scope"
+      },
+      {
+        "after": "fail",
+        "before": "fail",
+        "id": "T2-suite-green"
+      },
+      {
+        "after": "fail",
+        "before": "fail",
+        "id": "T3-coverage"
+      },
+      {
+        "after": "fail",
+        "before": "fail",
+        "id": "T4-tests-pass"
+      }
+    ],
+    "cleared": [],
+    "newly_failing": [],
+    "still_failing": [
+      "T2-suite-green",
+      "T3-coverage",
+      "T4-tests-pass"
+    ],
+    "unchanged_pass": [
+      "G0-subject-readable",
+      "T1-diff-scope"
+    ]
+  },
+  "reason": "re-graded under the post-#27 harness: D1 (the gate image tag ignored gate content, so a fixed grader was served from cache) and D2 (the delivered review artifact was counted as leakage by a public check). Both gates were re-run against the same archived agent output; no model was invoked.",
+  "regrade_version": "2",
+  "regraded_at": "2026-08-21T03:03:34Z",
+  "run_id": "w1b-zarr-block-mask-properties__C3-med__rep1__20260819T151616",
+  "status": "graded",
+  "task_id": "w1b-zarr-block-mask-properties"
+}

@@ -1,0 +1,15 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/review-report.txt b/review-report.txt
+new file mode 100644
+index 00000000..1360e970
+--- /dev/null
++++ b/review-report.txt
+@@ -0,0 +1,7 @@
++src/router/reg-exp-router/node.ts:30 — In compareKey, returning -1 when a is a wildcard and b is not TAIL_WILDCARD_REG_EXP_STR breaks comparator consistency and sorts wildcards before specific patterns.
++src/router/reg-exp-router/node.ts:65 — The condition i <= len - 1 is always true in the loop, causing intermediate wildcard tokens to be wrongly treated as greedy wildcards instead of single-segment wildcards.
++src/router/reg-exp-router/node.ts:94 — The collision check condition tests regexpStr === ONLY_WILDCARD_REG_EXP_STR, bypassing collision detection for all non-wildcard dynamic patterns and allowing conflicting routes without throwing PATH_ERROR.
++src/router/reg-exp-router/node.ts:150 — Regular expression metacharacters are interpolated without escape backslashes, leaving special characters unescaped in the generated regular expression.
++src/router/reg-exp-router/router.ts:76 — Assigning the METHOD_NAME_ALL Trie instance to method-specific tries shares mutable Trie state across HTTP methods and causes subsequent path insertions into the shared Trie to throw UnsupportedPathError.
++src/router/reg-exp-router/router.ts:191 — Iterating over handlerData[i].length without checking if handlerData[i] is defined throws a TypeError when handlerData is a sparse array.
++src/router/reg-exp-router/trie.ts:55 — Inserting with un-incremented this.#index into the root node while storing ++this.#index in this.paths causes an off-by-one mismatch that resolves dynamic route matches to undefined handlers.

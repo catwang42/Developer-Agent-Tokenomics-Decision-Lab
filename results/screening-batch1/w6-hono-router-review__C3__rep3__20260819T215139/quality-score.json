@@ -1,0 +1,15 @@
+{
+  "acceptance": "rejected",
+  "available": false,
+  "configuration_id": "C3",
+  "max": null,
+  "metric": null,
+  "reason": "run truncated (zero-byte agent-solution.diff); partial work is not a quality measurement",
+  "rep": 3,
+  "schema": "quality-score/v1",
+  "score": null,
+  "source": "sealed runner stderr as archived by this run; nothing re-run, no sealed material read",
+  "status": "EXPLORATORY SECONDARY \u2014 the pre-registered outcome is the binary sealed gate; this does not override it",
+  "task_id": "w6-hono-router-review",
+  "truncated": "zero-byte agent-solution.diff"
+}

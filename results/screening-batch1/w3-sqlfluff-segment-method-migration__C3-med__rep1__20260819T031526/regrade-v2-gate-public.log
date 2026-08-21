@@ -1,0 +1,26 @@
+--- diff apply ---
+ M src/sqlfluff/core/dialects/common.py
+ M src/sqlfluff/dialects/dialect_ansi.py
+ M src/sqlfluff/dialects/dialect_bigquery.py
+ M src/sqlfluff/rules/aliasing/AL05.py
+ M src/sqlfluff/rules/references/RF01.py
+ M src/sqlfluff/rules/references/RF02.py
+ M src/sqlfluff/rules/references/RF03.py
+ M src/sqlfluff/rules/structure/ST05.py
+ M src/sqlfluff/rules/structure/ST09.py
+ M src/sqlfluff/rules/structure/ST11.py
+
+--- public gate (stdout) ---
+  [pass] G0-subject-readable — git can read the subject tree (diff-scope is meaningful)
+== public gate (w3-sqlfluff-segment-method-migration) ==
+  [pass] P6-diff-scope — only allowed path(s) changed vs pin
+  [pass] P5-no-leakage — no canonical patch / solution markers in tree
+  [pass] P3-typecheck — no typecheck declared (skipped)
+  [pass] P4-build — .venv/bin/python -c 'import sqlfluff, sqlfluff.core.dialects.common'
+  [fail] P1-public-test — upstream's test/core/dialects/common_test.py — 9 tests over the free functions and their deprecated wrappers (ansi + bigquery)
+  [fail] P2-regression — baseline suite (test/core + test/utils + test/dialects/bigquery_test.py + test/rules[AL05,RF01,RF02,RF03,ST05,ST09,ST11])
+== public gate: FAIL ==
+
+--- public gate (stderr) ---
+
+--- exit: 1

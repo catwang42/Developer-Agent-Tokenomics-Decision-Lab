@@ -1,0 +1,12 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/review-report.txt b/review-report.txt
+new file mode 100644
+index 00000000..346e4743
+--- /dev/null
++++ b/review-report.txt
+@@ -0,0 +1,4 @@
++src/router/reg-exp-router/node.ts:65 — `i <= len - 1` is always true inside `for (let i = 0; i < len; i++)`, so `*` in a non-terminal token position always maps to ONLY_WILDCARD_REG_EXP_STR instead of LABEL_REG_EXP_STR; the correct check is `i === len - 1`.
++src/router/reg-exp-router/node.ts:150 — regex meta-characters in literal path segments are no longer escaped: `regExpMetaChars.has(k) ? \`${k}\`` omits the backslash that the original `\`\\${k}\`` provided, so characters like `.` match any character instead of themselves in dynamic routes.
++src/router/reg-exp-router/trie.ts:55 — off-by-one: `this.#root.insert` receives pre-increment `this.#index` (e.g. 0) while `this.paths[path] = [++this.#index, ...]` stores the post-increment value (e.g. 1), so `handlerData[pathData[0]]` in `#buildMatcher` is always set at a different index than `indexReplacementMap` maps to, making every dynamic route's handler unreachable.
++src/router/reg-exp-router/router.ts:74 — `this.#tries![method] = this.#tries![METHOD_NAME_ALL]` aliases the new method's Trie to the same object as METHOD_NAME_ALL, so the `this.#insertPath(method, p)` calls on line 79 re-insert paths that already exist in the shared Trie, throwing UnsupportedPathError whenever any METHOD_NAME_ALL route was registered before the first method-specific route.

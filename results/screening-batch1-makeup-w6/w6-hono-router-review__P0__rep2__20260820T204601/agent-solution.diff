@@ -1,0 +1,14 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/review-report.txt b/review-report.txt
+new file mode 100644
+index 00000000..87e4731e
+--- /dev/null
++++ b/review-report.txt
+@@ -0,0 +1,6 @@
++src/router/reg-exp-router/trie.ts:55 — `paths[path]` records `++this.#index` while `Node.insert` was given the pre-increment `this.#index`, so every dynamic route's handlers are stored one slot past the index the regexp's `#N` marker resolves to, leaving `handlerData[0]` a hole that makes `#buildMatcher` throw "Cannot read properties of undefined (reading 'length')" for any router containing a dynamic route.
++src/router/reg-exp-router/router.ts:76 — `this.#tries![method] = this.#tries![METHOD_NAME_ALL]` aliases the shared METHOD_NAME_ALL trie instead of creating a new `Trie()` per method, so the immediately following copy loop re-inserts already-registered paths into the same trie (duplicate `#index` → spurious `UnsupportedPathError`), and every method's matcher is built from all methods' routes, letting a GET request match a POST-only path and return an undefined handler list.
++src/router/reg-exp-router/node.ts:150 — the `\\` escape was dropped from the literal-key branch, so a regexp metacharacter that appears literally in a dynamic path is emitted raw: `/api.v1/:id` wrongly matches `/apiXv1/x`, `/a+b/:id` no longer matches `/a+b/x`, literal `(`/`)` inject an extra capture group that desynchronizes the handler/param index math, and an unbalanced literal `(` makes `new RegExp` throw a SyntaxError that SmartRouter does not catch.
++src/router/reg-exp-router/node.ts:65 — the wildcard-position test `i <= len - 1` is true for every iteration of the loop (replacing the original `restTokens.length === 0`), so a non-terminal `*` is compiled to `.*` instead of `[^/]+` and `/a/*/b` now matches across segment boundaries (e.g. `/a/x/y/b`).
++src/router/reg-exp-router/node.ts:94 — gating the sibling-conflict check on `regexpStr === ONLY_WILDCARD_REG_EXP_STR` (whose companion `!== TAIL_WILDCARD_REG_EXP_STR` conjunct is always true) skips the check for every ordinary pattern, so a pattern child is silently created next to existing literal children instead of raising `UnsupportedPathError`, and `/reg-exp/router` + `/reg-exp/:id` now resolves `/reg-exp/router` from staticMap while silently dropping the `/reg-exp/:id` handler.
++src/router/reg-exp-router/node.ts:30 — returning `-1` when `a` is a wildcard and `b` is any other multi-character pattern makes the wildcard sort before more specific patterns, contradicting the documented "4. wildcard" ordering and making the comparator self-inconsistent (`compareKey(a,b)` and `compareKey(b,a)` both return `-1`), so alternation order becomes registration-order dependent and a wildcard branch can shadow a more specific one.

@@ -1,0 +1,17 @@
+{
+  "amended": null,
+  "changed": false,
+  "original": {
+    "acceptance_result": "rejected",
+    "hidden_hash": "sha256:84b81c1ea152c7f68574188a2d6b0c49de06bcefc6eefb5f352d4d84141ff344",
+    "hidden_status": "fail",
+    "hidden_version": "sealed-w3-v1 2026-08-17"
+  },
+  "provenance": "regrade-v2",
+  "reason": "run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade",
+  "regrade_version": "2",
+  "regraded_at": "2026-08-21T03:11:32Z",
+  "run_id": "w3-sqlfluff-segment-method-migration__P1__rep2__20260819T093947",
+  "status": "refused",
+  "task_id": "w3-sqlfluff-segment-method-migration"
+}

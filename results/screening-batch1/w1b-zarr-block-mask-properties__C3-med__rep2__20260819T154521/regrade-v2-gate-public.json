@@ -1,0 +1,30 @@
+{
+  "gate": "public",
+  "checks": [
+    {
+      "id": "G0-subject-readable",
+      "status": "pass",
+      "detail": "git can read the subject tree (diff-scope is meaningful)"
+    },
+    {
+      "id": "T1-diff-scope",
+      "status": "pass",
+      "detail": "only new test files under tests/"
+    },
+    {
+      "id": "T2-suite-green",
+      "status": "fail",
+      "detail": "baseline suite (tests/test_indexing.py + tests/test_*_properties.py)"
+    },
+    {
+      "id": "T3-coverage",
+      "status": "fail",
+      "detail": "coverage summary not produced"
+    },
+    {
+      "id": "T4-tests-pass",
+      "status": "fail",
+      "detail": "agent's new tests pass on the pinned target files"
+    }
+  ]
+}

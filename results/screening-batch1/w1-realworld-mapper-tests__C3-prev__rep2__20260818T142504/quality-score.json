@@ -1,0 +1,25 @@
+{
+  "acceptance": "rejected",
+  "available": true,
+  "configuration_id": "C3-prev",
+  "detail": {
+    "caught": [
+      "m1-following-always-false",
+      "m2-following-always-true",
+      "m3-some-predicate-flip",
+      "m4-favorited-always-false",
+      "m5-count-off-by-one",
+      "m6-taglist-wrong-shape"
+    ],
+    "missed": []
+  },
+  "max": 6,
+  "metric": "mutants_caught",
+  "rep": 2,
+  "schema": "quality-score/v1",
+  "score": 6,
+  "source": "sealed runner stderr as archived by this run; nothing re-run, no sealed material read",
+  "source_log": "regrade-v2-gate-hidden.log",
+  "status": "EXPLORATORY SECONDARY \u2014 the pre-registered outcome is the binary sealed gate; this does not override it",
+  "task_id": "w1-realworld-mapper-tests"
+}

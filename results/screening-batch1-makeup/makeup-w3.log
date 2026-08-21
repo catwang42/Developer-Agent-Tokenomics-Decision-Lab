@@ -1,0 +1,214 @@
+2026-08-20T09:42:54Z  === preflight (makeup-batch) ===
+2026-08-20T09:42:54Z  ok   plan: 8 runs (P0 C2 C3 P1 x 2 reps)
+2026-08-20T09:42:54Z  ok   agent budget: 7200s, pinned identically in task.yaml and the manifest
+2026-08-20T09:42:54Z  ok   spend authorization (LAB_ALLOW_SPEND=1)
+2026-08-20T09:42:54Z  ok   W3 sealed hidden test frozen (version + sha256 in the manifest)
+2026-08-20T09:42:54Z  ok   w3-sqlfluff-segment-method-migration: task_id matches the manifest, all 8 cells are registered arms
+2026-08-20T09:42:55Z  ok   agy 1.1.13 == pin; AGY_CLI_DISABLE_AUTO_UPDATE=1 exported
+2026-08-20T09:42:55Z  ok   egress allowlist matches the manifest pin
+2026-08-20T09:42:55Z  ok   docker reachable
+       QUIET 0 tokens in the last 15m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = "gemini-3.7-flash"
+2026-08-20T09:42:57Z  ok   quiet window: no background traffic on the subject models
+2026-08-20T09:42:57Z  ok   kill switch armed: touch results/screening-batch1-makeup/HALT to halt between runs
+2026-08-20T09:42:57Z  ok   dataset marker written: results/screening-batch1-makeup/MAKEUP-BATCH.json
+2026-08-20T09:42:57Z  === resume index (source: results/screening-batch1-makeup) ===
+       0 completed+validated
+2026-08-20T09:42:57Z  ok   resume: 8 of 8 plan cells pending
+2026-08-20T09:42:57Z  === preflight passed: 8 pending of 8 runs, budget 7200s/run, cap $150, results/screening-batch1-makeup ===
+2026-08-20T09:42:57Z  --- [1/8] w3-sqlfluff-segment-method-migration P0 rep1 (budget 7200s) ---
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup/w3-sqlfluff-segment-method-migration__P0__rep1__20260820T094257
+validate: PASS (audit-grade)
+2026-08-20T11:43:08Z  --- [2/8] w3-sqlfluff-segment-method-migration P0 rep2 (budget 7200s) ---
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup/w3-sqlfluff-segment-method-migration__P0__rep2__20260820T114309
+validate: PASS (audit-grade)
+2026-08-20T13:11:38Z  --- [3/8] w3-sqlfluff-segment-method-migration C2 rep1 (budget 7200s) ---
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup/w3-sqlfluff-segment-method-migration__C2__rep1__20260820T131139
+validate: PASS (audit-grade)
+2026-08-20T14:03:39Z  --- [4/8] w3-sqlfluff-segment-method-migration C2 rep2 (budget 7200s) ---
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup/w3-sqlfluff-segment-method-migration__C2__rep2__20260820T140340
+validate: PASS (audit-grade)
+2026-08-20T15:00:49Z  --- cost checkpoint after 4 completed runs ---
+       known spend floor: $29.5033 over 4 runs (cap $150.00)
+       legs with unavailable cost: 1 -> real spend may be HIGHER; the total is a floor, never an estimate
+2026-08-20T15:00:51Z  --- [5/8] w3-sqlfluff-segment-method-migration C3 rep1 (budget 7200s) ---
+       QUIET 0 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = "gemini-3.7-flash"
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup/w3-sqlfluff-segment-method-migration__C3__rep1__20260820T150106
+validate: PASS (audit-grade)
+2026-08-20T15:16:29Z  --- [6/8] w3-sqlfluff-segment-method-migration C3 rep2 (budget 7200s) ---
+       NOISY 6439523 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = "gemini-3.7-flash"
+2026-08-20T15:16:30Z  quiet window not established for C3 rep2 (probe 1/3) — waiting 300s
+       NOISY 3845461 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = "gemini-3.7-flash"
+2026-08-20T15:21:32Z  quiet window not established for C3 rep2 (probe 2/3) — waiting 300s
+       NOISY 979612 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = "gemini-3.7-flash"
+2026-08-20T15:26:33Z  quiet window not established for C3 rep2 (probe 3/3) — waiting 300s
+       QUIET 0 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = "gemini-3.7-flash"
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup/w3-sqlfluff-segment-method-migration__C3__rep2__20260820T153135
+validate: PASS (audit-grade)
+2026-08-20T15:46:48Z  --- [7/8] w3-sqlfluff-segment-method-migration P1 rep1 (budget 7200s) ---
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup/w3-sqlfluff-segment-method-migration__P1__rep1__20260820T154648
+validate: PASS (audit-grade)
+2026-08-20T18:24:23Z  --- [8/8] w3-sqlfluff-segment-method-migration P1 rep2 (budget 7200s) ---
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup/w3-sqlfluff-segment-method-migration__P1__rep2__20260820T182423
+validate: PASS (audit-grade)
+2026-08-20T20:26:35Z  --- cost checkpoint after 8 completed runs ---
+       known spend floor: $59.8225 over 8 runs (cap $150.00)
+       legs with unavailable cost: 4 -> real spend may be HIGHER; the total is a floor, never an estimate
+2026-08-20T20:26:36Z  === execution finished: 8 run this pass, 0 skipped, 0 deferred; plan 8 ===
+2026-08-20T20:26:36Z  === collector backfill (attribution rule v2) ===
+2026-08-20T20:26:36Z  waiting 300s for Cloud Monitoring ingestion before querying
+collector plan: 2 Gemini-bearing runs -> results/screening-batch1-makeup/collector-plan.json
+========================================================================
+CONTAMINATED WINDOW — 2 run(s) NOT backfilled. The meter readings are real; they are not these runs'.
+  w3-sqlfluff-segment-method-migration__C3__rep1__20260820T150106
+    - gemini-3.7-flash: 8947921 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 — the window is carrying traffic this run cannot have produced
+  w3-sqlfluff-segment-method-migration__C3__rep2__20260820T153135
+    - gemini-3.7-flash: 8129026 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 — the window is carrying traffic this run cannot have produced
+  -> nothing was written; their Product-B usage stays 'unavailable', not zero.
+  -> re-collect only if the window can be shown to have been quiet; widening a filter to make a number appear is fabrication.
+========================================================================
+{
+  "attribution": {
+    "counts_confidence": "authoritative",
+    "event_type": "provider_usage_backfill_v2",
+    "method": "serialized_run_ownership_with_ingestion_tail",
+    "note": "a serialized subject run owns the meter from its own start until the next subject run's window opens, so its own ingestion tail is attributed to it; the tail is measured, ending at the first silence and capped, and the quiet probe looks only at the region no subject run owns",
+    "per_run_attribution_confidence": "derived",
+    "rule": "v2",
+    "tail_cap_seconds": 300,
+    "tail_seconds": 300,
+    "tail_silence_seconds": 300
+  },
+  "collected_at": "2026-08-20T20:31:36.438205Z",
+  "collector": "vertex_token_collector",
+  "contamination_guard": {
+    "baseline_probe_seconds": 300,
+    "input_side_ceiling_tokens": 3000000,
+    "on_trip": "nothing is written; the run is stamped contaminated_window and its usage stays unavailable",
+    "runs_refused": [
+      "results/screening-batch1-makeup/w3-sqlfluff-segment-method-migration__C3__rep1__20260820T150106",
+      "results/screening-batch1-makeup/w3-sqlfluff-segment-method-migration__C3__rep2__20260820T153135"
+    ]
+  },
+  "economics_note": "Usage only. This collector does not recompute economics: costs stay as the runner recorded them. Re-cost with harness/runner/run.py's build_economics against the pinned pricing snapshot once usage is filled.",
+  "guard_seconds": 60,
+  "metric_type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "project": "vital-octagon-19612",
+  "report": "provider-side token backfill",
+  "runs": [
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-20T15:30:35.761910Z",
+                "points": 0,
+                "start": "2026-08-20T15:17:59.000001Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-20T15:00:07.966086Z",
+                "points": 0,
+                "start": "2026-08-20T14:55:07.966087Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 8947921
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 8947921 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 8947921 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1-makeup/w3-sqlfluff-segment-method-migration__C3__rep1__20260820T150106",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3__rep1__20260820T150106",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-20T15:17:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-20T15:00:07.966087Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-20T15:53:59.000000Z",
+                "points": 0,
+                "start": "2026-08-20T15:48:59.000001Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-20T15:30:35.761910Z",
+                "points": 0,
+                "start": "2026-08-20T15:25:35.761911Z"
+              }
+            }
+          },
+          "ceiling": {
+            "input_side_tokens_ceiling": 3000000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 8129026
+            }
+          }
+        },
+        "reasons": [
+          "gemini-3.7-flash: 8129026 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced"
+        ]
+      },
+      "detail": "gemini-3.7-flash: 8129026 input-side tokens in the window exceeds the per-run plausibility ceiling of 3000000 \u2014 the window is carrying traffic this run cannot have produced",
+      "run_dir": "results/screening-batch1-makeup/w3-sqlfluff-segment-method-migration__C3__rep2__20260820T153135",
+      "run_id": "w3-sqlfluff-segment-method-migration__C3__rep2__20260820T153135",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-20T15:48:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-20T15:30:35.761911Z"
+      }
+    }
+  ],
+  "status_counts": {
+    "contaminated_window": 2
+  },
+  "unmapped_types_note": "Type labels with no mapping to a schema usage field. They are recorded verbatim in each run's event log and are NOT counted in any token class. A thinking/reasoning-flavoured type appearing here is a finding, not noise: it is the thinking share of the bill and must be mapped or reported explicitly before any Product-B cost is published.",
+  "unmapped_types_observed": {}
+}
+2026-08-20T20:31:38Z  CONTAMINATION GUARD REFUSED at least one run — nothing was written for it.
+2026-08-20T20:31:38Z    Its Product-B usage stays 'unavailable' (never zero). Evidence per run:
+2026-08-20T20:31:38Z    report/screening-batch1-makeup/backfill-v2.json and PROVIDER-BACKFILL-REFUSED-v2.json in the run dir.
+2026-08-20T20:31:38Z  === final cost accounting ===
+       known spend floor: $59.8225 over 8 runs (cap $150.00)
+       legs with unavailable cost: 4
+
+NEXT (human):
+  1. Summarize the makeup dataset on its own:
+       python -m harness.telemetry.summarize results/screening-batch1-makeup
+     It pairs with report/screening-batch1-makeup/ (CLAUDE.md rule 8). Add the dataset row to
+     results/README.md naming that report.
+  2. Grade the W3-escalation registration against THIS dataset. Batch 1 stays
+     confounded_by_run_budget; it is not re-graded and not merged in.
+  3. Account for the 0 deferred-contaminated cell(s) and for any run the
+     collector refused: both are HOLES, reported as missing, never averaged over.
+  4. No number from this dataset enters docs, the site, or an external-facing
+     report before CP-FINDINGS.

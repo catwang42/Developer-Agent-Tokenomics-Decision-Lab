@@ -1,0 +1,82 @@
+{
+  "bound": "upper",
+  "configuration_id": "C3-med",
+  "cost_basis": "marginal_api_cost",
+  "cost_basis_qualifier": "cache_blind_upper_bound",
+  "dataset": "screening-batch1",
+  "legs": [
+    {
+      "fully_allocated_usd": {
+        "confidence": "derived",
+        "value": 0.8800275
+      },
+      "leg_id": "main",
+      "marginal_operating_usd": {
+        "basis": "marginal_api_cost",
+        "bound": "upper",
+        "cache_classes_excluded": [
+          "cache_creation_tokens",
+          "cache_read_tokens"
+        ],
+        "components": {
+          "input_tokens": 0.8356425,
+          "output_tokens": 0.044385
+        },
+        "confidence": "derived",
+        "qualifier": "cache_blind_upper_bound",
+        "rate_keys": {
+          "input_tokens": "input",
+          "output_tokens": "output"
+        },
+        "reason": "provider meters no cache series for this publisher, so cache classes are excluded rather than zero-filled and all input is priced at the full input rate \u2014 an UPPER BOUND on real spend (manifest notes.gemini_cache_blindness)",
+        "value": 0.8800275
+      },
+      "model_or_selector": "Gemini 3.7 Flash (Medium)",
+      "provider": "google",
+      "recosted_here": true,
+      "role": "solver",
+      "token_cost_usd": {
+        "basis": "marginal_api_cost",
+        "bound": "upper",
+        "cache_classes_excluded": [
+          "cache_creation_tokens",
+          "cache_read_tokens"
+        ],
+        "components": {
+          "input_tokens": 0.8356425,
+          "output_tokens": 0.044385
+        },
+        "confidence": "derived",
+        "qualifier": "cache_blind_upper_bound",
+        "rate_keys": {
+          "input_tokens": "input",
+          "output_tokens": "output"
+        },
+        "reason": "provider meters no cache series for this publisher, so cache classes are excluded rather than zero-filled and all input is priced at the full input rate \u2014 an UPPER BOUND on real spend (manifest notes.gemini_cache_blindness)",
+        "value": 0.8800275
+      },
+      "usage": {
+        "input_tokens": {
+          "confidence": "derived",
+          "value": 1114190
+        },
+        "output_tokens": {
+          "confidence": "derived",
+          "value": 11836
+        }
+      }
+    }
+  ],
+  "marginal_operating_usd": {
+    "bound": "upper",
+    "confidence": "derived",
+    "qualifier": "cache_blind_upper_bound",
+    "reason": "provider-side counts (authoritative) attributed to a serialized run window (derived); cache classes not metered by this publisher, so this is an upper bound",
+    "value": 0.8800275
+  },
+  "pricing_snapshot": "prices-2026-08-16.json",
+  "run_id": "w1-realworld-mapper-tests__C3-med__rep1__20260818T130921",
+  "source": "provider-side token backfill, priced offline; no model was invoked",
+  "status": "priced",
+  "task_id": "w1-realworld-mapper-tests"
+}

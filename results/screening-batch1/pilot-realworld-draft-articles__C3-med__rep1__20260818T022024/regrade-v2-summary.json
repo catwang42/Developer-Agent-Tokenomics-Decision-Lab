@@ -1,0 +1,116 @@
+{
+  "amended": {
+    "acceptance_result": "accepted",
+    "gate_exit_code": 0,
+    "hidden_hash": "sha256:105c24189877b52fe57b1e453f53f73366ad3c7fa1a611a8a2a63042b667abe2",
+    "hidden_status": "pass",
+    "hidden_version": "sealed-pilot-v1 2026-07-19",
+    "public_checks": {
+      "G0-subject-readable": "pass",
+      "P1-public-test": "pass",
+      "P2-regression": "pass",
+      "P3-typecheck": "pass",
+      "P4-build": "pass",
+      "P5-no-leakage": "pass",
+      "P6-diff-scope": "pass"
+    },
+    "public_exit_code": 0
+  },
+  "changed": false,
+  "method": {
+    "gates_re_run": [
+      "public",
+      "hidden"
+    ],
+    "harness": {
+      "note": "the gate image's baked harness is overmounted with the working tree's, so the FIXED gate does the grading",
+      "repo_head": "4796df8349df955f1b77d2ef6a660847bb56de8a",
+      "task_tools_sha256": "sha256:a686bd1e5c141ff63a9785034d4b3a8ee685ba3bcb3da05d4dd0b461eaedfa14",
+      "task_tools_uncommitted": "no"
+    },
+    "images": {
+      "agent_image": "lab-subject-agent/pilot-realworld-draft-articles:30b68e1e8814",
+      "agent_image_built_now": false,
+      "gate_content_digest": "a6dff3bb",
+      "gate_image": "lab-subject/pilot-realworld-draft-articles:30b68e1e8814-a6dff3bb",
+      "gate_image_built_now": true,
+      "note": "the gate tag carries a hash of the gate scripts + Dockerfile + task.yaml (harness/container/exec.py: gate_image_content_digest), so a pre-fix image cannot answer to it"
+    },
+    "model_spend": "none",
+    "network": "none (all containers)",
+    "subject_tree": "fresh volume seeded from the agent image, archived agent-solution.diff applied as the agent uid"
+  },
+  "original": {
+    "acceptance_result": "accepted",
+    "hidden_hash": "sha256:105c24189877b52fe57b1e453f53f73366ad3c7fa1a611a8a2a63042b667abe2",
+    "hidden_status": "pass",
+    "hidden_version": "sealed-pilot-v1 2026-07-19",
+    "public_checks": {
+      "G0-subject-readable": "pass",
+      "P1-public-test": "pass",
+      "P2-regression": "pass",
+      "P3-typecheck": "pass",
+      "P4-build": "pass",
+      "P5-no-leakage": "pass",
+      "P6-diff-scope": "pass"
+    }
+  },
+  "provenance": "regrade-v2",
+  "public_check_delta": {
+    "checks": [
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "G0-subject-readable"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "P1-public-test"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "P2-regression"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "P3-typecheck"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "P4-build"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "P5-no-leakage"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "P6-diff-scope"
+      }
+    ],
+    "cleared": [],
+    "newly_failing": [],
+    "still_failing": [],
+    "unchanged_pass": [
+      "G0-subject-readable",
+      "P1-public-test",
+      "P2-regression",
+      "P3-typecheck",
+      "P4-build",
+      "P5-no-leakage",
+      "P6-diff-scope"
+    ]
+  },
+  "reason": "re-graded under the post-#27 harness: D1 (the gate image tag ignored gate content, so a fixed grader was served from cache) and D2 (the delivered review artifact was counted as leakage by a public check). Both gates were re-run against the same archived agent output; no model was invoked.",
+  "regrade_version": "2",
+  "regraded_at": "2026-08-21T03:47:29Z",
+  "run_id": "pilot-realworld-draft-articles__C3-med__rep1__20260818T022024",
+  "status": "graded",
+  "task_id": "pilot-realworld-draft-articles"
+}

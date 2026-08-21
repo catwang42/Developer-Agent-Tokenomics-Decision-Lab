@@ -1,0 +1,17 @@
+== hidden gate (w6-hono-router-review) [pr_review] ==
+  source: /lab/tasks/suite/W6-pr-review/hidden
+  version: sealed-w6-v1 2026-08-17 k=6
+  hash:    sha256:350bf452c631dec30b413b422b871c4d974fa4df19adc9668b1d10266b4d1002
+  runner:  check.sh (sealed; contents never shown)
+  -- sealed runner (stderr) --
+  | DETECTED D1-offbyone-trie-index
+  | MISSED D2-inverted-guard
+  | DETECTED D3-precedence-flip
+  | DETECTED D4-wildcard-fallthrough
+  | MISSED D5-missing-escape
+  | DETECTED D6-trie-aliasing
+  | FABRICATED src/router/reg-exp-router/node.ts:203
+  | FABRICATED src/router/reg-exp-router/trie.ts:47
+== hidden gate: FAIL ==
+
+--- exit: 1

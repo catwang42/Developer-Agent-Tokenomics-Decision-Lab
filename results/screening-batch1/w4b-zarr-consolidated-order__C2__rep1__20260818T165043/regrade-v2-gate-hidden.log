@@ -1,0 +1,13 @@
+--- diff apply ---
+ M src/zarr/core/group.py
+
+--- hidden gate (stdout) ---
+== hidden gate (w4b-zarr-consolidated-order) [solution] ==
+  source: /lab/tasks/suite/W4b-zarr-consolidated-order/hidden
+  version: sealed-w4b-v1 2026-08-17 permutation+depth3
+  hash:    sha256:acb4b0a0b50bf30e1bd1e093cabc296397ca86688c1eae5556afada57d932ce7
+== hidden gate: FAIL ==
+
+--- hidden gate (stderr) ---
+
+--- exit: 1

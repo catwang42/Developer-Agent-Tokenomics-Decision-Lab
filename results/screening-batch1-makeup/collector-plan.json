@@ -1,0 +1,17 @@
+{
+  "project": "vital-octagon-19612",
+  "runs": [
+    {
+      "run_dir": "results/screening-batch1-makeup/w3-sqlfluff-segment-method-migration__C3__rep1__20260820T150106",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1-makeup/w3-sqlfluff-segment-method-migration__C3__rep2__20260820T153135",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    }
+  ]
+}

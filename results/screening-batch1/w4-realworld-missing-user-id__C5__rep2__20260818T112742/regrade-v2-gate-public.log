@@ -1,0 +1,18 @@
+--- diff apply ---
+ M src/app/routes/auth/auth.service.ts
+ M src/tests/services/auth.service.test.ts
+
+--- public gate (stdout) ---
+  [pass] G0-subject-readable — git can read the subject tree (diff-scope is meaningful)
+== public gate (w4-realworld-missing-user-id) ==
+  [fail] P6-diff-scope — unexpected changes (incl. any test-file edit): src/tests/services/auth.service.test.ts
+  [pass] P5-no-leakage — no canonical patch / solution markers in tree
+  [pass] P3-typecheck — tsc -p tsconfig.app.json --noEmit
+  [pass] P4-build — nx build (app compiles)
+  [pass] P1-public-test — getCurrentUser repro (selects user id)
+  [pass] P2-regression — baseline suite (article|profile|utils)
+== public gate: FAIL ==
+
+--- public gate (stderr) ---
+
+--- exit: 1

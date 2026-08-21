@@ -1,0 +1,14 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/review-report.txt b/review-report.txt
+new file mode 100644
+index 00000000..1607d7a8
+--- /dev/null
++++ b/review-report.txt
+@@ -0,0 +1,6 @@
++src/router/reg-exp-router/trie.ts:55 — Off-by-one: the node is inserted with `this.#index` but `paths[path]` records the pre-incremented `++this.#index`, so handler data is stored one slot above the index baked into the regexp, leaving `handlerData[0]` a hole and making every dynamic route throw `TypeError: Cannot read properties of undefined (reading 'length')` on the first match.
++src/router/reg-exp-router/router.ts:76 — A newly seen method aliases the METHOD_NAME_ALL trie object instead of getting its own `new Trie()`, so the loop below re-inserts every METHOD_NAME_ALL path into that same trie (duplicate terminal → `UnsupportedPathError`, e.g. `app.use('*')` followed by `app.get('/entry/:id')`) and each method's routes leak into the ALL matcher.
++src/router/reg-exp-router/node.ts:150 — Literal regexp metacharacters are no longer escaped (`${k}` replaced `\\${k}`), so a `.` in a route path matches any character (`/a.b/:id` also matches `/aXb/1`) and a `(`, `[` or `\` in a path builds an invalid RegExp that throws `SyntaxError` at match time.
++src/router/reg-exp-router/node.ts:65 — The condition `i <= len - 1` is always true inside the loop (it replaced `restTokens.length === 0`), so a `*` that is not the final token compiles to `.*` instead of `[^/]+` and matches across `/` (route `/x/*/y` wrongly matches `/x/a/b/y`).
++src/router/reg-exp-router/node.ts:94 — Gating the sibling-conflict check on `regexpStr === ONLY_WILDCARD_REG_EXP_STR` (the `!== TAIL_WILDCARD_REG_EXP_STR` conjunct is dead) stops literal-vs-pattern conflicts from raising `UnsupportedPathError`, so a route silently becomes unreachable (registering `/abc/*` then `/:id/x` makes `GET /abc/x` miss the `/:id/x` handler) while the reverse registration order still throws.
++src/router/reg-exp-router/node.ts:30 — When `a` is a wildcard and `b` is a non-wildcard multi-character key the comparator returns -1, sorting the wildcard before more specific patterns in violation of the documented "4. wildcard" ordering, and making it non-antisymmetric (`compareKey('.*','[^/]+')` and `compareKey('[^/]+','.*')` both return -1) so sibling order becomes sort-implementation dependent.

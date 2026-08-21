@@ -1,0 +1,15 @@
+{
+  "acceptance": "rejected",
+  "available": false,
+  "configuration_id": "P0",
+  "max": null,
+  "metric": null,
+  "reason": "run truncated (no agent-solution.diff archived); partial work is not a quality measurement",
+  "rep": 3,
+  "schema": "quality-score/v1",
+  "score": null,
+  "source": "sealed runner stderr as archived by this run; nothing re-run, no sealed material read",
+  "status": "EXPLORATORY SECONDARY \u2014 the pre-registered outcome is the binary sealed gate; this does not override it",
+  "task_id": "w4-realworld-missing-user-id",
+  "truncated": "no agent-solution.diff archived"
+}

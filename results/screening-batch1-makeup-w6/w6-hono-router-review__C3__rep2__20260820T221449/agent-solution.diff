@@ -1,0 +1,15 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/review-report.txt b/review-report.txt
+new file mode 100644
+index 00000000..731065d7
+--- /dev/null
++++ b/review-report.txt
+@@ -0,0 +1,7 @@
++src/router/reg-exp-router/node.ts:30 — compareKey returns -1 instead of 1 when comparing a wildcard against a non-wildcard, sorting wildcards before specific patterns and violating comparison antisymmetry.
++src/router/reg-exp-router/node.ts:65 — The condition i <= len - 1 is always true, incorrectly treating intermediate wildcard tokens as trailing full wildcards instead of single-segment patterns.
++src/router/reg-exp-router/node.ts:94 — The conflict check uses === instead of !== for ONLY_WILDCARD_REG_EXP_STR, allowing dynamic parameter routes to bypass conflict detection and fail to throw PATH_ERROR.
++src/router/reg-exp-router/node.ts:150 — Regular expression meta-characters are not escaped with a backslash when constructing the regular expression string, causing invalid pattern matching or syntax errors.
++src/router/reg-exp-router/router.ts:75 — Assigning the METHOD_NAME_ALL Trie to other HTTP methods shares a single Trie instance across methods, causing cross-method state pollution and throwing UnsupportedPathError on route re-insertion.
++src/router/reg-exp-router/router.ts:191 — Reading the length property of handlerData[i] without verifying that handlerData[i] exists throws a TypeError when handlerData is sparse or contains unpopulated indices.
++src/router/reg-exp-router/trie.ts:54 — Passing this.#index to insert before incrementing it for paths creates an off-by-one index mismatch that corrupts handler mapping and dispatch for dynamic routes.

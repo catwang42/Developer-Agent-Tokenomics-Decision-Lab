@@ -1,0 +1,14 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/review-report.txt b/review-report.txt
+new file mode 100644
+index 00000000..d86d0ac4
+--- /dev/null
++++ b/review-report.txt
+@@ -0,0 +1,6 @@
++src/router/reg-exp-router/node.ts:30 — The compareKey function returns -1 when comparing the wildcard (.*) to non-wildcard keys, incorrectly sorting wildcards before specific route parameters and shadowing routes.
++src/router/reg-exp-router/node.ts:65 — The loop condition i <= len - 1 is always true, causing non-terminal '*' wildcards to be incorrectly treated as trailing wildcards (.*) rather than single-segment labels.
++src/router/reg-exp-router/node.ts:150 — RegExp meta-characters are no longer escaped with a backslash when building the regex string, causing literal path characters like '.' or '+' to be treated as unescaped regex operators.
++src/router/reg-exp-router/router.ts:76 — Assigning the METHOD_NAME_ALL Trie reference directly to per-method tries causes all HTTP methods to share a single Trie instance, resulting in cross-method route contamination.
++src/router/reg-exp-router/router.ts:191 — Iterating over the sparse handlerData array without checking for undefined elements causes handlerData[i].length to throw a TypeError.
++src/router/reg-exp-router/trie.ts:55 — Pre-incrementing this.#index when assigning to this.paths causes stored path indices to be off by one from the indices inserted into the Trie node, breaking route handler resolution.

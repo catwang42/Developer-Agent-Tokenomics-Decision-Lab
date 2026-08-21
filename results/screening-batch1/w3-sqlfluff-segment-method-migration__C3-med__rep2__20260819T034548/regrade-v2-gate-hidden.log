@@ -1,0 +1,23 @@
+--- diff apply ---
+ M src/sqlfluff/core/dialects/common.py
+ M src/sqlfluff/dialects/dialect_ansi.py
+ M src/sqlfluff/dialects/dialect_bigquery.py
+ M src/sqlfluff/rules/aliasing/AL05.py
+ M src/sqlfluff/rules/references/RF01.py
+ M src/sqlfluff/rules/references/RF02.py
+ M src/sqlfluff/rules/references/RF03.py
+ M src/sqlfluff/rules/structure/ST05.py
+ M src/sqlfluff/rules/structure/ST09.py
+ M src/sqlfluff/rules/structure/ST11.py
+ M src/sqlfluff/utils/analysis/query.py
+
+--- hidden gate (stdout) ---
+== hidden gate (w3-sqlfluff-segment-method-migration) [solution] ==
+  source: /lab/tasks/suite/W3-migration/hidden
+  version: sealed-w3-v1 2026-08-17
+  hash:    sha256:84b81c1ea152c7f68574188a2d6b0c49de06bcefc6eefb5f352d4d84141ff344
+== hidden gate: FAIL ==
+
+--- hidden gate (stderr) ---
+
+--- exit: 4

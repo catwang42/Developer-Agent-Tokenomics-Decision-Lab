@@ -1,0 +1,17 @@
+{
+  "amended": null,
+  "changed": false,
+  "original": {
+    "acceptance_result": "rejected",
+    "hidden_hash": null,
+    "hidden_status": "unavailable",
+    "hidden_version": null
+  },
+  "provenance": "regrade-v2",
+  "reason": "run truncated (zero-byte agent-solution.diff); there is no completed agent product to re-grade",
+  "regrade_version": "2",
+  "regraded_at": "2026-08-21T02:48:39Z",
+  "run_id": "w1-realworld-mapper-tests__C5__rep1__20260818T150210",
+  "status": "refused",
+  "task_id": "w1-realworld-mapper-tests"
+}
