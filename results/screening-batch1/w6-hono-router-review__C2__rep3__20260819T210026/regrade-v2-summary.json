@@ -1,0 +1,17 @@
+{
+  "amended": null,
+  "changed": false,
+  "original": {
+    "acceptance_result": "rejected",
+    "hidden_hash": "sha256:350bf452c631dec30b413b422b871c4d974fa4df19adc9668b1d10266b4d1002",
+    "hidden_status": "fail",
+    "hidden_version": "sealed-w6-v1 2026-08-17 k=6"
+  },
+  "provenance": "regrade-v2",
+  "reason": "run truncated (zero-byte agent-solution.diff); there is no completed agent product to re-grade",
+  "regrade_version": "2",
+  "regraded_at": "2026-08-21T03:35:36Z",
+  "run_id": "w6-hono-router-review__C2__rep3__20260819T210026",
+  "status": "refused",
+  "task_id": "w6-hono-router-review"
+}

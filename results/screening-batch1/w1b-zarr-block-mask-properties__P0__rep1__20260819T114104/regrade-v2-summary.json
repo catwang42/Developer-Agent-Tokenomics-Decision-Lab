@@ -1,0 +1,17 @@
+{
+  "amended": null,
+  "changed": false,
+  "original": {
+    "acceptance_result": "rejected",
+    "hidden_hash": "sha256:f380d1424f796166353bf959939eb552492140edaf92d87c76e896d4eaa12fb6",
+    "hidden_status": "fail",
+    "hidden_version": "sealed-w1b-v1 2026-08-17 m=8 (M6=control)"
+  },
+  "provenance": "regrade-v2",
+  "reason": "run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade",
+  "regrade_version": "2",
+  "regraded_at": "2026-08-21T03:06:43Z",
+  "run_id": "w1b-zarr-block-mask-properties__P0__rep1__20260819T114104",
+  "status": "refused",
+  "task_id": "w1b-zarr-block-mask-properties"
+}

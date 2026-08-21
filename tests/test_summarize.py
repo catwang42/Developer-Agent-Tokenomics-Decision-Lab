@@ -805,6 +805,18 @@ def _write_regrade(run_dir, status="graded", result="accepted", changed=True,
                    "amended": {"acceptance_result": result}}, fh)
 
 
+def _write_regrade_v2(run_dir, status="graded", result="accepted", changed=True,
+                      reason="SYNTHETIC post-#27 re-grade"):
+    """SYNTHETIC ``regrade-v2-summary.json`` — the newer generation, which re-runs
+    BOTH gates under a content-hashed gate image."""
+    with open(os.path.join(run_dir, "regrade-v2-summary.json"), "w",
+              encoding="utf-8") as fh:
+        json.dump({"SYNTHETIC": "SYNTHETIC test fixture — not a measurement",
+                   "status": status, "changed": changed, "reason": reason,
+                   "provenance": "regrade-v2", "regrade_version": "2",
+                   "amended": {"acceptance_result": result}}, fh)
+
+
 def _write_adjudication(batch, task_id, label="SYNTHETIC void"):
     with open(os.path.join(batch, "adjudication.json"), "w", encoding="utf-8") as fh:
         json.dump({"SYNTHETIC": "SYNTHETIC test fixture — not a measurement",
@@ -895,6 +907,38 @@ class TestVerdictProvenance(unittest.TestCase):
             self.assertEqual(0, cell["acceptance"]["gradable"])
             self.assertEqual(1, cell["acceptance"]["provenance"]["verdicts_unavailable"])
             self.assertIn("unavailable", cell["acceptance"]["breakdown"])
+
+    def test_the_newest_regrade_generation_is_the_one_scored(self):
+        # Both generations sit beside the run: v1 re-ran only the sealed gate under a
+        # gate image that predates the content-hash tag, v2 re-ran BOTH gates under a
+        # rebuilt one. Scoring the older record would report a verdict the fixed
+        # grader has since overturned.
+        with tempfile.TemporaryDirectory() as tmp:
+            batch = self._batch(tmp)
+            run = _synthetic_run(batch, "r1", "t", "C2", False, 0.4,
+                                 {"input_tokens": _slot(10, "authoritative")})
+            _write_regrade(run, result="accepted")
+            _write_regrade_v2(run, result="rejected", changed=False,
+                              reason="SYNTHETIC public gate still fails under #27")
+            cell = build(batch)["cells"][0]
+            self.assertEqual(0, cell["acceptance"]["accepted"])
+            self.assertEqual(1, cell["acceptance"]["gradable"])
+            self.assertEqual(1, cell["acceptance"]["provenance"]["regrade_v2"])
+            self.assertEqual(0, cell["acceptance"]["provenance"].get("amended", 0))
+
+    def test_a_v2_refusal_is_unavailable_not_a_rejection(self):
+        # v2 refuses a run it cannot re-grade because the run was truncated — there is
+        # no agent product. That is missing evidence, not a failed attempt. Rule 3.
+        with tempfile.TemporaryDirectory() as tmp:
+            batch = self._batch(tmp)
+            run = _synthetic_run(batch, "r1", "t", "C2", False, 0.4,
+                                 {"input_tokens": _slot(10, "authoritative")})
+            _write_regrade_v2(run, status="refused", result=None, changed=False,
+                              reason="run truncated (stop_reason=claude_timeout)")
+            cell = build(batch)["cells"][0]
+            self.assertEqual(0, cell["acceptance"]["accepted"])
+            self.assertEqual(0, cell["acceptance"]["gradable"])
+            self.assertEqual(1, cell["acceptance"]["provenance"]["verdicts_unavailable"])
 
     def test_a_dataset_with_no_regrades_says_every_verdict_is_original(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -76,11 +76,20 @@ def _rate_table(prices: Dict[str, Any], provider: str, model_id: str) -> Dict[st
         ) from exc
 
 
+#: Token classes a cache-blind provider never meters. Excluded — not zero-filled —
+#: when the leg declares ``cost_basis_qualifier: cache_blind_upper_bound``.
+CACHE_CLASSES: Tuple[str, ...] = ("cache_creation_tokens", "cache_read_tokens")
+
+CACHE_BLIND = "cache_blind_upper_bound"
+
+
 def token_cost_usd(
     usage: Dict[str, Any],
     provider: str,
     model_id: str,
     prices: Dict[str, Any],
+    *,
+    cache_blind: bool = False,
 ) -> Dict[str, Any]:
     """Derive USD cost of one leg's token usage. Returns a tiered field.
 
@@ -88,6 +97,19 @@ def token_cost_usd(
     *unavailable* (with a reason listing the missing classes) — we never treat
     an unavailable class as zero. A ``components`` breakdown is attached when the
     cost is computable, for auditability.
+
+    ``cache_blind`` is the opt-in for a provider whose meter emits no cache series
+    at all, so a leg's cache classes are not a missing measurement but a class of
+    traffic the provider does not distinguish. Set it ONLY where the delivery
+    manifest declares ``cost_basis_qualifier: cache_blind_upper_bound`` (Product B
+    this window — manifest ``notes.gemini_cache_blindness``, a human decision of
+    2026-08-16). The cache classes are then dropped from the billed set rather
+    than counted as missing, every input token is priced at the full input rate,
+    and the returned field is stamped ``bound: "upper"``: implicit provider-side
+    caching can only make the real bill LOWER than this figure, never higher. Do
+    not restate a field carrying that stamp as an exact cost.
+
+    The default is False, so nothing already priced changes shape.
     """
     rates = _rate_table(prices, provider, model_id)
     components: Dict[str, float] = {}
@@ -96,6 +118,8 @@ def token_cost_usd(
     all_auth = True
 
     for usage_key, rate_keys in _BILLED_CLASSES:
+        if cache_blind and usage_key in CACHE_CLASSES:
+            continue
         field = usage.get(usage_key)
         if not isinstance(field, dict) or field.get("confidence") == "unavailable" \
                 or field.get("value") is None:
@@ -122,6 +146,14 @@ def token_cost_usd(
     # split, where a snapshot may offer cache_write_1h, legacy cache_write, or both.
     field["rate_keys"] = rate_keys_used
     field["basis"] = "marginal_api_cost"
+    if cache_blind:
+        field["qualifier"] = CACHE_BLIND
+        field["bound"] = "upper"
+        field["cache_classes_excluded"] = list(CACHE_CLASSES)
+        field["reason"] = (
+            "provider meters no cache series for this publisher, so cache classes are "
+            "excluded rather than zero-filled and all input is priced at the full input "
+            "rate — an UPPER BOUND on real spend (manifest notes.gemini_cache_blindness)")
     return field
 
 
@@ -143,6 +175,7 @@ def compute_cost_views(
     seat_allocation_usd: Optional[float] = None,
     provider_reported_usd: Optional[float] = None,
     machine_cost_usd: Optional[float] = None,
+    cache_blind: bool = False,
 ) -> Dict[str, Any]:
     """Compute the two economic views for a single leg under a declared basis.
 
@@ -159,6 +192,9 @@ def compute_cost_views(
       * ``provider_reported_cost`` — trust a product-reported figure for both
         views (unavailable if not supplied).
       * ``cost_unavailable`` — both views unavailable.
+
+    ``cache_blind`` is forwarded to :func:`token_cost_usd`; see its docstring for
+    when setting it is legitimate.
     """
     if cost_basis not in ("marginal_api_cost", "allocated_subscription_cost",
                           "provider_reported_cost", "cost_unavailable"):
@@ -171,7 +207,8 @@ def compute_cost_views(
     )
 
     if cost_basis == "marginal_api_cost":
-        tc = token_cost_usd(usage, provider, model_id, prices)
+        tc = token_cost_usd(usage, provider, model_id, prices,
+                            cache_blind=cache_blind)
         marginal = tc
         if tc.get("confidence") == "unavailable":
             fully = unavailable("token cost unavailable; fully-allocated not zero-filled")
@@ -190,7 +227,8 @@ def compute_cost_views(
     if cost_basis == "allocated_subscription_cost":
         # Token cost is still derivable for diagnostics, but under a seat basis
         # it is NOT the marginal out-of-pocket cost.
-        tc = token_cost_usd(usage, provider, model_id, prices)
+        tc = token_cost_usd(usage, provider, model_id, prices,
+                            cache_blind=cache_blind)
         marginal = unavailable(
             "licensed seat: no observable per-task marginal cost (SPEC 2.7 subscription rule)"
         )

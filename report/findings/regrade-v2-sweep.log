@@ -1,0 +1,819 @@
+== regrade-v2 sweep ==
+   harness:    9e84315 (feat/final-analysis)
+   sealed:     /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/<task>/hidden (mounted ro; never read by the harness)
+   datasets:   screening-batch1 screening-batch1-makeup screening-batch1-makeup-w6
+   started:    2026-08-21T02:28:06Z
+
+-- screening-batch1 / w1-realworld-mapper-tests
+   runner: building subject image lab-subject/w1-realworld-mapper-tests:30b68e1e8814-0708bd85 (target subject-gate; build-time network; not model spend)
+   Sending build context to Docker daemon  3.708MB
+   Step 1/23 : FROM node:20-bookworm-slim AS subject-base
+    ---> 9da6b4e352d0
+   Step 2/23 : RUN apt-get update -qq     && apt-get install -y --no-install-recommends git ca-certificates python3 python3-yaml     && rm -rf /var/lib/apt/lists/*
+    ---> Using cache
+    ---> eaf95c189492
+   Step 3/23 : ARG UV_VERSION=0.12.5
+    ---> Using cache
+    ---> 976021d892a3
+   Step 4/23 : COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /uvx /usr/local/bin/
+    ---> Using cache
+    ---> 1d5db4b46df7
+   Step 5/23 : ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
+    ---> Using cache
+    ---> 11e8ebf27573
+   Step 6/23 : ENV UV_VENV_RELOCATABLE=1
+    ---> Using cache
+    ---> 55c6009c586b
+   Step 7/23 : RUN mkdir -p /opt/uv-python
+    ---> Using cache
+    ---> bfd2686901cc
+   Step 8/23 : RUN uv --version | grep -qE "^uv ${UV_VERSION}( |\$)"     || { echo "uv pin mismatch: wanted ${UV_VERSION}, got $(uv --version)" >&2; exit 1; }
+    ---> Using cache
+    ---> e156f87de0e6
+   Step 9/23 : WORKDIR /lab
+    ---> Using cache
+    ---> 433707450b67
+   Step 10/23 : COPY manifest/ /lab/manifest/
+    ---> Using cache
+    ---> 3e5d3168b32a
+   Step 11/23 : COPY tasks/ /lab/tasks/
+    ---> Using cache
+    ---> 724039b48101
+   Step 12/23 : COPY harness/task-tools/ /lab/harness/task-tools/
+    ---> Using cache
+    ---> 0e6b2e4f1487
+   Step 13/23 : COPY harness/container/assert-no-task-material.sh /usr/local/bin/assert-no-task-material
+    ---> Using cache
+    ---> c4faea81914c
+   Step 14/23 : RUN chmod +x /usr/local/bin/assert-no-task-material
+    ---> Using cache
+    ---> 94f50a496ed5
+   Step 15/23 : ARG BAKE_TASK_DIR=tasks/pilot-realworld
+    ---> Using cache
+    ---> 2d5aae0f2da9
+   Step 16/23 : ENV NX_DAEMON=false NX_CLOUD_ACCESS_TOKEN='' CI=true TASK_IN_CONTAINER=1
+    ---> Using cache
+    ---> eb77cb6c077a
+   Step 17/23 : RUN TASK_DIR="/lab/${BAKE_TASK_DIR}" bash /lab/harness/task-tools/setup.sh
+    ---> Running in 3c9fdcfb69cc
+   == task setup (w1-realworld-mapper-tests) ==
+     repo:   https://github.com/gothinkster/node-express-realworld-example-app
+     commit: 30b68e1e881462b2f4164ea09ab4c4f5699c7b0b
+     target: /lab/tasks/suite/W1-test-generation/.work/repo
+     -> cloning
+     ok    SHA verified: 30b68e1e881462b2f4164ea09ab4c4f5699c7b0b
+     -> installing deps (node stack)
+   
+   added 734 packages in 23s
+     ok    setup complete
+   Removing intermediate container 3c9fdcfb69cc
+    ---> b6bded47c5b9
+   Step 18/23 : ENV TASK_DIR="/lab/${BAKE_TASK_DIR}"
+    ---> Running in e3910aaf4fc3
+   Removing intermediate container e3910aaf4fc3
+    ---> 71122b066c5f
+   Step 19/23 : ENV BAKE_TASK_DIR="${BAKE_TASK_DIR}"
+    ---> Running in a28208a182e4
+   Removing intermediate container a28208a182e4
+    ---> 7ea74202cdda
+   Step 20/23 : FROM subject-base AS subject-gate
+    ---> 7ea74202cdda
+   Step 21/23 : ARG UV_VERSION=0.12.5
+    ---> Running in c96e244e654e
+   Removing intermediate container c96e244e654e
+    ---> 406744a57f41
+   Step 22/23 : LABEL lab.image.role="subject-gate"       lab.image.network_posture="none (docker run --network=none)"       lab.image.task_material="present — the deterministic gate requires task.yaml"       lab.tool.uv.version="${UV_VERSION}"
+    ---> Running in ad7752779856
+   Removing intermediate container ad7752779856
+    ---> eaec90c47831
+   Step 23/23 : CMD ["bash", "-lc", "echo 'subject gate image ready; pass a command to docker run'"]
+    ---> Running in 8d227411f7cc
+   Removing intermediate container 8d227411f7cc
+    ---> 504f2810464a
+   Successfully built 504f2810464a
+   Successfully tagged lab-subject/w1-realworld-mapper-tests:30b68e1e8814-0708bd85
+   gate image: lab-subject/w1-realworld-mapper-tests:30b68e1e8814-0708bd85 (built now)
+   regrading 18 run(s) of w1-realworld-mapper-tests at generation 2 [gate_type=test_generation]
+     w1-realworld-mapper-tests__C2__rep1__20260818T120332: rejected -> accepted (hidden fail -> pass)
+     w1-realworld-mapper-tests__C2__rep2__20260818T120535: rejected -> accepted (hidden fail -> pass)
+     w1-realworld-mapper-tests__C2__rep3__20260818T120652: rejected -> accepted (hidden fail -> pass)
+     w1-realworld-mapper-tests__C3-med__rep1__20260818T130921: rejected -> accepted (hidden fail -> pass)
+     w1-realworld-mapper-tests__C3-med__rep2__20260818T132851: rejected -> accepted (hidden fail -> pass)
+     w1-realworld-mapper-tests__C3-med__rep3__20260818T134653: rejected -> accepted (hidden fail -> pass)
+     w1-realworld-mapper-tests__C3-prev__rep1__20260818T140537: rejected -> accepted (hidden fail -> pass)
+     w1-realworld-mapper-tests__C3-prev__rep2__20260818T142504: rejected -> accepted (hidden fail -> pass)
+     w1-realworld-mapper-tests__C3-prev__rep3__20260818T144334: rejected -> accepted (hidden fail -> pass)
+     w1-realworld-mapper-tests__C3__rep1__20260818T120829: rejected -> accepted (hidden fail -> pass)
+     w1-realworld-mapper-tests__C3__rep2__20260818T122821: rejected -> accepted (hidden fail -> pass)
+     w1-realworld-mapper-tests__C3__rep3__20260818T124829: rejected -> accepted (hidden fail -> pass)
+     w1-realworld-mapper-tests__C5__rep1__20260818T150210: REFUSED — run truncated (zero-byte agent-solution.diff); there is no completed agent product to re-grade
+     w1-realworld-mapper-tests__C5__rep2__20260818T154657: rejected -> accepted (hidden fail -> pass)
+     w1-realworld-mapper-tests__C5__rep3__20260818T160946: rejected -> accepted (hidden fail -> pass)
+     w1-realworld-mapper-tests__P0__rep1__20260818T115615: rejected -> accepted (hidden fail -> pass)
+     w1-realworld-mapper-tests__P0__rep2__20260818T115845: rejected -> accepted (hidden fail -> pass)
+     w1-realworld-mapper-tests__P0__rep3__20260818T120059: rejected -> accepted (hidden fail -> pass)
+   17/18 verdict(s) amended
+
+-- screening-batch1 / w1b-zarr-block-mask-properties
+   runner: building subject image lab-subject/w1b-zarr-block-mask-properties:b9d396460da3-d81ff362 (target subject-gate; build-time network; not model spend)
+   Sending build context to Docker daemon  3.737MB
+   Step 1/23 : FROM node:20-bookworm-slim AS subject-base
+    ---> 9da6b4e352d0
+   Step 2/23 : RUN apt-get update -qq     && apt-get install -y --no-install-recommends git ca-certificates python3 python3-yaml     && rm -rf /var/lib/apt/lists/*
+    ---> Using cache
+    ---> eaf95c189492
+   Step 3/23 : ARG UV_VERSION=0.12.5
+    ---> Using cache
+    ---> 976021d892a3
+   Step 4/23 : COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /uvx /usr/local/bin/
+    ---> Using cache
+    ---> 1d5db4b46df7
+   Step 5/23 : ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
+    ---> Using cache
+    ---> 11e8ebf27573
+   Step 6/23 : ENV UV_VENV_RELOCATABLE=1
+    ---> Using cache
+    ---> 55c6009c586b
+   Step 7/23 : RUN mkdir -p /opt/uv-python
+    ---> Using cache
+    ---> bfd2686901cc
+   Step 8/23 : RUN uv --version | grep -qE "^uv ${UV_VERSION}( |\$)"     || { echo "uv pin mismatch: wanted ${UV_VERSION}, got $(uv --version)" >&2; exit 1; }
+    ---> Using cache
+    ---> e156f87de0e6
+   Step 9/23 : WORKDIR /lab
+    ---> Using cache
+    ---> 433707450b67
+   Step 10/23 : COPY manifest/ /lab/manifest/
+    ---> Using cache
+    ---> 3e5d3168b32a
+   Step 11/23 : COPY tasks/ /lab/tasks/
+    ---> Using cache
+    ---> 724039b48101
+   Step 12/23 : COPY harness/task-tools/ /lab/harness/task-tools/
+    ---> Using cache
+    ---> 0e6b2e4f1487
+   Step 13/23 : COPY harness/container/assert-no-task-material.sh /usr/local/bin/assert-no-task-material
+    ---> Using cache
+    ---> c4faea81914c
+   Step 14/23 : RUN chmod +x /usr/local/bin/assert-no-task-material
+    ---> Using cache
+    ---> 94f50a496ed5
+   Step 15/23 : ARG BAKE_TASK_DIR=tasks/pilot-realworld
+    ---> Using cache
+    ---> 2d5aae0f2da9
+   Step 16/23 : ENV NX_DAEMON=false NX_CLOUD_ACCESS_TOKEN='' CI=true TASK_IN_CONTAINER=1
+    ---> Using cache
+    ---> eb77cb6c077a
+   Step 17/23 : RUN TASK_DIR="/lab/${BAKE_TASK_DIR}" bash /lab/harness/task-tools/setup.sh
+    ---> Running in 73307ad4a66b
+   == task setup (w1b-zarr-block-mask-properties) ==
+     repo:   https://github.com/zarr-developers/zarr-python
+     commit: b9d396460da369bea86f4bd978d3746f7a41076b
+     target: /lab/tasks/suite/W1b-zarr-block-mask-properties/.work/repo
+     -> cloning
+     ok    SHA verified: b9d396460da369bea86f4bd978d3746f7a41076b
+     -> installing deps (python stack)
+   [91mDownloading cpython-3.12.14-linux-x86_64-gnu (download) (32.6MiB)
+   [0m[91m Downloaded cpython-3.12.14-linux-x86_64-gnu (download)
+   [0m[91mUsing CPython 3.12.14
+   Creating virtual environment at: .venv
+   [0m[91m   Building zarr @ file:///lab/tasks/suite/W1b-zarr-block-mask-properties/.work/repo
+   [0m[91mDownloading[0m[91m [0m[91muv[0m[91m [0m[91m(23.3MiB)[0m[91m
+   [0m[91mDownloading[0m[91m [0m[91msphinx[0m[91m [0m[91m(3.7MiB)[0m[91m
+   [0m[91mDownloading[0m[91m [0m[91mnumcodecs[0m[91m [0m[91m(8.7MiB)[0m[91m
+   [0m[91mDownloading[0m[91m [0m[91mpygments[0m[91m [0m[91m(1.2MiB)[0m[91m
+   [0m[91mDownloading babel (9.7MiB)
+   [0m[91mDownloading numpy (15.9MiB)
+   [0m[91m [0m[91mDownloaded[0m[91m [0m[91mpygments[0m[91m
+   [0m[91m [0m[91mDownloaded[0m[91m [0m[91mnumcodecs[0m[91m
+   [0m[91m Downloaded uv
+   [0m[91m [0m[91mDownloaded[0m[91m [0m[91msphinx[0m[91m
+   [0m[91m [0m[91mDownloaded[0m[91m [0m[91mbabel[0m[91m
+   [0m[91m [0m[91mDownloaded[0m[91m [0m[91mnumpy[0m[91m
+   [0m[91m      Built zarr @ file:///lab/tasks/suite/W1b-zarr-block-mask-properties/.work/repo
+   [0m[91mPrepared [0m[91m50 packages[0m[91m [0m[91min 7.35s[0m[91m
+   [0m[91mInstalled 50 packages in 247ms
+   [0m[91m + alabaster==1.0.0
+    + astor==0.8.1
+    + babel==2.18.0
+    + certifi==2026.4.22
+    + charset-normalizer==3.4.7
+    + coverage==7.14.0
+    + docutils==0.22.4
+    + donfig==0.8.1.post1
+    + execnet==2.1.2
+    + google-crc32c==1.8.0
+    + hypothesis==6.152.7
+    + idna==3.15
+    + imagesize==2.0.0
+    + iniconfig==2.3.0
+    + jinja2==3.1.6
+    + markdown-it-py==4.2.0
+    + markupsafe==3.0.3
+    + mdurl==0.1.2
+    + numcodecs==0.16.5
+    + numpy==2.4.4
+    + numpydoc==1.10.0
+    + packaging==26.2
+    + pluggy==1.6.0
+    + py-cpuinfo==9.0.0
+    + pygments==2.20.0
+    + pytest==9.0.3
+    + pytest-accept==0.2.3
+    + pytest-asyncio==1.3.0
+    + pytest-benchmark==5.2.3
+    + pytest-codspeed==5.0.1
+    + pytest-cov==7.1.0
+    + pytest-xdist==3.8.0
+    + pyyaml==6.0.3
+    + requests==2.34.1
+    + rich==15.0.0
+    + roman-numerals==4.1.0
+    + snowballstemmer==3.0.1
+    +[0m[91m [0m[91msortedcontainers[0m[91m==[0m[91m2[0m[91m.[0m[91m4[0m[91m.[0m[91m0[0m[91m
+   [0m[91m [0m[91m+[0m[91m [0m[91msphinx[0m[91m==[0m[91m9[0m[91m.[0m[91m1[0m[91m.[0m[91m0[0m[91m
+   [0m[91m [0m[91m+[0m[91m [0m[91msphinxcontrib-applehelp[0m[91m==[0m[91m2[0m[91m.[0m[91m0[0m[91m.[0m[91m0[0m[91m
+   [0m[91m [0m[91m+[0m[91m [0m[91msphinxcontrib-devhelp[0m[91m==[0m[91m2[0m[91m.[0m[91m0[0m[91m.[0m[91m0[0m[91m
+   [0m[91m [0m[91m+[0m[91m [0m[91msphinxcontrib-htmlhelp[0m[91m==[0m[91m2[0m[91m.[0m[91m1[0m[91m.[0m[91m0[0m[91m
+   [0m[91m +[0m[91m sphinxcontrib-jsmath[0m[91m==1.0.1[0m[91m
+   [0m[91m + [0m[91msphinxcontrib-qthelp[0m[91m==[0m[91m2[0m[91m.[0m[91m0[0m[91m.0[0m[91m
+    + sphinxcontrib-serializinghtml[0m[91m==2[0m[91m.0.[0m[91m0
+    [0m[91m+[0m[91m tomlkit[0m[91m==0.[0m[91m15[0m[91m.[0m[91m0
+   [0m[91m + typing-extensions==[0m[91m4.[0m[91m15.[0m[91m0
+    [0m[91m+[0m[91m [0m[91murllib3[0m[91m==[0m[91m2.7[0m[91m.0[0m[91m
+    + uv==[0m[91m0.11.[0m[91m15[0m[91m
+    +[0m[91m zarr==[0m[91m3[0m[91m.2.2.dev42+gb9d39646 (from file:///lab/tasks/suite/W1b-zarr-block-mask-properties/.work/repo)
+   [0m  ok    setup complete
+   Removing intermediate container 73307ad4a66b
+    ---> 00104b99590f
+   Step 18/23 : ENV TASK_DIR="/lab/${BAKE_TASK_DIR}"
+    ---> Running in b0b3bcbe531d
+   Removing intermediate container b0b3bcbe531d
+    ---> 70251ffd453a
+   Step 19/23 : ENV BAKE_TASK_DIR="${BAKE_TASK_DIR}"
+    ---> Running in ee0d6f28cfcc
+   Removing intermediate container ee0d6f28cfcc
+    ---> 8cae2a8dd84b
+   Step 20/23 : FROM subject-base AS subject-gate
+    ---> 8cae2a8dd84b
+   Step 21/23 : ARG UV_VERSION=0.12.5
+    ---> Running in 158a93030494
+   Removing intermediate container 158a93030494
+    ---> b948a3161122
+   Step 22/23 : LABEL lab.image.role="subject-gate"       lab.image.network_posture="none (docker run --network=none)"       lab.image.task_material="present — the deterministic gate requires task.yaml"       lab.tool.uv.version="${UV_VERSION}"
+    ---> Running in a5cb6f5d3ec9
+   Removing intermediate container a5cb6f5d3ec9
+    ---> 8b4e4083b979
+   Step 23/23 : CMD ["bash", "-lc", "echo 'subject gate image ready; pass a command to docker run'"]
+    ---> Running in c459ca835b62
+   Removing intermediate container c459ca835b62
+    ---> d0fdffa3db1c
+   Successfully built d0fdffa3db1c
+   Successfully tagged lab-subject/w1b-zarr-block-mask-properties:b9d396460da3-d81ff362
+   gate image: lab-subject/w1b-zarr-block-mask-properties:b9d396460da3-d81ff362 (built now)
+   regrading 18 run(s) of w1b-zarr-block-mask-properties at generation 2 [gate_type=test_generation]
+     w1b-zarr-block-mask-properties__C2__rep1__20260819T124822: rejected == rejected (hidden fail -> pass)
+         public still failing: T2-suite-green, T3-coverage, T4-tests-pass
+     w1b-zarr-block-mask-properties__C2__rep2__20260819T130655: rejected == rejected (hidden fail -> pass)
+         public still failing: T2-suite-green, T3-coverage, T4-tests-pass
+     w1b-zarr-block-mask-properties__C2__rep3__20260819T133252: rejected == rejected (hidden fail -> pass)
+         public still failing: T2-suite-green, T3-coverage, T4-tests-pass
+     w1b-zarr-block-mask-properties__C3-med__rep1__20260819T151616: rejected == rejected (hidden fail -> pass)
+         public still failing: T2-suite-green, T3-coverage, T4-tests-pass
+     w1b-zarr-block-mask-properties__C3-med__rep2__20260819T154521: rejected == rejected (hidden fail -> pass)
+         public still failing: T2-suite-green, T3-coverage, T4-tests-pass
+     w1b-zarr-block-mask-properties__C3-med__rep3__20260819T161257: rejected == rejected (hidden fail -> pass)
+         public still failing: T2-suite-green, T3-coverage, T4-tests-pass
+     w1b-zarr-block-mask-properties__C3-prev__rep1__20260819T164327: rejected == rejected (hidden fail -> pass)
+         public still failing: T2-suite-green, T3-coverage, T4-tests-pass
+     w1b-zarr-block-mask-properties__C3-prev__rep2__20260819T170812: rejected == rejected (hidden fail -> pass)
+         public still failing: T2-suite-green, T3-coverage, T4-tests-pass
+     w1b-zarr-block-mask-properties__C3-prev__rep3__20260819T173437: rejected == rejected (hidden fail -> pass)
+         public still failing: T2-suite-green, T3-coverage, T4-tests-pass
+     w1b-zarr-block-mask-properties__C3__rep1__20260819T135448: rejected == rejected (hidden fail -> pass)
+         public still failing: T2-suite-green, T3-coverage, T4-tests-pass
+     w1b-zarr-block-mask-properties__C3__rep2__20260819T142519: rejected == rejected (hidden fail -> pass)
+         public still failing: T2-suite-green, T3-coverage, T4-tests-pass
+     w1b-zarr-block-mask-properties__C3__rep3__20260819T145045: rejected == rejected (hidden fail -> pass)
+         public still failing: T2-suite-green, T3-coverage, T4-tests-pass
+     w1b-zarr-block-mask-properties__C5__rep1__20260819T180024: rejected == rejected (hidden fail -> pass)
+         public still failing: T2-suite-green, T3-coverage, T4-tests-pass
+     w1b-zarr-block-mask-properties__C5__rep2__20260819T184559: rejected == rejected (hidden fail -> pass)
+         public still failing: T2-suite-green, T3-coverage, T4-tests-pass
+     w1b-zarr-block-mask-properties__C5__rep3__20260819T192950: rejected == rejected (hidden fail -> pass)
+         public still failing: T2-suite-green, T3-coverage, T4-tests-pass
+     w1b-zarr-block-mask-properties__P0__rep1__20260819T114104: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w1b-zarr-block-mask-properties__P0__rep2__20260819T121123: rejected == rejected (hidden fail -> pass)
+         public still failing: T2-suite-green, T3-coverage, T4-tests-pass
+     w1b-zarr-block-mask-properties__P0__rep3__20260819T122752: rejected == rejected (hidden fail -> pass)
+         public still failing: T2-suite-green, T3-coverage, T4-tests-pass
+   0/18 verdict(s) amended
+
+-- screening-batch1 / w3-sqlfluff-segment-method-migration
+   runner: building subject image lab-subject/w3-sqlfluff-segment-method-migration:7700446fdb42-4e14b6fd (target subject-gate; build-time network; not model spend)
+   Sending build context to Docker daemon  3.748MB
+   Step 1/23 : FROM node:20-bookworm-slim AS subject-base
+    ---> 9da6b4e352d0
+   Step 2/23 : RUN apt-get update -qq     && apt-get install -y --no-install-recommends git ca-certificates python3 python3-yaml     && rm -rf /var/lib/apt/lists/*
+    ---> Using cache
+    ---> eaf95c189492
+   Step 3/23 : ARG UV_VERSION=0.12.5
+    ---> Using cache
+    ---> 976021d892a3
+   Step 4/23 : COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /uvx /usr/local/bin/
+    ---> Using cache
+    ---> 1d5db4b46df7
+   Step 5/23 : ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
+    ---> Using cache
+    ---> 11e8ebf27573
+   Step 6/23 : ENV UV_VENV_RELOCATABLE=1
+    ---> Using cache
+    ---> 55c6009c586b
+   Step 7/23 : RUN mkdir -p /opt/uv-python
+    ---> Using cache
+    ---> bfd2686901cc
+   Step 8/23 : RUN uv --version | grep -qE "^uv ${UV_VERSION}( |\$)"     || { echo "uv pin mismatch: wanted ${UV_VERSION}, got $(uv --version)" >&2; exit 1; }
+    ---> Using cache
+    ---> e156f87de0e6
+   Step 9/23 : WORKDIR /lab
+    ---> Using cache
+    ---> 433707450b67
+   Step 10/23 : COPY manifest/ /lab/manifest/
+    ---> Using cache
+    ---> 3e5d3168b32a
+   Step 11/23 : COPY tasks/ /lab/tasks/
+    ---> Using cache
+    ---> 724039b48101
+   Step 12/23 : COPY harness/task-tools/ /lab/harness/task-tools/
+    ---> Using cache
+    ---> 0e6b2e4f1487
+   Step 13/23 : COPY harness/container/assert-no-task-material.sh /usr/local/bin/assert-no-task-material
+    ---> Using cache
+    ---> c4faea81914c
+   Step 14/23 : RUN chmod +x /usr/local/bin/assert-no-task-material
+    ---> Using cache
+    ---> 94f50a496ed5
+   Step 15/23 : ARG BAKE_TASK_DIR=tasks/pilot-realworld
+    ---> Using cache
+    ---> 2d5aae0f2da9
+   Step 16/23 : ENV NX_DAEMON=false NX_CLOUD_ACCESS_TOKEN='' CI=true TASK_IN_CONTAINER=1
+    ---> Using cache
+    ---> eb77cb6c077a
+   Step 17/23 : RUN TASK_DIR="/lab/${BAKE_TASK_DIR}" bash /lab/harness/task-tools/setup.sh
+    ---> Running in 19d2cb58d3b2
+   == task setup (w3-sqlfluff-segment-method-migration) ==
+     repo:   https://github.com/sqlfluff/sqlfluff
+     commit: 7700446fdb424ba56a2b1963a624d3747df53744
+     target: /lab/tasks/suite/W3-migration/.work/repo
+     -> cloning
+     ok    SHA verified: 7700446fdb424ba56a2b1963a624d3747df53744
+     -> installing deps (python stack)
+   [91mDownloading cpython-3.12.14-linux-x86_64-gnu (download) (32.6MiB)
+   [0m[91m Downloaded cpython-3.12.14-linux-x86_64-gnu (download)
+   [0m[91mUsing CPython 3.12.14
+   Creating virtual environment at: .venv
+   [0m[91mActivate with: source .venv/bin/activate
+   [0m  ok    setup complete
+   Removing intermediate container 19d2cb58d3b2
+    ---> 6d4584e5c1ed
+   Step 18/23 : ENV TASK_DIR="/lab/${BAKE_TASK_DIR}"
+    ---> Running in ae8f608181e9
+   Removing intermediate container ae8f608181e9
+    ---> 9b147e287ee9
+   Step 19/23 : ENV BAKE_TASK_DIR="${BAKE_TASK_DIR}"
+    ---> Running in e780a1c18d8d
+   Removing intermediate container e780a1c18d8d
+    ---> b7e08f8e7084
+   Step 20/23 : FROM subject-base AS subject-gate
+    ---> b7e08f8e7084
+   Step 21/23 : ARG UV_VERSION=0.12.5
+    ---> Running in 478be100d8bb
+   Removing intermediate container 478be100d8bb
+    ---> 892c3ceb865f
+   Step 22/23 : LABEL lab.image.role="subject-gate"       lab.image.network_posture="none (docker run --network=none)"       lab.image.task_material="present — the deterministic gate requires task.yaml"       lab.tool.uv.version="${UV_VERSION}"
+    ---> Running in f34b2bb4b4d4
+   Removing intermediate container f34b2bb4b4d4
+    ---> ea5ddc57a018
+   Step 23/23 : CMD ["bash", "-lc", "echo 'subject gate image ready; pass a command to docker run'"]
+    ---> Running in dbea3ed5f849
+   Removing intermediate container dbea3ed5f849
+    ---> 2cd470008ff7
+   Successfully built 2cd470008ff7
+   Successfully tagged lab-subject/w3-sqlfluff-segment-method-migration:7700446fdb42-4e14b6fd
+   gate image: lab-subject/w3-sqlfluff-segment-method-migration:7700446fdb42-4e14b6fd (built now)
+   regrading 21 run(s) of w3-sqlfluff-segment-method-migration at generation 2 [gate_type=solution]
+     w3-sqlfluff-segment-method-migration__C2__rep1__20260819T001301: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w3-sqlfluff-segment-method-migration__C2__rep2__20260819T004325: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w3-sqlfluff-segment-method-migration__C2__rep3__20260819T011346: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w3-sqlfluff-segment-method-migration__C3-med__rep1__20260819T031526: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w3-sqlfluff-segment-method-migration__C3-med__rep2__20260819T034548: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w3-sqlfluff-segment-method-migration__C3-med__rep3__20260819T041620: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w3-sqlfluff-segment-method-migration__C3-prev__rep1__20260819T044639: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w3-sqlfluff-segment-method-migration__C3-prev__rep2__20260819T051201: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w3-sqlfluff-segment-method-migration__C3-prev__rep3__20260819T054239: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w3-sqlfluff-segment-method-migration__C3__rep1__20260819T014403: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w3-sqlfluff-segment-method-migration__C3__rep2__20260819T021438: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w3-sqlfluff-segment-method-migration__C3__rep3__20260819T024501: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w3-sqlfluff-segment-method-migration__C5__rep1__20260819T061257: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w3-sqlfluff-segment-method-migration__C5__rep2__20260819T070822: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w3-sqlfluff-segment-method-migration__C5__rep3__20260819T075340: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w3-sqlfluff-segment-method-migration__P0__rep1__20260818T224207: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w3-sqlfluff-segment-method-migration__P0__rep2__20260818T231220: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w3-sqlfluff-segment-method-migration__P0__rep3__20260818T234239: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w3-sqlfluff-segment-method-migration__P1__rep1__20260819T083902: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w3-sqlfluff-segment-method-migration__P1__rep2__20260819T093947: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w3-sqlfluff-segment-method-migration__P1__rep3__20260819T104033: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+   0/21 verdict(s) amended
+
+-- screening-batch1 / w4-realworld-missing-user-id
+   runner: building subject image lab-subject/w4-realworld-missing-user-id:88b258ce54aa-9b708a7c (target subject-gate; build-time network; not model spend)
+   Sending build context to Docker daemon  3.756MB
+   Step 1/23 : FROM node:20-bookworm-slim AS subject-base
+    ---> 9da6b4e352d0
+   Step 2/23 : RUN apt-get update -qq     && apt-get install -y --no-install-recommends git ca-certificates python3 python3-yaml     && rm -rf /var/lib/apt/lists/*
+    ---> Using cache
+    ---> eaf95c189492
+   Step 3/23 : ARG UV_VERSION=0.12.5
+    ---> Using cache
+    ---> 976021d892a3
+   Step 4/23 : COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /uvx /usr/local/bin/
+    ---> Using cache
+    ---> 1d5db4b46df7
+   Step 5/23 : ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
+    ---> Using cache
+    ---> 11e8ebf27573
+   Step 6/23 : ENV UV_VENV_RELOCATABLE=1
+    ---> Using cache
+    ---> 55c6009c586b
+   Step 7/23 : RUN mkdir -p /opt/uv-python
+    ---> Using cache
+    ---> bfd2686901cc
+   Step 8/23 : RUN uv --version | grep -qE "^uv ${UV_VERSION}( |\$)"     || { echo "uv pin mismatch: wanted ${UV_VERSION}, got $(uv --version)" >&2; exit 1; }
+    ---> Using cache
+    ---> e156f87de0e6
+   Step 9/23 : WORKDIR /lab
+    ---> Using cache
+    ---> 433707450b67
+   Step 10/23 : COPY manifest/ /lab/manifest/
+    ---> Using cache
+    ---> 3e5d3168b32a
+   Step 11/23 : COPY tasks/ /lab/tasks/
+    ---> Using cache
+    ---> 724039b48101
+   Step 12/23 : COPY harness/task-tools/ /lab/harness/task-tools/
+    ---> Using cache
+    ---> 0e6b2e4f1487
+   Step 13/23 : COPY harness/container/assert-no-task-material.sh /usr/local/bin/assert-no-task-material
+    ---> Using cache
+    ---> c4faea81914c
+   Step 14/23 : RUN chmod +x /usr/local/bin/assert-no-task-material
+    ---> Using cache
+    ---> 94f50a496ed5
+   Step 15/23 : ARG BAKE_TASK_DIR=tasks/pilot-realworld
+    ---> Using cache
+    ---> 2d5aae0f2da9
+   Step 16/23 : ENV NX_DAEMON=false NX_CLOUD_ACCESS_TOKEN='' CI=true TASK_IN_CONTAINER=1
+    ---> Using cache
+    ---> eb77cb6c077a
+   Step 17/23 : RUN TASK_DIR="/lab/${BAKE_TASK_DIR}" bash /lab/harness/task-tools/setup.sh
+    ---> Running in cb090bddfbdf
+   == task setup (w4-realworld-missing-user-id) ==
+     repo:   https://github.com/gothinkster/node-express-realworld-example-app
+     commit: 88b258ce54aaf54ff52511ba26edd52e36df201e
+     target: /lab/tasks/suite/W4-complex-bugfix/.work/repo
+     -> cloning
+     ok    SHA verified: 88b258ce54aaf54ff52511ba26edd52e36df201e
+     -> installing deps (node stack)
+   
+   added 734 packages in 26s
+     ok    setup complete
+   Removing intermediate container cb090bddfbdf
+    ---> d18a8cfd29ad
+   Step 18/23 : ENV TASK_DIR="/lab/${BAKE_TASK_DIR}"
+    ---> Running in 9cdbfd8be94b
+   Removing intermediate container 9cdbfd8be94b
+    ---> 81dc3680f77c
+   Step 19/23 : ENV BAKE_TASK_DIR="${BAKE_TASK_DIR}"
+    ---> Running in 4baee59ea9a8
+   Removing intermediate container 4baee59ea9a8
+    ---> ffca87792d4d
+   Step 20/23 : FROM subject-base AS subject-gate
+    ---> ffca87792d4d
+   Step 21/23 : ARG UV_VERSION=0.12.5
+    ---> Running in 8dfee4e730d8
+   Removing intermediate container 8dfee4e730d8
+    ---> 770046e4cc73
+   Step 22/23 : LABEL lab.image.role="subject-gate"       lab.image.network_posture="none (docker run --network=none)"       lab.image.task_material="present — the deterministic gate requires task.yaml"       lab.tool.uv.version="${UV_VERSION}"
+    ---> Running in b3e6f81aadd4
+   Removing intermediate container b3e6f81aadd4
+    ---> b68090a75485
+   Step 23/23 : CMD ["bash", "-lc", "echo 'subject gate image ready; pass a command to docker run'"]
+    ---> Running in 5795441817fc
+   Removing intermediate container 5795441817fc
+    ---> 16ed56c16d76
+   Successfully built 16ed56c16d76
+   Successfully tagged lab-subject/w4-realworld-missing-user-id:88b258ce54aa-9b708a7c
+   gate image: lab-subject/w4-realworld-missing-user-id:88b258ce54aa-9b708a7c (built now)
+   regrading 17 run(s) of w4-realworld-missing-user-id at generation 2 [gate_type=solution]
+     w4-realworld-missing-user-id__C2__rep1__20260818T082921: accepted == accepted (hidden pass -> pass)
+     w4-realworld-missing-user-id__C2__rep2__20260818T083036: accepted == accepted (hidden pass -> pass)
+     w4-realworld-missing-user-id__C2__rep3__20260818T083229: accepted == accepted (hidden pass -> pass)
+     w4-realworld-missing-user-id__C3-med__rep1__20260818T092544: accepted == accepted (hidden pass -> pass)
+     w4-realworld-missing-user-id__C3-med__rep2__20260818T094352: accepted == accepted (hidden pass -> pass)
+     w4-realworld-missing-user-id__C3-med__rep3__20260818T100250: accepted == accepted (hidden pass -> pass)
+     w4-realworld-missing-user-id__C3-prev__rep1__20260818T101828: rejected == rejected (hidden pass -> pass)
+         public still failing: P6-diff-scope
+     w4-realworld-missing-user-id__C3-prev__rep2__20260818T103728: rejected == rejected (hidden pass -> pass)
+         public still failing: P6-diff-scope
+     w4-realworld-missing-user-id__C3-prev__rep3__20260818T105110: rejected == rejected (hidden pass -> pass)
+         public still failing: P6-diff-scope
+     w4-realworld-missing-user-id__C3__rep1__20260818T083430: rejected == rejected (hidden pass -> pass)
+         public still failing: P6-diff-scope
+     w4-realworld-missing-user-id__C3__rep3__20260818T090510: accepted == accepted (hidden pass -> pass)
+     w4-realworld-missing-user-id__C5__rep1__20260818T110505: accepted == accepted (hidden pass -> pass)
+     w4-realworld-missing-user-id__C5__rep2__20260818T112742: rejected == rejected (hidden pass -> pass)
+         public still failing: P6-diff-scope
+     w4-realworld-missing-user-id__C5__rep3__20260818T115029: accepted == accepted (hidden pass -> pass)
+     w4-realworld-missing-user-id__P0__rep1__20260818T081932: accepted == accepted (hidden pass -> pass)
+     w4-realworld-missing-user-id__P0__rep2__20260818T082258: accepted == accepted (hidden pass -> pass)
+     w4-realworld-missing-user-id__P0__rep3__20260818T082637: accepted == accepted (hidden pass -> pass)
+   0/17 verdict(s) amended
+
+-- screening-batch1 / w4b-zarr-consolidated-order
+   runner: building subject image lab-subject/w4b-zarr-consolidated-order:a994a4fc972f-5f2f874b (target subject-gate; build-time network; not model spend)
+   Sending build context to Docker daemon  3.819MB
+   Step 1/23 : FROM node:20-bookworm-slim AS subject-base
+    ---> 9da6b4e352d0
+   Step 2/23 : RUN apt-get update -qq     && apt-get install -y --no-install-recommends git ca-certificates python3 python3-yaml     && rm -rf /var/lib/apt/lists/*
+    ---> Using cache
+    ---> eaf95c189492
+   Step 3/23 : ARG UV_VERSION=0.12.5
+    ---> Using cache
+    ---> 976021d892a3
+   Step 4/23 : COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /uvx /usr/local/bin/
+    ---> Using cache
+    ---> 1d5db4b46df7
+   Step 5/23 : ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
+    ---> Using cache
+    ---> 11e8ebf27573
+   Step 6/23 : ENV UV_VENV_RELOCATABLE=1
+    ---> Using cache
+    ---> 55c6009c586b
+   Step 7/23 : RUN mkdir -p /opt/uv-python
+    ---> Using cache
+    ---> bfd2686901cc
+   Step 8/23 : RUN uv --version | grep -qE "^uv ${UV_VERSION}( |\$)"     || { echo "uv pin mismatch: wanted ${UV_VERSION}, got $(uv --version)" >&2; exit 1; }
+    ---> Using cache
+    ---> e156f87de0e6
+   Step 9/23 : WORKDIR /lab
+    ---> Using cache
+    ---> 433707450b67
+   Step 10/23 : COPY manifest/ /lab/manifest/
+    ---> Using cache
+    ---> 3e5d3168b32a
+   Step 11/23 : COPY tasks/ /lab/tasks/
+    ---> Using cache
+    ---> 724039b48101
+   Step 12/23 : COPY harness/task-tools/ /lab/harness/task-tools/
+    ---> Using cache
+    ---> 0e6b2e4f1487
+   Step 13/23 : COPY harness/container/assert-no-task-material.sh /usr/local/bin/assert-no-task-material
+    ---> Using cache
+    ---> c4faea81914c
+   Step 14/23 : RUN chmod +x /usr/local/bin/assert-no-task-material
+    ---> Using cache
+    ---> 94f50a496ed5
+   Step 15/23 : ARG BAKE_TASK_DIR=tasks/pilot-realworld
+    ---> Using cache
+    ---> 2d5aae0f2da9
+   Step 16/23 : ENV NX_DAEMON=false NX_CLOUD_ACCESS_TOKEN='' CI=true TASK_IN_CONTAINER=1
+    ---> Using cache
+    ---> eb77cb6c077a
+   Step 17/23 : RUN TASK_DIR="/lab/${BAKE_TASK_DIR}" bash /lab/harness/task-tools/setup.sh
+    ---> Running in 2e9db5ed9584
+   == task setup (w4b-zarr-consolidated-order) ==
+     repo:   https://github.com/zarr-developers/zarr-python
+     commit: a994a4fc972fed428eab6a26d4f14bb95d22c144
+     target: /lab/tasks/suite/W4b-zarr-consolidated-order/.work/repo
+     -> cloning
+     ok    SHA verified: a994a4fc972fed428eab6a26d4f14bb95d22c144
+     -> installing deps (python stack)
+   [91mDownloading cpython-3.12.14-linux-x86_64-gnu (download) (32.6MiB)
+   [0m[91m Downloaded cpython-3.12.14-linux-x86_64-gnu (download)
+   [0m[91mUsing CPython 3.12.14
+   [0m[91mCreating virtual environment at: .venv
+   [0m[91m   [0m[91mBuilding[0m[91m zarr[0m[91m @ file:///lab/tasks/suite/W4b-zarr-consolidated-order/.work/repo
+   [0m[91mDownloading babel (9.7MiB)
+   [0m[91mDownloading sphinx (3.7MiB)
+   [0m[91mDownloading numcodecs (8.7MiB)
+   [0m[91mDownloading uv (25.6MiB)
+   [0m[91mDownloading pygments (1.2MiB)
+   [0m[91mDownloading numpy (15.9MiB)
+   [0m[91mDownloading hypothesis (1.1MiB)
+   [0m[91m Downloaded hypothesis
+   [0m[91m Downloaded pygments
+   [0m[91m Downloaded numcodecs
+   [0m[91m Downloaded sphinx
+   [0m[91m Downloaded uv
+   [0m[91m Downloaded babel
+   [0m[91m [0m[91mDownloaded [0m[91mnumpy[0m[91m
+   [0m[91m      Built zarr @ file:///lab/tasks/suite/W4b-zarr-consolidated-order/.work/repo
+   [0m[91mPrepared 50 packages in 3.56s
+   [0m[91mInstalled 50 packages in 140ms[0m[91m
+   [0m[91m + alabaster==1.0[0m[91m.0
+    + astor==0.8.1
+    + babel==[0m[91m2.18.0
+    + certifi==2026.4.22
+    + charset-normalizer==3.4.7
+    [0m[91m+ coverage==7.15.2
+    + docutils==0[0m[91m.22.4
+    + donfig==0.8.1.post1
+    [0m[91m+ execnet==2.1.2
+    + google-crc32c==1[0m[91m.8.0
+    + hypothesis==6.160.0
+   [0m[91m + idna==3.15
+    + imagesize==2.0[0m[91m.0
+    + iniconfig==2.3.0
+    + jinja2==[0m[91m3.1.6
+    + markdown-it-py==4.2.0
+    + markupsafe==[0m[91m3.0.3
+    + mdurl==0.1.2
+    [0m[91m+ numcodecs==0.16.5
+    + numpy==2.[0m[91m5.1
+    + numpydoc==1.10.0
+    + packaging==26.2
+    [0m[91m+ pluggy==1.6.0
+    + py-cpuinfo==9.[0m[91m0.0
+    + pygments==2.20.0
+    + pytest[0m[91m==9.1.1
+    + pytest-accept==0.3.0
+   [0m[91m + pytest-asyncio==1.4.0
+    + pytest-benchmark==5.2.3
+    + pytest-codspeed==5.0.3
+    + pytest-cov==7.1.0
+    + pytest-xdist==3.8.0
+    + pyyaml==6.0.3
+    + requests==2.34.2
+    + rich==15.0[0m[91m.0
+    + roman-numerals==4.1.0
+    + snowballstemmer==3.0.1
+    + sortedcontainers==2.4.0
+    +[0m[91m sphinx==9.1.0
+    + sphinxcontrib-applehelp==2.0.0
+    + sphinxcontrib-devhelp[0m[91m==2.0.0
+    + sphinxcontrib-htmlhelp==2.1[0m[91m.0
+    + sphinxcontrib-jsmath==1.0.1
+    [0m[91m+ sphinxcontrib-qthelp==2.0.0
+    + sphinxcontrib-serializinghtml==[0m[91m2.0.0
+    + tomlkit==0.15.1[0m[91m
+    + typing-extensions==4.16.0
+    + [0m[91murllib3==2.7.0
+    + uv==0.11.[0m[91m31
+    + zarr==3.3.1.dev1+ga994a4fc[0m[91m (from file:///lab/tasks/suite/W4b-zarr-consolidated-order/.work/repo)
+   [0m  ok    setup complete
+   Removing intermediate container 2e9db5ed9584
+    ---> 3e54c9e5b4eb
+   Step 18/23 : ENV TASK_DIR="/lab/${BAKE_TASK_DIR}"
+    ---> Running in 653e9c0b3bb6
+   Removing intermediate container 653e9c0b3bb6
+    ---> 4b6a29c0221e
+   Step 19/23 : ENV BAKE_TASK_DIR="${BAKE_TASK_DIR}"
+    ---> Running in 894f7a70afc8
+   Removing intermediate container 894f7a70afc8
+    ---> 2e49940d236c
+   Step 20/23 : FROM subject-base AS subject-gate
+    ---> 2e49940d236c
+   Step 21/23 : ARG UV_VERSION=0.12.5
+    ---> Running in 2033347d6d29
+   Removing intermediate container 2033347d6d29
+    ---> 85f1e6608ac7
+   Step 22/23 : LABEL lab.image.role="subject-gate"       lab.image.network_posture="none (docker run --network=none)"       lab.image.task_material="present — the deterministic gate requires task.yaml"       lab.tool.uv.version="${UV_VERSION}"
+    ---> Running in f518408b98b8
+   Removing intermediate container f518408b98b8
+    ---> 000134560d24
+   Step 23/23 : CMD ["bash", "-lc", "echo 'subject gate image ready; pass a command to docker run'"]
+    ---> Running in eb666d942915
+   Removing intermediate container eb666d942915
+    ---> eeace3681d03
+   Successfully built eeace3681d03
+   Successfully tagged lab-subject/w4b-zarr-consolidated-order:a994a4fc972f-5f2f874b
+   gate image: lab-subject/w4b-zarr-consolidated-order:a994a4fc972f-5f2f874b (built now)
+   regrading 18 run(s) of w4b-zarr-consolidated-order at generation 2 [gate_type=solution]
+     w4b-zarr-consolidated-order__C2__rep1__20260818T165043: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w4b-zarr-consolidated-order__C2__rep2__20260818T165331: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w4b-zarr-consolidated-order__C2__rep3__20260818T165840: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w4b-zarr-consolidated-order__C3-med__rep1__20260818T182342: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w4b-zarr-consolidated-order__C3-med__rep2__20260818T184420: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w4b-zarr-consolidated-order__C3-med__rep3__20260818T190443: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w4b-zarr-consolidated-order__C3-prev__rep1__20260818T192512: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression, P6-diff-scope
+     w4b-zarr-consolidated-order__C3-prev__rep2__20260818T194529: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression, P6-diff-scope
+     w4b-zarr-consolidated-order__C3-prev__rep3__20260818T200548: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression, P6-diff-scope
+     w4b-zarr-consolidated-order__C3__rep1__20260818T170326: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w4b-zarr-consolidated-order__C3__rep2__20260818T173239: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w4b-zarr-consolidated-order__C3__rep3__20260818T180124: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w4b-zarr-consolidated-order__C5__rep1__20260818T202810: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w4b-zarr-consolidated-order__C5__rep2__20260818T212328: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w4b-zarr-consolidated-order__C5__rep3__20260818T222348: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w4b-zarr-consolidated-order__P0__rep1__20260818T161702: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w4b-zarr-consolidated-order__P0__rep2__20260818T162229: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w4b-zarr-consolidated-order__P0__rep3__20260818T164740: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+   0/18 verdict(s) amended
+
+-- screening-batch1 / w6-hono-router-review
+   gate image: lab-subject/w6-hono-router-review:3feb3551d46d-5c838042 (already present)
+   regrading 15 run(s) of w6-hono-router-review at generation 2 [gate_type=pr_review]
+     w6-hono-router-review__C2__rep1__20260819T205953: REFUSED — run truncated (zero-byte agent-solution.diff); there is no completed agent product to re-grade
+     w6-hono-router-review__C2__rep2__20260819T210011: REFUSED — run truncated (zero-byte agent-solution.diff); there is no completed agent product to re-grade
+     w6-hono-router-review__C2__rep3__20260819T210026: REFUSED — run truncated (zero-byte agent-solution.diff); there is no completed agent product to re-grade
+     w6-hono-router-review__C3-med__rep1__20260819T215204: REFUSED — run truncated (zero-byte agent-solution.diff); there is no completed agent product to re-grade
+     w6-hono-router-review__C3-med__rep2__20260819T215224: REFUSED — run truncated (zero-byte agent-solution.diff); there is no completed agent product to re-grade
+     w6-hono-router-review__C3-med__rep3__20260819T220755: REFUSED — run truncated (zero-byte agent-solution.diff); there is no completed agent product to re-grade
+     w6-hono-router-review__C3-prev__rep1__20260819T222405: REFUSED — run truncated (zero-byte agent-solution.diff); there is no completed agent product to re-grade
+     w6-hono-router-review__C3-prev__rep2__20260819T224246: REFUSED — run truncated (zero-byte agent-solution.diff); there is no completed agent product to re-grade
+     w6-hono-router-review__C3-prev__rep3__20260819T230254: REFUSED — run truncated (zero-byte agent-solution.diff); there is no completed agent product to re-grade
+     w6-hono-router-review__C3__rep1__20260819T210047: REFUSED — run truncated (zero-byte agent-solution.diff); there is no completed agent product to re-grade
+     w6-hono-router-review__C3__rep2__20260819T212707: REFUSED — run truncated (zero-byte agent-solution.diff); there is no completed agent product to re-grade
+     w6-hono-router-review__C3__rep3__20260819T215139: REFUSED — run truncated (zero-byte agent-solution.diff); there is no completed agent product to re-grade
+     w6-hono-router-review__P0__rep1__20260819T195916: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w6-hono-router-review__P0__rep2__20260819T202921: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w6-hono-router-review__P0__rep3__20260819T205925: REFUSED — run truncated (zero-byte agent-solution.diff); there is no completed agent product to re-grade
+   0/15 verdict(s) amended
+
+-- screening-batch1-makeup / w3-sqlfluff-segment-method-migration
+   gate image: lab-subject/w3-sqlfluff-segment-method-migration:7700446fdb42-4e14b6fd (already present)
+   regrading 8 run(s) of w3-sqlfluff-segment-method-migration at generation 2 [gate_type=solution]
+     w3-sqlfluff-segment-method-migration__C2__rep1__20260820T131139: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w3-sqlfluff-segment-method-migration__C2__rep2__20260820T140340: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w3-sqlfluff-segment-method-migration__C3__rep1__20260820T150106: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w3-sqlfluff-segment-method-migration__C3__rep2__20260820T153135: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w3-sqlfluff-segment-method-migration__P0__rep1__20260820T094257: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w3-sqlfluff-segment-method-migration__P0__rep2__20260820T114309: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+     w3-sqlfluff-segment-method-migration__P1__rep1__20260820T154648: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w3-sqlfluff-segment-method-migration__P1__rep2__20260820T182423: rejected == rejected (hidden fail -> fail)
+         public still failing: P1-public-test, P2-regression
+   0/8 verdict(s) amended
+
+-- screening-batch1-makeup-w6 / w6-hono-router-review
+   gate image: lab-subject/w6-hono-router-review:3feb3551d46d-5c838042 (already present)
+   regrading 15 run(s) of w6-hono-router-review at generation 2 [gate_type=pr_review]
+     w6-hono-router-review__C2__rep1__20260820T210715: already regraded at v2 (use --force to redo)
+     w6-hono-router-review__C2__rep2__20260820T212509: REFUSED — run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade
+     w6-hono-router-review__C2__rep3__20260820T214514: rejected -> accepted (hidden pass -> pass)
+         public cleared: P5-no-leakage, P6-diff-scope
+     w6-hono-router-review__C3-med__rep1__20260820T225618: rejected == rejected (hidden fail -> fail)
+         public cleared: P5-no-leakage, P6-diff-scope
+     w6-hono-router-review__C3-med__rep2__20260820T231518: rejected -> accepted (hidden pass -> pass)
+         public cleared: P5-no-leakage, P6-diff-scope
+     w6-hono-router-review__C3-med__rep3__20260820T233505: rejected == rejected (hidden fail -> fail)
+         public cleared: P5-no-leakage, P6-diff-scope
+     w6-hono-router-review__C3-prev__rep1__20260820T235359: rejected == rejected (hidden fail -> fail)
+         public cleared: P5-no-leakage, P6-diff-scope
+     w6-hono-router-review__C3-prev__rep2__20260821T001400: rejected == rejected (hidden fail -> fail)
+         public cleared: P5-no-leakage, P6-diff-scope
+     w6-hono-router-review__C3-prev__rep3__20260821T003356: rejected == rejected (hidden fail -> fail)
+         public cleared: P5-no-leakage, P6-diff-scope
+     w6-hono-router-review__C3__rep1__20260820T215316: rejected == rejected (hidden fail -> fail)
+         public cleared: P5-no-leakage, P6-diff-scope
+     w6-hono-router-review__C3__rep2__20260820T221449: rejected == rejected (hidden fail -> fail)
+         public cleared: P5-no-leakage, P6-diff-scope
+     w6-hono-router-review__C3__rep3__20260820T223549: rejected == rejected (hidden fail -> fail)
+         public cleared: P5-no-leakage, P6-diff-scope
+     w6-hono-router-review__P0__rep1__20260820T203422: rejected -> accepted (hidden pass -> pass)
+         public cleared: P5-no-leakage, P6-diff-scope
+     w6-hono-router-review__P0__rep2__20260820T204601: rejected -> accepted (hidden pass -> pass)
+         public cleared: P5-no-leakage, P6-diff-scope
+     w6-hono-router-review__P0__rep3__20260820T205736: rejected -> accepted (hidden pass -> pass)
+         public cleared: P5-no-leakage, P6-diff-scope
+   5/15 verdict(s) amended
+
+   finished:   2026-08-21T03:37:44Z

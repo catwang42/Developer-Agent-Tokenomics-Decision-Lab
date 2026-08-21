@@ -81,6 +81,26 @@ stack_run_selected() {
   subject_run "${cmd//\{SEL\}/$1}" >/dev/null 2>&1
 }
 
+# As stack_run_selected, but ALSO write `<STATUS>\t<node-id>` lines to $2 so the
+# hidden gate can report which sealed checks passed, not only whether all did.
+#
+# What is written down is deliberately narrow. `-rA` gives pytest's short summary
+# — one line per test, at any verbosity — and `--tb=no` suppresses tracebacks.
+# The summary line for a failure is `FAILED path::test - AssertionError: ...`,
+# whose tail is the exception repr and CAN quote sealed test source and expected
+# values. Everything from the first ` - ` is cut. Node ids in, assertion text out.
+stack_run_selected_graded() {
+  local cmd rc raw
+  cmd="$(stack_cmd select)"
+  raw="$(mktemp)"
+  subject_run "${cmd//\{SEL\}/$1} --tb=no -rA" >"$raw" 2>&1
+  rc=$?
+  sed -n 's/^\(PASSED\|FAILED\|ERROR\|SKIPPED\|XFAIL\|XPASS\) \([^ ]*\).*$/\1\t\2/p' \
+    "$raw" | sort -u >"$2"
+  rm -f "$raw"
+  return "$rc"
+}
+
 stack_typecheck() {
   local cmd
   cmd="$(stack_cmd typecheck)"

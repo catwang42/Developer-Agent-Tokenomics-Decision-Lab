@@ -1,0 +1,751 @@
+2026-08-20T20:34:18Z  === preflight (makeup-batch-w6) ===
+2026-08-20T20:34:19Z  ok   plan: 15 runs (P0 C2 C3 C3-med C3-prev x 3 reps)
+2026-08-20T20:34:19Z  ok   agent budget: 1200s, pinned identically in task.yaml and the manifest
+2026-08-20T20:34:19Z  ok   spend authorization (LAB_ALLOW_SPEND=1)
+2026-08-20T20:34:19Z  ok   W6-pr-review sealed artifact frozen (version + sha256 in the manifest)
+2026-08-20T20:34:19Z  ok   sealed review artifact present (18248 bytes, contents never read here)
+2026-08-20T20:34:19Z  ok   w6-hono-router-review: task_id matches the manifest, all 15 cells are registered arms
+2026-08-20T20:34:20Z  ok   agy 1.1.13 == pin; AGY_CLI_DISABLE_AUTO_UPDATE=1 exported
+2026-08-20T20:34:20Z  ok   egress allowlist matches the manifest pin
+2026-08-20T20:34:20Z  ok   docker reachable
+       QUIET 0 tokens in the last 15m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T20:34:22Z  ok   quiet window: no background traffic on the subject models
+2026-08-20T20:34:22Z  ok   kill switch armed: touch results/screening-batch1-makeup-w6/HALT to halt between runs
+2026-08-20T20:34:22Z  ok   dataset marker written: results/screening-batch1-makeup-w6/MAKEUP-BATCH.json
+2026-08-20T20:34:22Z  === resume index (source: results/screening-batch1-makeup-w6) ===
+       0 completed+validated
+2026-08-20T20:34:22Z  ok   resume: 15 of 15 plan cells pending
+2026-08-20T20:34:22Z  === preflight passed: 15 pending of 15 runs, budget 1200s/run, cap $150, results/screening-batch1-makeup-w6 ===
+2026-08-20T20:34:22Z  --- [1/15] w6-hono-router-review P0 rep1 (budget 1200s) ---
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup-w6/w6-hono-router-review__P0__rep1__20260820T203422
+validate: PASS (audit-grade)
+2026-08-20T20:46:00Z  --- [2/15] w6-hono-router-review P0 rep2 (budget 1200s) ---
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup-w6/w6-hono-router-review__P0__rep2__20260820T204601
+validate: PASS (audit-grade)
+2026-08-20T20:57:36Z  --- [3/15] w6-hono-router-review P0 rep3 (budget 1200s) ---
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup-w6/w6-hono-router-review__P0__rep3__20260820T205736
+validate: PASS (audit-grade)
+2026-08-20T21:07:15Z  --- [4/15] w6-hono-router-review C2 rep1 (budget 1200s) ---
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup-w6/w6-hono-router-review__C2__rep1__20260820T210715
+validate: PASS (audit-grade)
+2026-08-20T21:25:08Z  --- cost checkpoint after 4 completed runs ---
+       known spend floor: $11.1939 over 4 runs (cap $150.00)
+       legs with unavailable cost: 0 -> real spend may be HIGHER; the total is a floor, never an estimate
+2026-08-20T21:25:08Z  --- [5/15] w6-hono-router-review C2 rep2 (budget 1200s) ---
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup-w6/w6-hono-router-review__C2__rep2__20260820T212509
+validate: PASS (audit-grade)
+2026-08-20T21:45:14Z  --- [6/15] w6-hono-router-review C2 rep3 (budget 1200s) ---
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup-w6/w6-hono-router-review__C2__rep3__20260820T214514
+validate: PASS (audit-grade)
+2026-08-20T21:53:13Z  --- [7/15] w6-hono-router-review C3 rep1 (budget 1200s) ---
+       QUIET 0 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup-w6/w6-hono-router-review__C3__rep1__20260820T215316
+validate: PASS (audit-grade)
+2026-08-20T21:59:44Z  --- [8/15] w6-hono-router-review C3 rep2 (budget 1200s) ---
+       NOISY 1460697 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T21:59:45Z  quiet window not established for C3 rep2 (probe 1/3) — waiting 300s
+       NOISY 1593356 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T22:04:46Z  quiet window not established for C3 rep2 (probe 2/3) — waiting 300s
+       NOISY 371757 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T22:09:48Z  quiet window not established for C3 rep2 (probe 3/3) — waiting 300s
+       QUIET 0 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup-w6/w6-hono-router-review__C3__rep2__20260820T221449
+validate: PASS (audit-grade)
+2026-08-20T22:20:43Z  --- cost checkpoint after 8 completed runs ---
+       known spend floor: $12.2711 over 8 runs (cap $150.00)
+       legs with unavailable cost: 3 -> real spend may be HIGHER; the total is a floor, never an estimate
+2026-08-20T22:20:43Z  --- [9/15] w6-hono-router-review C3 rep3 (budget 1200s) ---
+       NOISY 1348704 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T22:20:44Z  quiet window not established for C3 rep3 (probe 1/3) — waiting 300s
+       NOISY 1511305 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T22:25:46Z  quiet window not established for C3 rep3 (probe 2/3) — waiting 300s
+       NOISY 203168 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T22:30:47Z  quiet window not established for C3 rep3 (probe 3/3) — waiting 300s
+       QUIET 0 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup-w6/w6-hono-router-review__C3__rep3__20260820T223549
+validate: PASS (audit-grade)
+2026-08-20T22:41:12Z  --- [10/15] w6-hono-router-review C3-med rep1 (budget 1200s) ---
+       NOISY 1122036 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T22:41:14Z  quiet window not established for C3-med rep1 (probe 1/3) — waiting 300s
+       NOISY 1633162 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T22:46:15Z  quiet window not established for C3-med rep1 (probe 2/3) — waiting 300s
+       NOISY 511126 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T22:51:17Z  quiet window not established for C3-med rep1 (probe 3/3) — waiting 300s
+       QUIET 0 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup-w6/w6-hono-router-review__C3-med__rep1__20260820T225618
+validate: PASS (audit-grade)
+2026-08-20T23:00:12Z  --- [11/15] w6-hono-router-review C3-med rep2 (budget 1200s) ---
+       NOISY 884992 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T23:00:13Z  quiet window not established for C3-med rep2 (probe 1/3) — waiting 300s
+       NOISY 1239763 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T23:05:15Z  quiet window not established for C3-med rep2 (probe 2/3) — waiting 300s
+       NOISY 354771 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T23:10:16Z  quiet window not established for C3-med rep2 (probe 3/3) — waiting 300s
+       QUIET 0 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup-w6/w6-hono-router-review__C3-med__rep2__20260820T231518
+validate: PASS (audit-grade)
+2026-08-20T23:19:58Z  --- [12/15] w6-hono-router-review C3-med rep3 (budget 1200s) ---
+       NOISY 527466 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T23:19:59Z  quiet window not established for C3-med rep3 (probe 1/3) — waiting 300s
+       NOISY 853055 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T23:25:01Z  quiet window not established for C3-med rep3 (probe 2/3) — waiting 300s
+       NOISY 319161 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T23:30:02Z  quiet window not established for C3-med rep3 (probe 3/3) — waiting 300s
+       QUIET 0 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup-w6/w6-hono-router-review__C3-med__rep3__20260820T233505
+validate: PASS (audit-grade)
+2026-08-20T23:38:53Z  --- cost checkpoint after 12 completed runs ---
+       known spend floor: $12.2711 over 12 runs (cap $150.00)
+       legs with unavailable cost: 7 -> real spend may be HIGHER; the total is a floor, never an estimate
+2026-08-20T23:38:53Z  --- [13/15] w6-hono-router-review C3-prev rep1 (budget 1200s) ---
+       NOISY 404496 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T23:38:54Z  quiet window not established for C3-prev rep1 (probe 1/3) — waiting 300s
+       NOISY 818287 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T23:43:55Z  quiet window not established for C3-prev rep1 (probe 2/3) — waiting 300s
+       NOISY 413791 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T23:48:57Z  quiet window not established for C3-prev rep1 (probe 3/3) — waiting 300s
+       QUIET 0 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup-w6/w6-hono-router-review__C3-prev__rep1__20260820T235359
+validate: PASS (audit-grade)
+2026-08-20T23:58:54Z  --- [14/15] w6-hono-router-review C3-prev rep2 (budget 1200s) ---
+       NOISY 445583 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-20T23:58:55Z  quiet window not established for C3-prev rep2 (probe 1/3) — waiting 300s
+       NOISY 939100 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-21T00:03:57Z  quiet window not established for C3-prev rep2 (probe 2/3) — waiting 300s
+       NOISY 493517 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-21T00:08:58Z  quiet window not established for C3-prev rep2 (probe 3/3) — waiting 300s
+       QUIET 0 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup-w6/w6-hono-router-review__C3-prev__rep2__20260821T001400
+validate: PASS (audit-grade)
+2026-08-21T00:18:50Z  --- [15/15] w6-hono-router-review C3-prev rep3 (budget 1200s) ---
+       NOISY 1233083 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-21T00:18:51Z  quiet window not established for C3-prev rep3 (probe 1/3) — waiting 300s
+       NOISY 1724691 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-21T00:23:53Z  quiet window not established for C3-prev rep3 (probe 2/3) — waiting 300s
+       NOISY 483092 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+2026-08-21T00:28:54Z  quiet window not established for C3-prev rep3 (probe 3/3) — waiting 300s
+       QUIET 0 tokens in the last 10m
+       FILTER metric.type = "aiplatform.googleapis.com/publisher/online_serving/token_count" AND resource.type = "aiplatform.googleapis.com/PublisherModel" AND resource.labels.publisher = "google" AND resource.labels.model_user_id = one_of("gemini-3.6-flash","gemini-3.7-flash")
+run_dir: /home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab/results/screening-batch1-makeup-w6/w6-hono-router-review__C3-prev__rep3__20260821T003356
+validate: PASS (audit-grade)
+2026-08-21T00:35:55Z  === execution finished: 15 run this pass, 0 skipped, 0 deferred; plan 15 ===
+2026-08-21T00:35:55Z  === collector backfill (attribution rule v3) ===
+2026-08-21T00:35:55Z  waiting 300s for Cloud Monitoring ingestion before querying
+collector plan: 9 Gemini-bearing runs -> results/screening-batch1-makeup-w6/collector-plan.json
+{
+  "attribution": {
+    "counts_confidence": "authoritative",
+    "event_type": "provider_usage_backfill_v3",
+    "method": "serialized_run_ownership_with_rate_ceiling",
+    "note": "a serialized subject run owns the meter from its own start until the next subject run's window opens, so its own ingestion tail is attributed to it; the tail is measured, ending at the first silence and capped, and the quiet probe looks only at the region no subject run owns \u2014 v3 keeps that window unchanged and only swaps the fixed per-run plausibility ceiling for a rate one",
+    "per_run_attribution_confidence": "derived",
+    "rule": "v3",
+    "tail_cap_seconds": 900,
+    "tail_seconds": 900,
+    "tail_silence_seconds": 300
+  },
+  "collected_at": "2026-08-21T00:40:55.530328Z",
+  "collector": "vertex_token_collector",
+  "contamination_guard": {
+    "baseline_probe_seconds": 300,
+    "input_side_ceiling_tokens": null,
+    "input_side_ceiling_tokens_per_second": 25000,
+    "on_trip": "nothing is written; the run is stamped contaminated_window and its usage stays unavailable",
+    "plausibility_ceiling": "input_side_tokens_per_second",
+    "runs_refused": []
+  },
+  "economics_note": "Usage only. This collector does not recompute economics: costs stay as the runner recorded them. Re-cost with harness/runner/run.py's build_economics against the pinned pricing snapshot once usage is filled.",
+  "guard_seconds": 60,
+  "metric_type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "project": "vital-octagon-19612",
+  "report": "provider-side token backfill",
+  "runs": [
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-20T23:14:20.079366Z",
+                "points": 0,
+                "start": "2026-08-20T23:01:42.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1207922
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 3165.225
+            },
+            "window_seconds": 381.623
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1207922,
+          "output_tokens": 31841
+        }
+      },
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3-med__rep1__20260820T225618",
+      "run_id": "w6-hono-router-review__C3-med__rep1__20260820T225618",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-20T23:01:42.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-20T22:55:20.377161Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-20T23:34:07.250109Z",
+                "points": 0,
+                "start": "2026-08-20T23:21:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 819355
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 1785.396
+            },
+            "window_seconds": 458.921
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 819355,
+          "output_tokens": 33700
+        }
+      },
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3-med__rep2__20260820T231518",
+      "run_id": "w6-hono-router-review__C3-med__rep2__20260820T231518",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-20T23:21:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-20T23:14:20.079367Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-20T23:53:00.447240Z",
+                "points": 0,
+                "start": "2026-08-20T23:40:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 782776
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 1901.096
+            },
+            "window_seconds": 411.75
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 782776,
+          "output_tokens": 35511
+        }
+      },
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3-med__rep3__20260820T233505",
+      "run_id": "w6-hono-router-review__C3-med__rep3__20260820T233505",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-20T23:40:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-20T23:34:07.250110Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-21T00:13:01.947956Z",
+                "points": 0,
+                "start": "2026-08-21T00:00:53.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 906261
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.6-flash": 1917.799
+            },
+            "window_seconds": 472.553
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 906261,
+          "output_tokens": 32839
+        }
+      },
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3-prev__rep1__20260820T235359",
+      "run_id": "w6-hono-router-review__C3-prev__rep1__20260820T235359",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-21T00:00:53.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-20T23:53:00.447241Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-21T00:32:57.523957Z",
+                "points": 0,
+                "start": "2026-08-21T00:20:53.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 1674760
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.6-flash": 3555.361
+            },
+            "window_seconds": 471.052
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1674760,
+          "output_tokens": 49931
+        }
+      },
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3-prev__rep2__20260821T001400",
+      "run_id": "w6-hono-router-review__C3-prev__rep2__20260821T001400",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-21T00:20:53.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-21T00:13:01.947957Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-21T00:42:53.000000Z",
+                "points": 0,
+                "start": "2026-08-21T00:37:53.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.6-flash": 734942
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.6-flash": 2487.315
+            },
+            "window_seconds": 295.476
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 734942,
+          "output_tokens": 29571
+        }
+      },
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3-prev__rep3__20260821T003356",
+      "run_id": "w6-hono-router-review__C3-prev__rep3__20260821T003356",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-21T00:37:53.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-21T00:32:57.523958Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-20T22:13:51.340106Z",
+                "points": 0,
+                "start": "2026-08-20T22:01:41.000001Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-20T21:52:17.264951Z",
+                "points": 0,
+                "start": "2026-08-20T21:47:17.264952Z"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1778813
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 3155.406
+            },
+            "window_seconds": 563.735
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1778813,
+          "output_tokens": 53641
+        }
+      },
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3__rep1__20260820T215316",
+      "run_id": "w6-hono-router-review__C3__rep1__20260820T215316",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-20T22:01:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-20T21:52:17.264952Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-20T22:34:50.754681Z",
+                "points": 0,
+                "start": "2026-08-20T22:22:41.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1504115
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 2839.775
+            },
+            "window_seconds": 529.66
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1504115,
+          "output_tokens": 47757
+        }
+      },
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3__rep2__20260820T221449",
+      "run_id": "w6-hono-router-review__C3__rep2__20260820T221449",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-20T22:22:41.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-20T22:13:51.340107Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": false,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-20T22:55:20.377160Z",
+                "points": 0,
+                "start": "2026-08-20T22:42:59.000001Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 1581537
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 3239.226
+            },
+            "window_seconds": 488.245
+          }
+        },
+        "reasons": []
+      },
+      "detail": "",
+      "legs_filled": {
+        "main": {
+          "input_tokens": 1581537,
+          "output_tokens": 51625
+        }
+      },
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3__rep3__20260820T223549",
+      "run_id": "w6-hono-router-review__C3__rep3__20260820T223549",
+      "status": "backfilled",
+      "validated": true,
+      "window": {
+        "end": "2026-08-20T22:42:59.000000Z",
+        "guard_seconds": 60,
+        "start": "2026-08-20T22:34:50.754682Z"
+      }
+    }
+  ],
+  "status_counts": {
+    "backfilled": 9
+  },
+  "unmapped_types_note": "Type labels with no mapping to a schema usage field. They are recorded verbatim in each run's event log and are NOT counted in any token class. A thinking/reasoning-flavoured type appearing here is a finding, not noise: it is the thinking share of the bill and must be mapped or reported explicitly before any Product-B cost is published.",
+  "unmapped_types_observed": {}
+}
+2026-08-21T00:41:01Z  === final cost accounting ===
+       known spend floor: $12.2711 over 15 runs (cap $150.00)
+       legs with unavailable cost: 10
+
+NEXT (human):
+  1. Summarize the makeup dataset on its own:
+       python -m harness.telemetry.summarize results/screening-batch1-makeup-w6
+     It pairs with report/screening-batch1-makeup-w6/ (CLAUDE.md rule 8). Add the dataset row to
+     results/README.md naming that report.
+  2. Report W6 from THIS dataset only. Batch 1's W6 cells stay void; they are not re-graded, not back-filled and not merged in.
+  3. Account for the 0 deferred-contaminated cell(s) and for any run the
+     collector refused: both are HOLES, reported as missing, never averaged over.
+  4. No number from this dataset enters docs, the site, or an external-facing
+     report before CP-FINDINGS.
+
+================================================================================
+POST-PASS ADJUDICATION — 2026-08-21, written by the operator's agent, NOT by the
+driver. THE PASS COMPLETED BUT IS NOT SCOREABLE AS AN OUTCOME MEASUREMENT.
+Step 4 (the final summarize) was NOT run. Nothing here has entered any report.
+================================================================================
+
+WHAT THE PASS DID DELIVER
+  15/15 runs executed, 0 skipped, 0 deferred, every run "validate: PASS
+  (audit-grade)". Provider backfill under attribution rule v3: 9 legs
+  backfilled, no contamination refusals. Known spend floor $12.2711 of a $150
+  cap; 10 legs carry unavailable cost (never zero-filled).
+
+  THE DELIVERY FIX WORKED. 14 of 15 runs produced a non-empty
+  agent-solution.diff (batch 1: 0 of 15), and every one of those 14 diffs
+  touches exactly one path, `review-report.txt`, and nothing else. The agents
+  received `review-diff.patch`, read it, and wrote findings in the requested
+  form. The void that made batch 1's W6 cells unscoreable did not recur.
+
+WHY THE PASS IS STILL NOT A MEASUREMENT
+  acceptance.result is `rejected` in 15 of 15 cells — including the 5 whose
+  SEALED HIDDEN GATE PASSED (P0 rep1, rep2, rep3; C2 rep3; C3-med rep2). The
+  outcome variable is again dominated by instrument error. Different mechanism
+  from batch 1, same consequence: these verdicts measure the harness, not the
+  agents. Two independent causes, both verified, neither speculative.
+
+  D1 — THE GATE RAN FROM A STALE CONTAINER IMAGE.
+    `lab-subject/w6-hono-router-review:3feb3551d46d` was built 2026-08-18
+    07:10:45 UTC. Its baked gate scripts are dated Aug 17 and are missing BOTH
+    fixes merged on 2026-08-20:
+      - no `pr_review` block in its check-public.sh (PR #25), so review-report.txt
+        is not in TARGET_PATHS;
+      - no `git_trust_subject` in its lib.sh or check-hidden.sh (PR #24), i.e.
+        the gate that graded these runs predates the git-ownership repair.
+    Verified by running `grep` inside the image, not inferred from dates.
+
+    ROOT CAUSE, and it is general — NOT specific to W6 or to this pass:
+    harness/runner/run.py:1265 tags the gate image
+    `subject_image_tag(task.task_id, task.pinned_commit)`, and `_ensure_image`
+    builds only when that tag is absent locally. The tag is a function of the
+    TASK and the SUBJECT COMMIT only; the harness and gate scripts baked into
+    the image are not part of it. So any change to gate logic leaves the tag
+    unchanged, the cached image is reused, and the OLD gate runs silently. Every
+    task with a locally cached image is exposed to this.
+
+    EFFECT HERE: P6-diff-scope fails in 14 of 15 cells — precisely the 14 that
+    produced a review report. It "passes" only in C2 rep2, the one run that
+    produced nothing. A gate that passes exactly the cell that did no work is
+    the signature.
+
+  D2 — THE LEAK SCAN REJECTS THE ARTIFACT THE HARNESS ITSELF DELIVERS.
+    This one is NOT staleness. It is unfixed on main as of 21b7857.
+    `leak_found()` (harness/task-tools/lib.sh) fails any subject tree containing
+    a `*.patch` file anywhere outside the pruned dependency dirs. The W6
+    delivery fix deliberately copies `review-diff.patch` INTO the subject tree —
+    that is the whole point of the fix. Adding it to .git/info/exclude hides it
+    from git (so it does not disturb P6) but not from `find`.
+    Nothing in check-public.sh or lib.sh exempts the review_diff basename from
+    the scan.
+    EFFECT: P5-no-leakage fails in 15 of 15 cells, and WOULD STILL FAIL for
+    every pr_review run after the image is rebuilt. Rebuilding alone does not
+    make this task gradable; D2 needs a code fix and a regression test.
+
+  A THIRD, CELL-LOCAL OBSERVATION (not an instrument defect):
+    C2 rep2 ran 21:25:08 -> 21:45:14, hitting the 1200s agent bound
+    (behavior.failures_by_category = {"claude_timeout": 1}) and produced a
+    0-byte diff. Even after D1 and D2 are fixed, that cell is a truncated run —
+    an instrument observation, not a capability one — and must be refused by any
+    grader, exactly as batch 1's 17 truncated runs are.
+
+WHAT IS AND IS NOT USABLE FROM THIS DATASET
+  Usable: the telemetry. Token counts, timings, the v3 attribution and the cost
+  floor are real, validated, and unaffected by D1/D2, which touch only grading.
+  NOT usable: every acceptance verdict, and therefore any W6 outcome claim.
+  This dataset is NOT merged with batch 1's void W6 cells and does not repair
+  them. Batch 1's W6 cells stay void.
+
+WHY NOTHING WAS RE-RUN
+  Re-running is live model spend and needs a new CP-SPEND. Rebuilding the gate
+  image and re-grading the 15 ARCHIVED agent-solution.diff files offline — the
+  same zero-spend repair used on batch 1's 36 amended verdicts — may be possible
+  for D1, but it cannot be done before D2 is fixed, and neither was authorized.
+  Awaiting the human.

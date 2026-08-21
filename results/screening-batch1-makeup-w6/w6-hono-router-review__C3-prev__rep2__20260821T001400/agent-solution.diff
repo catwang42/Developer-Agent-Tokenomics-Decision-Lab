@@ -1,0 +1,16 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/review-report.txt b/review-report.txt
+new file mode 100644
+index 00000000..7de9ada2
+--- /dev/null
++++ b/review-report.txt
+@@ -0,0 +1,8 @@
++src/router/reg-exp-router/node.ts:30 — The compareKey comparator violates anti-symmetry when comparing wildcard keys against non-wildcard keys, causing invalid sorting of node children.
++src/router/reg-exp-router/node.ts:65 — The token loop condition causes non-terminal wildcard tokens to be incorrectly treated as full trailing wildcards instead of single-segment labels.
++src/router/reg-exp-router/node.ts:94 — The child node conflict check is restricted to full wildcards, bypassing conflict detection for other dynamic parameter patterns.
++src/router/reg-exp-router/node.ts:150 — RegExp metacharacters in child keys are not escaped, causing invalid RegExp syntax or unintentional wildcard matching.
++src/router/reg-exp-router/trie.ts:55 — Pre-incrementing the handler index when registering path data creates an off-by-one mismatch with the node index, causing route handler lookups to fail.
++src/router/reg-exp-router/router.ts:76 — Method-specific routers share the default Trie instance reference, causing route insertion conflicts and UnsupportedPathError across HTTP methods.
++src/router/reg-exp-router/router.ts:163 — Overwriting handlerData entries during route processing discards dynamic path middleware handlers registered earlier.
++src/router/reg-exp-router/router.ts:191 — Iterating over handlerData assumes dense arrays and throws a TypeError when accessing properties of undefined elements in sparse handler arrays.

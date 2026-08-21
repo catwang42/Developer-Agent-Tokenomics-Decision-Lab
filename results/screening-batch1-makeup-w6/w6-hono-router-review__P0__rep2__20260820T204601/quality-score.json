@@ -1,0 +1,27 @@
+{
+  "acceptance": "rejected",
+  "available": true,
+  "configuration_id": "P0",
+  "detail": {
+    "detected": [
+      "D1-offbyone-trie-index",
+      "D2-inverted-guard",
+      "D3-precedence-flip",
+      "D4-wildcard-fallthrough",
+      "D5-missing-escape",
+      "D6-trie-aliasing"
+    ],
+    "fabricated": [],
+    "fabrication_count": 0,
+    "missed": []
+  },
+  "max": 6,
+  "metric": "defects_found",
+  "rep": 2,
+  "schema": "quality-score/v1",
+  "score": 6,
+  "source": "sealed runner stderr as archived by this run; nothing re-run, no sealed material read",
+  "source_log": "regrade-v2-gate-hidden.log",
+  "status": "EXPLORATORY SECONDARY \u2014 the pre-registered outcome is the binary sealed gate; this does not override it",
+  "task_id": "w6-hono-router-review"
+}

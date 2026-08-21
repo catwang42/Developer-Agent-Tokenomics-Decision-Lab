@@ -96,8 +96,10 @@ REPS_OVERRIDE=""
 usage() {
   cat <<'USAGE'
 usage: screening-batch1-makeup-driver.sh [options]
-  --profile w3|w6      which makeup pass (default w3). NEVER run two at once:
-                       both attribute Product-B tokens by run window on one meter.
+  --profile w3|w6|confound
+                       which makeup pass (default w3). NEVER run two at once:
+                       all three attribute Product-B tokens by run window on one
+                       meter, and a second driver's legs would land in the window.
   --dry-run            exercise the full plan and every preflight, bill nothing
   --reps N             repetitions per arm (default: the profile's)
   --spend-cap-usd N    in-runner kill-switch (default 150, deliberately non-binding)
@@ -150,7 +152,6 @@ case "$PROFILE" in
     PHASE="screening-batch1-makeup"
     LABEL="makeup-batch"
     TASK="tasks/suite/W3-migration"
-    TASK_LABEL="W3-migration"
     SEALED_KEY="w3_task"
     ARMS="P0 C2 C3 P1"
     DEFAULT_REPS=2
@@ -173,7 +174,6 @@ case "$PROFILE" in
     PHASE="screening-batch1-makeup-w6"
     LABEL="makeup-batch-w6"
     TASK="tasks/suite/W6-pr-review"
-    TASK_LABEL="W6-pr-review"
     SEALED_KEY="w6_task"
     ARMS="P0 C2 C3 C3-med C3-prev"
     DEFAULT_REPS=3
@@ -192,10 +192,59 @@ case "$PROFILE" in
     REPS_CAVEAT="3 reps per arm is the registered reps_screening for this task. It does not support a dispersion or variance claim and no figure from this dataset may carry one."
     NEXT_GRADE="Report W6 from THIS dataset only. Batch 1's W6 cells stay void; they are not re-graded, not back-filled and not merged in."
     ;;
+  confound)
+    PHASE="screening-batch1-confound-makeup"
+    LABEL="makeup-batch-confound"
+    TASK=""                  # per CELL, not per profile — the plan carries the task
+    SEALED_KEY=""            # per task, read from each task.yaml's manifest_key
+    ARMS="P0 C2 P1 C5"
+    DEFAULT_REPS=0           # reps are per cell; the plan is an explicit list
+    EXPECTED_TOTAL=11
+    EXPECTED_TIMEOUT_S=""    # per task; checked task-by-task instead
+    GEMINI_ARMS="C5"         # the only Google-metered arm in this roster
+    PROBE_MODELS="gemini-3.7-flash"
+    GEMINI_MAP_JSON='{"C5": {"executor": "gemini-3.7-flash"}}'
+    ATTRIBUTION_RULE="v3"
+    TAIL_SECONDS=900
+    TAIL_SILENCE_SECONDS=300
+    CEILING_ARGS="--ceiling-input-tokens-per-second 25000"
+    SUPPLEMENTS="results/screening-batch1 and results/screening-batch1-makeup (the truncated cells enumerated in report/findings/confound-makeup-enumeration.log)"
+    WHY="Batch 1 ran every task under a flat 1800s agent budget. A run the harness killed at the bound is right-censored: it is indistinguishable from a capability failure, so it is not evidence about the model either way. This pass re-buys the censored cells that no existing makeup dataset already covers, each under its OWN task's pinned budget."
+    NOT_A_REPLACEMENT="No earlier cell is superseded or edited. The truncated originals stay where they are, labelled truncated. A cell run under an 1800s bound and a cell run under its task's own budget are not two observations of the same thing and are never merged."
+    REPS_CAVEAT="This dataset is a list of individual replacement slots, not a rep panel: a cell here may be rep 1 or rep 3 of its arm depending on which rep was censored. Nothing in it supports a dispersion or variance claim."
+    NEXT_GRADE="Read each cell alongside the surviving reps of the same arm in its ORIGINAL dataset, never pooled with the truncated attempt it replaces. Two W3 slots (P0 rep1, P1 rep1) are deliberately absent — see the limitation ledger. The W6 C2 rep2 slot lives here rather than with the rest of the W6 roster; the consolidated table records its provenance."
+    # The 16 runs enumerated in report/findings/confound-makeup-enumeration.log,
+    # collapsed to one slot per (task, config, rep) and minus the two slots that
+    # are a budget-exhaustion FINDING rather than a hole: W3 P0 rep1 and W3 P1
+    # rep1 were truncated at 1800s in batch 1 and then timed out AGAIN at their
+    # task's own 7200s budget in the W3 makeup — "does not complete at 2h" is the
+    # result, not a gap to buy. 16 runs - 5 duplicate (task,config,rep) rows
+    # - 2 exhausted slots = 11.
+    #
+    # W6 C2 rep2 is in this list, not resumed into results/screening-batch1-makeup-w6:
+    # that dataset already holds a run for the cell (a 1200s claude_timeout), so
+    # the w6 resume index counts it settled and would skip it. Its batch-1 attempt
+    # is void on the delivery defect, so this is only its SECOND attempt at the
+    # correct budget, not a third — it is a hole, not yet an exhaustion finding.
+    CELLS="
+tasks/suite/W1-test-generation C5 1
+tasks/suite/W1b-zarr-block-mask-properties P0 1
+tasks/suite/W3-migration P0 3
+tasks/suite/W3-migration C2 3
+tasks/suite/W3-migration P1 3
+tasks/suite/W3-migration C5 1
+tasks/suite/W3-migration C5 2
+tasks/suite/W3-migration C5 3
+tasks/suite/W4b-zarr-consolidated-order C5 1
+tasks/suite/W4b-zarr-consolidated-order C5 2
+tasks/suite/W6-pr-review C2 2
+"
+    ;;
   *)
-    echo "makeup-driver: unknown --profile '$PROFILE' (expected w3 or w6)" >&2
+    echo "makeup-driver: unknown --profile '$PROFILE' (expected w3, w6 or confound)" >&2
     usage >&2; exit 2 ;;
 esac
+CELLS="${CELLS:-}"
 
 REPS="${REPS_OVERRIDE:-$DEFAULT_REPS}"
 BATCH_DIR="$OUT_ROOT/$PHASE"
@@ -244,22 +293,39 @@ print(f"FILTER {flt}")
 PYEOF
 }
 
-build_plan() {  # one "<arm> <rep>" per line, in execution order
+build_plan() {  # one "<task-dir> <arm> <rep>" per line, in execution order
   local arm rep
+  # An explicit cell list is a plan in its own right: the confound pass replaces
+  # named censored slots, so its scope is a list of cells and not a matrix, and
+  # writing it as arms x reps would claim a rep panel this dataset does not buy.
+  if [ -n "$CELLS" ]; then
+    printf '%s\n' "$CELLS" | grep .
+    return 0
+  fi
   for arm in $ARMS; do
     for rep in $(seq 1 "$REPS"); do
-      echo "$arm $rep"
+      echo "$TASK $arm $rep"
     done
   done
 }
 
 PLAN="$(build_plan)"
 TOTAL="$(printf '%s\n' "$PLAN" | grep -c .)"
+PLAN_TASKS="$(printf '%s\n' "$PLAN" | awk 'NF {print $1}' | sort -u)"
 
-TASK_ID="$("$PY" -c \
-  "import sys,yaml;print((yaml.safe_load(open(sys.argv[1]+'/task.yaml',encoding='utf-8')) or {})['task_id'])" \
-  "$TASK" 2>/dev/null)" || TASK_ID=""
-[ -n "$TASK_ID" ] || fail "no task_id in $TASK/task.yaml"
+task_id_of() {  # task_id_of <task-dir>
+  "$PY" -c \
+    "import sys,yaml;print((yaml.safe_load(open(sys.argv[1]+'/task.yaml',encoding='utf-8')) or {})['task_id'])" \
+    "$1" 2>/dev/null
+}
+
+for t in $PLAN_TASKS; do
+  [ -n "$(task_id_of "$t")" ] || fail "no task_id in $t/task.yaml"
+done
+# Single-task profiles keep the scalar they have always had; the multi-task
+# profile has no such thing, and a stale scalar in its log would name the wrong
+# task on every line.
+TASK_ID="$([ -n "$TASK" ] && task_id_of "$TASK" || echo "(per cell)")"
 
 # --------------------------------------------------------------------------- #
 # Resume index. Same contract as batch 1: a cell is settled only if its run dir
@@ -323,8 +389,9 @@ build_resume_index() {
   RESUME_REPORT="$n_ok completed+validated$([ "$n_bad" -gt 0 ] && echo ", $n_bad unvalidated dir(s) to re-run")"
 }
 
-settled_why() {  # settled_why <arm> <rep>
-  local key="$TASK_ID|$1|$2|"
+settled_why() {  # settled_why <task-dir> <arm> <rep>
+  local key
+  key="$(task_id_of "$1")|$2|$3|"
   printf '%s' "$SETTLED" |
     awk -v k="$key" 'index($0, k) == 1 { print substr($0, length(k) + 1); exit }'
 }
@@ -334,8 +401,8 @@ settled_why() {  # settled_why <arm> <rep>
 # from the batch-1 W3 cells, so it is checked before anything else can happen: a
 # makeup run under the old bound would reproduce the confound it exists to remove.
 # --------------------------------------------------------------------------- #
-read_timeout() {
-  "$PY" - "$TASK" "$MANIFEST" <<'PYEOF'
+read_timeout() {  # read_timeout <task-dir> -> "<task.yaml value> <manifest value>"
+  "$PY" - "$1" "$MANIFEST" <<'PYEOF'
 import sys, yaml
 task = yaml.safe_load(open(f"{sys.argv[1]}/task.yaml", encoding="utf-8")) or {}
 manifest = yaml.safe_load(open(sys.argv[2], encoding="utf-8")) or {}
@@ -345,34 +412,46 @@ PYEOF
 }
 
 if [ "$LIST_ONLY" -eq 1 ]; then
-  read -r T_TASK T_MANIFEST <<< "$(read_timeout)"
   build_resume_index
   echo "makeup batch: $LABEL   (profile $PROFILE)"
-  echo "  task     : $TASK ($TASK_ID)"
-  echo "  arms     : $ARMS   reps: $REPS   runs: $TOTAL"
-  echo "  dataset  : results/$PHASE/   (batch 1 is NOT modified)"
-  echo "  budget   : agent_timeout_s=$T_TASK (task.yaml) / $T_MANIFEST (manifest)"
+  if [ -n "$TASK" ]; then
+    echo "  task     : $TASK ($TASK_ID)"
+    echo "  arms     : $ARMS   reps: $REPS   runs: $TOTAL"
+  else
+    echo "  tasks    : $(printf '%s\n' "$PLAN_TASKS" | tr '\n' ' ')"
+    echo "  cells    : $TOTAL named replacement slots (not a rep panel)"
+  fi
+  echo "  dataset  : results/$PHASE/   (no earlier dataset is modified)"
+  for t in $PLAN_TASKS; do
+    read -r T_TASK T_MANIFEST <<< "$(read_timeout "$t")"
+    echo "  budget   : $(task_id_of "$t") agent_timeout_s=$T_TASK (task.yaml) / $T_MANIFEST (manifest)"
+  done
   echo "  spend cap: \$$SPEND_CAP_USD in-runner kill-switch"
   echo "  resume   : $RESUME_REPORT"
   echo
-  printf '%s\n' "$PLAN" | nl -ba | while read -r n arm rep; do
-    why="$(settled_why "$arm" "$rep")"
-    if [ -n "$why" ]; then printf '%6s  SKIP    %s %s rep%s  (%s)\n' "$n" "$TASK_ID" "$arm" "$rep" "$why"
-    else                   printf '%6s  PENDING %s %s rep%s\n' "$n" "$TASK_ID" "$arm" "$rep"; fi
+  # The budget is per AGENT LEG, so P1 (economical attempt, then the strong one
+  # if it escalates) and C5 (planner, then executor) can spend it twice in one
+  # run. Worst case counts legs, and with per-task budgets it must count seconds
+  # per cell rather than multiplying one budget by a plan size.
+  WORST_S=0
+  printf '%s\n' "$PLAN" | nl -ba | while read -r n task arm rep; do
+    [ -n "$task" ] || continue
+    tid="$(task_id_of "$task")"
+    why="$(settled_why "$task" "$arm" "$rep")"
+    if [ -n "$why" ]; then printf '%6s  SKIP    %s %s rep%s  (%s)\n' "$n" "$tid" "$arm" "$rep" "$why"
+    else                   printf '%6s  PENDING %s %s rep%s\n' "$n" "$tid" "$arm" "$rep"; fi
+  done
+  for line in $(printf '%s\n' "$PLAN" | awk 'NF {print $1 "," $2}'); do
+    t="${line%%,*}"; a="${line##*,}"
+    read -r T_TASK _ <<< "$(read_timeout "$t")"
+    case "$a" in P1|C5) legs=2 ;; *) legs=1 ;; esac
+    WORST_S=$(( WORST_S + legs * T_TASK ))
   done
   echo
-  # The budget is per AGENT LEG, so P1 (economical attempt, then the strong one
-  # if it escalates) can spend it twice in one run. Worst case counts legs.
-  LEGS=0
-  for arm in $ARMS; do
-    case "$arm" in P1|C5) n=2 ;; *) n=1 ;; esac
-    LEGS=$(( LEGS + n * REPS ))
-  done
-  echo "worst-case wall clock: $LEGS agent leg(s) x ${T_TASK}s budget"
-  echo "  = ${LEGS} legs across $TOTAL runs ($(( LEGS * T_TASK / 3600 ))h of agent time if every"
-  echo "    leg runs to the bound), plus gates, per-run quiet probes on the $GEMINI_ARMS arm(s),"
-  echo "    and a 300s ingestion wait before backfill. Batch 1's legs on this task ran well"
-  echo "    under the bound, so the realistic figure is lower — but the bound is what to plan for."
+  echo "worst-case wall clock: $(( WORST_S / 3600 ))h of agent time across $TOTAL runs, if"
+  echo "  every leg runs to its task's bound — plus gates, per-run quiet probes on the"
+  echo "  $GEMINI_ARMS arm(s), and a 300s ingestion wait before backfill. Earlier legs ran"
+  echo "  well under the bound, so the realistic figure is lower; the bound is what to plan for."
   echo "  The batch is resumable between runs: re-invoke to continue, or --start-at N."
   exit 0
 fi
@@ -390,17 +469,30 @@ fi
 
 # 1. Plan size.
 if [ "$REPS" -eq "$DEFAULT_REPS" ] && [ "$TOTAL" -ne "$EXPECTED_TOTAL" ]; then
-  fail "plan is $TOTAL runs, the $PROFILE makeup scope is $EXPECTED_TOTAL — the arm list has drifted"
+  fail "plan is $TOTAL runs, the $PROFILE makeup scope is $EXPECTED_TOTAL — the cell list has drifted"
 fi
-log "ok   plan: $TOTAL runs ($ARMS x $REPS reps)"
+if [ -n "$CELLS" ]; then
+  log "ok   plan: $TOTAL named cells across $(printf '%s\n' "$PLAN_TASKS" | grep -c .) tasks"
+else
+  log "ok   plan: $TOTAL runs ($ARMS x $REPS reps)"
+fi
 
-# 2. The pinned agent budget — the reason this pass exists.
-read -r T_TASK T_MANIFEST <<< "$(read_timeout)"
-[ "$T_TASK" = "$EXPECTED_TIMEOUT_S" ] || \
-  fail "task.yaml pins agent_timeout_s=$T_TASK, this makeup is defined at ${EXPECTED_TIMEOUT_S}s — running it under a different bound reproduces the confound it exists to remove"
-[ "$T_TASK" = "$T_MANIFEST" ] || \
-  fail "agent_timeout_s disagrees: task.yaml=$T_TASK manifest=$T_MANIFEST (run.py would refuse each run anyway)"
-log "ok   agent budget: ${T_TASK}s, pinned identically in task.yaml and the manifest"
+# 2. The pinned agent budget — the reason this pass exists. A multi-task plan has
+#    one budget per task, so the bound is checked task by task; the single-task
+#    profiles additionally pin the exact value the makeup is defined at.
+T_TASK=""
+for t in $PLAN_TASKS; do
+  read -r t_task t_manifest <<< "$(read_timeout "$t")"
+  tid="$(task_id_of "$t")"
+  [ -n "$t_task" ] || fail "$tid: no agent_timeout_s in $t/task.yaml"
+  if [ -n "$EXPECTED_TIMEOUT_S" ] && [ "$t_task" != "$EXPECTED_TIMEOUT_S" ]; then
+    fail "$tid: task.yaml pins agent_timeout_s=$t_task, this makeup is defined at ${EXPECTED_TIMEOUT_S}s — running it under a different bound reproduces the confound it exists to remove"
+  fi
+  [ "$t_task" = "$t_manifest" ] || \
+    fail "$tid: agent_timeout_s disagrees: task.yaml=$t_task manifest=$t_manifest (run.py would refuse each run anyway)"
+  log "ok   agent budget: $tid ${t_task}s, pinned identically in task.yaml and the manifest"
+  T_TASK="$t_task"   # single-task profiles read this below; multi-task uses per-cell lookups
+done
 
 # 3. Spend authorization.
 if [ "$DRY_RUN" -eq 0 ] && [ "${LAB_ALLOW_SPEND:-}" != "1" ]; then
@@ -408,11 +500,23 @@ if [ "$DRY_RUN" -eq 0 ] && [ "${LAB_ALLOW_SPEND:-}" != "1" ]; then
 fi
 log "ok   spend authorization ($([ "$DRY_RUN" -eq 1 ] && echo 'dry-run, nothing bills' || echo 'LAB_ALLOW_SPEND=1'))"
 
-# 4. Sealed artifact for this task, frozen.
-PENDING="$("$PY" - "$MANIFEST" "$SEALED_KEY" "$TASK_LABEL" <<'PYEOF'
+# 4 / 4b / 5 run once per task in the plan. A single-task profile loops once; the
+# confound profile spans five tasks and every one of them has to clear the same
+# bar before any of them is bought.
+for t in $PLAN_TASKS; do
+  tid="$(task_id_of "$t")"
+  # Arms are per cell, so each task is checked against the arms IT is asked for.
+  t_arms="$(printf '%s\n' "$PLAN" | awk -v t="$t" '$1 == t {print $2}' | sort -u | tr '\n' ' ')"
+
+  # 4. Sealed artifact for this task, frozen. The manifest key comes from the
+  #    task itself; a profile that declares one is cross-checked against it.
+  PENDING="$("$PY" - "$MANIFEST" "$t" "$SEALED_KEY" <<'PYEOF'
 import sys, yaml
 m = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
-key, label = sys.argv[2], sys.argv[3]
+t = yaml.safe_load(open(f"{sys.argv[2]}/task.yaml", encoding="utf-8")) or {}
+key, declared, label = t.get("manifest_key"), sys.argv[3], t.get("task_id")
+if declared and declared != key:
+    print(f"{label}: profile declares manifest key {declared!r}, task.yaml says {key!r}")
 entry = m.get(key) or {}
 sealed = entry.get("sealed_hidden_test") or entry.get("sealed_defect_map")
 if sealed is None:
@@ -420,31 +524,33 @@ if sealed is None:
 elif sealed.get("status") == "awaiting_human" or not sealed.get("sha256"):
     print(f"{label}: PENDING-FREEZE (no frozen version+sha256)")
 PYEOF
-)" || fail "could not read sealed-artifact status from $MANIFEST"
-[ -z "$PENDING" ] || { printf '%s\n' "$PENDING" | sed 's/^/       /' >&2
-  fail "the $TASK_LABEL sealed artifact is not frozen — the makeup would produce ungradable runs"; }
-log "ok   $TASK_LABEL sealed artifact frozen (version + sha256 in the manifest)"
+)" || fail "could not read sealed-artifact status for $tid from $MANIFEST"
+  [ -z "$PENDING" ] || { printf '%s\n' "$PENDING" | sed 's/^/       /' >&2
+    fail "the $tid sealed artifact is not frozen — the makeup would produce ungradable runs"; }
+  log "ok   $tid sealed artifact frozen (version + sha256 in the manifest)"
 
-# 4b. Review tasks only: the artifact the agent reviews is DELIVERED at run time
-#     from the sealed set, so it must be on this host before anything is bought.
-#     Asking the runner's own resolver keeps this from drifting from the delivery
-#     code. It stats the file; it never reads a byte of the sealed set.
-if [ "$SEALED_KEY" = "w6_task" ]; then
-  REVIEW_SRC="$("$PY" - "$TASK" "$MANIFEST" <<'PYEOF'
+  # 4b. Review tasks: the artifact the agent reviews is DELIVERED at run time
+  #     from the sealed set, so it must be on this host before anything is
+  #     bought. Asking the runner's own resolver keeps this from drifting from
+  #     the delivery code. It stats the file; it never reads a byte of the set.
+  REVIEW_SRC="$("$PY" - "$t" "$MANIFEST" <<'PYEOF'
 import sys, yaml
 from harness.runner import run as R
 manifest = yaml.safe_load(open(sys.argv[2], encoding="utf-8")) or {}
 task = R.load_task(sys.argv[1], manifest)
 print(R.review_artifact_source(task) if R.is_review_task(task) else "")
 PYEOF
-)" || fail "could not resolve the review artifact path for $TASK_LABEL"
-  [ -n "$REVIEW_SRC" ] || fail "$TASK_LABEL is not a pr_review task but the $PROFILE profile expects one"
-  [ -s "$REVIEW_SRC" ] || fail "the sealed review artifact is missing or empty at $REVIEW_SRC — it is human-held (hidden/README-FOR-HUMAN.md). Without it every agent reviews nothing and the pass reproduces batch 1's void exactly."
-  log "ok   sealed review artifact present ($(stat -c%s "$REVIEW_SRC") bytes, contents never read here)"
-fi
+)" || fail "could not resolve the review artifact path for $tid"
+  if [ "$SEALED_KEY" = "w6_task" ] && [ -z "$REVIEW_SRC" ]; then
+    fail "$tid is not a pr_review task but the $PROFILE profile expects one"
+  fi
+  if [ -n "$REVIEW_SRC" ]; then
+    [ -s "$REVIEW_SRC" ] || fail "the sealed review artifact for $tid is missing or empty at $REVIEW_SRC — it is human-held (hidden/README-FOR-HUMAN.md). Without it every agent reviews nothing and the pass reproduces batch 1's void exactly."
+    log "ok   $tid sealed review artifact present ($(stat -c%s "$REVIEW_SRC") bytes, contents never read here)"
+  fi
 
-# 5. Task identity + declared arms.
-MISMATCH="$("$PY" - "$MANIFEST" "$TASK" "$ARMS" <<'PYEOF'
+  # 5. Task identity + declared arms.
+  MISMATCH="$("$PY" - "$MANIFEST" "$t" "$t_arms" <<'PYEOF'
 import sys, yaml
 manifest_path, task_dir, arms = sys.argv[1], sys.argv[2], sys.argv[3].split()
 m = yaml.safe_load(open(manifest_path, encoding="utf-8")) or {}
@@ -457,10 +563,11 @@ missing = sorted(set(arms) - declared)
 if missing:
     print(f"declares {sorted(declared)} but this makeup needs {missing}")
 PYEOF
-)" || fail "could not read $TASK/task.yaml"
-[ -z "$MISMATCH" ] || { printf '       %s\n' "$MISMATCH" >&2
-  fail "task declarations diverge from the makeup roster"; }
-log "ok   $TASK_ID: task_id matches the manifest, all $TOTAL cells are registered arms"
+)" || fail "could not read $t/task.yaml"
+  [ -z "$MISMATCH" ] || { printf '       %s\n' "$MISMATCH" >&2
+    fail "$tid declarations diverge from the makeup roster"; }
+  log "ok   $tid: task_id matches the manifest, its cells ($t_arms) are registered arms"
+done
 
 # 6. Product-B pin (the C3 arm).
 AGY_PIN="$("$PY" -c "import yaml,sys;print((yaml.safe_load(open(sys.argv[1],encoding='utf-8'))or{})['subject_isolation']['agent_leg']['agy_version'])" "$MANIFEST")" \
@@ -501,41 +608,75 @@ rm -f "$KILL_SWITCH"
 log "ok   kill switch armed: touch $KILL_SWITCH to halt between runs"
 
 # 11. Dataset marker. States what this dataset is and what it does NOT replace, so
-#     the directory is self-describing even before its report exists.
-# shellcheck disable=SC2086  # $ARMS is a space-separated list; splitting is the point
-cat > "$BATCH_DIR/MAKEUP-BATCH.json" <<EOF
-{
-  "label": "$LABEL",
-  "dataset": "results/$PHASE",
-  "replaces": null,
-  "profile": "$PROFILE",
-  "supplements": "$SUPPLEMENTS",
-  "task_id": "$TASK_ID",
-  "arms": [$(printf '"%s", ' $ARMS | sed 's/, $//')],
-  "reps": $REPS,
-  "agent_timeout_s": $T_TASK,
-  "attribution_rule": "$ATTRIBUTION_RULE",
-  "why": "$WHY",
-  "not_a_replacement": "$NOT_A_REPLACEMENT",
-  "reps_caveat": "$REPS_CAVEAT"
+#     the directory is self-describing even before its report exists. Written by
+#     json.dump rather than a heredoc: the prose fields carry quotes and em-dashes,
+#     and a rep-panel batch and a named-cell batch have different shapes.
+MB_PATH="$BATCH_DIR/MAKEUP-BATCH.json" MB_LABEL="$LABEL" MB_PHASE="$PHASE" \
+MB_PROFILE="$PROFILE" MB_SUPPLEMENTS="$SUPPLEMENTS" MB_TASK_ID="$TASK_ID" \
+MB_ARMS="$ARMS" MB_REPS="$REPS" MB_TIMEOUT="$T_TASK" MB_RULE="$ATTRIBUTION_RULE" \
+MB_WHY="$WHY" MB_NOT="$NOT_A_REPLACEMENT" MB_CAVEAT="$REPS_CAVEAT" \
+MB_PLAN="$PLAN" MB_CELLS="$CELLS" "$PY" - <<'PYEOF' || fail "could not write the dataset marker"
+import json, os, yaml
+
+env = os.environ
+marker = {
+    "label": env["MB_LABEL"],
+    "dataset": f"results/{env['MB_PHASE']}",
+    "replaces": None,
+    "profile": env["MB_PROFILE"],
+    "supplements": env["MB_SUPPLEMENTS"],
 }
-EOF
+if env["MB_CELLS"].strip():
+    # A named-cell batch: each cell is a specific hole in an earlier dataset, so
+    # the roster is the list itself. Reps are per cell and do not form a panel.
+    cells = []
+    for line in env["MB_PLAN"].splitlines():
+        parts = line.split()
+        if not parts:
+            continue
+        task_dir, arm, rep = parts[0], parts[1], int(parts[2])
+        t = yaml.safe_load(open(f"{task_dir}/task.yaml", encoding="utf-8")) or {}
+        cells.append({
+            "task_id": t.get("task_id"), "config": arm, "rep": rep,
+            "agent_timeout_s": t.get("agent_timeout_s"),
+        })
+    marker["cells"] = cells
+    marker["task_ids"] = sorted({c["task_id"] for c in cells})
+else:
+    marker["task_id"] = env["MB_TASK_ID"]
+    marker["arms"] = env["MB_ARMS"].split()
+    marker["reps"] = int(env["MB_REPS"])
+    marker["agent_timeout_s"] = int(env["MB_TIMEOUT"])
+marker.update({
+    "attribution_rule": env["MB_RULE"],
+    "why": env["MB_WHY"],
+    "not_a_replacement": env["MB_NOT"],
+    "reps_caveat": env["MB_CAVEAT"],
+})
+with open(env["MB_PATH"], "w", encoding="utf-8") as fh:
+    json.dump(marker, fh, indent=2, ensure_ascii=False)
+    fh.write("\n")
+PYEOF
 "$PY" -c 'import json,sys;json.load(open(sys.argv[1],encoding="utf-8"))' \
   "$BATCH_DIR/MAKEUP-BATCH.json" \
-  || fail "the dataset marker is not valid JSON — a profile string needs escaping"
+  || fail "the dataset marker is not valid JSON"
 log "ok   dataset marker written: $BATCH_DIR/MAKEUP-BATCH.json"
 
 # 12. Resume index.
 log "=== resume index (source: $RESUME_DIR) ==="
 build_resume_index
 printf '%s\n' "$RESUME_REPORT" | sed 's/^/       /'
-PENDING_CELLS="$(printf '%s\n' "$PLAN" | while read -r arm rep; do
-  [ -n "$arm" ] || continue
-  [ -n "$(settled_why "$arm" "$rep")" ] || echo x
+PENDING_CELLS="$(printf '%s\n' "$PLAN" | while read -r task arm rep; do
+  [ -n "$task" ] || continue
+  [ -n "$(settled_why "$task" "$arm" "$rep")" ] || echo x
 done | grep -c .)"
 log "ok   resume: $PENDING_CELLS of $TOTAL plan cells pending"
 
-log "=== preflight passed: $PENDING_CELLS pending of $TOTAL runs, budget ${T_TASK}s/run, cap \$$SPEND_CAP_USD, $BATCH_DIR ==="
+if [ -n "$CELLS" ]; then
+  log "=== preflight passed: $PENDING_CELLS pending of $TOTAL runs, per-task budgets above, cap \$$SPEND_CAP_USD, $BATCH_DIR ==="
+else
+  log "=== preflight passed: $PENDING_CELLS pending of $TOTAL runs, budget ${T_TASK}s/run, cap \$$SPEND_CAP_USD, $BATCH_DIR ==="
+fi
 
 await_quiet() {  # await_quiet <label>; 0 = quiet, 1 = still not quiet after retries
   local attempt=0 out
@@ -558,8 +699,8 @@ completed=0
 deferred=0
 skipped=0
 HALT_REASON=""
-while read -r arm rep; do
-  [ -n "$arm" ] || continue
+while read -r task arm rep; do
+  [ -n "$task" ] || continue
   idx=$((idx + 1))
   [ "$idx" -ge "$START_AT" ] || continue
 
@@ -568,21 +709,23 @@ while read -r arm rep; do
     break
   fi
 
-  WHY="$(settled_why "$arm" "$rep")"
+  tid="$(task_id_of "$task")"
+  WHY="$(settled_why "$task" "$arm" "$rep")"
   if [ -n "$WHY" ]; then
     skipped=$((skipped + 1))
-    log "SKIP [$idx/$TOTAL] $arm rep$rep — $WHY"
+    log "SKIP [$idx/$TOTAL] $tid $arm rep$rep — $WHY"
     continue
   fi
 
-  log "--- [$idx/$TOTAL] $TASK_ID $arm rep$rep (budget ${T_TASK}s) ---"
+  read -r T_CELL _ <<< "$(read_timeout "$task")"
+  log "--- [$idx/$TOTAL] $tid $arm rep$rep (budget ${T_CELL}s) ---"
 
   if [ "$DRY_RUN" -eq 0 ] && case " $GEMINI_ARMS " in *" $arm "*) true ;; *) false ;; esac; then
     if ! await_quiet "$arm rep$rep"; then
       deferred=$((deferred + 1))
       printf '%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-        "$idx" "$TASK_ID" "$arm" "rep$rep" >> "$DEFERRED_LOG"
-      log "DEFERRED-CONTAMINATED [$idx/$TOTAL] $arm rep$rep — background traffic on the"
+        "$idx" "$tid" "$arm" "rep$rep" >> "$DEFERRED_LOG"
+      log "DEFERRED-CONTAMINATED [$idx/$TOTAL] $tid $arm rep$rep — background traffic on the"
       log "  subject models after $((QUIET_RETRIES + 1)) probes; arm NOT run, nothing billed."
       log "  Recorded in $DEFERRED_LOG; the batch continues. A deferred cell is a HOLE."
       continue
@@ -591,7 +734,7 @@ while read -r arm rep; do
 
   # --out-root is BATCH_DIR, not OUT_ROOT: a live run ignores it and derives
   # results/<phase> itself (identical path), while a dry run uses it verbatim.
-  set -- --task "$TASK" --config "$arm" --rep "$rep" \
+  set -- --task "$task" --config "$arm" --rep "$rep" \
          --manifest "$MANIFEST" --phase "$PHASE" --out-root "$BATCH_DIR" \
          --cache-state "$CACHE_STATE" --spend-cap-usd "$SPEND_CAP_USD" \
          --subject-isolation "$ISOLATION" --subject-egress "$EGRESS"
@@ -601,9 +744,9 @@ while read -r arm rep; do
 
   if [ "$rc" -ne 0 ]; then
     case "$rc" in
-      3) HALT_REASON="in-runner spend cap reached at plan index $idx ($arm rep$rep) — the cap was set NOT to bind, so investigate before raising it" ;;
-      1) HALT_REASON="telemetry validation FAILED at plan index $idx ($arm rep$rep)" ;;
-      *) HALT_REASON="runner exited $rc at plan index $idx ($arm rep$rep)" ;;
+      3) HALT_REASON="in-runner spend cap reached at plan index $idx ($tid $arm rep$rep) — the cap was set NOT to bind, so investigate before raising it" ;;
+      1) HALT_REASON="telemetry validation FAILED at plan index $idx ($tid $arm rep$rep)" ;;
+      *) HALT_REASON="runner exited $rc at plan index $idx ($tid $arm rep$rep)" ;;
     esac
     break
   fi

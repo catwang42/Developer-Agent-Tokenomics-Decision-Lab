@@ -35,6 +35,7 @@ Each driver defines these functions. Return code 0 = success unless stated.
 | `stack_baseline_tests` / `stack_baseline_detail` | check 5, P2 | run the hermetic baseline suite |
 | `stack_selector` | gates | join repo-relative test paths into one runner selector |
 | `stack_run_selected` | P1, T4, hidden gate | run the tests named by a selector |
+| `stack_run_selected_graded` | hidden gate (`solution`) | as above, and write `<STATUS>\t<test id>` lines to `$2` — **ids and statuses only, never assertion text** |
 | `stack_typecheck` / `stack_typecheck_detail` | P3 | static type check (may be a declared no-op) |
 | `stack_build` / `stack_build_detail` | check 9, P4 | build (may be a declared no-op) |
 | `stack_coverage_summary` | T3 | write an istanbul `coverage-summary.json` for a selector; print its path |

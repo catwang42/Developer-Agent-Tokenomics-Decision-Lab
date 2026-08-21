@@ -1,0 +1,59 @@
+{
+  "project": "vital-octagon-19612",
+  "runs": [
+    {
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3-med__rep1__20260820T225618",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3-med__rep2__20260820T231518",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3-med__rep3__20260820T233505",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3-prev__rep1__20260820T235359",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3-prev__rep2__20260821T001400",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3-prev__rep3__20260821T003356",
+      "legs": {
+        "main": "gemini-3.6-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3__rep1__20260820T215316",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3__rep2__20260820T221449",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1-makeup-w6/w6-hono-router-review__C3__rep3__20260820T223549",
+      "legs": {
+        "main": "gemini-3.7-flash"
+      }
+    }
+  ]
+}

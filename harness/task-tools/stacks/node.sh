@@ -65,6 +65,36 @@ stack_run_selected() {
   run_jest --testPathPattern "$1" >/dev/null 2>&1
 }
 
+# As stack_run_selected, but ALSO write `<STATUS>\t<test name>` lines to $2.
+#
+# Via jest's `--json` report rather than its console output, on purpose: the
+# console prints a `●` block per failure containing the expected/received diff,
+# which quotes sealed test source. The JSON report separates `fullName`/`status`
+# from `failureMessages`, so reading only the first two is a structural guarantee
+# rather than a filter that has to be right.
+stack_run_selected_graded() {
+  local rc report
+  report="$(mktemp)"
+  run_jest --testPathPattern "$1" --json --outputFile "$report" >/dev/null 2>&1
+  rc=$?
+  JEST_REPORT="$report" OUT="$2" pilot_python - <<'PY'
+import json, os
+try:
+    with open(os.environ["JEST_REPORT"], encoding="utf-8") as fh:
+        doc = json.load(fh)
+except (OSError, ValueError):
+    doc = {}
+rows = sorted({(a.get("status", "unknown").upper(), a.get("fullName", "?"))
+               for suite in doc.get("testResults", [])
+               for a in suite.get("assertionResults", [])})
+with open(os.environ["OUT"], "w", encoding="utf-8") as fh:
+    for status, name in rows:
+        fh.write(f"{status}\t{name}\n")
+PY
+  rm -f "$report"
+  return "$rc"
+}
+
 # P3 type check.
 stack_typecheck() {
   ( cd "$SUBJECT_DIR" && npx tsc -p tsconfig.app.json --noEmit ) >/dev/null 2>&1

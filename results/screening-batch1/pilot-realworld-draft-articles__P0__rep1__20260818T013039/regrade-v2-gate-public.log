@@ -1,0 +1,18 @@
+--- diff apply ---
+ M src/app/routes/article/article.service.ts
+ M src/prisma/schema.prisma
+
+--- public gate (stdout) ---
+  [pass] G0-subject-readable — git can read the subject tree (diff-scope is meaningful)
+== public gate (pilot-realworld-draft-articles) ==
+  [pass] P6-diff-scope — only allowed path(s) changed vs pin
+  [pass] P5-no-leakage — no canonical patch / solution markers in tree
+  [pass] P3-typecheck — tsc -p tsconfig.app.json --noEmit
+  [pass] P4-build — nx build (app compiles)
+  [pass] P1-public-test — Draft articles feature spec (create persists draft; list excludes drafts)
+  [pass] P2-regression — baseline suite (article|profile|utils)
+== public gate: PASS ==
+
+--- public gate (stderr) ---
+
+--- exit: 0

@@ -85,6 +85,19 @@ actually resolve, and what usage shape they report), and the
 cached input tokens are). These describe harness/task properties that span batches,
 so they are not tied to a single `batchN/`.
 
+Three more were added by the final analysis pass, and each spans every screening
+dataset rather than any one of them:
+
+- [offline regrade-v2 sweep](findings/regrade-v2.md) — what re-grading the archived
+  diffs under gate images carrying the PR #27 content digest changed, separating
+  grader artifacts from genuine failures;
+- [graded quality extraction](findings/graded-quality-extraction.md) — the
+  exploratory-secondary quality figures read out of already-archived sealed output,
+  and why W3 and W4b yield none;
+- [confound-makeup enumeration](findings/confound-makeup-enumeration.log) — every
+  truncated run no later attempt replaced, and the derivation of the replacement
+  slots from it.
+
 ## Layout
 
 ```

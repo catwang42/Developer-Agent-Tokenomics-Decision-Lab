@@ -1,0 +1,82 @@
+{
+  "bound": "upper",
+  "configuration_id": "C3-prev",
+  "cost_basis": "marginal_api_cost",
+  "cost_basis_qualifier": "cache_blind_upper_bound",
+  "dataset": "screening-batch1",
+  "legs": [
+    {
+      "fully_allocated_usd": {
+        "confidence": "derived",
+        "value": 1.0662345
+      },
+      "leg_id": "main",
+      "marginal_operating_usd": {
+        "basis": "marginal_api_cost",
+        "bound": "upper",
+        "cache_classes_excluded": [
+          "cache_creation_tokens",
+          "cache_read_tokens"
+        ],
+        "components": {
+          "input_tokens": 0.80118825,
+          "output_tokens": 0.26504625
+        },
+        "confidence": "derived",
+        "qualifier": "cache_blind_upper_bound",
+        "rate_keys": {
+          "input_tokens": "input",
+          "output_tokens": "output"
+        },
+        "reason": "provider meters no cache series for this publisher, so cache classes are excluded rather than zero-filled and all input is priced at the full input rate \u2014 an UPPER BOUND on real spend (manifest notes.gemini_cache_blindness)",
+        "value": 1.0662345
+      },
+      "model_or_selector": "Gemini 3.6 Flash (High)",
+      "provider": "google",
+      "recosted_here": true,
+      "role": "solver",
+      "token_cost_usd": {
+        "basis": "marginal_api_cost",
+        "bound": "upper",
+        "cache_classes_excluded": [
+          "cache_creation_tokens",
+          "cache_read_tokens"
+        ],
+        "components": {
+          "input_tokens": 0.80118825,
+          "output_tokens": 0.26504625
+        },
+        "confidence": "derived",
+        "qualifier": "cache_blind_upper_bound",
+        "rate_keys": {
+          "input_tokens": "input",
+          "output_tokens": "output"
+        },
+        "reason": "provider meters no cache series for this publisher, so cache classes are excluded rather than zero-filled and all input is priced at the full input rate \u2014 an UPPER BOUND on real spend (manifest notes.gemini_cache_blindness)",
+        "value": 1.0662345
+      },
+      "usage": {
+        "input_tokens": {
+          "confidence": "derived",
+          "value": 1068251
+        },
+        "output_tokens": {
+          "confidence": "derived",
+          "value": 70679
+        }
+      }
+    }
+  ],
+  "marginal_operating_usd": {
+    "bound": "upper",
+    "confidence": "derived",
+    "qualifier": "cache_blind_upper_bound",
+    "reason": "provider-side counts (authoritative) attributed to a serialized run window (derived); cache classes not metered by this publisher, so this is an upper bound",
+    "value": 1.0662345
+  },
+  "pricing_snapshot": "prices-2026-08-16.json",
+  "run_id": "w6-hono-router-review__C3-prev__rep2__20260819T224246",
+  "source": "provider-side token backfill, priced offline; no model was invoked",
+  "status": "priced",
+  "task_id": "w6-hono-router-review"
+}

@@ -97,12 +97,31 @@ UNDEFINED = "undefined"
 #: cannot be scored at all. ``VOID`` is not a third gate outcome — it is the absence of
 #: one, and it is counted separately from both accept and reject everywhere below.
 ORIGINAL, AMENDED, VOIDED = "original", "amended", "voided"
+REGRADE_V2 = "regrade-v2"
 VOID = "void"
 
 #: Written beside a run by ``harness/runner/regrade.py``. Append-only: the original
 #: ``summary.json`` is never edited, so the amended verdict lives in its own file and
 #: this module carries both.
-REGRADE_FILE = "regrade-summary.json"
+#:
+#: Newest generation FIRST. A run can carry both: the v1 pass re-ran only the hidden
+#: gate, after the container gate's git-ownership defect; the v2 pass re-ran both
+#: gates under a gate image whose tag hashes the gate's own content (PR #27), so it
+#: is the only one that could not have been served a pre-fix grader from cache. When
+#: both exist the v2 verdict is the one to score under, and the v1 record stays on
+#: disk as provenance.
+REGRADE_FILES = ("regrade-v2-summary.json", "regrade-summary.json")
+REGRADE_PROVENANCE = {"regrade-v2-summary.json": REGRADE_V2,
+                      "regrade-summary.json": AMENDED}
+REGRADE_FILE = REGRADE_FILES[-1]
+
+#: Written beside a run by ``harness/analysis/recost.py``. Also append-only: the
+#: provider-side collector fills a Product-B run's token counts but deliberately does
+#: not recompute economics, so those legs stay unpriced in the frozen summary. The
+#: sidecar prices them at the manifest's declared cache-blind UPPER BOUND. Read here
+#: rather than merged on disk, so ``summary.json`` remains what the instrument said.
+RECOST_FILE = "recost.json"
+RECOSTED = "recosted_upper_bound"
 
 #: Optional, human-authored, one per dataset: cells a forensic found unscoreable, with
 #: the reason and the log that documents it. It can only *remove* a cell from scoring —
@@ -260,15 +279,47 @@ def _parse_ts(value: str) -> Optional[dt.datetime]:
 
 # ------------------------------------------------------------------------- loading
 
+def load_run(run_dir: str,
+             adjudication: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+    """One run record, or None if ``run_dir`` holds no ``summary.json``.
+
+    Split out of :func:`load_runs` so a caller that has already decided WHICH runs it
+    wants — the cross-dataset consolidator, which supersedes per rep and so draws its
+    set from several batch directories at once — loads them through exactly this code
+    path rather than a second one that could drift from it.
+    """
+    summary_path = os.path.join(run_dir, "summary.json")
+    if not os.path.isfile(summary_path):
+        return None
+    with open(summary_path, encoding="utf-8") as fh:
+        summary = json.load(fh)
+    summary, cost_provenance = apply_recost(run_dir, summary)
+    return {
+        "run_dir": run_dir,
+        "run_id": os.path.basename(os.path.normpath(run_dir)),
+        "summary": summary,
+        "wallclock_s": wallclock_seconds(run_dir),
+        "acceptance": effective_acceptance(run_dir, summary, adjudication or {}),
+        "usage_provenance": usage_provenance(run_dir),
+        "cost_provenance": cost_provenance,
+        "run_budget": run_budget(summary),
+    }
+
+
 def load_runs(batch_dir: str,
               adjudication: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     """Load one record per run directory in the batch.
 
-    Each record carries the frozen ``summary``, the derived ``wallclock_s``, and the
-    three things a post-hoc repair pass can change: the *effective* ``acceptance``
-    (original, amended or voided), the ``usage_provenance`` of its token totals, and
-    the ``run_budget`` that governed it. Non-directory entries (a batch's own aggregate
-    JSON files) are skipped, as is any directory without a ``summary.json``.
+    Each record carries the ``summary`` and the derived ``wallclock_s`` alongside the
+    things a post-hoc repair pass can change: the *effective* ``acceptance``
+    (original, amended, regrade-v2 or voided), the ``usage_provenance`` of its token
+    totals, the ``cost_provenance`` of its money figures, and the ``run_budget`` that
+    governed it. Non-directory entries (a batch's own aggregate JSON files) are
+    skipped, as is any directory without a ``summary.json``.
+
+    The ``summary`` is the frozen file with one exception, applied in memory and never
+    written back: legs an offline re-cost priced (see :func:`apply_recost`) carry that
+    figure, so the tables below are not silently missing every Product-B cost.
 
     ``adjudication`` defaults to ``<batch_dir>/adjudication.json`` when that file
     exists; pass ``{}`` to ignore it.
@@ -279,21 +330,9 @@ def load_runs(batch_dir: str,
     if adjudication is None:
         adjudication = load_adjudication(batch_dir)
     for name in sorted(os.listdir(batch_dir)):
-        run_dir = os.path.join(batch_dir, name)
-        summary_path = os.path.join(run_dir, "summary.json")
-        if not os.path.isfile(summary_path):
-            continue
-        with open(summary_path, encoding="utf-8") as fh:
-            summary = json.load(fh)
-        runs.append({
-            "run_dir": run_dir,
-            "run_id": name,
-            "summary": summary,
-            "wallclock_s": wallclock_seconds(run_dir),
-            "acceptance": effective_acceptance(run_dir, summary, adjudication),
-            "usage_provenance": usage_provenance(run_dir),
-            "run_budget": run_budget(summary),
-        })
+        record = load_run(os.path.join(batch_dir, name), adjudication)
+        if record is not None:
+            runs.append(record)
     return runs
 
 
@@ -372,12 +411,70 @@ def _adjudication_for(adjudication: Dict[str, Any], summary: Dict[str, Any],
 
 
 def read_regrade(run_dir: str) -> Optional[Dict[str, Any]]:
-    """The offline re-grade written beside a run, if one exists."""
-    path = os.path.join(run_dir, REGRADE_FILE)
-    if not os.path.isfile(path):
+    """The NEWEST offline re-grade written beside a run, if one exists.
+
+    Returns the record plus the filename it came from, so the caller can say which
+    generation of the grader produced the verdict it is about to report.
+    """
+    for name in REGRADE_FILES:
+        path = os.path.join(run_dir, name)
+        if not os.path.isfile(path):
+            continue
+        with open(path, encoding="utf-8") as fh:
+            record = json.load(fh)
+        record["_regrade_file"] = name
+        return record
+    return None
+
+
+def _load_json(path: str) -> Optional[Dict[str, Any]]:
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
         return None
-    with open(path, encoding="utf-8") as fh:
-        return json.load(fh)
+
+
+def apply_recost(run_dir: str, summary: Dict[str, Any]
+                 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Splice an offline re-cost into an in-memory COPY of the summary.
+
+    The sidecar only ever fills legs the runner left unpriced, so a figure the
+    instrument produced is never overwritten. Returns ``(summary, provenance)``;
+    with no sidecar the summary comes back untouched and the provenance says the
+    cost is the runner's own.
+
+    The result is an UPPER BOUND wherever a cache-blind leg contributed, and the
+    provenance carries that word so no caller can print the figure without it.
+    """
+    plain = {"source": "runner", "recosted": False, "bound": None}
+    record = _load_json(os.path.join(run_dir, RECOST_FILE))
+    if not record or record.get("status") not in ("priced", "partial"):
+        return summary, (plain if not record else
+                         dict(plain, refused=record.get("reason")))
+
+    by_leg = {leg.get("leg_id"): leg for leg in record.get("legs") or []}
+    merged = dict(summary)
+    legs: List[Dict[str, Any]] = []
+    for leg in summary.get("legs") or []:
+        priced = by_leg.get(leg.get("leg_id"))
+        if priced is None or (leg.get("marginal_operating_usd") or {}).get("value") \
+                is not None:
+            legs.append(leg)
+            continue
+        filled = dict(leg)
+        for key in ("marginal_operating_usd", "fully_allocated_usd"):
+            if (priced.get(key) or {}).get("value") is not None:
+                filled[key] = priced[key]
+        legs.append(filled)
+    merged["legs"] = legs
+
+    recosted = sorted(leg_id for leg_id, leg in by_leg.items()
+                      if leg.get("recosted_here"))
+    return merged, {"source": RECOSTED, "recosted": True, "bound": "upper",
+                    "legs": recosted, "status": record["status"],
+                    "pricing_snapshot": record.get("pricing_snapshot"),
+                    "qualifier": record.get("cost_basis_qualifier")}
 
 
 def effective_acceptance(run_dir: str, summary: Dict[str, Any],
@@ -393,7 +490,11 @@ def effective_acceptance(run_dir: str, summary: Dict[str, Any],
        re-grade that could not reconstruct the tree yields ``unavailable``, never the
        original verdict and never a guess: the original was produced by an instrument
        now known to be broken for this run, so it is not evidence either.
-    3. **voided** — a dataset adjudication says the cell is unscoreable (the task
+    3. **regrade-v2** — ``regrade-v2-summary.json``: a later pass that re-ran BOTH
+       gates under a gate image tagged with its own content digest, so no cached
+       pre-fix grader could serve it. Where both generations exist the newer one wins:
+       v1 re-ran only the sealed gate, and under a grader v2 has since corrected.
+    4. **voided** — a dataset adjudication says the cell is unscoreable (the task
        material never reached the agent, say). Void is not "rejected": it is the
        absence of a measurement and is counted apart from both outcomes.
 
@@ -406,14 +507,21 @@ def effective_acceptance(run_dir: str, summary: Dict[str, Any],
 
     regrade = read_regrade(run_dir)
     if regrade:
-        source = os.path.join(os.path.basename(os.path.normpath(run_dir)), REGRADE_FILE)
+        name = regrade.get("_regrade_file", REGRADE_FILE)
+        provenance = REGRADE_PROVENANCE.get(name, AMENDED)
+        source = os.path.join(os.path.basename(os.path.normpath(run_dir)), name)
         if regrade.get("status") == "graded":
             out.update({"result": (regrade.get("amended") or {}).get("acceptance_result"),
-                        "provenance": AMENDED, "source": source,
+                        "provenance": provenance, "source": source,
                         "reason": regrade.get("reason"),
                         "changed": bool(regrade.get("changed"))})
         else:
-            out.update({"result": UNAVAILABLE, "provenance": AMENDED, "source": source,
+            # A v2 re-grade REFUSES a truncated run: there is no completed agent
+            # product to grade. A v1 re-grade fails when it cannot reconstruct the
+            # tree. Both are the absence of a verdict, not a rejection — the
+            # original was produced by an instrument now known to be broken here.
+            out.update({"result": UNAVAILABLE, "provenance": provenance,
+                        "source": source,
                         "reason": regrade.get("reason") or
                         "the re-grade could not reconstruct this run's subject tree",
                         "changed": True})
@@ -1109,7 +1217,7 @@ def cell_verdict_provenance(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
     were, and the reader has to be able to see which without opening the run records.
     Reasons and sources are collected verbatim from the re-grade / adjudication.
     """
-    tally = {ORIGINAL: 0, AMENDED: 0, VOIDED: 0}
+    tally = {ORIGINAL: 0, AMENDED: 0, REGRADE_V2: 0, VOIDED: 0}
     changed = 0
     unavailable = 0
     reasons: List[str] = []
@@ -1133,13 +1241,15 @@ def cell_verdict_provenance(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         "n_runs": len(runs),
         "original": tally[ORIGINAL],
         "amended": tally[AMENDED],
+        "regrade_v2": tally[REGRADE_V2],
         "voided": tally[VOIDED],
         "verdicts_changed": changed,
         "verdicts_unavailable": unavailable,
         "transitions": transitions or None,
         "reasons": reasons or None,
         "sources": sources or None,
-        "all_original": tally[AMENDED] == 0 and tally[VOIDED] == 0,
+        "all_original": (tally[AMENDED] == 0 and tally[REGRADE_V2] == 0
+                         and tally[VOIDED] == 0),
     }
 
 
@@ -1298,6 +1408,40 @@ def _task_class_index(cells: List[Dict[str, Any]],
     return [index[k] for k in sorted(index)]
 
 
+def _cost_provenance(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Which of this dataset's money figures the runner produced, and which an
+    offline re-cost did — and whether any of them is a bound rather than a cost.
+
+    A dataset where every Product-B leg was priced after the fact, at an upper
+    bound, reads identically to one the runner priced exactly unless this says so.
+    """
+    recosted = [r for r in runs if (r.get("cost_provenance") or {}).get("recosted")]
+    refused = [r for r in runs if (r.get("cost_provenance") or {}).get("refused")]
+    snapshots = sorted({p for r in recosted
+                        if (p := r["cost_provenance"].get("pricing_snapshot"))})
+    partial = sum(1 for r in recosted
+                  if r["cost_provenance"].get("status") == "partial")
+    return {
+        "n_runs": len(runs),
+        "runs_recosted": len(recosted),
+        "runs_recosted_partial": partial,
+        "runs_recost_refused": len(refused),
+        "any_upper_bound": bool(recosted),
+        "pricing_snapshots": snapshots,
+        "note": (
+            "A re-costed run's Product-B legs were priced offline from provider-side "
+            "token counts the product itself never reported, under the delivery "
+            "manifest's declared cache-blind convention: the provider meters no cache "
+            "series for this publisher, so cache classes stay unavailable (never zero) "
+            "and every input token prices at the full input rate. The figure is an "
+            "UPPER BOUND — implicit caching can only make real spend lower — and must "
+            "not be restated as an exact cost. A `partial` run had a second leg that "
+            "reported no usage at all, so its per-leg figures stand but its run total "
+            "does not." if recosted else
+            "Every money figure here is the runner's own; no offline re-cost applies."),
+    }
+
+
 def _dataset_provenance(runs: List[Dict[str, Any]],
                         adjudication: Dict[str, Any]) -> Dict[str, Any]:
     """Dataset-wide roll-up of what the repair pass changed — the first thing a reader
@@ -1306,10 +1450,12 @@ def _dataset_provenance(runs: List[Dict[str, Any]],
     usage = cell_usage_provenance(runs)
     return {
         "verdicts": {k: roll[k] for k in
-                     ("n_runs", "original", "amended", "voided", "verdicts_changed",
-                      "verdicts_unavailable", "transitions", "all_original")},
+                     ("n_runs", "original", "amended", "regrade_v2", "voided",
+                      "verdicts_changed", "verdicts_unavailable", "transitions",
+                      "all_original")},
         "verdict_sources": roll["sources"],
         "usage": usage,
+        "cost": _cost_provenance(runs),
         "runs_timed_out": sum(1 for r in runs
                               if (r.get("run_budget") or {}).get("timed_out")),
         "adjudication": ({"documented_in": adjudication.get("documented_in"),
@@ -1319,8 +1465,13 @@ def _dataset_provenance(runs: List[Dict[str, Any]],
                          if adjudication else None),
         "note": ("An amended verdict is the same sealed set re-run against the same "
                  "archived agent output after an instrument defect was fixed — it is "
-                 "not a re-run of the agent and cost no model spend. A voided cell is "
-                 "unscoreable, which is neither an accept nor a reject."),
+                 "not a re-run of the agent and cost no model spend. A regrade-v2 "
+                 "verdict is the same thing one generation later: BOTH gates re-run, "
+                 "under a gate image whose tag hashes the gate's own content, so a "
+                 "pre-fix grader cannot have been served from cache. Where both "
+                 "exist the v2 verdict is the one scored and the v1 record stays on "
+                 "disk. A voided cell is unscoreable, which is neither an accept nor "
+                 "a reject."),
     }
 
 
@@ -1412,7 +1563,8 @@ def _fmt_provenance(prov: Dict[str, Any]) -> str:
     if prov.get("all_original"):
         return "original"
     parts = []
-    for key, label in ((ORIGINAL, "original"), (AMENDED, "amended"), (VOIDED, "void")):
+    for key, label in ((ORIGINAL, "original"), (AMENDED, "amended"),
+                       ("regrade_v2", "regrade-v2"), (VOIDED, "void")):
         if prov.get(key):
             parts.append(f"{prov[key]} {label}")
     changed = prov.get("verdicts_changed") or 0
@@ -1429,7 +1581,10 @@ def _fmt_budget(budget: Dict[str, Any]) -> str:
 def _render_dataset_provenance(table: Dict[str, Any]) -> List[str]:
     prov = table.get("dataset_provenance") or {}
     verdicts = prov.get("verdicts") or {}
-    if not verdicts or verdicts.get("all_original"):
+    cost = prov.get("cost") or {}
+    # An untouched verdict set does not mean an untouched dataset: the money can
+    # still be an offline upper bound, and that has to be said before any figure.
+    if not verdicts or (verdicts.get("all_original") and not cost.get("any_upper_bound")):
         return []
     usage = prov.get("usage") or {}
     L = ["## What this dataset has been through", "",
@@ -1440,6 +1595,18 @@ def _render_dataset_provenance(table: Dict[str, Any]) -> List[str]:
          f"{verdicts['verdicts_unavailable']} left `unavailable`."]
     for transition, count in sorted((verdicts.get("transitions") or {}).items()):
         L.append(f"    - {transition}: {count} run(s)")
+    if cost.get("any_upper_bound"):
+        L.append(f"- **Money figures:** {cost['runs_recosted']} of {cost['n_runs']} "
+                 f"run(s) were priced offline against "
+                 f"{', '.join('`%s`' % s for s in cost['pricing_snapshots'])} — "
+                 f"**UPPER BOUND**, not an exact cost. {cost['note']}")
+        if cost.get("runs_recosted_partial"):
+            L.append(f"    - {cost['runs_recosted_partial']} of those report per-leg "
+                     f"figures only: a second billing leg reported no usage, so the "
+                     f"run total stays `unavailable` rather than being part-summed.")
+    if cost.get("runs_recost_refused"):
+        L.append(f"- **Re-cost refused** on {cost['runs_recost_refused']} run(s); their "
+                 f"cost stays `unavailable`.")
     backfills = usage.get("runs_with_backfill_by_event") or {}
     refusals = usage.get("runs_with_refusal_by_rule") or {}
     L.append(f"- **Token totals:** {usage.get('runs_run_telemetry_only')} run(s) from "

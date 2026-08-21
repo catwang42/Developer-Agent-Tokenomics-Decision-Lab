@@ -1,0 +1,13 @@
+{
+  "label": "makeup-batch",
+  "dataset": "results/screening-batch1-makeup",
+  "replaces": null,
+  "supplements": "results/screening-batch1 (W3 cells, confounded by the flat 1800s agent timeout)",
+  "task_id": "w3-sqlfluff-segment-method-migration",
+  "arms": ["P0", "C2", "C3", "P1"],
+  "reps": 2,
+  "agent_timeout_s": 7200,
+  "why": "Batch 1 ran W3 under a flat 1800s agent budget and 12 of 21 attempts were killed before the agent finished, so the W3-escalation registration is not gradable against that dataset. This pass re-buys the four arms the registration reads, under the per-task budget pinned in tasks/suite/W3-migration/task.yaml.",
+  "not_a_replacement": "Batch-1 W3 cells are not superseded or edited. They remain in results/screening-batch1 labelled confounded_by_run_budget. Cells run under different instrument settings are never merged.",
+  "reps_caveat": "2 reps per arm supports the registration's two binary observations. It does not support a dispersion or variance claim and no figure from this dataset may carry one."
+}

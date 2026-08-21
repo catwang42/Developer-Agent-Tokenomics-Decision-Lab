@@ -1,0 +1,100 @@
+{
+  "amended": {
+    "acceptance_result": "accepted",
+    "gate_exit_code": 0,
+    "hidden_hash": "sha256:37f3acd685fd03e0624a98f328e38edffe8faef5179263e502035c707c51f4e9",
+    "hidden_status": "pass",
+    "hidden_version": "sealed-w1-v1 2026-07-20 6-mutants",
+    "public_checks": {
+      "G0-subject-readable": "pass",
+      "T1-diff-scope": "pass",
+      "T2-suite-green": "pass",
+      "T3-coverage": "pass",
+      "T4-tests-pass": "pass"
+    },
+    "public_exit_code": 0
+  },
+  "changed": true,
+  "method": {
+    "gates_re_run": [
+      "public",
+      "hidden"
+    ],
+    "harness": {
+      "note": "the gate image's baked harness is overmounted with the working tree's, so the FIXED gate does the grading",
+      "repo_head": "7516b3070fbc03a941809f53d56fab930ced967e",
+      "task_tools_sha256": "sha256:a686bd1e5c141ff63a9785034d4b3a8ee685ba3bcb3da05d4dd0b461eaedfa14",
+      "task_tools_uncommitted": "no"
+    },
+    "images": {
+      "agent_image": "lab-subject-agent/w1-realworld-mapper-tests:30b68e1e8814",
+      "agent_image_built_now": false,
+      "gate_content_digest": "0708bd85",
+      "gate_image": "lab-subject/w1-realworld-mapper-tests:30b68e1e8814-0708bd85",
+      "gate_image_built_now": true,
+      "note": "the gate tag carries a hash of the gate scripts + Dockerfile + task.yaml (harness/container/exec.py: gate_image_content_digest), so a pre-fix image cannot answer to it"
+    },
+    "model_spend": "none",
+    "network": "none (all containers)",
+    "subject_tree": "fresh volume seeded from the agent image, archived agent-solution.diff applied as the agent uid"
+  },
+  "original": {
+    "acceptance_result": "rejected",
+    "hidden_hash": "sha256:37f3acd685fd03e0624a98f328e38edffe8faef5179263e502035c707c51f4e9",
+    "hidden_status": "fail",
+    "hidden_version": "sealed-w1-v1 2026-07-20 6-mutants",
+    "public_checks": {
+      "G0-subject-readable": "pass",
+      "T1-diff-scope": "pass",
+      "T2-suite-green": "pass",
+      "T3-coverage": "pass",
+      "T4-tests-pass": "pass"
+    }
+  },
+  "provenance": "regrade-v2",
+  "public_check_delta": {
+    "checks": [
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "G0-subject-readable"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "T1-diff-scope"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "T2-suite-green"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "T3-coverage"
+      },
+      {
+        "after": "pass",
+        "before": "pass",
+        "id": "T4-tests-pass"
+      }
+    ],
+    "cleared": [],
+    "newly_failing": [],
+    "still_failing": [],
+    "unchanged_pass": [
+      "G0-subject-readable",
+      "T1-diff-scope",
+      "T2-suite-green",
+      "T3-coverage",
+      "T4-tests-pass"
+    ]
+  },
+  "reason": "re-graded under the post-#27 harness: D1 (the gate image tag ignored gate content, so a fixed grader was served from cache) and D2 (the delivered review artifact was counted as leakage by a public check). Both gates were re-run against the same archived agent output; no model was invoked.",
+  "regrade_version": "2",
+  "regraded_at": "2026-08-21T02:56:20Z",
+  "run_id": "w1-realworld-mapper-tests__P0__rep1__20260818T115615",
+  "status": "graded",
+  "task_id": "w1-realworld-mapper-tests"
+}

@@ -1,0 +1,17 @@
+{
+  "amended": null,
+  "changed": false,
+  "original": {
+    "acceptance_result": "rejected",
+    "hidden_hash": "sha256:acb4b0a0b50bf30e1bd1e093cabc296397ca86688c1eae5556afada57d932ce7",
+    "hidden_status": "fail",
+    "hidden_version": "sealed-w4b-v1 2026-08-17 permutation+depth3"
+  },
+  "provenance": "regrade-v2",
+  "reason": "run truncated (stop_reason=claude_timeout); there is no completed agent product to re-grade",
+  "regrade_version": "2",
+  "regraded_at": "2026-08-21T03:34:51Z",
+  "run_id": "w4b-zarr-consolidated-order__C5__rep2__20260818T212328",
+  "status": "refused",
+  "task_id": "w4b-zarr-consolidated-order"
+}

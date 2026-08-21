@@ -1,0 +1,15 @@
+{
+  "acceptance": "accepted",
+  "available": false,
+  "configuration_id": "C2",
+  "max": null,
+  "metric": "mutants_caught",
+  "reason": "no sealed gate log archived for this run",
+  "rep": 2,
+  "schema": "quality-score/v1",
+  "score": null,
+  "source": "sealed runner stderr as archived by this run; nothing re-run, no sealed material read",
+  "source_log": null,
+  "status": "EXPLORATORY SECONDARY \u2014 the pre-registered outcome is the binary sealed gate; this does not override it",
+  "task_id": "w1-realworld-mapper-tests"
+}

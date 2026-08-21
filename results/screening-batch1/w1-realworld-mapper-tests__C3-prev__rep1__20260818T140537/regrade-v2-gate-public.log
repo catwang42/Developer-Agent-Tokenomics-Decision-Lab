@@ -1,0 +1,15 @@
+--- diff apply ---
+?? src/tests/mappers/article-mappers.test.ts
+
+--- public gate (stdout) ---
+  [pass] G0-subject-readable — git can read the subject tree (diff-scope is meaningful)
+== public gate (w1-realworld-mapper-tests) [test_generation] ==
+  [pass] T1-diff-scope — only new test files under src/tests/
+  [pass] T2-suite-green — baseline suite (article|profile|utils|tag|mapper)
+  [pass] T3-coverage — src/app/routes/article/article.mapper.ts branches 0/0=100.0% (min 100.0%); src/app/routes/article/author.mapper.ts branches 5/6=83.33% (min 83.33%)
+  [pass] T4-tests-pass — agent's new tests pass on the pinned target files
+== public gate: PASS ==
+
+--- public gate (stderr) ---
+
+--- exit: 0

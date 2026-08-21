@@ -1,0 +1,15 @@
+{
+  "label": "makeup-batch-w6",
+  "dataset": "results/screening-batch1-makeup-w6",
+  "replaces": null,
+  "profile": "w6",
+  "supplements": "results/screening-batch1 (W6 cells, VOID — the artifact under review was never delivered to the agent)",
+  "task_id": "w6-hono-router-review",
+  "arms": ["P0", "C2", "C3", "C3-med", "C3-prev"],
+  "reps": 3,
+  "agent_timeout_s": 1200,
+  "attribution_rule": "v3",
+  "why": "Batch 1's 15 W6 cells are void: nothing in the harness read task.yaml's review_diff, so every agent got a bare checkout with no diff to review and no named file to write findings to, and all 15 produced a 0-byte agent-solution.diff. The delivery defect and the two found with it are fixed in the harness (results/screening-batch1/batch1.log G). This pass buys the registered W6 roster under the fixed instrument.",
+  "not_a_replacement": "Batch-1 W6 cells are not superseded or repaired. They remain in results/screening-batch1 adjudicated void. The fix changes the instrument, so a void cell and a cell from this dataset are not two observations of the same thing and are never merged.",
+  "reps_caveat": "3 reps per arm is the registered reps_screening for this task. It does not support a dispersion or variance claim and no figure from this dataset may carry one."
+}

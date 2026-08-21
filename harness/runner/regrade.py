@@ -33,10 +33,16 @@ never zero-filled and never guessed (CLAUDE.md rule 3).
 The sealed material is mounted, hashed and executed; it is never read or printed
 by this tool. The recorded hash is what the gate itself reports.
 
+Generation 2 (``--generation 2``) widens this: it re-runs BOTH gates, under a gate
+image tagged with a hash of the gate's own content, and reports every public check
+before and after. See the ``regrade-v2`` section below for why the public verdict
+can no longer be carried over. Its artifacts are named ``regrade-v2-*``, so a run
+can carry the original verdict, a v1 amendment and a v2 amendment side by side.
+
 Usage:
     python -m harness.runner.regrade --results results/screening-batch1 \
-        --task tasks/suite/W1-test-generation [--only RUN_DIR ...] [--force]
-        [--dry-run]
+        --task tasks/suite/W1-test-generation [--generation {1,2}]
+        [--only RUN_DIR ...] [--force] [--dry-run]
 """
 
 from __future__ import annotations
@@ -54,15 +60,22 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
+from harness.analysis.archive import truncation  # noqa: E402
 from harness.container.exec import (  # noqa: E402
+    TARGET_AGENT,
+    TARGET_GATE,
+    agent_build_args,
     agent_image_tag,
     create_volume,
     docker_run_argv,
+    gate_image_content_digest,
+    image_exists,
     remove_volume,
     subject_image_tag,
 )
 from harness.runner.run import (  # noqa: E402
     CONTAINER_LAB_ROOT,
+    _ensure_image,
     _gate_verdict,
     _load_yaml,
     hidden_tests_dir,
@@ -347,6 +360,271 @@ def _write(path: str, record: Dict[str, Any]) -> None:
         fh.write("\n")
 
 
+# --------------------------------------------------------------------------- #
+# regrade-v2 — BOTH gates, re-run under a content-tagged (post-fix) gate image
+# --------------------------------------------------------------------------- #
+#
+# v1 (above) re-ran the hidden gate only and carried the public verdict over,
+# because the defect it corrected was in the hidden gate alone. Two later defects
+# are not confined that way:
+#
+#   D1 — the gate image tag was (task, pin), so a gate-logic change was served
+#        from the Docker cache and the OLD grader decided the run. Fixed by
+#        hashing the gate content into the tag; v2 therefore states the tag it
+#        used, and an image built before the fix cannot answer to that tag.
+#   D2 — `leak_found` counted the review artifact the harness itself delivers as
+#        leakage, failing a PUBLIC check on `pr_review` cells. A public verdict
+#        carried over verbatim would carry that artifact forward.
+#
+# So v2 re-runs both gates and reports each public check before and after. It
+# writes `regrade-v2-*` beside — never over — the run's originals and any v1
+# regrade: three generations of verdict can coexist and be told apart.
+REGRADE_V2_VERSION = "2"
+REGRADE_V2_SUMMARY = "regrade-v2-summary.json"
+REGRADE_V2_PUBLIC_LOG = "regrade-v2-gate-public.log"
+REGRADE_V2_HIDDEN_LOG = "regrade-v2-gate-hidden.log"
+REGRADE_V2_PUBLIC_REPORT = "regrade-v2-gate-public.json"
+REGRADE_V2_HIDDEN_REPORT = "regrade-v2-gate-hidden.json"
+
+_V2_REASON = (
+    "re-graded under the post-#27 harness: D1 (the gate image tag ignored gate "
+    "content, so a fixed grader was served from cache) and D2 (the delivered "
+    "review artifact was counted as leakage by a public check). Both gates were "
+    "re-run against the same archived agent output; no model was invoked."
+)
+
+
+def _checks_by_id(path: str) -> Dict[str, str]:
+    """``{check id: status}`` from a gate-public.json, or ``{}`` if absent."""
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as fh:
+        checks = (json.load(fh) or {}).get("checks") or []
+    return {c["id"]: c.get("status", "unavailable") for c in checks if c.get("id")}
+
+
+def _check_delta(before: Dict[str, str], after: Dict[str, str]) -> Dict[str, Any]:
+    """Name every public check's before/after, and classify the movements.
+
+    The classification is deliberately literal. A fail->pass is reported as
+    ``cleared`` — the check now passes under the fixed grader — and NOT as
+    "was an artifact": which of the two graders was right is a claim about the
+    fix, made once in the report, not re-asserted per check. A fail->fail is a
+    genuine failure by construction: the same check, the same tree, both graders
+    agree. A pass->fail is surfaced loudest of all, because a fix that breaks a
+    check that used to pass is the one outcome nobody is looking for.
+    """
+    ids = sorted(set(before) | set(after))
+    rows = [{"id": i, "before": before.get(i, "absent"), "after": after.get(i, "absent")}
+            for i in ids]
+    passed = lambda s: s == "pass"  # noqa: E731
+    return {
+        "checks": rows,
+        "cleared": [r["id"] for r in rows if not passed(r["before"]) and passed(r["after"])],
+        "still_failing": [r["id"] for r in rows
+                          if not passed(r["before"]) and not passed(r["after"])],
+        "newly_failing": [r["id"] for r in rows if passed(r["before"]) and not passed(r["after"])],
+        "unchanged_pass": [r["id"] for r in rows if passed(r["before"]) and passed(r["after"])],
+    }
+
+
+def _gate_container(volume: str, gate_tag: str, task, out_dir: str, script: str,
+                    report_env: str, report_name: str) -> Tuple[int, str, str]:
+    """Run one gate script in the gate image against the reconstructed tree.
+
+    Same mount shape the runner's containerised gate uses, plus the working
+    tree's ``harness/`` over the image's baked copy: the tag pins the gate
+    CONTENT, and the overmount is what makes the bytes match the tag.
+    """
+    task_c = f"{CONTAINER_LAB_ROOT}/{task.task_dir_rel}"
+    mounts = [
+        (volume, f"{task_c}/.work/repo", "rw"),
+        (os.path.join(REPO_ROOT, "harness"), f"{CONTAINER_LAB_ROOT}/harness", "ro"),
+        (out_dir, "/out", "rw"),
+    ]
+    env = {"TASK_DIR": task_c, "TASK_WORKDIR": f"{task_c}/.work",
+           report_env: f"/out/{report_name}"}
+    hidden_host = hidden_tests_dir(task.task_dir)
+    if os.path.isdir(hidden_host):
+        mounts.append((hidden_host, f"{task_c}/hidden", "ro"))
+        env["HIDDEN_TESTS_DIR"] = f"{task_c}/hidden"
+    argv = docker_run_argv(
+        gate_tag, ["bash", f"{CONTAINER_LAB_ROOT}/harness/task-tools/gate/{script}"],
+        mounts=mounts, workdir=f"{task_c}/.work/repo", network="none", env=env)
+    return _run(argv, _TIMEOUT_GATE_S)
+
+
+def _v2_refused(run_dir: str, task, reason: str, original: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "regrade_version": REGRADE_V2_VERSION,
+        "run_id": os.path.basename(run_dir),
+        "task_id": task.task_id,
+        "regraded_at": _now(),
+        "provenance": "regrade-v2",
+        "status": "refused",
+        "reason": reason,
+        "original": original,
+        "amended": None,
+        "changed": False,
+    }
+
+
+def ensure_images(task, manifest: Dict[str, Any]) -> Dict[str, Any]:
+    """Build the gate image at its CONTENT tag and the agent image; name both.
+
+    Returns the provenance block the regrade record carries. ``built`` records
+    whether this call is what created the image, so a record can never be read as
+    "a fresh image graded this" when the tag was already present.
+    """
+    digest = gate_image_content_digest(REPO_ROOT, task.task_dir_rel)
+    gate_tag = subject_image_tag(task.task_id, task.pinned_commit, digest)
+    agent_tag = agent_image_tag(task.task_id, task.pinned_commit)
+    gate_present, agent_present = image_exists(gate_tag), image_exists(agent_tag)
+    _ensure_image(task, gate_tag, TARGET_GATE)
+    _ensure_image(task, agent_tag, TARGET_AGENT, agent_build_args(manifest, REPO_ROOT))
+    return {
+        "gate_image": gate_tag,
+        "gate_content_digest": digest,
+        "gate_image_built_now": not gate_present,
+        "agent_image": agent_tag,
+        "agent_image_built_now": not agent_present,
+        "note": "the gate tag carries a hash of the gate scripts + Dockerfile + "
+                "task.yaml (harness/container/exec.py: gate_image_content_digest), "
+                "so a pre-fix image cannot answer to it",
+    }
+
+
+def regrade_run_v2(run_dir: str, task, images: Dict[str, Any], *,
+                   force: bool = False, dry_run: bool = False) -> Dict[str, Any]:
+    """Re-grade one run through BOTH gates. Writes ``regrade-v2-*`` beside it."""
+    run_id = os.path.basename(run_dir)
+    target = os.path.join(run_dir, REGRADE_V2_SUMMARY)
+    if os.path.exists(target) and not force:
+        with open(target, encoding="utf-8") as fh:
+            existing = json.load(fh)
+        existing["_skipped"] = "already regraded at v2 (use --force to redo)"
+        return existing
+
+    original = _original(run_dir)
+    before = _checks_by_id(os.path.join(run_dir, "gate-public.json"))
+
+    # Refuse truncated cells. A run the harness cut off mid-flight has no finished
+    # product, so re-grading it would produce a verdict on a fragment and print it
+    # in the same table as verdicts on complete work.
+    cut = truncation(run_dir)
+    if cut:
+        record = _v2_refused(run_dir, task,
+                             f"run truncated ({cut}); there is no completed agent "
+                             f"product to re-grade", original)
+        if not dry_run:
+            _write(target, record)
+        return record
+
+    diff_path = os.path.join(run_dir, "agent-solution.diff")
+    if dry_run:
+        return {"run_id": run_id, "task_id": task.task_id, "would_regrade": True,
+                "diff_bytes": os.path.getsize(diff_path), "original": original,
+                "gate_image": images["gate_image"]}
+
+    volume = f"lab-regrade2-{run_id.lower()}"[:120]
+    out_dir = os.path.join(run_dir, ".regrade-v2-out")
+    os.makedirs(out_dir, exist_ok=True)
+    pub_report = os.path.join(out_dir, "gate-public.json")
+    hid_report = os.path.join(out_dir, "gate-hidden.json")
+    for stale in (pub_report, hid_report):
+        if os.path.exists(stale):
+            os.unlink(stale)
+
+    remove_volume(volume)
+    create_volume(volume)
+    try:
+        rc, out, err = _apply_diff(volume, images["agent_image"], diff_path)
+        if rc != 0:
+            tail = (err or out).strip().splitlines()
+            record = _v2_refused(
+                run_dir, task,
+                f"the archived diff would not apply to the pinned tree (rc={rc}): "
+                f"{tail[-1] if tail else 'no detail'}", original)
+            _write(target, record)
+            return record
+        apply_log = out + err
+
+        p_rc, p_out, p_err = _gate_container(volume, images["gate_image"], task, out_dir,
+                                             "check-public.sh", "GATE_REPORT",
+                                             "gate-public.json")
+        _write_log(os.path.join(run_dir, REGRADE_V2_PUBLIC_LOG),
+                   "public", apply_log, p_out, p_err, p_rc)
+        h_rc, h_out, h_err = _gate_container(volume, images["gate_image"], task, out_dir,
+                                             "check-hidden.sh", "HIDDEN_REPORT",
+                                             "gate-hidden.json")
+        _write_log(os.path.join(run_dir, REGRADE_V2_HIDDEN_LOG),
+                   "hidden", apply_log, h_out, h_err, h_rc)
+
+        after = _checks_by_id(pub_report)
+        hidden: Dict[str, Any] = {}
+        if os.path.exists(hid_report):
+            with open(hid_report, encoding="utf-8") as fh:
+                hidden = json.load(fh) or {}
+        for src, dst in ((pub_report, REGRADE_V2_PUBLIC_REPORT),
+                         (hid_report, REGRADE_V2_HIDDEN_REPORT)):
+            if os.path.exists(src):
+                os.replace(src, os.path.join(run_dir, dst))
+
+        _, result, _ = _gate_verdict(p_rc, h_rc, {})
+        record = {
+            "regrade_version": REGRADE_V2_VERSION,
+            "run_id": run_id,
+            "task_id": task.task_id,
+            "regraded_at": _now(),
+            "provenance": "regrade-v2",
+            "status": "graded",
+            "reason": _V2_REASON,
+            "method": {
+                "gates_re_run": ["public", "hidden"],
+                "subject_tree": "fresh volume seeded from the agent image, archived "
+                                "agent-solution.diff applied as the agent uid",
+                "network": "none (all containers)",
+                "model_spend": "none",
+                "images": images,
+                "harness": _harness_provenance(),
+            },
+            "original": {**original, "public_checks": before},
+            "amended": {
+                "acceptance_result": result,
+                "hidden_status": hidden.get("status", "unavailable"),
+                "hidden_hash": hidden.get("hash"),
+                "hidden_version": hidden.get("version"),
+                "gate_exit_code": h_rc,
+                "public_exit_code": p_rc,
+                "public_checks": after,
+            },
+            "public_check_delta": _check_delta(before, after),
+            "changed": result != original.get("acceptance_result"),
+        }
+        if (original.get("hidden_hash") and record["amended"]["hidden_hash"]
+                and original["hidden_hash"] != record["amended"]["hidden_hash"]):
+            record["sealed_set_changed"] = (
+                "the sealed set differs from the one used in the original run; the "
+                "amended verdict is NOT a like-for-like correction")
+        _write(target, record)
+        return record
+    finally:
+        remove_volume(volume)
+        for stale in (pub_report, hid_report):
+            if os.path.exists(stale):
+                os.unlink(stale)
+        if os.path.isdir(out_dir) and not os.listdir(out_dir):
+            os.rmdir(out_dir)
+
+
+def _write_log(path: str, label: str, apply_log: str, out: str, err: str, rc: int) -> None:
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("--- diff apply ---\n" + apply_log +
+                 f"\n--- {label} gate (stdout) ---\n" + out +
+                 f"\n--- {label} gate (stderr) ---\n" + err +
+                 f"\n--- exit: {rc}\n")
+
+
 def find_runs(results_dir: str, task_id: str, only: Optional[List[str]] = None) -> List[str]:
     names = sorted(n for n in os.listdir(results_dir)
                    if n.startswith(task_id + "__")
@@ -368,21 +646,40 @@ def main(argv: Optional[List[str]] = None) -> int:
                     help="delivery manifest (supplies the task's pinned commit)")
     ap.add_argument("--dry-run", action="store_true",
                     help="list what would be regraded; run no containers")
+    ap.add_argument("--generation", type=int, choices=(1, 2), default=1,
+                    help="1 = hidden gate only (the batch-1 correction); "
+                         "2 = both gates under a content-tagged post-fix image")
     args = ap.parse_args(argv)
 
-    task = load_task(os.path.abspath(args.task), _load_yaml(args.manifest))
+    manifest = _load_yaml(args.manifest)
+    task = load_task(os.path.abspath(args.task), manifest)
     runs = find_runs(os.path.abspath(args.results), task.task_id, args.only)
     if not runs:
         print(f"no runs for {task.task_id} under {args.results}", file=sys.stderr)
         return 1
 
-    print(f"regrading {len(runs)} run(s) of {task.task_id} "
-          f"[gate_type={task.gate_type}]{' (dry run)' if args.dry_run else ''}")
+    images: Dict[str, Any] = {}
+    if args.generation == 2 and not args.dry_run:
+        images = ensure_images(task, manifest)
+        print(f"gate image: {images['gate_image']} "
+              f"({'built now' if images['gate_image_built_now'] else 'already present'})")
+    elif args.generation == 2:
+        images = {"gate_image": subject_image_tag(
+            task.task_id, task.pinned_commit,
+            gate_image_content_digest(REPO_ROOT, task.task_dir_rel))}
+
+    print(f"regrading {len(runs)} run(s) of {task.task_id} at generation "
+          f"{args.generation} [gate_type={task.gate_type}]"
+          f"{' (dry run)' if args.dry_run else ''}")
     changed = 0
     for run_dir in runs:
-        rec = regrade_run(run_dir, task, force=args.force, dry_run=args.dry_run)
+        if args.generation == 2:
+            rec = regrade_run_v2(run_dir, task, images,
+                                 force=args.force, dry_run=args.dry_run)
+        else:
+            rec = regrade_run(run_dir, task, force=args.force, dry_run=args.dry_run)
         name = os.path.basename(run_dir)
-        if args.dry_run:
+        if rec.get("would_regrade"):
             print(f"  {name}: would regrade "
                   f"(original={rec['original']['acceptance_result']}, "
                   f"{rec['diff_bytes']}B diff)")
@@ -390,8 +687,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         if rec.get("_skipped"):
             print(f"  {name}: {rec['_skipped']}")
             continue
-        if rec["status"] == "unavailable":
-            print(f"  {name}: UNAVAILABLE — {rec['reason']}")
+        if rec["status"] in ("unavailable", "refused"):
+            print(f"  {name}: {rec['status'].upper()} — {rec['reason']}")
             continue
         arrow = "->" if rec["changed"] else "=="
         changed += 1 if rec["changed"] else 0
@@ -399,6 +696,12 @@ def main(argv: Optional[List[str]] = None) -> int:
               f"{rec['amended']['acceptance_result']} "
               f"(hidden {rec['original']['hidden_status']} -> "
               f"{rec['amended']['hidden_status']})")
+        delta = rec.get("public_check_delta")
+        if delta:
+            for key, mark in (("cleared", "cleared"), ("newly_failing", "NEWLY FAILING"),
+                              ("still_failing", "still failing")):
+                if delta[key]:
+                    print(f"      public {mark}: {', '.join(delta[key])}")
     if not args.dry_run:
         print(f"{changed}/{len(runs)} verdict(s) amended")
     return 0

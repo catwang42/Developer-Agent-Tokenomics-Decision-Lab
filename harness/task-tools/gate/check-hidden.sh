@@ -190,8 +190,29 @@ for src in "${hidden_files[@]}"; do
   names+=("${HIDDEN_DST_DIR%/}/$base")
 done
 
-stack_run_selected "$(stack_selector "${names[@]}")"
-rc=$?
+# Run the sealed suite and record WHICH sealed checks passed, not only whether
+# all did. Until this landed the solution shape kept the exit code and threw the
+# runner's output away, so a run that satisfied six of seven sealed rules was
+# indistinguishable in the archive from one that satisfied none — the binary
+# verdict is identical and it is the only thing that survived.
+#
+# The graded report holds node ids and statuses. It holds no assertion text,
+# no expected/received values and no traceback: see stack_run_selected_graded in
+# each driver for how that is enforced. The sealed FILES are still never read or
+# printed by the harness; the hash above remains what identifies them.
+graded="$(mktemp)"
+if declare -F stack_run_selected_graded >/dev/null; then
+  stack_run_selected_graded "$(stack_selector "${names[@]}")" "$graded"
+  rc=$?
+else
+  stack_run_selected "$(stack_selector "${names[@]}")"
+  rc=$?
+fi
+if [ -s "$graded" ]; then
+  echo "  -- sealed checks (id and status only) --"
+  sed 's/^/  | /' "$graded"
+fi
+rm -f "$graded"
 
 write_hidden_report "$([ "$rc" -eq 0 ] && echo pass || echo fail)" "$HIDDEN_HASH" "$HIDDEN_VERSION"
 

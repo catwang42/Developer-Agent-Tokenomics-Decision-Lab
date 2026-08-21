@@ -1,0 +1,31 @@
+{
+  "acceptance": "rejected",
+  "available": true,
+  "configuration_id": "C3-prev",
+  "detail": {
+    "detected": [
+      "D1-offbyone-trie-index",
+      "D3-precedence-flip",
+      "D4-wildcard-fallthrough",
+      "D6-trie-aliasing"
+    ],
+    "fabricated": [
+      "src/router/reg-exp-router/node.ts:203",
+      "src/router/reg-exp-router/trie.ts:47"
+    ],
+    "fabrication_count": 2,
+    "missed": [
+      "D2-inverted-guard",
+      "D5-missing-escape"
+    ]
+  },
+  "max": 6,
+  "metric": "defects_found",
+  "rep": 3,
+  "schema": "quality-score/v1",
+  "score": 4,
+  "source": "sealed runner stderr as archived by this run; nothing re-run, no sealed material read",
+  "source_log": "regrade-v2-gate-hidden.log",
+  "status": "EXPLORATORY SECONDARY \u2014 the pre-registered outcome is the binary sealed gate; this does not override it",
+  "task_id": "w6-hono-router-review"
+}
