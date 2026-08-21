@@ -152,6 +152,20 @@ class Supersession(unittest.TestCase):
         self.assertEqual(C.UNREPLACED_LOSS, slots[("t", "P0", 1)]["hole"]["kind"])
         self.assertEqual(C.BUDGET_EXHAUSTION, slots[("t", "P1", 1)]["hole"]["kind"])
 
+    def test_a_void_attempt_does_not_make_a_loss_look_like_exhaustion(self):
+        # W6's batch-1 cells are void: the agent got no review_diff, so the run says
+        # nothing about whether the budget was enough. Counting it as an attempt
+        # would report one real timeout as "we bought it twice and it still failed",
+        # and would then justify not re-buying a slot that has never had a fair go.
+        self.lab.run("screening-batch1", "t", "C2", 2, "20260818T000000",
+                     truncated="zero-byte", void=True)
+        self.lab.run("screening-batch1-makeup", "t", "C2", 2, "20260820T000000",
+                     truncated="claude_timeout")
+        hole = self.slots()[("t", "C2", 2)]["hole"]
+        self.assertEqual(C.UNREPLACED_LOSS, hole["kind"])
+        # Both attempts are still named — the void one is provenance, not deleted.
+        self.assertEqual(2, len(hole["attempts"]))
+
     def test_a_non_evidence_dataset_is_not_pooled_in(self):
         # A smoke run must never fill a slot a real run lost.
         self.lab.run("smoke-whatever", "t", "P0", 1, "20260820T000000")

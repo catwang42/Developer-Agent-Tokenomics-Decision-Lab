@@ -159,10 +159,15 @@ def collect_slots(results_root: str,
 
 def _hole(attempts: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Why this slot is empty — a finding or a gap, and never rounded into the other."""
-    truncated = [a for a in attempts if a["truncated"]]
+    # A VOID attempt is not an attempt at the question. It was run on a broken
+    # instrument — W6's batch-1 cells got no review_diff at all — so it says nothing
+    # about whether the budget was enough, and counting it toward exhaustion would
+    # turn one real timeout into a fabricated "we bought it twice".
+    real = [a for a in attempts if not a["void"]]
+    truncated = [a for a in real if a["truncated"]]
     # Re-bought and cut off again: the slot is not missing, the answer is "not within
     # the budget we bought". One truncated attempt is a loss; two is a measurement.
-    exhausted = len(truncated) == len(attempts) and len(truncated) > 1
+    exhausted = bool(real) and len(truncated) == len(real) and len(truncated) > 1
     return {
         "kind": BUDGET_EXHAUSTION if exhausted else UNREPLACED_LOSS,
         "attempts": [{"dataset": a["dataset"], "run_id": a["run_id"],
