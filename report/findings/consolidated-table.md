@@ -2,7 +2,7 @@
 
 **STATUS: PENDING** — this document opens at **CP-FINDINGS**.
 
-Generated 2026-08-21T12:14:09Z from `results/`; harness `0cd2615`. Zero model spend: nothing here re-runs an agent or a gate.
+Generated 2026-08-21T12:28:52Z from `results/`; harness `a7f03af`. Zero model spend: nothing here re-runs an agent or a gate.
 
 NON-COMPARATIVE / INTERNAL — descriptive per-cell figures only. No cross-product or cross-configuration ranking, no vendor claim, no model-efficiency attribution (CLAUDE.md rule 4, SPEC §1.2). Nothing here may appear in docs, on the site, or in any external-facing report before **CP-FINDINGS**.
 

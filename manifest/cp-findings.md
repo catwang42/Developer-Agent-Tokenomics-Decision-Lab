@@ -39,9 +39,10 @@ A cell in this package is **hypothesis-seeking positioning evidence about one ta
 |---|---|---|
 | Consolidated table (md) | `report/findings/consolidated-table.md` | authoritative |
 | Consolidated table (json) | `report/findings/consolidated-table.json` | authoritative |
-| `sha256` of the json | `TBD-AT-REGENERATION` | — |
-| `--generated-at` | `TBD` | — |
-| Harness HEAD at generation | `TBD` | — |
+| `sha256` of the json | `c07f620c02e2f3cc688333a41eba2e3aff04d0549276998ed674df454ef9e86b` | — |
+| `sha256` of the md | `92b44b8dea18f21741115e2b947c666c855407a1f107f7d155d73d5c0e5e4d17` | — |
+| `--generated-at` | `2026-08-21T12:28:52Z` | — |
+| Harness HEAD at generation | `a7f03af` (the tree the generator ran from; it predates the commit carrying these two files) | — |
 | Regrade authority | `report/findings/regrade-v2.md` (AUTHORITATIVE) | authoritative |
 | Graded-quality extraction | `report/findings/graded-quality-extraction.md` | exploratory secondary |
 | Holes enumeration | `report/findings/confound-makeup-enumeration.log` (AUTHORITATIVE) | authoritative |
@@ -163,7 +164,7 @@ outcome. **Scope condition:** routine classes only — the harder screening task
 
 | Half | Gradable | Result |
 |---|---|---|
-| Gate parity (quality) | yes | `TBD-FROM-TABLE` per in-scope task |
+| Gate parity (quality) | yes | **holds** on both gradable in-scope tasks — `pilot-realworld-draft-articles` and `w1-realworld-mapper-tests`; `w1b` and `w3` are in scope but `not_gradable` (no arm cleared the gate, so there is no cost-per-accepted-outcome to compare) |
 | Cost reduction (30–50% band) | **no** | not gradable — both arms' cost is `unavailable` (§5.1) |
 
 The predicted band is **not** drawn, compared to, or reported as met/unmet. Recording
@@ -185,9 +186,9 @@ and are labelled as holes or confounded in their own rows.
 
 | Element | Value |
 |---|---|
-| Economical arm at the gate | `TBD-FROM-TABLE` |
-| Escalation branch fired | `TBD-FROM-TABLE` |
-| Outcome | `TBD-FROM-TABLE` |
+| Economical arm at the gate | `failed` — C2 accepted **0/3** |
+| Escalation branch fired | `observed` — 2 of 2 probe runs |
+| Outcome | `prediction_supported`, **understrength**: the probe arm (P1) is graded on 2 runs, not the registered 3 |
 | Reps | 2 per arm — enough to see a split, **not** enough for a dispersion claim |
 
 **Two slots are deliberately absent** and must be reported as a finding, not a gap:
@@ -238,7 +239,20 @@ Two classes, never conflated, never dropped, never averaged around:
 | Budget exhaustion | every attempt ran out of wall-clock, including ≥1 re-buy under a longer budget | **a result** — "does not complete within the budget bought" |
 | Unreplaced loss | slot lost to truncation or void, no later pass re-bought it | **missing data** — says so |
 
-Ledger contents: `TBD-FROM-TABLE`.
+Ledger contents, as generated (full text and per-slot provenance in the consolidated
+table's *Limitation ledger*):
+
+| Ledger section | Count | Contents |
+|---|---|---|
+| Budget exhaustion — **a result** | 2 | W3 **P0** rep 1 (1812s in batch 1, then 7210s in the W3 makeup); W3 **P1** rep 1 (3642s, then 9453s) |
+| Unreplaced loss — **missing data** | 0 | none |
+| Re-bought, then refused by the contamination guard | 7 | pilot **C3** r3, pilot **C3-prev** r3, pilot **C5** r3, W4 **C3** r2 (all batch 1); W3 **C5** reps 1–3 (confound makeup). Nothing billed, nothing run — the cause is the measurement window, and the remedy is a quiet-window re-run |
+| Cells with no evidence at all | 1 | `w3…::C5` — reported with no verdict, which is not a rejection |
+| Cells below registered n | 6 | pilot C3, pilot C3-prev, pilot C5, W3 P0, W3 P1, W4 C3 — all 2/3 |
+| Cells costed at an upper bound (`≤`) | 26 | every Product-B-metered cell; never restated as an exact cost |
+| Cells with a partially costed run | 3 | pilot C5, W1 C5, W4b C5 — the run is left out of the median, not entered as a floor |
+| Cells with an uncosted run | 1 | W3 C3 — `unavailable`, never zero |
+| Cells with no graded quality | 24 | all pilot, W3, W4 and W4b cells — no extractable per-check detail, which is not a score of zero |
 
 Every hole renders in the cell it belongs to. **A truncated run never renders as a
 rejection** — that would convert a harness fault into a model result, which is the

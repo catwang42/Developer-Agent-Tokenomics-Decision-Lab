@@ -97,7 +97,7 @@ dataset rather than any one of them:
 - [confound-makeup enumeration](findings/confound-makeup-enumeration.log) — every
   truncated run no later attempt replaced, and the derivation of the replacement
   slots from it;
-- [consolidated screening table](findings/consolidated-screening-table.md) — one row
+- [consolidated screening table](findings/consolidated-table.md) — one row
   per cell over all four screening datasets, superseded per rep and never pooled,
   with both pre-registrations graded and a limitation ledger assembled from the data.
   **PENDING — it opens at CP-FINDINGS**, and no number in it may appear in the docs

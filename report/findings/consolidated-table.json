@@ -14306,8 +14306,8 @@
     "screening-batch1-makeup-w6",
     "screening-batch1-confound-makeup"
   ],
-  "generated_at": "2026-08-21T12:14:09Z",
-  "harness_head": "0cd2615",
+  "generated_at": "2026-08-21T12:28:52Z",
+  "harness_head": "a7f03af",
   "ledger": {
     "budget_exhaustion": [
       {
