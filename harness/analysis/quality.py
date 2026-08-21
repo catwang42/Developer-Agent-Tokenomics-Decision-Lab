@@ -35,7 +35,11 @@ from typing import Any, Dict, List, Optional
 
 from harness.analysis.archive import parse_run_dir_name, scan, truncation
 
-SEALED_LOGS = ("gate-hidden.log", "regrade-gate-hidden.log")
+# Newest generation first. A cell can carry three hidden-gate transcripts — the
+# original, a v1 regrade, a v2 regrade — and only the newest was produced by the
+# fixed grader. Reading the original first would score W3/W4b from a log written
+# before the per-check block existed and call it "the gate recorded nothing".
+SEALED_LOGS = ("regrade-v2-gate-hidden.log", "regrade-gate-hidden.log", "gate-hidden.log")
 
 # W1 (jest mutation): `hidden: caught: m3-some-predicate-flip`
 W1_CAUGHT = re.compile(r"^\s*\|\s*hidden:\s*caught:\s*(?P<id>\S+)")
@@ -59,6 +63,14 @@ W6_NO_REPORT = re.compile(r"^\s*\|\s*no review-report\.txt")
 SEALED_CHECK = re.compile(r"^\s*\|\s*(?P<status>[A-Z]+)\t(?P<id>\S+)")
 SEALED_CHECK_HEADER = "-- sealed checks (id and status only) --"
 PASSING_STATUSES = frozenset({"PASSED", "PASS", "XFAIL"})
+
+
+def sealed_log_name(run_dir: str) -> Optional[str]:
+    """Which archived transcript the score was read from — the record must cite it."""
+    for name in SEALED_LOGS:
+        if os.path.isfile(os.path.join(run_dir, name)):
+            return name
+    return None
 
 
 def _sealed_block(run_dir: str, header: str) -> Optional[str]:
@@ -238,6 +250,7 @@ def score_run(run_dir: str) -> Optional[Dict[str, Any]]:
 
     block = reader(run_dir)
     record["metric"] = metric
+    record["source_log"] = sealed_log_name(run_dir)
     if block is None:
         record.update(_unavailable("no sealed gate log archived for this run"))
     else:
