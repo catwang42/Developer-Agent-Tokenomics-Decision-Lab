@@ -279,6 +279,33 @@ def _parse_ts(value: str) -> Optional[dt.datetime]:
 
 # ------------------------------------------------------------------------- loading
 
+def load_run(run_dir: str,
+             adjudication: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+    """One run record, or None if ``run_dir`` holds no ``summary.json``.
+
+    Split out of :func:`load_runs` so a caller that has already decided WHICH runs it
+    wants — the cross-dataset consolidator, which supersedes per rep and so draws its
+    set from several batch directories at once — loads them through exactly this code
+    path rather than a second one that could drift from it.
+    """
+    summary_path = os.path.join(run_dir, "summary.json")
+    if not os.path.isfile(summary_path):
+        return None
+    with open(summary_path, encoding="utf-8") as fh:
+        summary = json.load(fh)
+    summary, cost_provenance = apply_recost(run_dir, summary)
+    return {
+        "run_dir": run_dir,
+        "run_id": os.path.basename(os.path.normpath(run_dir)),
+        "summary": summary,
+        "wallclock_s": wallclock_seconds(run_dir),
+        "acceptance": effective_acceptance(run_dir, summary, adjudication or {}),
+        "usage_provenance": usage_provenance(run_dir),
+        "cost_provenance": cost_provenance,
+        "run_budget": run_budget(summary),
+    }
+
+
 def load_runs(batch_dir: str,
               adjudication: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     """Load one record per run directory in the batch.
@@ -303,23 +330,9 @@ def load_runs(batch_dir: str,
     if adjudication is None:
         adjudication = load_adjudication(batch_dir)
     for name in sorted(os.listdir(batch_dir)):
-        run_dir = os.path.join(batch_dir, name)
-        summary_path = os.path.join(run_dir, "summary.json")
-        if not os.path.isfile(summary_path):
-            continue
-        with open(summary_path, encoding="utf-8") as fh:
-            summary = json.load(fh)
-        summary, cost_provenance = apply_recost(run_dir, summary)
-        runs.append({
-            "run_dir": run_dir,
-            "run_id": name,
-            "summary": summary,
-            "wallclock_s": wallclock_seconds(run_dir),
-            "acceptance": effective_acceptance(run_dir, summary, adjudication),
-            "usage_provenance": usage_provenance(run_dir),
-            "cost_provenance": cost_provenance,
-            "run_budget": run_budget(summary),
-        })
+        record = load_run(os.path.join(batch_dir, name), adjudication)
+        if record is not None:
+            runs.append(record)
     return runs
 
 
