@@ -41,11 +41,17 @@ class _Runs(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
 
     def run_dir(self, task: str, body: str | None, *, config: str = "C3",
-                rep: int = 1, name: str = "gate-hidden.log") -> pathlib.Path:
+                rep: int = 1, name: str = "gate-hidden.log",
+                events: list | None = None) -> pathlib.Path:
         d = self.root / "ds" / f"{task}__{config}__rep{rep}__20260819T000000"
         d.mkdir(parents=True)
         if body is not None:
             (d / name).write_text(_log(body), encoding="utf-8")
+        # Untruncated unless a test says otherwise: a non-empty diff and no
+        # failure events. Without this every fixture would look cut off.
+        (d / "agent-solution.diff").write_text("--- a\n+++ b\n", encoding="utf-8")
+        (d / "events.jsonl").write_text(
+            "".join(json.dumps(e) + "\n" for e in (events or [])), encoding="utf-8")
         return d
 
 
@@ -124,13 +130,50 @@ class W6ReviewOutput(_Runs):
         self.assertEqual(rec["score"], 0)
 
 
+class SolutionTaskSealedChecks(_Runs):
+    """W3/W4b, graded per sealed check rather than by exit code alone."""
+
+    def _checks(self, *rows: str) -> str:
+        return ("  -- sealed checks (id and status only) --\n"
+                + "".join(f"  | {r}\n" for r in rows))
+
+    def test_passed_checks_are_counted(self):
+        d = self.run_dir("w3-SYNTHETIC", self._checks(
+            "PASSED\ttests/SYNTHETIC.py::test_L010",
+            "PASSED\ttests/SYNTHETIC.py::test_L019",
+            "FAILED\ttests/SYNTHETIC.py::test_L044"))
+        rec = quality.score_run(str(d))
+        self.assertEqual((rec["score"], rec["max"]), (2, 3))
+        self.assertEqual(rec["metric"], "sealed_rules_clean")
+        self.assertEqual(rec["detail"]["failed"], ["tests/SYNTHETIC.py::test_L044"])
+
+    def test_w4b_uses_its_own_metric_name(self):
+        d = self.run_dir("w4b-SYNTHETIC", self._checks("PASSED\ttests/S.py::test_a"))
+        self.assertEqual(quality.score_run(str(d))["metric"],
+                         "sealed_assertions_passed")
+
+    def test_an_error_status_counts_as_not_passing(self):
+        d = self.run_dir("w3-SYNTHETIC", self._checks(
+            "PASSED\ttests/S.py::a", "ERROR\ttests/S.py::b", "SKIPPED\ttests/S.py::c"))
+        rec = quality.score_run(str(d))
+        self.assertEqual((rec["score"], rec["max"]), (1, 3))
+
+    def test_a_run_graded_before_the_gate_recorded_detail_is_unavailable(self):
+        # THE PRE-FIX ARCHIVE. Exit code only. A `0` here would say the run
+        # satisfied no sealed rule; the truth is nobody wrote down how many.
+        d = self.run_dir("w3-SYNTHETIC", "  | some other block\n")
+        rec = quality.score_run(str(d))
+        self.assertFalse(rec["available"])
+        self.assertIsNone(rec["score"])
+        self.assertIn("only the sealed exit code", rec["reason"])
+
+
 class WhatCannotBeScored(_Runs):
-    def test_a_solution_task_is_unavailable_with_a_reason_not_zero(self):
+    def test_a_solution_task_with_no_log_at_all_is_unavailable(self):
         for task in ("w3-SYNTHETIC", "w4b-SYNTHETIC"):
-            rec = quality.score_run(str(self.run_dir(task, None, config=task[:2])))
+            rec = quality.score_run(str(self.run_dir(task, None)))
             self.assertFalse(rec["available"], task)
             self.assertIsNone(rec["score"], task)
-            self.assertIn("not recoverable", rec["reason"], task)
 
     def test_a_run_with_no_sealed_log_is_unavailable(self):
         rec = quality.score_run(str(self.run_dir("w1-SYNTHETIC", None)))
@@ -151,6 +194,44 @@ class WhatCannotBeScored(_Runs):
 
     def test_a_non_run_directory_scores_nothing(self):
         self.assertIsNone(quality.score_run(str(self.root)))
+
+
+class ATruncatedRunScoresNothing(_Runs):
+    """A run the harness killed cannot be graded on what it happened to emit.
+
+    `0 defects found` on a killed run reads as a model that found nothing. The
+    model was cut off mid-sentence. Scoring it at all is the fabrication.
+    """
+
+    TIMEOUT = {"event_type": "failure", "category": "claude_timeout", "leg": "main"}
+
+    def test_a_timed_out_run_is_unavailable_even_with_a_full_sealed_log(self):
+        body = "".join(f"  | DETECTED D{i}-SYNTHETIC\n" for i in range(1, 7))
+        d = self.run_dir("w6-SYNTHETIC", body, events=[self.TIMEOUT])
+        rec = quality.score_run(str(d))
+        self.assertFalse(rec["available"])
+        self.assertIsNone(rec["score"])
+        self.assertIn("truncated", rec["reason"])
+        self.assertEqual(rec["truncated"], "stop_reason=claude_timeout")
+
+    def test_a_zero_byte_diff_run_scores_nothing_rather_than_zero(self):
+        d = self.run_dir("w6-SYNTHETIC", "  | no review-report.txt — reject\n")
+        (d / "agent-solution.diff").write_text("", encoding="utf-8")
+        rec = quality.score_run(str(d))
+        self.assertFalse(rec["available"], "a zero here would be a fabricated result")
+        self.assertIsNone(rec["score"])
+
+    def test_a_truncated_mutation_run_scores_nothing(self):
+        d = self.run_dir("w1-SYNTHETIC", "  | hidden: no agent tests under src/tests/\n")
+        (d / "agent-solution.diff").write_text("", encoding="utf-8")
+        self.assertFalse(quality.score_run(str(d))["available"])
+
+    def test_truncation_outranks_the_unscorable_task_reason(self):
+        # W3 is unscorable AND this run was killed. The reason a reader needs
+        # first is that the run is not evidence at all.
+        d = self.run_dir("w3-SYNTHETIC", None, events=[self.TIMEOUT])
+        rec = quality.score_run(str(d))
+        self.assertIn("truncated", rec["reason"])
 
 
 class TheRecordCarriesItsOwnCaveat(_Runs):

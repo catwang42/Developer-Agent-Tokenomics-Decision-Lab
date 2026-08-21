@@ -11,12 +11,14 @@ So this reads the sealed runner's own stderr, as archived under ``results/``, an
 counts. It never re-runs anything, never opens ``tasks/*/hidden/``, and never
 overrides an acceptance verdict.
 
-WHAT IS EXTRACTABLE, AND WHAT IS NOT. The gate wrapper captures the sealed
-runner's stderr for `test_generation` and `pr_review` tasks, whose runners print
-one labelled line per mutant/defect by design. For `solution` tasks (W3, W4b) it
-injects sealed tests, runs the stack's test runner and keeps only the exit code —
-the per-assertion detail was never written down. Those tasks therefore return
-`available: false` with a reason, not a zero (CLAUDE.md rule 3).
+WHAT IS EXTRACTABLE, AND WHAT IS NOT. The gate captures the sealed runner's
+stderr for `test_generation` and `pr_review` tasks, whose runners print one
+labelled line per mutant/defect by design, and — since the graded hidden gate
+landed — a per-check id/status block for `solution` tasks. A run graded BEFORE
+that change kept the exit code alone, so its detail is not in the archive to
+extract and it returns `available: false` with the reason, never a zero
+(CLAUDE.md rule 3). The remedy for those runs is the offline re-grade, not a
+guess. Truncated runs are excluded outright, whatever their log contains.
 
 Run:  python -m harness.analysis.quality results
       python -m harness.analysis.quality results --write   # per-run quality-score.json
@@ -31,7 +33,7 @@ import re
 import sys
 from typing import Any, Dict, List, Optional
 
-from harness.analysis.archive import parse_run_dir_name, scan
+from harness.analysis.archive import parse_run_dir_name, scan, truncation
 
 SEALED_LOGS = ("gate-hidden.log", "regrade-gate-hidden.log")
 
@@ -52,9 +54,15 @@ W6_MISSED = re.compile(r"^\s*\|\s*MISSED\s+(?P<id>\S+)")
 W6_FABRICATED = re.compile(r"^\s*\|\s*FABRICATED\s+(?P<ref>\S+)")
 W6_NO_REPORT = re.compile(r"^\s*\|\s*no review-report\.txt")
 
+# Solution tasks (W3, W4b): `  | PASSED<TAB>tests/test_rules.py::test_L010`.
+# Written by the graded hidden gate; ids and statuses only, by construction.
+SEALED_CHECK = re.compile(r"^\s*\|\s*(?P<status>[A-Z]+)\t(?P<id>\S+)")
+SEALED_CHECK_HEADER = "-- sealed checks (id and status only) --"
+PASSING_STATUSES = frozenset({"PASSED", "PASS", "XFAIL"})
 
-def sealed_stderr(run_dir: str) -> Optional[str]:
-    """The archived sealed-runner stderr block, or None if the run has no log."""
+
+def _sealed_block(run_dir: str, header: str) -> Optional[str]:
+    """A named block of the archived hidden-gate log, "" if absent, None if no log."""
     for name in SEALED_LOGS:
         path = os.path.join(run_dir, name)
         if not os.path.isfile(path):
@@ -64,13 +72,23 @@ def sealed_stderr(run_dir: str) -> Optional[str]:
                 text = fh.read()
         except OSError:
             continue
-        start = text.find("-- sealed runner (stderr) --")
+        start = text.find(header)
         if start < 0:
-            return ""  # a log exists but the runner printed nothing to grade
+            return ""  # a log exists but this block is not in it
         block = text[start:]
         end = block.find("== hidden gate:")
         return block if end < 0 else block[:end]
     return None
+
+
+def sealed_stderr(run_dir: str) -> Optional[str]:
+    """The archived sealed-runner stderr block, or None if the run has no log."""
+    return _sealed_block(run_dir, "-- sealed runner (stderr) --")
+
+
+def sealed_checks(run_dir: str) -> Optional[str]:
+    """The archived per-check block a graded solution-task gate writes."""
+    return _sealed_block(run_dir, SEALED_CHECK_HEADER)
 
 
 def _unavailable(reason: str) -> Dict[str, Any]:
@@ -142,21 +160,38 @@ def score_w6(block: str) -> Dict[str, Any]:
                        "fabrication_count": len(fabricated)}}
 
 
-# Which parser a task's sealed runner speaks. Keyed on the task id prefix because
-# that is what the run directory carries; a task not listed is unscored, loudly.
-SCORERS = {
-    "w1-": ("mutants_caught", score_w1),
-    "w1b-": ("mutants_caught", score_w1b),
-    "w6-": ("defects_found", score_w6),
-}
+def score_sealed_checks(block: str) -> Dict[str, Any]:
+    """Sealed checks passed, for a solution task graded per check.
 
-# Tasks whose sealed runner output is not archived at all. See the module header:
-# the solution-type gate keeps the exit code and discards the runner's detail.
-UNSCORABLE = {
-    "w3-": "solution-type gate archives only the sealed exit code, not per-rule "
-           "detail; rules-clean 0..7 is not recoverable from this archive",
-    "w4b-": "solution-type gate archives only the sealed exit code, not per-"
-            "assertion detail; assertions 0..3 is not recoverable from this archive",
+    Only present in runs graded by a hidden gate carrying
+    `stack_run_selected_graded`. Runs graded before that keep the exit code
+    alone, and come back unavailable — the detail was never written down, and a
+    zero would claim a measurement nobody made.
+    """
+    seen: Dict[str, str] = {}
+    for line in block.splitlines():
+        m = SEALED_CHECK.match(line)
+        if m:
+            seen[m.group("id")] = m.group("status")
+    if not seen:
+        return _unavailable(
+            "this run was graded before the hidden gate recorded per-check "
+            "results; only the sealed exit code is in the archive")
+    passed = sorted(k for k, v in seen.items() if v in PASSING_STATUSES)
+    failed = sorted(k for k, v in seen.items() if v not in PASSING_STATUSES)
+    return {"available": True, "score": len(passed), "max": len(seen),
+            "detail": {"passed": passed, "failed": failed}}
+
+
+# Which parser a task's sealed output speaks. Keyed on the task id prefix because
+# that is what the run directory carries; a task not listed is unscored, loudly.
+# The reader column says which block of the hidden-gate log to hand the parser.
+SCORERS = {
+    "w1-": ("mutants_caught", score_w1, sealed_stderr),
+    "w1b-": ("mutants_caught", score_w1b, sealed_stderr),
+    "w6-": ("defects_found", score_w6, sealed_stderr),
+    "w3-": ("sealed_rules_clean", score_sealed_checks, sealed_checks),
+    "w4b-": ("sealed_assertions_passed", score_sealed_checks, sealed_checks),
 }
 
 
@@ -164,7 +199,7 @@ def _scorer_for(task_id: str):
     for prefix in sorted(SCORERS, key=len, reverse=True):
         if task_id.startswith(prefix):
             return SCORERS[prefix]
-    return None, None
+    return None, None, None
 
 
 def score_run(run_dir: str) -> Optional[Dict[str, Any]]:
@@ -183,25 +218,32 @@ def score_run(run_dir: str) -> Optional[Dict[str, Any]]:
         "source": "sealed runner stderr as archived by this run; nothing re-run, "
                   "no sealed material read",
     }
-    for prefix, reason in UNSCORABLE.items():
-        if task_id.startswith(prefix):
-            record["metric"] = None
-            record.update(_unavailable(reason))
-            return record
+    # A run the harness cut off is not a measurement of the model, and a partial
+    # score from one is worse than no score: `0 defects found` reads as a model
+    # that found nothing when the truth is that it was killed mid-sentence. So a
+    # truncated run scores nothing at all, whatever its log happens to contain.
+    cut = truncation(run_dir)
+    if cut:
+        record["metric"] = None
+        record.update(_unavailable(
+            f"run truncated ({cut}); partial work is not a quality measurement"))
+        record["truncated"] = cut
+        return record
 
-    metric, scorer = _scorer_for(task_id)
+    metric, scorer, reader = _scorer_for(task_id)
     if scorer is None:
         record["metric"] = None
         record.update(_unavailable(f"no sealed-output grammar registered for {task_id}"))
         return record
 
-    block = sealed_stderr(run_dir)
+    block = reader(run_dir)
     record["metric"] = metric
     if block is None:
         record.update(_unavailable("no sealed gate log archived for this run"))
-    elif not block.strip():
-        record.update(_unavailable("the archived sealed gate log has no runner output"))
     else:
+        # An empty block goes to the scorer too: each one knows why ITS output
+        # would be missing, and "the gate did not record per-check results" is a
+        # more useful thing to read than "the block is empty".
         record.update(scorer(block))
     return record
 

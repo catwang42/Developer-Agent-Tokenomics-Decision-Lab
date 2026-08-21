@@ -43,6 +43,8 @@ stack_config_paths() { :; }
 stack_baseline_tests() { return 0; }
 stack_baseline_detail() { echo "not applicable (review task)"; }
 stack_run_selected() { return 0; }
+# Nothing executes here, so there is nothing to grade: an empty report, rc 0.
+stack_run_selected_graded() { : >"$2"; return 0; }
 stack_typecheck() { return 0; }
 stack_typecheck_detail() { echo "not applicable (review task)"; }
 stack_build() { return 0; }
