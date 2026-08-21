@@ -20,6 +20,13 @@ extract and it returns `available: false` with the reason, never a zero
 (CLAUDE.md rule 3). The remedy for those runs is the offline re-grade, not a
 guess. Truncated runs are excluded outright, whatever their log contains.
 
+A third case turned up in the regrade-v2 sweep and is reported separately: W3
+and W4b were re-graded by a gate that DOES carry the per-check step, and their
+logs still hold no rows — the python stack's `stack_run_selected_graded` capture
+came back empty for every one of those runs. That is a harness gap, not a
+property of the runs, and it is why those two tasks have no graded quality at
+all. See `report/findings/graded-quality-extraction.md`.
+
 Run:  python -m harness.analysis.quality results
       python -m harness.analysis.quality results --write   # per-run quality-score.json
 """
@@ -40,6 +47,11 @@ from harness.analysis.archive import parse_run_dir_name, scan, truncation
 # fixed grader. Reading the original first would score W3/W4b from a log written
 # before the per-check block existed and call it "the gate recorded nothing".
 SEALED_LOGS = ("regrade-v2-gate-hidden.log", "regrade-gate-hidden.log", "gate-hidden.log")
+
+# Logs written by a gate that carries the per-check graded step (PR #27 and after).
+# If one of these holds no rows, the capture failed; that is a different fact from
+# an older log that never had the step at all.
+GRADED_CAPABLE_LOGS = frozenset({"regrade-v2-gate-hidden.log"})
 
 # W1 (jest mutation): `hidden: caught: m3-some-predicate-flip`
 W1_CAUGHT = re.compile(r"^\s*\|\s*hidden:\s*caught:\s*(?P<id>\S+)")
@@ -107,7 +119,7 @@ def _unavailable(reason: str) -> Dict[str, Any]:
     return {"available": False, "reason": reason, "score": None, "max": None}
 
 
-def score_w1(block: str) -> Dict[str, Any]:
+def score_w1(block: str, log_name: Optional[str] = None) -> Dict[str, Any]:
     """Mutants caught out of the sealed set, jest flavour."""
     caught = sorted({m.group("id") for m in map(W1_CAUGHT.match, block.splitlines())
                      if m})
@@ -123,7 +135,7 @@ def score_w1(block: str) -> Dict[str, Any]:
             "detail": {"caught": caught, "missed": missed}}
 
 
-def score_w1b(block: str) -> Dict[str, Any]:
+def score_w1b(block: str, log_name: Optional[str] = None) -> Dict[str, Any]:
     """Mutants caught, pytest flavour, with the control mutant separated out.
 
     The control is planted to be UNCATCHABLE by a correct test: catching it means
@@ -147,7 +159,7 @@ def score_w1b(block: str) -> Dict[str, Any]:
                                                 if v == "caught")}}
 
 
-def score_w6(block: str) -> Dict[str, Any]:
+def score_w6(block: str, log_name: Optional[str] = None) -> Dict[str, Any]:
     """Planted defects found, and fabrications — findings about code that is fine.
 
     Reported as two numbers, never netted into one. A review that finds all six
@@ -172,13 +184,16 @@ def score_w6(block: str) -> Dict[str, Any]:
                        "fabrication_count": len(fabricated)}}
 
 
-def score_sealed_checks(block: str) -> Dict[str, Any]:
+def score_sealed_checks(block: str, log_name: Optional[str] = None) -> Dict[str, Any]:
     """Sealed checks passed, for a solution task graded per check.
 
-    Only present in runs graded by a hidden gate carrying
-    `stack_run_selected_graded`. Runs graded before that keep the exit code
-    alone, and come back unavailable — the detail was never written down, and a
-    zero would claim a measurement nobody made.
+    Two different absences produce no rows here and they are not the same fact.
+    A run graded before `stack_run_selected_graded` existed kept the exit code
+    alone: the detail was never written down. A run re-graded by a gate that DOES
+    carry the graded step, and still has no rows, is telling us the python
+    driver's capture came back empty — which is a harness gap, not a property of
+    the run. Both are unavailable, and the reason says which, because a zero
+    would claim a measurement nobody made either way.
     """
     seen: Dict[str, str] = {}
     for line in block.splitlines():
@@ -186,6 +201,11 @@ def score_sealed_checks(block: str) -> Dict[str, Any]:
         if m:
             seen[m.group("id")] = m.group("status")
     if not seen:
+        if log_name in GRADED_CAPABLE_LOGS:
+            return _unavailable(
+                f"{log_name} was written by a gate that records per-check results "
+                "and it carries none: the python stack's graded capture came back "
+                "empty for this run, so only the sealed exit code is in the archive")
         return _unavailable(
             "this run was graded before the hidden gate recorded per-check "
             "results; only the sealed exit code is in the archive")
@@ -257,7 +277,7 @@ def score_run(run_dir: str) -> Optional[Dict[str, Any]]:
         # An empty block goes to the scorer too: each one knows why ITS output
         # would be missing, and "the gate did not record per-check results" is a
         # more useful thing to read than "the block is empty".
-        record.update(scorer(block))
+        record.update(scorer(block, record["source_log"]))
     return record
 
 
