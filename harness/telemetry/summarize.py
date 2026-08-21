@@ -97,12 +97,23 @@ UNDEFINED = "undefined"
 #: cannot be scored at all. ``VOID`` is not a third gate outcome — it is the absence of
 #: one, and it is counted separately from both accept and reject everywhere below.
 ORIGINAL, AMENDED, VOIDED = "original", "amended", "voided"
+REGRADE_V2 = "regrade-v2"
 VOID = "void"
 
 #: Written beside a run by ``harness/runner/regrade.py``. Append-only: the original
 #: ``summary.json`` is never edited, so the amended verdict lives in its own file and
 #: this module carries both.
-REGRADE_FILE = "regrade-summary.json"
+#:
+#: Newest generation FIRST. A run can carry both: the v1 pass re-ran only the hidden
+#: gate, after the container gate's git-ownership defect; the v2 pass re-ran both
+#: gates under a gate image whose tag hashes the gate's own content (PR #27), so it
+#: is the only one that could not have been served a pre-fix grader from cache. When
+#: both exist the v2 verdict is the one to score under, and the v1 record stays on
+#: disk as provenance.
+REGRADE_FILES = ("regrade-v2-summary.json", "regrade-summary.json")
+REGRADE_PROVENANCE = {"regrade-v2-summary.json": REGRADE_V2,
+                      "regrade-summary.json": AMENDED}
+REGRADE_FILE = REGRADE_FILES[-1]
 
 #: Optional, human-authored, one per dataset: cells a forensic found unscoreable, with
 #: the reason and the log that documents it. It can only *remove* a cell from scoring —
@@ -372,12 +383,20 @@ def _adjudication_for(adjudication: Dict[str, Any], summary: Dict[str, Any],
 
 
 def read_regrade(run_dir: str) -> Optional[Dict[str, Any]]:
-    """The offline re-grade written beside a run, if one exists."""
-    path = os.path.join(run_dir, REGRADE_FILE)
-    if not os.path.isfile(path):
-        return None
-    with open(path, encoding="utf-8") as fh:
-        return json.load(fh)
+    """The NEWEST offline re-grade written beside a run, if one exists.
+
+    Returns the record plus the filename it came from, so the caller can say which
+    generation of the grader produced the verdict it is about to report.
+    """
+    for name in REGRADE_FILES:
+        path = os.path.join(run_dir, name)
+        if not os.path.isfile(path):
+            continue
+        with open(path, encoding="utf-8") as fh:
+            record = json.load(fh)
+        record["_regrade_file"] = name
+        return record
+    return None
 
 
 def effective_acceptance(run_dir: str, summary: Dict[str, Any],
@@ -393,7 +412,11 @@ def effective_acceptance(run_dir: str, summary: Dict[str, Any],
        re-grade that could not reconstruct the tree yields ``unavailable``, never the
        original verdict and never a guess: the original was produced by an instrument
        now known to be broken for this run, so it is not evidence either.
-    3. **voided** — a dataset adjudication says the cell is unscoreable (the task
+    3. **regrade-v2** — ``regrade-v2-summary.json``: a later pass that re-ran BOTH
+       gates under a gate image tagged with its own content digest, so no cached
+       pre-fix grader could serve it. Where both generations exist the newer one wins:
+       v1 re-ran only the sealed gate, and under a grader v2 has since corrected.
+    4. **voided** — a dataset adjudication says the cell is unscoreable (the task
        material never reached the agent, say). Void is not "rejected": it is the
        absence of a measurement and is counted apart from both outcomes.
 
@@ -406,14 +429,21 @@ def effective_acceptance(run_dir: str, summary: Dict[str, Any],
 
     regrade = read_regrade(run_dir)
     if regrade:
-        source = os.path.join(os.path.basename(os.path.normpath(run_dir)), REGRADE_FILE)
+        name = regrade.get("_regrade_file", REGRADE_FILE)
+        provenance = REGRADE_PROVENANCE.get(name, AMENDED)
+        source = os.path.join(os.path.basename(os.path.normpath(run_dir)), name)
         if regrade.get("status") == "graded":
             out.update({"result": (regrade.get("amended") or {}).get("acceptance_result"),
-                        "provenance": AMENDED, "source": source,
+                        "provenance": provenance, "source": source,
                         "reason": regrade.get("reason"),
                         "changed": bool(regrade.get("changed"))})
         else:
-            out.update({"result": UNAVAILABLE, "provenance": AMENDED, "source": source,
+            # A v2 re-grade REFUSES a truncated run: there is no completed agent
+            # product to grade. A v1 re-grade fails when it cannot reconstruct the
+            # tree. Both are the absence of a verdict, not a rejection — the
+            # original was produced by an instrument now known to be broken here.
+            out.update({"result": UNAVAILABLE, "provenance": provenance,
+                        "source": source,
                         "reason": regrade.get("reason") or
                         "the re-grade could not reconstruct this run's subject tree",
                         "changed": True})
@@ -1109,7 +1139,7 @@ def cell_verdict_provenance(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
     were, and the reader has to be able to see which without opening the run records.
     Reasons and sources are collected verbatim from the re-grade / adjudication.
     """
-    tally = {ORIGINAL: 0, AMENDED: 0, VOIDED: 0}
+    tally = {ORIGINAL: 0, AMENDED: 0, REGRADE_V2: 0, VOIDED: 0}
     changed = 0
     unavailable = 0
     reasons: List[str] = []
@@ -1133,13 +1163,15 @@ def cell_verdict_provenance(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         "n_runs": len(runs),
         "original": tally[ORIGINAL],
         "amended": tally[AMENDED],
+        "regrade_v2": tally[REGRADE_V2],
         "voided": tally[VOIDED],
         "verdicts_changed": changed,
         "verdicts_unavailable": unavailable,
         "transitions": transitions or None,
         "reasons": reasons or None,
         "sources": sources or None,
-        "all_original": tally[AMENDED] == 0 and tally[VOIDED] == 0,
+        "all_original": (tally[AMENDED] == 0 and tally[REGRADE_V2] == 0
+                         and tally[VOIDED] == 0),
     }
 
 
@@ -1306,8 +1338,9 @@ def _dataset_provenance(runs: List[Dict[str, Any]],
     usage = cell_usage_provenance(runs)
     return {
         "verdicts": {k: roll[k] for k in
-                     ("n_runs", "original", "amended", "voided", "verdicts_changed",
-                      "verdicts_unavailable", "transitions", "all_original")},
+                     ("n_runs", "original", "amended", "regrade_v2", "voided",
+                      "verdicts_changed", "verdicts_unavailable", "transitions",
+                      "all_original")},
         "verdict_sources": roll["sources"],
         "usage": usage,
         "runs_timed_out": sum(1 for r in runs
@@ -1319,8 +1352,13 @@ def _dataset_provenance(runs: List[Dict[str, Any]],
                          if adjudication else None),
         "note": ("An amended verdict is the same sealed set re-run against the same "
                  "archived agent output after an instrument defect was fixed — it is "
-                 "not a re-run of the agent and cost no model spend. A voided cell is "
-                 "unscoreable, which is neither an accept nor a reject."),
+                 "not a re-run of the agent and cost no model spend. A regrade-v2 "
+                 "verdict is the same thing one generation later: BOTH gates re-run, "
+                 "under a gate image whose tag hashes the gate's own content, so a "
+                 "pre-fix grader cannot have been served from cache. Where both "
+                 "exist the v2 verdict is the one scored and the v1 record stays on "
+                 "disk. A voided cell is unscoreable, which is neither an accept nor "
+                 "a reject."),
     }
 
 
@@ -1412,7 +1450,8 @@ def _fmt_provenance(prov: Dict[str, Any]) -> str:
     if prov.get("all_original"):
         return "original"
     parts = []
-    for key, label in ((ORIGINAL, "original"), (AMENDED, "amended"), (VOIDED, "void")):
+    for key, label in ((ORIGINAL, "original"), (AMENDED, "amended"),
+                       ("regrade_v2", "regrade-v2"), (VOIDED, "void")):
         if prov.get(key):
             parts.append(f"{prov[key]} {label}")
     changed = prov.get("verdicts_changed") or 0
