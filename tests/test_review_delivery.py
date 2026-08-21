@@ -48,6 +48,7 @@ from harness.runner import run as runner  # noqa: E402
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 W6_TASK_YAML = ROOT / "tasks" / "suite" / "W6-pr-review" / "task.yaml"
 CHECK_PUBLIC = ROOT / "harness" / "task-tools" / "gate" / "check-public.sh"
+LIB = ROOT / "harness" / "task-tools" / "lib.sh"
 
 #: Stands in for the sealed seeded diff. Labelled SYNTHETIC in its own bytes so a
 #: leak into any artifact is unmistakable, and distinctive enough to grep for.
@@ -375,6 +376,97 @@ class ThePublicGateExpectsTheReviewFiles(ReviewDeliveryHarness):
         runner.stage_review_artifact(str(subject), task)
         (subject / "SYNTHETIC-stray.txt").write_text("x\n", encoding="utf-8")
         self.assertIn("[fail]", self._p6(subject, tmp / "task", tmp))
+
+
+class TheLeakScanToleratesTheArtifactTheHarnessDelivers(ReviewDeliveryHarness):
+    """P5 no-leakage vs the delivered review diff.
+
+    THE SECOND SWEEP. Fixing P6 was not enough: `leak_found` fails any subject
+    tree containing a `*.patch` anywhere, and delivery puts one there by design.
+    So the W6 makeup pass of 2026-08-20 was rejected 15 times out of 15 — this
+    time for the very file the harness had staged — and `.git/info/exclude` was
+    no help, because the scan uses `find`, not git. Rebuilding the stale gate
+    image would NOT have fixed it; the rule itself had to learn the difference.
+
+    The rule it must not lose: a canonical answer patch smuggled in beside the
+    work is still leakage. The exemption is one declared path, at the subject
+    root, on the one gate type that delivers it.
+    """
+
+    def _leak(self, task_dir: pathlib.Path, tmp: pathlib.Path) -> bool:
+        """True when leak_found() reports leakage (it returns 0 on a find)."""
+        proc = subprocess.run(
+            ["bash", "-c", f'. "{LIB}"\nif leak_found; then echo LEAK; '
+                           f'else echo CLEAN; fi'],
+            capture_output=True, text=True,
+            env={**os.environ, "TASK_DIR": str(task_dir),
+                 "TASK_WORKDIR": str(tmp / "work")})
+        self.assertIn(proc.stdout.strip().splitlines()[-1] if proc.stdout else "",
+                      ("LEAK", "CLEAN"), proc.stdout + proc.stderr)
+        return proc.stdout.strip().splitlines()[-1] == "LEAK"
+
+    def test_the_delivered_artifact_is_not_leakage(self):
+        tmp, task = self._task()
+        subject = self._subject(tmp)
+        runner.stage_review_artifact(str(subject), task)
+        self.assertFalse(
+            self._leak(tmp / "task", tmp),
+            "the gate rejected the review task for containing the artifact the "
+            "harness delivered to it — the 15/15 sweep of the W6 makeup pass")
+
+    def test_a_second_stray_patch_is_still_leakage(self):
+        tmp, task = self._task()
+        subject = self._subject(tmp)
+        runner.stage_review_artifact(str(subject), task)
+        (subject / "canonical-solution.patch").write_text(
+            "SYNTHETIC stray patch\n", encoding="utf-8")
+        self.assertTrue(self._leak(tmp / "task", tmp),
+                        "the exemption is one named path, not an amnesty on patches")
+
+    def test_the_same_name_somewhere_else_in_the_tree_is_still_leakage(self):
+        tmp, task = self._task()
+        subject = self._subject(tmp)
+        runner.stage_review_artifact(str(subject), task)
+        nested = subject / "src" / "review-diff.patch"
+        nested.parent.mkdir(parents=True, exist_ok=True)
+        nested.write_text("SYNTHETIC copy in the wrong place\n", encoding="utf-8")
+        self.assertTrue(
+            self._leak(tmp / "task", tmp),
+            "only the subject-root path the runner stages is exempt; the name "
+            "alone must not buy passage anywhere in the tree")
+
+    def test_a_solution_task_gets_no_exemption(self):
+        # Same bytes, same filename, non-review gate type: still leakage. The
+        # exemption follows the gate type that delivers the artifact.
+        tmp, _ = self._task(gate_type="solution")
+        subject = self._subject(tmp)
+        (subject / "review-diff.patch").write_text("SYNTHETIC\n", encoding="utf-8")
+        self.assertTrue(self._leak(tmp / "task", tmp))
+
+    def test_a_planted_answer_marker_is_still_leakage_on_a_review_task(self):
+        # The other half of leak_found must survive the change untouched.
+        tmp, task = self._task()
+        subject = self._subject(tmp)
+        runner.stage_review_artifact(str(subject), task)
+        marked = subject / "src" / "router" / "reg-exp-router" / "node.ts"
+        marked.write_text("// CANONICAL SOLUTION\n", encoding="utf-8")
+        self.assertTrue(self._leak(tmp / "task", tmp))
+
+    def test_the_public_gate_now_passes_p5_on_a_delivered_review(self):
+        # End to end through the real gate script, not just the helper.
+        tmp, task = self._task()
+        subject = self._subject(tmp)
+        runner.stage_review_artifact(str(subject), task)
+        (subject / "review-report.txt").write_text(
+            "src/router/reg-exp-router/node.ts:12 — SYNTHETIC finding\n",
+            encoding="utf-8")
+        proc = subprocess.run(
+            ["bash", str(CHECK_PUBLIC)], capture_output=True, text=True,
+            env={**os.environ, "TASK_DIR": str(tmp / "task"),
+                 "TASK_WORKDIR": str(tmp / "work")})
+        p5 = [ln for ln in proc.stdout.splitlines() if "P5-no-leakage" in ln]
+        self.assertTrue(p5, proc.stdout + proc.stderr)
+        self.assertIn("[pass]", p5[0])
 
 
 if __name__ == "__main__":  # pragma: no cover
