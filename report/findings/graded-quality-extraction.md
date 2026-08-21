@@ -34,7 +34,7 @@ Metrics registered, per the extraction scope agreed for this pass:
 
 ## What came out
 
-Scored: **W1 17 runs, W1b 17 runs, W6 14 runs**. Every other run carries an explicit
+Scored: **W1 18 runs, W1b 18 runs, W6 15 runs** (the confound makeup added one of each). Every other run carries an explicit
 reason, and the reasons are counted in the limitation ledger of the consolidated table.
 
 **W3 and W4b produced no graded quality at all.** Both read the hidden gate's
@@ -75,6 +75,31 @@ generation.** There is nothing to extract because nothing ran.
 For W4b the gate exits 1 on all 16 and the summary grep still matched nothing; the
 cause is not established from the archive alone and is recorded here as open.
 
+### A third generation, and it settles the ambiguity
+
+The confound makeup (2026-08-21, `results/screening-batch1-confound-makeup/`) is the
+first dataset graded **live** by a gate that already carried the per-check step — the
+five gate images it used are the content-hashed ones, and their digests recompute from
+the tree unchanged. So for its runs, an empty capture cannot mean "the feature did not
+exist yet". It came back empty anyway:
+
+| task | runs | hidden exit | per-check block |
+|---|---|---|---|
+| W3 | 3 | 4 ×3 | absent ×3 |
+| W4b | 2 | 1 ×2 | absent ×2 |
+
+That closes the W3 question for good: **exit 4 in all three grading generations**, the
+third under a gate that demonstrably records per-check results. The suite does not run,
+full stop. For W4b it narrows the open item — the capture is empty under a gate known
+to carry the step, so the gap is in `stack_run_selected_graded` for that task's pytest
+selection, not in the gate's plumbing. Still unresolved, still recorded, still with no
+verdict depending on it.
+
+`harness/analysis/quality.py` distinguishes the two cases by the run's own start stamp
+against the commit that added the step (9e84315, 2026-08-21T02:18:18Z), because no run
+records a harness sha. A run graded before it says "the detail was never written down";
+a run graded after it says "the capture came back empty". Neither is ever a zero.
+
 ## Does this change any verdict?
 
 **No.** Two independent reasons, both checked against the archive:
@@ -82,14 +107,15 @@ cause is not established from the archive alone and is recorded here as open.
 1. The hidden verdict is identical between the original grading and regrade-v2 for
    every W3 and W4b run — `fail` in both.
 2. The acceptance decision never reaches the sealed gate for these tasks. Across
-   **all 29 W3 runs and all 16 W4b runs, in every arm, zero passed the public checks**:
+   **all 32 W3 runs and all 20 W4b runs, in every arm, zero passed the public checks**:
    every single run fails both `P1-public-test` and `P2-regression`. The gate is
    deterministic-first, so each of those runs is rejected on the public tier before the
    sealed tier is consulted.
 
 That second fact deserves its own line in the limitation ledger, independent of
-quality extraction: **W3 and W4b have a 0/29 and 0/16 acceptance rate across every
-arm, including the strongest.** A task that no arm passes does not discriminate between
+quality extraction: **W3 and W4b have a 0/32 and 0/20 acceptance rate across every
+arm, including the strongest** (counts over all four screening datasets; the confound
+makeup added three W3 runs and two W4b runs, and none of them changed it). A task that no arm passes does not discriminate between
 arms, and no comparative reading may be taken from either of them. Whether that is a
 property of the tasks or of their instruments is not resolved here.
 

@@ -52,6 +52,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import statistics as st
 import subprocess
 import sys
@@ -257,6 +258,19 @@ def build(results_root: str, datasets: List[str],
             continue
         task, config = cell_key
         cells.append(_empty_cell(task, config, cell_slots, registry.get(task)))
+    # A rep the contamination guard refused leaves no run directory, so nothing above
+    # this line can see it and the cell's denominator quietly shrinks to the reps that
+    # did run — a cell that lost a rep would print a confident "3/3". Count them back
+    # in: the design registered the rep, we bought it, and it did not happen.
+    deferred = deferred_contaminated(results_root, datasets, registry)
+    for cell in cells:
+        key = (cell["task_id"], cell["configuration_or_policy"])
+        extra = {d["rep"] for d in deferred
+                 if (d["task_id"], d["configuration_id"]) == key}
+        extra -= {s["key"][2] for s in slots_by_cell.get(key, [])}
+        if extra:
+            cell["reps_registered"] += len(extra)
+            cell["reps_deferred_contaminated"] = sorted(extra)
     cells.sort(key=lambda c: (c["task_id"], c["configuration_or_policy"]))
 
     by_cell = {(c["task_id"], c["configuration_or_policy"]): c for c in cells}
@@ -292,7 +306,7 @@ def build(results_root: str, datasets: List[str],
             "w3_escalation": S.grade_w3_escalation(by_cell, grouped, registry),
         },
         "cells": cells,
-        "ledger": ledger(cells),
+        "ledger": ledger(cells, deferred),
     }
 
 
@@ -363,7 +377,49 @@ def _empty_cell(task: str, config: str, cell_slots: List[Dict[str, Any]],
 
 # --------------------------------------------------------------- limitation ledger
 
-def ledger(cells: List[Dict[str, Any]]) -> Dict[str, Any]:
+def deferred_contaminated(results_root: str, datasets: List[str],
+                          registry: Optional[Dict[str, Any]] = None,
+                          ) -> List[Dict[str, Any]]:
+    """Slots a driver was told to buy and did not run, per `deferred-contaminated.tsv`.
+
+    These leave no run directory, so nothing downstream of `scan()` can see them, and
+    without this they read in the ledger as "lost to truncation and never re-bought" —
+    which is the opposite of what happened. The slot WAS re-bought under an approved
+    CP-SPEND; the collector's contamination guard then refused to start it because
+    background traffic on the subject model would have made the attribution
+    meaningless. Nothing was billed and nothing was measured. It is still a hole, but
+    it is a hole with a named cause and a cheap remedy (re-run in a quiet window), and
+    a reader deciding whether to buy the slot again needs to know which kind it is.
+    """
+    # Batch 1's driver wrote the task DIRECTORY in this column and later drivers write
+    # the task id. Both are the same slot and must land on the same key, or a deferral
+    # would be filed against a task that appears nowhere else in the table.
+    by_dir = {e["task_dir"]: tid for tid, e in (registry or {}).items()}
+
+    out: List[Dict[str, Any]] = []
+    for dataset in datasets:
+        path = os.path.join(results_root, dataset, "deferred-contaminated.tsv")
+        try:
+            with open(path, encoding="utf-8") as fh:
+                rows = fh.read().splitlines()
+        except OSError:
+            continue
+        for line in rows:
+            parts = line.split("\t")
+            if len(parts) < 5 or parts[0].startswith("#"):
+                continue
+            stamp, _slot_no, task, config, rep = parts[:5]
+            out.append({"dataset": dataset,
+                        "task_id": by_dir.get(task, task),
+                        "task_as_written": task,
+                        "configuration_id": config,
+                        "rep": int(re.sub(r"\D", "", rep) or 0),
+                        "deferred_at": stamp})
+    return sorted(out, key=lambda r: (r["task_id"], r["configuration_id"], r["rep"]))
+
+
+def ledger(cells: List[Dict[str, Any]],
+           deferred: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     """Everything a reader must know before quoting a number from the table.
 
     Assembled FROM the cells rather than hand-written, so it cannot fall out of date
@@ -378,6 +434,25 @@ def ledger(cells: List[Dict[str, Any]]) -> Dict[str, Any]:
                      "rep": hole["rep"], "attempts": hole["attempts"]}
             (exhausted if hole["kind"] == BUDGET_EXHAUSTION else lost).append(entry)
 
+    # A slot that was re-bought and then refused by the contamination guard belongs in
+    # exactly one place, and it is not "never re-bought". Move it, carrying its earlier
+    # attempts with it, so the reader sees both the loss and why the replacement never
+    # ran without the two facts being filed as separate holes.
+    by_slot = {(d["task_id"], d["configuration_id"], d["rep"]): d
+               for d in (deferred or [])}
+    still_lost, refused = [], []
+    for entry in lost:
+        key = (entry["task_id"], entry["configuration_id"], entry["rep"])
+        if key in by_slot:
+            refused.append({**by_slot[key], "attempts": entry["attempts"]})
+        else:
+            still_lost.append(entry)
+    for key, d in sorted(by_slot.items()):
+        if not any(key == (r["task_id"], r["configuration_id"], r["rep"])
+                   for r in refused):
+            refused.append({**d, "attempts": []})
+    lost = still_lost
+
     def named(predicate) -> List[str]:
         return [f"{c['task_id']}::{c['configuration_or_policy']}"
                 for c in cells if predicate(c)]
@@ -385,6 +460,8 @@ def ledger(cells: List[Dict[str, Any]]) -> Dict[str, Any]:
     return {
         "budget_exhaustion": exhausted,
         "unreplaced_loss": lost,
+        "deferred_contaminated": sorted(
+            refused, key=lambda r: (r["task_id"], r["configuration_id"], r["rep"])),
         "cells_with_no_evidence": named(lambda c: c["reps_filled"] == 0),
         "cells_with_understrength_n": [
             f"{c['task_id']}::{c['configuration_or_policy']} "
@@ -417,12 +494,13 @@ def ledger(cells: List[Dict[str, Any]]) -> Dict[str, Any]:
             "agent budgets are different instruments.",
             "W3 and W4b have no graded quality on any run: the python stack's "
             "per-check capture came back empty for every one of them, and W3's sealed "
-            "suite never executed at all (pytest usage error, exit 4, in both grading "
-            "generations). No verdict depends on it — see "
-            "report/findings/graded-quality-extraction.md.",
-            "No W3 or W4b run in any arm passed the public checks, so neither task "
-            "discriminates between arms and no comparative reading may be taken from "
-            "either.",
+            "suite never executed at all (pytest usage error, exit 4, in all three "
+            "grading generations — original, regrade-v2, and the confound makeup's "
+            "live grading under a gate that does carry the per-check step). No verdict "
+            "depends on it — see report/findings/graded-quality-extraction.md.",
+            "No W3 or W4b run in any arm passed the public checks (0 of 32 and 0 of 20 "
+            "runs carrying a public gate), so neither task discriminates between arms "
+            "and no comparative reading may be taken from either.",
         ],
     }
 
@@ -513,7 +591,10 @@ def render(table: Dict[str, Any], *, generated_at: str, harness_head: str) -> st
     ]
     for c in table["cells"]:
         reps = f"{c['reps_filled']}/{c['reps_registered']}"
-        if c["holes"]:
+        # Mark on the arithmetic, not on the hole list: a rep the contamination guard
+        # refused never became a slot, so it has no hole entry, and marking only holes
+        # would let a short cell print an unmarked denominator.
+        if c["holes"] or c["reps_filled"] < c["reps_registered"]:
             reps += " ⚠"
         L.append(
             f"| `{c['task_id']}` | **{c['configuration_or_policy']}** | "
@@ -558,8 +639,26 @@ def _render_prereg(table: Dict[str, Any]) -> List[str]:
     if w.get("reason"):
         L += [w["reason"], ""]
     L += [f"- Probe task(s): {', '.join('`%s`' % t for t in w['probe_tasks']) or 'none'}",
-          f"- Economical arm at the gate: `{w.get('economical_gate')}`",
-          f"- Escalation branch: `{w.get('escalation')}`", ""]
+          f"- Economical arm ({w['economical_arm']}) at the gate: "
+          f"`{w.get('economical_tier_gate')}`"
+          + (f" — accepted {w['economical_solo']['acceptance']}"
+             if w.get("economical_solo") else ""),
+          f"- Escalation branch: `{w.get('escalation_branch')}` "
+          f"({w.get('n_escalated')} of {w.get('n_probe_runs')} probe run(s))"]
+    if w.get("outcome_basis"):
+        L += [f"- Basis: {w['outcome_basis']}"]
+    if w.get("confound"):
+        L += [f"- Confound: {w['confound']['statement']}"]
+    # The grader reads whatever survived supersession. If either arm is short of the
+    # registered reps, the verdict rests on fewer runs than the design bought, and a
+    # reader who cannot see that from this section would over-read it.
+    for label, cell in (("economical", w.get("economical_solo")),
+                        ("probe", w.get("probe_cell"))):
+        acc = (cell or {}).get("acceptance") or ""
+        if "/" in acc and acc.split("/")[1].isdigit() and int(acc.split("/")[1]) < 3:
+            L += [f"- **Understrength:** the {label} arm is graded on {acc.split('/')[1]} "
+                  f"run(s), not the registered 3 — see the limitation ledger."]
+    L += [""]
     return L
 
 
@@ -584,6 +683,23 @@ def _render_ledger(led: Dict[str, Any]) -> List[str]:
         for e in led["unreplaced_loss"]:
             L.append(f"- `{e['task_id']}` **{e['configuration_id']}** rep {e['rep']} — "
                      f"{_attempts(e['attempts'])}")
+    else:
+        L.append("None.")
+    L.append("")
+
+    L += ["### Slots re-bought, then refused by the contamination guard", ""]
+    if led.get("deferred_contaminated"):
+        L += ["These slots WERE re-bought under an approved CP-SPEND. The collector "
+              "then measured background traffic on the subject model and refused to "
+              "start the run, because a cost attributed across someone else's traffic "
+              "is not a measurement. **Nothing was billed and nothing was run.** They "
+              "are holes, but the cause is the measurement window, not the model or "
+              "the budget, and the remedy is to re-run them in a quiet window.", ""]
+        for e in led["deferred_contaminated"]:
+            prior = (f" Earlier attempt(s): {_attempts(e['attempts'])}"
+                     if e.get("attempts") else "")
+            L.append(f"- `{e['task_id']}` **{e['configuration_id']}** rep {e['rep']} — "
+                     f"deferred {e['deferred_at']} in `{e['dataset']}`.{prior}")
     else:
         L.append("None.")
     L.append("")

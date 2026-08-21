@@ -277,6 +277,50 @@ class TheTableReportsWhatIsMissing(unittest.TestCase):
         # Both attempts are named, so the finding can be read without the archive.
         self.assertEqual(2, len(led["budget_exhaustion"][0]["attempts"]))
 
+    def _defer(self, dataset, task, config, rep, stamp, slot_no=1):
+        path = os.path.join(self.root, dataset, "deferred-contaminated.tsv")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(f"{stamp}\t{slot_no}\t{task}\t{config}\trep{rep}\n")
+
+    def test_a_deferred_rep_is_counted_in_the_denominator(self):
+        # A rep the contamination guard refused leaves no run directory. Counting only
+        # what ran would print "2/2" for a cell that is missing a third of its design,
+        # and every median in that row would read as complete when it is not.
+        for rep in (1, 2):
+            self.lab.run("screening-batch1", "t", "C3", rep, f"2026081{rep}T000000")
+        self._defer("screening-batch1", "t", "C3", 3, "20260818T021521")
+        cell = self._build()["cells"][0]
+        self.assertEqual(2, cell["reps_filled"])
+        self.assertEqual(3, cell["reps_registered"])
+        self.assertEqual([3], cell["reps_deferred_contaminated"])
+
+    def test_a_refused_slot_is_not_filed_as_never_rebought(self):
+        # The slot was lost in batch 1 AND re-bought; the guard then refused it. Filing
+        # it under "never re-bought" would say we did not try, and would invite buying
+        # a slot whose real blocker is the measurement window, not the budget.
+        self.lab.run("screening-batch1", "t", "C5", 1, "20260818T000000",
+                     truncated="claude_timeout")
+        self._defer("screening-batch1-makeup", "t", "C5", 1, "20260821T100622")
+        led = self._build()["ledger"]
+        self.assertEqual([], led["unreplaced_loss"])
+        self.assertEqual([("t", "C5", 1)],
+                         [(e["task_id"], e["configuration_id"], e["rep"])
+                          for e in led["deferred_contaminated"]])
+        # The earlier truncation travels with it — the loss is still on the record.
+        self.assertEqual(1, len(led["deferred_contaminated"][0]["attempts"]))
+
+    def test_a_deferral_written_as_a_task_dir_lands_on_the_task_id(self):
+        # Batch 1's driver wrote the task directory in this column; later drivers write
+        # the task id. Left unmapped, the batch-1 rows would name a task that appears
+        # nowhere else in the table and could never be reconciled with a cell.
+        registry = {"pilot-realworld-draft-articles": {"task_dir": "tasks/pilot-realworld"}}
+        self._defer("screening-batch1", "tasks/pilot-realworld", "C3", 3,
+                    "20260818T021521")
+        rows = C.deferred_contaminated(self.root, ["screening-batch1"], registry)
+        self.assertEqual("pilot-realworld-draft-articles", rows[0]["task_id"])
+        self.assertEqual("tasks/pilot-realworld", rows[0]["task_as_written"])
+
     def test_the_rendered_table_carries_the_pending_banner_and_the_cp_gate(self):
         self.lab.run("screening-batch1", "t", "P0", 1, "20260818T000000")
         table = self._build()
