@@ -72,12 +72,15 @@ not ship.
 | F-1 | The instrument separates arms on at least one task | W6 gradient (§7) | one task, one review roster, pinned conditions |
 | F-2 | Gate-passing output can still be unmergeable | W1b (§6/§7) | W1b property-test cells only |
 | F-3 | Right-censored runs are not capability results | holes ledger (§8) | instrument statement, not a model statement |
-| F-4 | Product-B solo cost is not measurable under this instrument | §5 | this collector, these windows, this metering surface |
+| F-4 | Product-B cost is measurable only as a cache-blind upper bound, from a single uncorroborated source | §5.1 | this collector, these windows, this metering surface |
 | F-5 | *(reserved — H-effort quality half)* | §6.1 | routine-class tasks only, per registration scope condition |
 | F-6 | *(reserved — W3 escalation)* | §6.2 | W3-migration only; designated difficulty probe |
+| F-7 | Provider-side per-run attribution in a shared project cannot be scheduled dependably: 9/9 succeeded overnight, 7 refused and 3 deferred in daytime windows | §8 ledger; confound probe evidence (20.7M third-party tokens in-window) | this metric surface, this project class |
+| F-8 | A black-box agent CLI can report usage and still yield none, if the harness never requests its structured-output mode | §5.1 (0 of 153 archived invocations; positive product probe) | agy 1.1.13, this adapter |
 
-**Explicitly NOT licensed by this batch:** cost per accepted outcome for any solo
-Product-B arm (§5); any cross-product cost ranking; any effort-level cost claim; any
+**Explicitly NOT licensed by this batch:** any Product-B cost stated as exact rather
+than as an upper bound (§5.1); any cross-source validation of Product-B cost, there
+being only one source; any cross-product cost ranking; any effort-level cost claim; any
 dispersion or variance claim from the makeup datasets (n=2 or replacement slots, per
 the driver's `REPS_CAVEAT`).
 
@@ -125,26 +128,60 @@ A cell whose filled reps span more than one rule renders every rule present
 
 A bare `unavailable` does not ship. The reason renders in the cell.
 
-### 5.1 Solo Product-B arms — C3, C3-med, C3-prev
+### 5.1 Product-B cost — present, bounded, and single-source
 
-These arms are released as **quality + wall-clock only, cost `unavailable`,** with the
-reason stated inline. The registered reason:
+**41 of 42 cells carry a cost.** C3, C3-med and C3-prev are costed on all 7 tasks; C5 on
+5 of 6. The only cost-less cell is `w3…::C5`, which has no runs at all (§8), so its
+absence is an evidence hole, not a pricing failure.
 
-> Effort levels are not label-separable in the provider's metering surface. Attribution
-> rests on non-overlapping run windows alone, and the batch's own tokens land in the
-> next probe's trailing window under indistinguishable labels (quiet-window
-> self-exhaust, recorded as a design limitation). No solo Product-B leg in this batch
-> carries a complete price.
+Every Product-B-metered cost renders `≤` — a cache-blind upper bound at **derived**
+attribution tier, produced by the provider-side collector
+(`serialized_run_ownership_with_rate_ceiling`). It is never restated as an exact figure
+and never sits in the same column as Product A's per-request `authoritative` costs.
 
-Consequences that must be carried wherever these arms appear:
+**What is missing is the second source.** The harness invoked agy without
+`--output-format json`; the product's default output is text, so no run ever emitted a
+usage block and the adapter recorded all token classes `unavailable`. Verified
+2026-08-22: 0 of 153 archived invocations across all four datasets contain usage, while
+a direct probe of agy 1.1.13 confirms the product DOES expose input / output / thinking /
+cache-read counts under that flag.
 
-- No cost-per-accepted-outcome figure exists for the economical solo tier in this batch.
-- The H-effort registration is therefore gradable on its **quality half only** (§6.1).
-- Claim F-4 is an **instrument** statement about this collector and these windows. It is
-  not a statement that the arm is expensive, cheap, or unmeasurable in principle.
+Three consequences, all of which must travel with every Product-B figure:
 
-The confound makeup's only Google-metered arm is **C5**, so it does not close this gap
-and must not be presented as if it did.
+1. **Single-source.** Every Gemini cost rests on the provider-side collector with no
+   independent cross-check. Product A's figures are corroborated by construction;
+   Product B's are not.
+2. **Cache-blind by omission, not by necessity.** `cache_read_tokens` was available from
+   the product throughout. The `≤` bounds could have been decomposed and were not. This
+   bears on the 2026-08-16 `gemini_cache_blindness` decision, which was taken on
+   provider-metric evidence with no product-side probe run.
+3. **The thinking share is unaccounted.** agy reports `thinking_tokens`; the adapter's
+   mapper looks for `reasoning_tokens`. Even with the flag set, that class would have
+   been dropped.
+
+Self-caught instrument defect (`report/findings/agy-json-flag-defect.md`). Unrecoverable
+from archives — product-reported usage for a past run cannot be reconstructed. Fixed
+forward.
+
+An earlier draft of this section stated that these arms carry no cost at all and
+attributed it to effort levels being non-label-separable in the provider's metering
+surface. Both statements are **superseded**: the cells are costed, and the operative
+defect was a missing CLI flag affecting the corroborating source, not the primary one.
+
+### 5.2 C5 — costed on five tasks, absent on the sixth, delegation unobserved
+
+C5's conductor leg (Product A) is priced per request; its executor leg is bounded by the
+same collector as the solo arms. Cells render `≤`, and where only some reps are costed
+the cell says so (`n=x of y`) — a partially costed run is left out of the median, never
+entered as a floor.
+
+On W3, C5 has **zero attempts**: truncated in batch 1, then deferred-contaminated in the
+confound makeup (§8). Reported with no verdict, which is not a rejection.
+
+Because `frontier_token_share` derives from executor-side counts that no run reported,
+**live delegation behaviour is unobserved** — consistent with policy P3's own record
+(`live_delegation: unverified`). No statement about when or why the conductor delegates
+is licensed by this batch.
 
 ---
 
@@ -165,7 +202,7 @@ outcome. **Scope condition:** routine classes only — the harder screening task
 | Half | Gradable | Result |
 |---|---|---|
 | Gate parity (quality) | yes | **holds** on both gradable in-scope tasks — `pilot-realworld-draft-articles` and `w1-realworld-mapper-tests`; `w1b` and `w3` are in scope but `not_gradable` (no arm cleared the gate, so there is no cost-per-accepted-outcome to compare) |
-| Cost reduction (30–50% band) | **no** | not gradable — both arms' cost is `unavailable` (§5.1) |
+| Cost reduction (30–50% band) | **no** | not gradable — both arms are cache-blind upper bounds (§5.1); a ratio of two `≤` bounds is not a measured reduction and the registered band is not drawn against it |
 
 The predicted band is **not** drawn, compared to, or reported as met/unmet. Recording
 the cost half as ungradable is itself the finding, and it ships as one: the registration
@@ -228,6 +265,20 @@ This is the finding that answers the batch-3 problem recorded in the README — 
 that put 27 of 27 controlled runs through the gate could not separate anything. This one
 can.
 
+**Timeout parity: cleared for W6 (B-11).** All nine Gemini runs completed naturally in
+115–384s, far under the product's 900s per-invocation timeout; P0 ran 574–693s and C2
+475–1201s. The gradient is not an artifact of unequal time. W3 and W4b Gemini cells DO
+sit at the ~915s wall and are reported with that ceiling disclosed — the contrast is
+itself a finding, and every cross-arm figure carries per-arm time ceilings in its
+pinned-conditions line.
+
+**W6 also carries the study's cleanest economic comparison.** Its nine Gemini runs were
+collected in an uncontaminated overnight window (9/9 backfilled) and P0/C2 are priced
+per request, so cost per accepted outcome is computable across all five arms on the
+headline task. An arm with a ~$0.55–1.33 attempt cost and zero accepted reps renders as
+undefined cost-per-outcome — cheap per attempt, unboundedly expensive per result. That
+single row is the lab's thesis.
+
 ---
 
 ## 8. Holes ledger — absent evidence, printed with its reason
@@ -238,6 +289,7 @@ Two classes, never conflated, never dropped, never averaged around:
 |---|---|---|
 | Budget exhaustion | every attempt ran out of wall-clock, including ≥1 re-buy under a longer budget | **a result** — "does not complete within the budget bought" |
 | Unreplaced loss | slot lost to truncation or void, no later pass re-bought it | **missing data** — says so |
+| Deferred-contaminated | the pre-run quiet gate could not establish a clean measurement window; the arm was never invoked, nothing billed | **an instrument refusal** — "declined to measure dirty", published with the probe evidence |
 
 Ledger contents, as generated (full text and per-slot provenance in the consolidated
 table's *Limitation ledger*):
@@ -299,8 +351,22 @@ failure mode this whole package exists to prevent.
       §3 claim. No orphans in either direction.
 - [ ] **B-8.** W3/W4b graded-quality remains `unavailable` (sealed per-check block absent
       in all generations) — recorded as a limitation, confirmed to affect no verdict.
-- [ ] **B-9.** Schedulers still paused / `agy-agent-catalog-refresh` provenance stated as
-      an open limitation, so no reader assumes a clean metering environment.
+- [ ] **B-9.** Metering environment stated as a limitation: shared GCP project, 20.7M
+      third-party input tokens measured on the subject model inside a live measurement
+      window (F-7). `agy-agent-catalog-refresh` is NOT a Cloud Scheduler job in
+      us-central1 — provenance restated from `gcloud scheduler jobs list` across all
+      locations, or the reference removed.
+- [ ] **B-10.** W1's sealed mutant roster is disclosed by descriptive name in published
+      gate-hidden receipts (`m1-following-always-false` … `m6-taglist-wrong-shape`) and
+      in `tests/fixtures/w1-hidden-runner-SYNTHETIC/`, violating the task's own split
+      rule. Recorded in the limitation ledger; W1 declared no longer sealed for future
+      measurement or for workshop participants; runner to print opaque IDs before batch
+      2. History is NOT rewritten.
+- [ ] **B-11.** Timeout parity: CHECKED 2026-08-22 (§7). W6 cleared. W3/W4b Gemini
+      ceiling disclosed on every affected figure.
+- [ ] **B-12.** Every Product-B cost renders `≤` with derived tier and single-source
+      provenance visible (§5.1). No Product-B figure appears in the same column as a
+      Product-A `authoritative` cost.
 
 ---
 
