@@ -1,0 +1,13 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/review-report.txt b/review-report.txt
+new file mode 100644
+index 00000000..065ce890
+--- /dev/null
++++ b/review-report.txt
+@@ -0,0 +1,5 @@
++src/router/reg-exp-router/node.ts:30 — compareKey returns -1 when `a` is TAIL_WILDCARD_REG_EXP_STR and `b` is any non-TAIL_WILDCARD key, making the tail wildcard sort before specific patterns and incorrectly win in regex alternation.
++src/router/reg-exp-router/node.ts:65 — `i <= len - 1` is always true inside the loop (i never exceeds len-1), so a `*` token mid-path always produces ONLY_WILDCARD_REG_EXP_STR instead of LABEL_REG_EXP_STR, matching slashes it should not.
++src/router/reg-exp-router/node.ts:172 — `regExpMetaChars.has(k) ? \`${k}\`` omits the `\\` escape that the removed code had (`\`\\${k}\``), so regex meta-characters in literal path segments are inserted unescaped into the built regexp and match unintended characters.
++src/router/reg-exp-router/trie.ts:55 — `this.paths[path] = [++this.#index, paramAssoc]` stores the post-increment index while `Node.insert` was called with the pre-increment value, so the handler-data slot filled in `#buildMatcher` (via `pathData[0]`) is always one higher than the index the trie node records, causing every dynamic route's handlers to be looked up from the wrong slot.
++src/router/reg-exp-router/router.ts:74 — `this.#tries![method] = this.#tries![METHOD_NAME_ALL]` aliases the new method's trie to the shared ALL-methods trie, so the `#insertPath` calls on the next line re-insert paths that already exist in that trie, triggering `PATH_ERROR` (surfaced as `UnsupportedPathError`) whenever a specific-method route is added after any ALL-method route.

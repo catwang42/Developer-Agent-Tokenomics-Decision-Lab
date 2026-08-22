@@ -1,0 +1,71 @@
+diff --git a/src/zarr/core/group.py b/src/zarr/core/group.py
+index 922eaf14..40b870f8 100644
+--- a/src/zarr/core/group.py
++++ b/src/zarr/core/group.py
+@@ -135,6 +135,24 @@ def _parse_async_node(
+         raise TypeError(f"Unknown node type, got {type(node)}")
+ 
+ 
++def _consolidated_sort_key(key: str) -> tuple[int, str, str, str, str]:
++    """
++    Canonical sort key for a flat consolidated metadata key like ``a/b/c``.
++
++    Keys are ordered by depth first, so that parents sort before their children, then by
++    parent, so that siblings are contiguous, and finally by name. Names are compared
++    case-insensitively, with the raw text as a tie breaker so that the order is total.
++    """
++    parent, _, name = key.rpartition("/")
++    return (
++        key.count("/"),
++        unicodedata.normalize("NFKC", parent).casefold(),
++        parent,
++        unicodedata.normalize("NFKC", name).casefold(),
++        name,
++    )
++
++
+ @dataclass(frozen=True)
+ class ConsolidatedMetadata:
+     """
+@@ -237,7 +255,13 @@ class ConsolidatedMetadata:
+         # In the example, the group at `/a/b` will have consolidated metadata
+         # for its children `array-0` and `array-1`.
+ 
+-        keys = sorted(metadata, key=lambda k: k.count("/"))
++        # The keys of the flat mapping come in an arbitrary order, so they must be sorted
++        # into a canonical order before grouping: `itertools.groupby` only groups
++        # *consecutive* keys, and any key left out of its parent's group would be dropped
++        # from the nested representation and linger as a slash-containing key at the top
++        # level. Sorting by depth alone isn't enough, since siblings of two parents that
++        # sort equally (e.g. names differing only by case) can interleave.
++        keys = sorted(metadata, key=_consolidated_sort_key)
+         grouped = {
+             k: list(v) for k, v in itertools.groupby(keys, key=lambda k: k.rsplit("/", 1)[0])
+         }
+@@ -283,6 +307,13 @@ class ConsolidatedMetadata:
+                 node, consolidated_metadata=ConsolidatedMetadata(metadata=children)
+             )
+ 
++        # The children of each node were inserted in canonical order above, but the
++        # top-level nodes are still in the arbitrary order of the flat mapping. Restore
++        # the canonical order there too, so that the nested representation doesn't depend
++        # on the order the keys were persisted in.
++        for key in sorted(metadata, key=_consolidated_sort_key):
++            metadata[key] = metadata.pop(key)
++
+     @property
+     def flattened_metadata(self) -> dict[str, ArrayV2Metadata | ArrayV3Metadata | GroupMetadata]:
+         """
+
+# untracked files (agent-created), full content below:
+diff --git a/changes/4220.bugfix.md b/changes/4220.bugfix.md
+new file mode 100644
+index 00000000..b0363fb5
+--- /dev/null
++++ b/changes/4220.bugfix.md
+@@ -0,0 +1,5 @@
++Reconstructing consolidated metadata no longer depends on the order in which the
++flat keys were persisted. Previously, children of sibling nodes whose names sort
++equally (for example, names differing only by case) could interleave, so some
++nodes were dropped from their parent's consolidated metadata and remained as
++unreachable slash-containing keys at the top level.
