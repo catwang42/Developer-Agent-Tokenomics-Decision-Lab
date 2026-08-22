@@ -1,0 +1,94 @@
+diff --git a/src/zarr/core/group.py b/src/zarr/core/group.py
+index 922eaf14..609fa865 100644
+--- a/src/zarr/core/group.py
++++ b/src/zarr/core/group.py
+@@ -1,7 +1,6 @@
+ from __future__ import annotations
+ 
+ import asyncio
+-import itertools
+ import logging
+ import unicodedata
+ import warnings
+@@ -237,13 +236,17 @@ class ConsolidatedMetadata:
+         # In the example, the group at `/a/b` will have consolidated metadata
+         # for its children `array-0` and `array-1`.
+ 
+-        keys = sorted(metadata, key=lambda k: k.count("/"))
+-        grouped = {
+-            k: list(v) for k, v in itertools.groupby(keys, key=lambda k: k.rsplit("/", 1)[0])
+-        }
++        # Group the keys by their parent path. Note that the keys of `metadata` are
++        # in an arbitrary order, so keys sharing a parent are not necessarily adjacent;
++        # accumulating into a dict (rather than relying on `itertools.groupby`, which
++        # only groups *consecutive* keys) keeps every child in its parent's group.
++        grouped: dict[str, list[str]] = {}
++        for k in sorted(metadata, key=lambda k: k.count("/")):
++            grouped.setdefault(k.rsplit("/", 1)[0], []).append(k)
+ 
+         # we go top down and directly manipulate metadata.
+-        for key, children_keys in grouped.items():
++        for key in sorted(grouped, key=lambda k: k.count("/")):
++            children_keys = grouped[key]
+             # key is a key like "a", "a/b", "a/b/c"
+             # The basic idea is to find the immediate parent (so "", "a", or "a/b")
+             # and update that node's consolidated metadata to include the metadata
+@@ -262,7 +265,6 @@ class ConsolidatedMetadata:
+                 parent = parent[part].consolidated_metadata.metadata  # type: ignore[union-attr]
+ 
+             node = parent[name]
+-            children_keys = list(children_keys)
+ 
+             if isinstance(node, ArrayV2Metadata | ArrayV3Metadata):
+                 # These are already present, either thanks to being an array in the
+diff --git a/tests/test_metadata/test_consolidated.py b/tests/test_metadata/test_consolidated.py
+index e6087435..946df93c 100644
+--- a/tests/test_metadata/test_consolidated.py
++++ b/tests/test_metadata/test_consolidated.py
+@@ -1,5 +1,6 @@
+ from __future__ import annotations
+ 
++import itertools
+ import json
+ from typing import TYPE_CHECKING, Any
+ 
+@@ -408,6 +409,28 @@ class TestConsolidated:
+         data["metadata"] = {}
+         ConsolidatedMetadata.from_dict(data)
+ 
++    def test_from_dict_nesting_is_order_independent(self) -> None:
++        # The persisted metadata is a flat mapping whose key order is arbitrary. Nesting
++        # must not depend on that order, in particular for sibling groups whose names
++        # differ only by case, which do not sort next to each other.
++        group_metadata = GroupMetadata().to_dict()
++        keys = ["A", "a", "A/one", "a/zero", "A/two"]
++
++        results = []
++        for permutation in itertools.permutations(keys):
++            data: dict[str, JSON] = {
++                "kind": "inline",
++                "must_understand": False,
++                "metadata": {key: group_metadata for key in permutation},
++            }
++            results.append(ConsolidatedMetadata.from_dict(data))
++
++        for result in results:
++            # every node is reachable through the nesting, so no key retains its prefix
++            assert sorted(result.flattened_metadata) == sorted(keys)
++            assert sorted(result.metadata) == ["A", "a"]
++            assert result == results[0]
++
+     def test_flatten(self) -> None:
+         array_metadata: dict[str, Any] = {
+             "attributes": {},
+
+# untracked files (agent-created), full content below:
+diff --git a/changes/4220.bugfix.md b/changes/4220.bugfix.md
+new file mode 100644
+index 00000000..ade39f03
+--- /dev/null
++++ b/changes/4220.bugfix.md
+@@ -0,0 +1,3 @@
++Fixed reading consolidated metadata where child nodes could be dropped from their
++parent's consolidated metadata, depending on the order of the keys in the stored flat
++mapping. This was most visible for sibling groups whose names differ only by case.

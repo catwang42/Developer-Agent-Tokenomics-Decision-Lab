@@ -1,0 +1,23 @@
+{
+  "project": "vital-octagon-19612",
+  "runs": [
+    {
+      "run_dir": "results/screening-batch1-confound-makeup/w1-realworld-mapper-tests__C5__rep1__20260821T041343",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1-confound-makeup/w4b-zarr-consolidated-order__C5__rep1__20260821T105141",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    },
+    {
+      "run_dir": "results/screening-batch1-confound-makeup/w4b-zarr-consolidated-order__C5__rep2__20260821T112609",
+      "legs": {
+        "executor": "gemini-3.7-flash"
+      }
+    }
+  ]
+}

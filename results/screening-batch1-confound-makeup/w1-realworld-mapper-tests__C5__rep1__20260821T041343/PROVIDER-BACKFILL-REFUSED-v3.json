@@ -1,0 +1,88 @@
+{
+  "attribution_rule": {
+    "attribution_window": {
+      "end": "2026-08-21T04:21:59.947728Z",
+      "start": "2026-08-21T04:12:43.685658Z"
+    },
+    "bounded_by": "ingestion_tail",
+    "guard_seconds": 60,
+    "id": "serialized_run_ownership_with_rate_ceiling",
+    "last_point_attributed": null,
+    "next_run_window_opens": "2026-08-21T10:50:42.388888Z",
+    "prev_run_owns_until": null,
+    "rule": "v3",
+    "run_window": {
+      "end": "2026-08-21T04:20:59.947728Z",
+      "start": "2026-08-21T04:13:43.685658Z"
+    },
+    "statement": "a serialized subject run owns the provider meter from its own start until the next subject run's window opens; its own ingestion tail is its own",
+    "tail_cap_seconds": 900,
+    "tail_ended_by": "no_points",
+    "tail_granted_seconds": 0.0,
+    "tail_seconds": 900,
+    "tail_silence_seconds": 300
+  },
+  "collected_at": "2026-08-21T12:05:24.806854Z",
+  "collector": "vertex_token_collector",
+  "guard": {
+    "contaminated": true,
+    "evidence": {
+      "baseline": {
+        "baseline_seconds": 300,
+        "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+        "windows": {
+          "post": {
+            "by_model": {
+              "gemini-3.7-flash": {
+                "input": 20663482,
+                "output": 1435156
+              }
+            },
+            "end": "2026-08-21T10:50:42.388887Z",
+            "points": 354,
+            "start": "2026-08-21T04:21:59.947729Z"
+          },
+          "pre": {
+            "by_model": {},
+            "end": "2026-08-21T04:12:43.685657Z",
+            "points": 0,
+            "start": "2026-08-21T04:07:43.685658Z"
+          }
+        }
+      },
+      "rate_ceiling": {
+        "input_side_tokens_per_second_ceiling": 25000,
+        "observed_input_side_tokens": {
+          "gemini-3.7-flash": 906323
+        },
+        "observed_input_side_tokens_per_second": {
+          "gemini-3.7-flash": 1629.309
+        },
+        "window_seconds": 556.262
+      }
+    },
+    "reasons": [
+      "post-run baseline window 2026-08-21T04:21:59.947729Z..2026-08-21T10:50:42.388887Z is NOT quiet: 354 point(s), {'gemini-3.7-flash': {'input': 20663482, 'output': 1435156}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+    ]
+  },
+  "metric_type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "note": "The provider meter for this window could not be attributed to this run, so NOTHING was written to events.jsonl or summary.json and the run's Product-B usage remains 'unavailable' (not zero). The totals below are what the window contained; they are NOT this run's usage.",
+  "refusal": "contaminated_window",
+  "run_id": "w1-realworld-mapper-tests__C5__rep1__20260821T041343",
+  "window_totals_refused": {
+    "by_model": {
+      "gemini-3.7-flash": {
+        "input": 906323,
+        "output": 11815
+      }
+    },
+    "points_in_window": 8,
+    "points_outside_window": 0,
+    "unmapped_types": {},
+    "window": {
+      "end": "2026-08-21T04:21:59.947728Z",
+      "guard_seconds": 60,
+      "start": "2026-08-21T04:12:43.685658Z"
+    }
+  }
+}

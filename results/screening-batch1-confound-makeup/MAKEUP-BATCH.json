@@ -1,0 +1,86 @@
+{
+  "label": "makeup-batch-confound",
+  "dataset": "results/screening-batch1-confound-makeup",
+  "replaces": null,
+  "profile": "confound",
+  "supplements": "results/screening-batch1 and results/screening-batch1-makeup (the truncated cells enumerated in report/findings/confound-makeup-enumeration.log)",
+  "cells": [
+    {
+      "task_id": "w1-realworld-mapper-tests",
+      "config": "C5",
+      "rep": 1,
+      "agent_timeout_s": 1200
+    },
+    {
+      "task_id": "w1b-zarr-block-mask-properties",
+      "config": "P0",
+      "rep": 1,
+      "agent_timeout_s": 2700
+    },
+    {
+      "task_id": "w3-sqlfluff-segment-method-migration",
+      "config": "P0",
+      "rep": 3,
+      "agent_timeout_s": 7200
+    },
+    {
+      "task_id": "w3-sqlfluff-segment-method-migration",
+      "config": "C2",
+      "rep": 3,
+      "agent_timeout_s": 7200
+    },
+    {
+      "task_id": "w3-sqlfluff-segment-method-migration",
+      "config": "P1",
+      "rep": 3,
+      "agent_timeout_s": 7200
+    },
+    {
+      "task_id": "w3-sqlfluff-segment-method-migration",
+      "config": "C5",
+      "rep": 1,
+      "agent_timeout_s": 7200
+    },
+    {
+      "task_id": "w3-sqlfluff-segment-method-migration",
+      "config": "C5",
+      "rep": 2,
+      "agent_timeout_s": 7200
+    },
+    {
+      "task_id": "w3-sqlfluff-segment-method-migration",
+      "config": "C5",
+      "rep": 3,
+      "agent_timeout_s": 7200
+    },
+    {
+      "task_id": "w4b-zarr-consolidated-order",
+      "config": "C5",
+      "rep": 1,
+      "agent_timeout_s": 2700
+    },
+    {
+      "task_id": "w4b-zarr-consolidated-order",
+      "config": "C5",
+      "rep": 2,
+      "agent_timeout_s": 2700
+    },
+    {
+      "task_id": "w6-hono-router-review",
+      "config": "C2",
+      "rep": 2,
+      "agent_timeout_s": 1200
+    }
+  ],
+  "task_ids": [
+    "w1-realworld-mapper-tests",
+    "w1b-zarr-block-mask-properties",
+    "w3-sqlfluff-segment-method-migration",
+    "w4b-zarr-consolidated-order",
+    "w6-hono-router-review"
+  ],
+  "attribution_rule": "v3",
+  "why": "Batch 1 ran every task under a flat 1800s agent budget. A run the harness killed at the bound is right-censored: it is indistinguishable from a capability failure, so it is not evidence about the model either way. This pass re-buys the censored cells that no existing makeup dataset already covers, each under its OWN task's pinned budget.",
+  "not_a_replacement": "No earlier cell is superseded or edited. The truncated originals stay where they are, labelled truncated. A cell run under an 1800s bound and a cell run under its task's own budget are not two observations of the same thing and are never merged.",
+  "reps_caveat": "This dataset is a list of individual replacement slots, not a rep panel: a cell here may be rep 1 or rep 3 of its arm depending on which rep was censored. Nothing in it supports a dispersion or variance claim."
+}

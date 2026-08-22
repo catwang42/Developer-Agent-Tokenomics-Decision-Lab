@@ -1,0 +1,9 @@
+  [pass] G0-subject-readable — git can read the subject tree (diff-scope is meaningful)
+== public gate (w1b-zarr-block-mask-properties) [test_generation] ==
+  [pass] T1-diff-scope — only new test files under tests/
+  [fail] T2-suite-green — baseline suite (tests/test_indexing.py + tests/test_*_properties.py)
+  [fail] T3-coverage — coverage summary not produced
+  [fail] T4-tests-pass — agent's new tests pass on the pinned target files
+== public gate: FAIL ==
+
+--- exit: 1

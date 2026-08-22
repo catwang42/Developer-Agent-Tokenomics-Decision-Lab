@@ -1,0 +1,181 @@
+{
+  "attribution": {
+    "counts_confidence": "authoritative",
+    "event_type": "provider_usage_backfill_v3",
+    "method": "serialized_run_ownership_with_rate_ceiling",
+    "note": "a serialized subject run owns the meter from its own start until the next subject run's window opens, so its own ingestion tail is attributed to it; the tail is measured, ending at the first silence and capped, and the quiet probe looks only at the region no subject run owns \u2014 v3 keeps that window unchanged and only swaps the fixed per-run plausibility ceiling for a rate one",
+    "per_run_attribution_confidence": "derived",
+    "rule": "v3",
+    "tail_cap_seconds": 900,
+    "tail_seconds": 900,
+    "tail_silence_seconds": 300
+  },
+  "collected_at": "2026-08-21T12:05:24.806854Z",
+  "collector": "vertex_token_collector",
+  "contamination_guard": {
+    "baseline_probe_seconds": 300,
+    "input_side_ceiling_tokens": null,
+    "input_side_ceiling_tokens_per_second": 25000,
+    "on_trip": "nothing is written; the run is stamped contaminated_window and its usage stays unavailable",
+    "plausibility_ceiling": "input_side_tokens_per_second",
+    "runs_refused": [
+      "results/screening-batch1-confound-makeup/w1-realworld-mapper-tests__C5__rep1__20260821T041343",
+      "results/screening-batch1-confound-makeup/w4b-zarr-consolidated-order__C5__rep1__20260821T105141",
+      "results/screening-batch1-confound-makeup/w4b-zarr-consolidated-order__C5__rep2__20260821T112609"
+    ]
+  },
+  "economics_note": "Usage only. This collector does not recompute economics: costs stay as the runner recorded them. Re-cost with harness/runner/run.py's build_economics against the pinned pricing snapshot once usage is filled.",
+  "guard_seconds": 60,
+  "metric_type": "aiplatform.googleapis.com/publisher/online_serving/token_count",
+  "project": "vital-octagon-19612",
+  "report": "provider-side token backfill",
+  "runs": [
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {
+                  "gemini-3.7-flash": {
+                    "input": 20663482,
+                    "output": 1435156
+                  }
+                },
+                "end": "2026-08-21T10:50:42.388887Z",
+                "points": 354,
+                "start": "2026-08-21T04:21:59.947729Z"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-21T04:12:43.685657Z",
+                "points": 0,
+                "start": "2026-08-21T04:07:43.685658Z"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 906323
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 1629.309
+            },
+            "window_seconds": 556.262
+          }
+        },
+        "reasons": [
+          "post-run baseline window 2026-08-21T04:21:59.947729Z..2026-08-21T10:50:42.388887Z is NOT quiet: 354 point(s), {'gemini-3.7-flash': {'input': 20663482, 'output': 1435156}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run"
+        ]
+      },
+      "detail": "post-run baseline window 2026-08-21T04:21:59.947729Z..2026-08-21T10:50:42.388887Z is NOT quiet: 354 point(s), {'gemini-3.7-flash': {'input': 20663482, 'output': 1435156}} \u2014 traffic on the subject models outside the run means points inside the run's window cannot be attributed to the run",
+      "run_dir": "results/screening-batch1-confound-makeup/w1-realworld-mapper-tests__C5__rep1__20260821T041343",
+      "run_id": "w1-realworld-mapper-tests__C5__rep1__20260821T041343",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-21T04:21:59.947728Z",
+        "guard_seconds": 60,
+        "start": "2026-08-21T04:12:43.685658Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              },
+              "pre": {
+                "by_model": {},
+                "end": "2026-08-21T10:50:42.388887Z",
+                "points": 0,
+                "start": "2026-08-21T10:45:42.388888Z"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 511942
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 247.568
+            },
+            "window_seconds": 2067.88
+          }
+        },
+        "reasons": [
+          "the next subject run starts 6s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it"
+        ]
+      },
+      "detail": "the next subject run starts 6s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it",
+      "run_dir": "results/screening-batch1-confound-makeup/w4b-zarr-consolidated-order__C5__rep1__20260821T105141",
+      "run_id": "w4b-zarr-consolidated-order__C5__rep1__20260821T105141",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-21T11:25:10.269304Z",
+        "guard_seconds": 60,
+        "start": "2026-08-21T10:50:42.388888Z"
+      }
+    },
+    {
+      "contamination": {
+        "contaminated": true,
+        "evidence": {
+          "baseline": {
+            "baseline_seconds": 300,
+            "probes": "third-party territory only: the region between this run's ownership window and its neighbours'",
+            "windows": {
+              "post": {
+                "by_model": {},
+                "end": "2026-08-21T11:53:21.681719Z",
+                "points": 0,
+                "start": "2026-08-21T11:48:21.681720Z"
+              },
+              "pre": {
+                "status": "not_applicable",
+                "why": "an adjacent subject run owns this side up to the boundary; there is no third-party region to probe"
+              }
+            }
+          },
+          "rate_ceiling": {
+            "input_side_tokens_per_second_ceiling": 25000,
+            "observed_input_side_tokens": {
+              "gemini-3.7-flash": 4865710
+            },
+            "observed_input_side_tokens_per_second": {
+              "gemini-3.7-flash": 3496.957
+            },
+            "window_seconds": 1391.412
+          }
+        },
+        "reasons": [
+          "the preceding subject run (w4b-zarr-consolidated-order__C5__rep1__20260821T105141) cannot be separated from this one: the next subject run starts 6s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it"
+        ]
+      },
+      "detail": "the preceding subject run (w4b-zarr-consolidated-order__C5__rep1__20260821T105141) cannot be separated from this one: the next subject run starts 6s after this one ends, inside the 60s guard band \u2014 this run's own ingestion tail lands in its neighbour's window and the meter cannot say which run produced it",
+      "run_dir": "results/screening-batch1-confound-makeup/w4b-zarr-consolidated-order__C5__rep2__20260821T112609",
+      "run_id": "w4b-zarr-consolidated-order__C5__rep2__20260821T112609",
+      "status": "contaminated_window",
+      "window": {
+        "end": "2026-08-21T11:48:21.681719Z",
+        "guard_seconds": 60,
+        "start": "2026-08-21T11:25:10.269305Z"
+      }
+    }
+  ],
+  "status_counts": {
+    "contaminated_window": 3
+  },
+  "unmapped_types_note": "Type labels with no mapping to a schema usage field. They are recorded verbatim in each run's event log and are NOT counted in any token class. A thinking/reasoning-flavoured type appearing here is a finding, not noise: it is the thinking share of the bill and must be mapped or reported explicitly before any Product-B cost is published.",
+  "unmapped_types_observed": {}
+}
