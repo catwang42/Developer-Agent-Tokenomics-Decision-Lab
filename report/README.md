@@ -96,7 +96,12 @@ dataset rather than any one of them:
   and why W3 and W4b yield none;
 - [confound-makeup enumeration](findings/confound-makeup-enumeration.log) — every
   truncated run no later attempt replaced, and the derivation of the replacement
-  slots from it.
+  slots from it;
+- [consolidated screening table](findings/consolidated-table.md) — one row
+  per cell over all four screening datasets, superseded per rep and never pooled,
+  with both pre-registrations graded and a limitation ledger assembled from the data.
+  **PENDING — it opens at CP-FINDINGS**, and no number in it may appear in the docs
+  or on the site before then.
 
 ## Layout
 
