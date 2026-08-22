@@ -137,8 +137,26 @@ def build_command(prompt: str, selector_label: str,
         (``--print`` immediately before the prompt) is correct under either reading.
       * ``--print-timeout`` takes a Go duration and defaults to ``5m0s`` (``agy
         --help``, re-read 2026-08-16 on agy 1.1.13).
+      * ``--output-format`` takes ``text|json|stream-json`` and **defaults to
+        ``text``** (``agy --help``, agy 1.1.13). It is REQUIRED for usage capture:
+        under the default the product prints prose, ``json.loads(stdout)`` in
+        :meth:`AgyAdapter.run_attempt` raises, the payload is None, and
+        :func:`usage_from_agy_json` marks every token class ``unavailable``. That
+        omission — not a product limitation — is the cause of Product-B cost
+        unavailability across screening batch 1 and its makeup datasets: 0 of the
+        153 archived ``invocation.txt`` files carries an agy usage block (the 15
+        usage blocks present in that set belong to the Product-A planner leg of
+        C5 runs). Verified 2026-08-22 on agy 1.1.13 that the product does expose
+        ``usage`` {input_tokens, output_tokens, thinking_tokens,
+        cache_read_tokens, total_tokens} under ``--output-format json``. See
+        ``report/findings/agy-json-flag-defect.md``.
+      * ``stream-json`` ALSO emits usage per step, which would give per-turn
+        attribution rather than one end-of-run total. We deliberately do NOT switch
+        to it here: changing the product's output mode changes what the product does
+        during the run, so it is a run-CONDITION change and belongs to the human.
     """
-    cmd = ["agy", "--dangerously-skip-permissions", "--model", selector_label]
+    cmd = ["agy", "--dangerously-skip-permissions", "--output-format", "json",
+           "--model", selector_label]
     if print_timeout:
         if print_timeout_seconds(print_timeout) >= kill_timeout_s:
             raise ValueError(
@@ -150,20 +168,70 @@ def build_command(prompt: str, selector_label: str,
     return cmd + ["--print", prompt]
 
 
+# Canonical token class -> the product's source keys, in precedence order.
+#
+# The canonical name is OURS (the frozen schema's); the aliases are the product's
+# spelling. agy 1.1.13 emits ``thinking_tokens`` for what the schema calls
+# ``reasoning_tokens``; looking only for the canonical name silently dropped the
+# class even once the JSON flag was passed. Aliases are additive and the canonical
+# name always wins, so a product that later renames toward the schema needs no
+# change here.
+#
+# ``cache_creation_tokens`` has NO alias on purpose: it is genuinely absent from
+# agy's usage block (verified 2026-08-22 on 1.1.13, which emits input_tokens,
+# output_tokens, thinking_tokens, cache_read_tokens, total_tokens). It stays
+# unavailable — mapping it to something adjacent would be an invention.
+AGY_USAGE_KEYS: Dict[str, tuple] = {
+    "input_tokens": ("input_tokens",),
+    "cache_creation_tokens": ("cache_creation_tokens",),
+    "cache_read_tokens": ("cache_read_tokens",),
+    "output_tokens": ("output_tokens",),
+    "reasoning_tokens": ("reasoning_tokens", "thinking_tokens"),
+    "tool_result_tokens": ("tool_result_tokens",),
+}
+
 def usage_from_agy_json(obj: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """Map any product-exposed usage to tiered fields; unexposed -> unavailable.
 
     Product B usage is captured as ``proxy_observed`` (product-reported, not an
-    authoritative provider meter). Absent classes are unavailable, never 0.
+    authoritative provider meter) — never ``authoritative``, whatever the product
+    calls it. Absent classes are unavailable, never 0.
+
+    A class filled through an alias records ``source_key`` — the product key the
+    number actually came from — so the provenance of a renamed class stays
+    inspectable in the event log rather than being laundered into our vocabulary.
     """
     raw = (obj or {}).get("usage") or {}
     usage: Dict[str, Any] = {}
-    for cls in ("input_tokens", "cache_creation_tokens", "cache_read_tokens", "output_tokens",
-                "reasoning_tokens", "tool_result_tokens"):
-        val = raw.get(cls)
-        usage[cls] = tiered(int(val), "proxy_observed") if isinstance(val, (int, float)) \
-            else unavailable("Product B does not expose this token class")
+    for cls, source_keys in AGY_USAGE_KEYS.items():
+        for key in source_keys:
+            val = raw.get(key)
+            if isinstance(val, (int, float)) and not isinstance(val, bool):
+                usage[cls] = tiered(int(val), "proxy_observed", source_key=key)
+                break
+        else:
+            usage[cls] = unavailable("Product B does not expose this token class")
     return usage
+
+
+def unmapped_usage_keys(obj: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Usage keys the product emitted that no canonical class claimed, verbatim.
+
+    Carried on the ``model_call_completed`` event so a product-side addition (a new
+    token class, a rename) shows up in the archive as itself instead of vanishing.
+    Discovering ``thinking_tokens`` only after a whole batch had been priced without
+    it is exactly the failure this exists to prevent.
+
+    Kept verbatim and OUT of ``usage``: this is a record of what the product said,
+    not a token class. ``total_tokens`` lands here for that reason — it is the
+    product's own rollup, not a class the schema stores, and it is preserved rather
+    than dropped so a mismatch against our summed classes stays detectable.
+    """
+    raw = (obj or {}).get("usage") or {}
+    if not isinstance(raw, dict):
+        return {}
+    claimed = {k for keys in AGY_USAGE_KEYS.values() for k in keys}
+    return {k: v for k, v in raw.items() if k not in claimed}
 
 
 class AgyAdapter(Adapter):
@@ -243,7 +311,13 @@ class AgyAdapter(Adapter):
                 payload = None
 
         usage = usage_from_agy_json(payload)
-        emit("model_call_completed", usage=usage, **leg_meta)
+        extra_usage = unmapped_usage_keys(payload)
+        completed: Dict[str, Any] = {"usage": usage, **leg_meta}
+        if extra_usage:
+            # Only when non-empty, so a run against a product that emits nothing
+            # unmapped derives byte-identically to one recorded before this field.
+            completed["unmapped_usage_keys"] = extra_usage
+        emit("model_call_completed", **completed)
 
         leg_options: Dict[str, Any] = {}
         reported = (payload or {}).get("cost_usd") if isinstance(payload, dict) else None
