@@ -1,7 +1,21 @@
 """Provider-side token collector for Vertex AI publisher models (SPEC 2.9 item 1).
 
-Product B exposes no machine-readable usage in headless mode, so its token counts
-have to come from the billing plane. This module reads Cloud Monitoring's
+This module was built on the premise that Product B exposes no machine-readable
+usage in headless mode. **That premise is false.** Product B does expose one, under
+``--output-format json`` (verified 2026-08-22 on agy 1.1.13) — this harness simply
+never asked for it until 2026-08-22, so no invocation in the screening window
+returned a usage block. See ``report/findings/agy-json-flag-defect.md``.
+
+What that changes is this module's ROLE, not its behaviour or a single figure it
+produced. It was built as the sole cost source for Product B; it is now the
+provider-side cross-check, and worth keeping as one: it is independent of the
+product's self-report, it reads the surface the bill is computed from, and its
+weakness is a different weakness — attribution is ``derived`` (below), and the
+provider metric carries no cache series for this publisher, so what it yields is
+an upper bound where the product's own report would be exact. Neither source
+supersedes the other; a figure the two agree on is worth more than either alone.
+
+The collector reads Cloud Monitoring's
 
     aiplatform.googleapis.com/publisher/online_serving/token_count
 

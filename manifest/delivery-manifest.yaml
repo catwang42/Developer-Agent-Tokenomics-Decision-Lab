@@ -160,6 +160,10 @@ gemini_cache_blindness: >
   decision that has NOT been taken; cost_basis_qualifier is an additive field
   (legs[] and economics accept additional properties) that records how the
   marginal cost was derived without touching the frozen enum.
+  This describes the provider metric. The product exposes cache_read_tokens under
+  --output-format json, unused in this batch; with that flag in force the cache-read
+  class stops being excluded and Product-B costs move from an upper bound toward an
+  exact figure.
 effort_rule: >
   Effort level is a within-product arm, never mixed with routing. ALL C5 executor
   legs are pinned to a "(High)" selector; the effort-level comparison is C3 vs

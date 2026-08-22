@@ -209,9 +209,20 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 0,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": []
+      },
       "configuration_or_policy": "C2",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 0.3542463,
         "median_usd": 0.2259636,
         "min_usd": 0.1153884,
@@ -229,6 +240,7 @@
         "runs_recosted": 0,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -523,9 +535,26 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v1"
+        ],
+        "mixed": false,
+        "of_runs": 2,
+        "product_b_runs": 2,
+        "product_b_runs_without_rule": 0,
+        "refused": [
+          "v1"
+        ],
+        "rules": [
+          "v1"
+        ]
+      },
       "configuration_or_policy": "C3",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 2,
+        "legs_unpriced": 0,
         "max_usd": 1.17936525,
         "median_usd": 1.0031542500000001,
         "min_usd": 0.82694325,
@@ -545,6 +574,7 @@
         "runs_recosted": 2,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -851,9 +881,26 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v1"
+        ],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [
+          "v1"
+        ],
+        "rules": [
+          "v1"
+        ]
+      },
       "configuration_or_policy": "C3-med",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 1.00443975,
         "median_usd": 0.81088575,
         "min_usd": 0.78154125,
@@ -873,6 +920,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -1175,9 +1223,24 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v1"
+        ],
+        "mixed": false,
+        "of_runs": 2,
+        "product_b_runs": 2,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": [
+          "v1"
+        ]
+      },
       "configuration_or_policy": "C3-prev",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 2,
+        "legs_unpriced": 0,
         "max_usd": 0.3906,
         "median_usd": 0.37969725,
         "min_usd": 0.3687945,
@@ -1197,6 +1260,7 @@
         "runs_recosted": 2,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -1500,9 +1564,30 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v1"
+        ],
+        "mixed": true,
+        "of_runs": 2,
+        "product_b_runs": 2,
+        "product_b_runs_without_rule": 0,
+        "refused": [
+          "v1",
+          "v2",
+          "v3"
+        ],
+        "rules": [
+          "v1",
+          "v2",
+          "v3"
+        ]
+      },
       "configuration_or_policy": "C5",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 4,
+        "legs_unpriced": 1,
         "max_usd": 1.042681,
         "median_usd": 1.042681,
         "min_usd": 1.042681,
@@ -1522,6 +1607,7 @@
         "runs_recosted": 1,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": true,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -1899,9 +1985,20 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 0,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": []
+      },
       "configuration_or_policy": "P0",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 0.653502,
         "median_usd": 0.567347,
         "min_usd": 0.555329,
@@ -1919,6 +2016,7 @@
         "runs_recosted": 0,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -2216,9 +2314,20 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 0,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": []
+      },
       "configuration_or_policy": "C2",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 0.5197311,
         "median_usd": 0.4061196,
         "min_usd": 0.2541138,
@@ -2236,6 +2345,7 @@
         "runs_recosted": 0,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -2537,9 +2647,24 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v1"
+        ],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": [
+          "v1"
+        ]
+      },
       "configuration_or_policy": "C3",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 1.0695405,
         "median_usd": 1.031652,
         "min_usd": 0.98783625,
@@ -2559,6 +2684,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -2866,9 +2992,24 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v1"
+        ],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": [
+          "v1"
+        ]
+      },
       "configuration_or_policy": "C3-med",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 0.8800275,
         "median_usd": 0.8777325,
         "min_usd": 0.4675515,
@@ -2888,6 +3029,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -3195,9 +3337,24 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v1"
+        ],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": [
+          "v1"
+        ]
+      },
       "configuration_or_policy": "C3-prev",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 1.0063575,
         "median_usd": 0.986007,
         "min_usd": 0.715044,
@@ -3217,6 +3374,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -3523,9 +3681,27 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v1"
+        ],
+        "mixed": true,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [
+          "v3"
+        ],
+        "rules": [
+          "v1",
+          "v3"
+        ]
+      },
       "configuration_or_policy": "C5",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 6,
+        "legs_unpriced": 1,
         "max_usd": 2.1878634999999997,
         "median_usd": 2.096767125,
         "min_usd": 2.00567075,
@@ -3545,6 +3721,7 @@
         "runs_recosted": 2,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": true,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -3741,13 +3918,12 @@
         "fabrications_total": null,
         "max_observed": 6,
         "max_possible": 6,
-        "median": 6,
+        "median": 6.0,
         "metric": "mutants_caught",
         "min": 6,
-        "n": 3,
+        "n": 2,
         "of_runs": 3,
         "scores": [
-          6,
           6,
           6
         ],
@@ -3926,9 +4102,20 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 0,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": []
+      },
       "configuration_or_policy": "P0",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 0.744258,
         "median_usd": 0.61656,
         "min_usd": 0.3400945,
@@ -3946,6 +4133,7 @@
         "runs_recosted": 0,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -4245,9 +4433,20 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 0,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": []
+      },
       "configuration_or_policy": "C2",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 2.0608935,
         "median_usd": 1.8453585,
         "min_usd": 1.5841056,
@@ -4265,6 +4464,7 @@
         "runs_recosted": 0,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -4570,9 +4770,29 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v3"
+        ],
+        "mixed": true,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [
+          "v1",
+          "v2"
+        ],
+        "rules": [
+          "v1",
+          "v2",
+          "v3"
+        ]
+      },
       "configuration_or_policy": "C3",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 6.610014,
         "median_usd": 5.6936835,
         "min_usd": 4.320117,
@@ -4592,6 +4812,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": true,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -4904,9 +5125,29 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v3"
+        ],
+        "mixed": true,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [
+          "v1",
+          "v2"
+        ],
+        "rules": [
+          "v1",
+          "v2",
+          "v3"
+        ]
+      },
       "configuration_or_policy": "C3-med",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 6.725112,
         "median_usd": 4.8368085,
         "min_usd": 4.14685275,
@@ -4926,6 +5167,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": true,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -5238,9 +5480,29 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v3"
+        ],
+        "mixed": true,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [
+          "v1",
+          "v2"
+        ],
+        "rules": [
+          "v1",
+          "v2",
+          "v3"
+        ]
+      },
       "configuration_or_policy": "C3-prev",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 7.31476575,
         "median_usd": 6.29093475,
         "min_usd": 4.79142675,
@@ -5260,6 +5522,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": true,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -5572,9 +5835,30 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v1",
+          "v3"
+        ],
+        "mixed": true,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [
+          "v1",
+          "v2"
+        ],
+        "rules": [
+          "v1",
+          "v2",
+          "v3"
+        ]
+      },
       "configuration_or_policy": "C5",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 6,
+        "legs_unpriced": 0,
         "max_usd": 13.49069025,
         "median_usd": 12.568602,
         "min_usd": 5.72525675,
@@ -5594,6 +5878,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": true,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -5977,9 +6262,20 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 0,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": []
+      },
       "configuration_or_policy": "P0",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 7.6413175,
         "median_usd": 3.3655775,
         "min_usd": 3.29475,
@@ -5997,6 +6293,7 @@
         "runs_recosted": 0,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -6122,13 +6419,12 @@
         "fabrications_total": null,
         "max_observed": 7,
         "max_possible": 7,
-        "median": 7,
+        "median": 7.0,
         "metric": "mutants_caught",
         "min": 7,
-        "n": 3,
+        "n": 2,
         "of_runs": 3,
         "scores": [
-          7,
           7,
           7
         ],
@@ -6304,9 +6600,20 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 0,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": []
+      },
       "configuration_or_policy": "C2",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 7.3722315,
         "median_usd": 7.3093275,
         "min_usd": 6.9910383,
@@ -6324,6 +6631,7 @@
         "runs_recosted": 0,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -6630,9 +6938,29 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v3"
+        ],
+        "mixed": true,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [
+          "v1",
+          "v2"
+        ],
+        "rules": [
+          "v1",
+          "v2",
+          "v3"
+        ]
+      },
       "configuration_or_policy": "C3",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 2,
         "max_usd": 8.3400825,
         "median_usd": 8.3400825,
         "min_usd": 8.3400825,
@@ -6652,6 +6980,7 @@
         "runs_recosted": 1,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": true,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -6964,9 +7293,29 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v3"
+        ],
+        "mixed": true,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [
+          "v1",
+          "v2"
+        ],
+        "rules": [
+          "v1",
+          "v2",
+          "v3"
+        ]
+      },
       "configuration_or_policy": "C3-med",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 9.36319575,
         "median_usd": 8.2766895,
         "min_usd": 7.24264125,
@@ -6986,6 +7335,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": true,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -7294,9 +7644,29 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v3"
+        ],
+        "mixed": true,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [
+          "v1",
+          "v2"
+        ],
+        "rules": [
+          "v1",
+          "v2",
+          "v3"
+        ]
+      },
       "configuration_or_policy": "C3-prev",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 10.5369915,
         "median_usd": 9.8590575,
         "min_usd": 8.18776725,
@@ -7316,6 +7686,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": true,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -7607,7 +7978,29 @@
           "n_runs": 0
         }
       },
+      "attribution": {
+        "attributed": [],
+        "mixed": false,
+        "of_runs": 0,
+        "product_b_runs": 0,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": []
+      },
       "configuration_or_policy": "C5",
+      "cost": {
+        "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 0,
+        "legs_unpriced": 0,
+        "max_usd": null,
+        "median_usd": null,
+        "min_usd": null,
+        "n": 0,
+        "of_runs": 0,
+        "runs_partially_costed": 0,
+        "runs_uncosted": 0
+      },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "median": null,
@@ -7722,9 +8115,20 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [],
+        "mixed": false,
+        "of_runs": 2,
+        "product_b_runs": 0,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": []
+      },
       "configuration_or_policy": "P0",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 2,
+        "legs_unpriced": 0,
         "max_usd": 16.658355,
         "median_usd": 15.7400605,
         "min_usd": 14.821766,
@@ -7742,6 +8146,7 @@
         "runs_recosted": 0,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -8070,9 +8475,20 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [],
+        "mixed": false,
+        "of_runs": 2,
+        "product_b_runs": 0,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": []
+      },
       "configuration_or_policy": "P1",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 4,
+        "legs_unpriced": 0,
         "max_usd": 24.9261027,
         "median_usd": 21.486771,
         "min_usd": 18.0474393,
@@ -8090,6 +8506,7 @@
         "runs_recosted": 0,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -8491,9 +8908,20 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 0,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": []
+      },
       "configuration_or_policy": "C2",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 0.4528803,
         "median_usd": 0.4465413,
         "min_usd": 0.2243013,
@@ -8511,6 +8939,7 @@
         "runs_recosted": 0,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -8806,9 +9235,24 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v1"
+        ],
+        "mixed": false,
+        "of_runs": 2,
+        "product_b_runs": 2,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": [
+          "v1"
+        ]
+      },
       "configuration_or_policy": "C3",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 2,
+        "legs_unpriced": 0,
         "max_usd": 1.560078,
         "median_usd": 1.393911375,
         "min_usd": 1.22774475,
@@ -8828,6 +9272,7 @@
         "runs_recosted": 2,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -9132,9 +9577,24 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v1"
+        ],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": [
+          "v1"
+        ]
+      },
       "configuration_or_policy": "C3-med",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 0.7574565,
         "median_usd": 0.640245,
         "min_usd": 0.55996575,
@@ -9154,6 +9614,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -9455,9 +9916,24 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v1"
+        ],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": [
+          "v1"
+        ]
+      },
       "configuration_or_policy": "C3-prev",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 1.2016005,
         "median_usd": 1.17958425,
         "min_usd": 0.8791905,
@@ -9477,6 +9953,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -9783,9 +10260,24 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v1"
+        ],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": [
+          "v1"
+        ]
+      },
       "configuration_or_policy": "C5",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 6,
+        "legs_unpriced": 0,
         "max_usd": 2.46386925,
         "median_usd": 2.23567375,
         "min_usd": 2.11028325,
@@ -9805,6 +10297,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -10175,9 +10668,20 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 0,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": []
+      },
       "configuration_or_policy": "P0",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 0.891642,
         "median_usd": 0.7959315,
         "min_usd": 0.5916355,
@@ -10195,6 +10699,7 @@
         "runs_recosted": 0,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -10490,9 +10995,20 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 0,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": []
+      },
       "configuration_or_policy": "C2",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 1.0874481,
         "median_usd": 0.7556772,
         "min_usd": 0.6702414,
@@ -10510,6 +11026,7 @@
         "runs_recosted": 0,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -10811,9 +11328,29 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v3"
+        ],
+        "mixed": true,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [
+          "v1",
+          "v2"
+        ],
+        "rules": [
+          "v1",
+          "v2",
+          "v3"
+        ]
+      },
       "configuration_or_policy": "C3",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 6.64418775,
         "median_usd": 5.23846425,
         "min_usd": 3.063708,
@@ -10833,6 +11370,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": true,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -11141,9 +11679,24 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v1"
+        ],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": [
+          "v1"
+        ]
+      },
       "configuration_or_policy": "C3-med",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 1.64161575,
         "median_usd": 1.385715,
         "min_usd": 0.86111925,
@@ -11163,6 +11716,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -11468,9 +12022,31 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v1",
+          "v2",
+          "v3"
+        ],
+        "mixed": true,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [
+          "v1",
+          "v2"
+        ],
+        "rules": [
+          "v1",
+          "v2",
+          "v3"
+        ]
+      },
       "configuration_or_policy": "C3-prev",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 3.673194,
         "median_usd": 2.08918575,
         "min_usd": 1.84496325,
@@ -11490,6 +12066,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": true,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -11798,9 +12375,30 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v3"
+        ],
+        "mixed": true,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [
+          "v1",
+          "v2",
+          "v3"
+        ],
+        "rules": [
+          "v1",
+          "v2",
+          "v3"
+        ]
+      },
       "configuration_or_policy": "C5",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 6,
+        "legs_unpriced": 2,
         "max_usd": 7.38308725,
         "median_usd": 7.38308725,
         "min_usd": 7.38308725,
@@ -11820,6 +12418,7 @@
         "runs_recosted": 1,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": true,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -12204,9 +12803,20 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 0,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": []
+      },
       "configuration_or_policy": "P0",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 1.986971,
         "median_usd": 1.1823255,
         "min_usd": 1.0457275,
@@ -12224,6 +12834,7 @@
         "runs_recosted": 0,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -12527,9 +13138,20 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 0,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": []
+      },
       "configuration_or_policy": "C2",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 1.9409118,
         "median_usd": 1.4230359,
         "min_usd": 1.0771632,
@@ -12547,6 +13169,7 @@
         "runs_recosted": 0,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -12667,16 +13290,15 @@
       },
       "n_runs": 3,
       "quality": {
-        "fabrications_total": 1,
+        "fabrications_total": 0,
         "max_observed": 5,
         "max_possible": 6,
-        "median": 4,
+        "median": 4.5,
         "metric": "defects_found",
         "min": 4,
-        "n": 3,
+        "n": 2,
         "of_runs": 3,
         "scores": [
-          4,
           4,
           5
         ],
@@ -12850,9 +13472,24 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v3"
+        ],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": [
+          "v3"
+        ]
+      },
       "configuration_or_policy": "C3",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 1.5352635,
         "median_usd": 1.3797465,
         "min_usd": 1.307175,
@@ -12872,6 +13509,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -13186,9 +13824,24 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v3"
+        ],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": [
+          "v3"
+        ]
+      },
       "configuration_or_policy": "C3-med",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 1.02534525,
         "median_usd": 0.74089125,
         "min_usd": 0.72024825,
@@ -13208,6 +13861,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -13515,9 +14169,24 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [
+          "v3"
+        ],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 3,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": [
+          "v3"
+        ]
+      },
       "configuration_or_policy": "C3-prev",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 1.44331125,
         "median_usd": 0.802842,
         "min_usd": 0.66209775,
@@ -13537,6 +14206,7 @@
         "runs_recosted": 3,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -13850,9 +14520,20 @@
           "voided": 0
         }
       },
+      "attribution": {
+        "attributed": [],
+        "mixed": false,
+        "of_runs": 3,
+        "product_b_runs": 0,
+        "product_b_runs_without_rule": 0,
+        "refused": [],
+        "rules": []
+      },
       "configuration_or_policy": "P0",
       "cost": {
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
+        "legs": 3,
+        "legs_unpriced": 0,
         "max_usd": 3.4406945,
         "median_usd": 3.223676,
         "min_usd": 2.5886195,
@@ -13870,6 +14551,7 @@
         "runs_recosted": 0,
         "runs_recosted_partial": 0
       },
+      "cost_rule_mixed": false,
       "ecst": {
         "attempt_cost_usd": {
           "confidence": "derived",
@@ -14306,8 +14988,8 @@
     "screening-batch1-makeup-w6",
     "screening-batch1-confound-makeup"
   ],
-  "generated_at": "2026-08-21T12:28:52Z",
-  "harness_head": "a7f03af",
+  "generated_at": "2026-08-22T14:57:28Z",
+  "harness_head": "02a4542",
   "ledger": {
     "budget_exhaustion": [
       {
@@ -14385,11 +15067,26 @@
       "w6-hono-router-review::C3-med",
       "w6-hono-router-review::C3-prev"
     ],
+    "cells_costed_under_more_than_one_rule": [
+      "pilot-realworld-draft-articles::C5 (v1,v2,v3)",
+      "w1-realworld-mapper-tests::C5 (v1,v3)",
+      "w1b-zarr-block-mask-properties::C3 (v1,v2,v3)",
+      "w1b-zarr-block-mask-properties::C3-med (v1,v2,v3)",
+      "w1b-zarr-block-mask-properties::C3-prev (v1,v2,v3)",
+      "w1b-zarr-block-mask-properties::C5 (v1,v2,v3)",
+      "w3-sqlfluff-segment-method-migration::C3 (v1,v2,v3)",
+      "w3-sqlfluff-segment-method-migration::C3-med (v1,v2,v3)",
+      "w3-sqlfluff-segment-method-migration::C3-prev (v1,v2,v3)",
+      "w4b-zarr-consolidated-order::C3 (v1,v2,v3)",
+      "w4b-zarr-consolidated-order::C3-prev (v1,v2,v3)",
+      "w4b-zarr-consolidated-order::C5 (v1,v2,v3)"
+    ],
     "cells_with_a_partially_costed_run": [
       "pilot-realworld-draft-articles::C5",
       "w1-realworld-mapper-tests::C5",
       "w4b-zarr-consolidated-order::C5"
     ],
+    "cells_with_an_unattested_attribution_rule": [],
     "cells_with_an_uncosted_run": [
       "w3-sqlfluff-segment-method-migration::C3"
     ],
@@ -14422,7 +15119,11 @@
       "w4b-zarr-consolidated-order::C5",
       "w4b-zarr-consolidated-order::P0"
     ],
-    "cells_with_partial_graded_quality": [],
+    "cells_with_partial_graded_quality": [
+      "w1-realworld-mapper-tests::C5",
+      "w1b-zarr-block-mask-properties::P0",
+      "w6-hono-router-review::C2"
+    ],
     "cells_with_understrength_n": [
       "pilot-realworld-draft-articles::C3 (2/3)",
       "pilot-realworld-draft-articles::C3-prev (2/3)",
@@ -14530,6 +15231,7 @@
       "Graded quality is EXPLORATORY SECONDARY, extracted from archived sealed output. The pre-registered outcome is the binary gate and does not move.",
       "Truncated runs are excluded from quality extraction entirely: a partial score from a run the harness cut off reads as a model that found little, when the truth is that it was stopped.",
       "Datasets are superseded per rep, never pooled. Reps run under different agent budgets are different instruments.",
+      "The same applies to the money: a Product-B cost is only as comparable as the rule that drew its provider window, which is why the rule is printed beside the figure and a cell spanning two of them is marked.",
       "W3 and W4b have no graded quality on any run: the python stack's per-check capture came back empty for every one of them, and W3's sealed suite never executed at all (pytest usage error, exit 4, in all three grading generations \u2014 original, regrade-v2, and the confound makeup's live grading under a gate that does carry the per-check step). No verdict depends on it \u2014 see report/findings/graded-quality-extraction.md.",
       "No W3 or W4b run in any arm passed the public checks (0 of 32 and 0 of 20 runs carrying a public gate), so neither task discriminates between arms and no comparative reading may be taken from either."
     ],
