@@ -103,6 +103,14 @@ dataset rather than any one of them:
   **PENDING — it opens at CP-FINDINGS**, and no number in it may appear in the docs
   or on the site before then.
 
+And one instrument defect found afterwards, by reading the harness rather than
+running it:
+
+- [the agy JSON-flag defect](findings/agy-json-flag-defect.md) — the adapter never
+  asked agy for its JSON output mode, so no Product-B usage was ever captured
+  (0 of 153 archived invocations); what was built on top of that silence, and why
+  it changes no number already recorded.
+
 ## Layout
 
 ```
