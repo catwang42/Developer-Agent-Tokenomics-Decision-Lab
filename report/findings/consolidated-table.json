@@ -14988,8 +14988,8 @@
     "screening-batch1-makeup-w6",
     "screening-batch1-confound-makeup"
   ],
-  "generated_at": "2026-08-22T14:57:28Z",
-  "harness_head": "02a4542",
+  "generated_at": "2026-08-22T15:01:24Z",
+  "harness_head": "986ce0f",
   "ledger": {
     "budget_exhaustion": [
       {
