@@ -2,7 +2,7 @@
 
 **STATUS: PENDING** — this document opens at **CP-FINDINGS**.
 
-Generated 2026-08-22T15:01:24Z from `results/`; harness `986ce0f`. Zero model spend: nothing here re-runs an agent or a gate.
+Generated 2026-08-23T10:56:01Z from `results/`; harness `afcf79c`. Zero model spend: nothing here re-runs an agent or a gate.
 
 NON-COMPARATIVE / INTERNAL — descriptive per-cell figures only. No cross-product or cross-configuration ranking, no vendor claim, no model-efficiency attribution (CLAUDE.md rule 4, SPEC §1.2). Nothing here may appear in docs, on the site, or in any external-facing report before **CP-FINDINGS**.
 
@@ -30,14 +30,14 @@ Datasets are **superseded per rep**, never pooled. A slot is `(task_id, configur
 | `w1-realworld-mapper-tests` | **C3** | 3/3 | 6/6 | ≤$1.0317 | v1 | 301 | 3/3 | 3 regrade-v2, 3 changed |
 | `w1-realworld-mapper-tests` | **C3-med** | 3/3 | 6/6 | ≤$0.8777 | v1 | 217 | 3/3 | 3 regrade-v2, 3 changed |
 | `w1-realworld-mapper-tests` | **C3-prev** | 3/3 | 6/6 | ≤$0.9860 | v1 | 207 | 3/3 | 3 regrade-v2, 3 changed |
-| `w1-realworld-mapper-tests` | **C5** | 3/3 | 6/6 (n=2 of 3) | ≤$2.0968 (n=2 of 3) | v1,v3 ⚠ | 436 | 3/3 | 1 original, 2 regrade-v2, 2 changed; 1 from `screening-batch1-confound-makeup` |
+| `w1-realworld-mapper-tests` | **C5** | 3/3 | 6/6 | ≤$2.0968 (n=2 of 3) | v1,v3 ⚠ | 436 | 3/3 | 1 original, 2 regrade-v2, 2 changed; 1 from `screening-batch1-confound-makeup` |
 | `w1-realworld-mapper-tests` | **P0** | 3/3 | 6/6 | $0.6166 | n/a | 149 | 3/3 | 3 regrade-v2, 3 changed |
 | `w1b-zarr-block-mask-properties` | **C2** | 0/3 | 7/7 | $1.8454 | n/a | 1309 | 3/3 | 3 regrade-v2 |
 | `w1b-zarr-block-mask-properties` | **C3** | 0/3 | 7/7 | ≤$5.6937 | v1,v2,v3 ⚠ | 917 | 3/3 | 3 regrade-v2 |
 | `w1b-zarr-block-mask-properties` | **C3-med** | 0/3 | 7/7 | ≤$4.8368 | v1,v2,v3 ⚠ | 832 | 3/3 | 3 regrade-v2 |
 | `w1b-zarr-block-mask-properties` | **C3-prev** | 0/3 | 7/7 | ≤$6.2909 | v1,v2,v3 ⚠ | 635 | 3/3 | 3 regrade-v2 |
 | `w1b-zarr-block-mask-properties` | **C5** | 0/3 | 7/7 | ≤$12.5686 | v1,v2,v3 ⚠ | 1765 | 3/3 | 3 regrade-v2 |
-| `w1b-zarr-block-mask-properties` | **P0** | 0/3 | 7/7 (n=2 of 3) | $3.3656 | n/a | 1228 | 3/3 | 1 original, 2 regrade-v2; 1 from `screening-batch1-confound-makeup` |
+| `w1b-zarr-block-mask-properties` | **P0** | 0/3 | 7/7 | $3.3656 | n/a | 1228 | 3/3 | 1 original, 2 regrade-v2; 1 from `screening-batch1-confound-makeup` |
 | `w3-sqlfluff-segment-method-migration` | **C2** | 0/3 | — | $7.3093 | n/a | 3236 | 3/3 | 1 original, 2 regrade-v2; 1 from `screening-batch1-confound-makeup`; 2 from `screening-batch1-makeup` |
 | `w3-sqlfluff-segment-method-migration` | **C3** | 0/3 | — | ≤$8.3401 (n=1 of 3) | v1,v2,v3 ⚠ | 918 | 3/3 | 3 regrade-v2; 2 from `screening-batch1-makeup` |
 | `w3-sqlfluff-segment-method-migration` | **C3-med** | 0/3 | — | ≤$8.2767 | v1,v2,v3 ⚠ | 912 | 3/3 | 3 regrade-v2 |
@@ -57,7 +57,7 @@ Datasets are **superseded per rep**, never pooled. A slot is `(task_id, configur
 | `w4b-zarr-consolidated-order` | **C3-prev** | 0/3 | — | ≤$2.0892 | v1,v2,v3 ⚠ | 913 | 3/3 | 3 regrade-v2 |
 | `w4b-zarr-consolidated-order` | **C5** | 0/3 | — | ≤$7.3831 (n=1 of 3) | v1,v2,v3 ⚠ | 1271 | 3/3 | 2 original, 1 regrade-v2; 2 from `screening-batch1-confound-makeup` |
 | `w4b-zarr-consolidated-order` | **P0** | 0/3 | — | $1.1823 | n/a | 326 | 3/3 | 3 regrade-v2 |
-| `w6-hono-router-review` | **C2** | 1/3 | 4.5/6 (n=2 of 3) | $1.4230 | n/a | 780 | 3/3 | 1 original, 2 regrade-v2, 1 changed; 1 from `screening-batch1-confound-makeup`; 2 from `screening-batch1-makeup-w6` |
+| `w6-hono-router-review` | **C2** | 1/3 | 4/6, 1 fabricated | $1.4230 | n/a | 780 | 3/3 | 1 original, 2 regrade-v2, 1 changed; 1 from `screening-batch1-confound-makeup`; 2 from `screening-batch1-makeup-w6` |
 | `w6-hono-router-review` | **C3** | 0/3 | 6/6, 3 fabricated | ≤$1.3797 | v3 | 352 | 3/3 | 3 regrade-v2; 3 from `screening-batch1-makeup-w6` |
 | `w6-hono-router-review` | **C3-med** | 1/3 | 6/6, 4 fabricated | ≤$0.7409 | v3 | 231 | 3/3 | 3 regrade-v2, 1 changed; 3 from `screening-batch1-makeup-w6` |
 | `w6-hono-router-review` | **C3-prev** | 0/3 | 5/6, 5 fabricated | ≤$0.8028 | v3 | 289 | 3/3 | 3 regrade-v2; 3 from `screening-batch1-makeup-w6` |
@@ -230,11 +230,7 @@ The archived gate log carries no extractable per-check detail, so there is no se
 
 ### Cells with partial graded quality
 
-The median is over a subset of the cell's runs; the n is printed in the cell.
-
-- `w1-realworld-mapper-tests::C5`
-- `w1b-zarr-block-mask-properties::P0`
-- `w6-hono-router-review::C2`
+None.
 
 ### Standing limitations
 

@@ -3918,12 +3918,13 @@
         "fabrications_total": null,
         "max_observed": 6,
         "max_possible": 6,
-        "median": 6.0,
+        "median": 6,
         "metric": "mutants_caught",
         "min": 6,
-        "n": 2,
+        "n": 3,
         "of_runs": 3,
         "scores": [
+          6,
           6,
           6
         ],
@@ -6419,12 +6420,13 @@
         "fabrications_total": null,
         "max_observed": 7,
         "max_possible": 7,
-        "median": 7.0,
+        "median": 7,
         "metric": "mutants_caught",
         "min": 7,
-        "n": 2,
+        "n": 3,
         "of_runs": 3,
         "scores": [
+          7,
           7,
           7
         ],
@@ -13290,15 +13292,16 @@
       },
       "n_runs": 3,
       "quality": {
-        "fabrications_total": 0,
+        "fabrications_total": 1,
         "max_observed": 5,
         "max_possible": 6,
-        "median": 4.5,
+        "median": 4,
         "metric": "defects_found",
         "min": 4,
-        "n": 2,
+        "n": 3,
         "of_runs": 3,
         "scores": [
+          4,
           4,
           5
         ],
@@ -14988,8 +14991,8 @@
     "screening-batch1-makeup-w6",
     "screening-batch1-confound-makeup"
   ],
-  "generated_at": "2026-08-22T15:01:24Z",
-  "harness_head": "986ce0f",
+  "generated_at": "2026-08-23T10:56:01Z",
+  "harness_head": "afcf79c",
   "ledger": {
     "budget_exhaustion": [
       {
@@ -15119,11 +15122,7 @@
       "w4b-zarr-consolidated-order::C5",
       "w4b-zarr-consolidated-order::P0"
     ],
-    "cells_with_partial_graded_quality": [
-      "w1-realworld-mapper-tests::C5",
-      "w1b-zarr-block-mask-properties::P0",
-      "w6-hono-router-review::C2"
-    ],
+    "cells_with_partial_graded_quality": [],
     "cells_with_understrength_n": [
       "pilot-realworld-draft-articles::C3 (2/3)",
       "pilot-realworld-draft-articles::C3-prev (2/3)",
