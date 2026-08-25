@@ -39,7 +39,11 @@ EXPLORATORY SECONDARY (``harness/analysis/quality.py``) and never overrides a
 verdict: a run that found 6 of 6 planted defects and fabricated a seventh is
 still a rejected run, and the point of the pair is that the two columns can
 disagree in a way one column cannot show. Product-B costs carry their bound —
-every one is cache-blind (``harness/analysis/recost.py``), so ``≤``.
+every one is cache-blind (``harness/analysis/recost.py``), so ``≤`` — and beside
+each one, the provider-window attribution rule it was drawn under, because a
+cost is only as comparable as the rule that produced it (see the rule column's
+own note below). A cost that has no figure at all says WHY it has none: a bare
+"unavailable" cannot be told apart from "nobody looked".
 
 Run:  python -m harness.analysis.consolidate results \\
         --out-md report/findings/consolidated-table.md \\
@@ -59,7 +63,13 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 from harness.analysis.archive import is_evidence, parse_run_dir_name, truncation
-from harness.evaluator.metrics import run_total
+from harness.collectors.vertex_token_collector import (  # noqa: SLF001 — see below
+    REFUSAL_MARKERS,
+    _RULE_EVENT_TYPE,
+    _RULE_METHOD,
+)
+from harness.evaluator.metrics import _leg_cost, run_total  # noqa: SLF001 — see cell_cost
+from harness.telemetry import costing as C
 from harness.telemetry import summarize as S
 
 #: Every screening dataset, oldest first. Order is documentation only —
@@ -77,6 +87,54 @@ ORIGINAL_DATASET = DEFAULT_DATASETS[0]
 
 BUDGET_EXHAUSTION = "budget_exhaustion"
 UNREPLACED_LOSS = "unreplaced_loss"
+
+# --------------------------------------------------------- attribution-rule reading
+#
+# WHY THIS COLUMN EXISTS. A Product-B cost in this table is not a product self-report:
+# it is provider-meter tokens assigned to a run by TIME WINDOW, and the collector has
+# drawn that window three different ways. v1 bounded the window by silence; v2 gave a
+# serialized run ownership of the meter until the next run's window opens, carrying its
+# own ingestion tail; v3 draws the SAME window as v2 but checks it against a RATE
+# ceiling (25k input tokens/s) instead of a fixed per-run token count. Batch 1's legs
+# were attributed under v1 and v2; later passes ran v3.
+#
+# The rules are not interchangeable, and they do not merely disagree at the margin:
+# four batch-1 runs carry a v1 REFUSAL and a v2 ATTRIBUTION at once, and both records
+# stand, because the two rules drew different windows and honestly reached different
+# answers (see summarize.usage_provenance). A cost column spanning four datasets
+# therefore spans up to three windowing rules. Unlabelled, a reader comparing two cells
+# would be comparing two instruments — exactly the confound class this repo exists to
+# catch — so the rule rides beside the number.
+#
+# HOW THE RULE IS READ. The prompt for this pass assumed every artifact carries
+# ``attribution_rule.rule``. The archive says otherwise, and the archive is
+# authoritative: only v3 writes that key. A v1 pass has no ownership statement at all
+# (``attribution_rule`` is absent from the event and null in the marker), and v2
+# predates the ``rule`` field, so it writes an ownership dict whose ``id`` names the
+# method but which has no ``rule`` key. Verified over all four datasets: 38 v1 events
+# and 43 v1 markers carry no rule, 4 v2 events and 37 v2 markers carry a method id but
+# no rule, and only the 39 v3 events and 8 v3 markers spell it out.
+#
+# So the rule is read from whichever of the collector's own writer-side identifiers the
+# artifact carries, in this precedence:
+#
+#     1. ``attribution_rule.rule``      — the field, where the collector wrote it (v3)
+#     2. ``attribution_rule.id``        — the method id, inverted through _RULE_METHOD
+#     3. the event type / marker filename — inverted through the collector's own maps
+#
+# Every step is a READ of the writer's own vocabulary, not an inference: the maps below
+# are inverted from the collector's constants at import time precisely so a rename on
+# the writer side cannot leave this module quietly labelling runs with a stale name.
+# What is NOT done, per CLAUDE.md rule 3: nothing is defaulted to v2, and no rule is
+# taken from a sibling run. An artifact that matches none of the three renders
+# ``unavailable``, the same as any other missing measurement.
+_RULE_BY_METHOD = {method: rule for rule, method in _RULE_METHOD.items()}
+_RULE_BY_EVENT = {event: rule for rule, event in _RULE_EVENT_TYPE.items()}
+_RULE_BY_MARKER = {marker: rule for rule, marker in REFUSAL_MARKERS.items()}
+
+#: No Product-B leg in the run, so no provider window was ever drawn for it. Distinct
+#: from ``unavailable``: there is nothing missing, the question does not apply.
+RULE_NOT_APPLICABLE = "n/a"
 
 SCHEMA = "consolidated-table/v1"
 
@@ -99,6 +157,74 @@ def _load(path: str) -> Optional[Dict[str, Any]]:
 
 
 # ------------------------------------------------------------------ slot selection
+
+def _rule_from_statement(statement: Any) -> Optional[str]:
+    """The rule named by an ``attribution_rule`` block, or None if it names none."""
+    if not isinstance(statement, dict):
+        return None
+    rule = statement.get("rule")
+    if isinstance(rule, str) and rule:
+        return rule
+    return _RULE_BY_METHOD.get(str(statement.get("id")))
+
+
+def has_product_b_leg(summary: Dict[str, Any]) -> bool:
+    """True if any billing leg is a Product-B one.
+
+    Identified by ``cost_basis_qualifier``, which the manifest rides on every Gemini
+    leg — solo C3/C3-med/C3-prev and the C5 executor alike — and which is also what
+    ``recost.needs_recost`` keys on, so the two passes cannot disagree about which
+    legs are Product B's.
+    """
+    return any(leg.get("cost_basis_qualifier") == C.CACHE_BLIND
+               for leg in (summary.get("legs") or []))
+
+
+def run_attribution(run_dir: str, summary: Dict[str, Any]) -> Dict[str, Any]:
+    """Which windowing rule(s) touched this run, read from its own artifacts.
+
+    Both kinds of artifact are read, and they are kept apart in the record because
+    they mean different things. A backfill event ATTRIBUTED a window and produced the
+    tokens a cost was priced from. A refusal marker means the guard would not attribute
+    that window, so the leg's tokens stayed ``unavailable`` — but the rule was still
+    applied, and dropping it would let a refused cell read as though no rule had ever
+    been drawn against it. Both go into ``rules``; only the first produced a number.
+    """
+    attributed: set = set()
+    refused: set = set()
+
+    path = os.path.join(run_dir, "events.jsonl")
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                event_type = event.get("event_type")
+                if event_type not in _RULE_BY_EVENT:
+                    continue
+                rule = (_rule_from_statement(event.get("attribution_rule"))
+                        or _RULE_BY_EVENT[event_type])
+                attributed.add(rule)
+
+    for marker, marker_rule in _RULE_BY_MARKER.items():
+        marker_path = os.path.join(run_dir, marker)
+        if not os.path.isfile(marker_path):
+            continue
+        rule = _rule_from_statement((_load(marker_path) or {}).get("attribution_rule"))
+        refused.add(rule or marker_rule)
+
+    return {
+        "product_b_leg": has_product_b_leg(summary),
+        "attributed": sorted(attributed),
+        "refused": sorted(refused),
+        "rules": sorted(attributed | refused),
+    }
+
 
 def read_attempt(run_dir: str, dataset: str,
                  adjudication: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -124,6 +250,7 @@ def read_attempt(run_dir: str, dataset: str,
         "truncated": truncation(run_dir),
         "void": record["acceptance"].get("provenance") == S.VOIDED,
         "quality": quality,
+        "attribution": run_attribution(run_dir, record["summary"]),
     })
     return record
 
@@ -211,6 +338,46 @@ def cell_quality(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
+# ------------------------------------------------------------ attribution per cell
+
+def cell_attribution(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Which provider-window rule(s) the cell's filled reps were priced under.
+
+    A sorted set, never a single value: a cell may be filled from more than one
+    dataset, and the datasets were attributed under different rules. Runs with no
+    Product-B leg contribute nothing — for them the question does not arise, and
+    counting them would make an all-Product-A arm look rule-mixed.
+
+    A Product-B run whose artifacts name no rule is counted in
+    ``product_b_runs_without_rule`` and left out of ``rules``. It is not filled in
+    from the rule a sibling rep ran under (CLAUDE.md rule 3).
+    """
+    attributed: set = set()
+    refused: set = set()
+    product_b = 0
+    without = 0
+    for run in runs:
+        a = run.get("attribution") or {}
+        if not a.get("product_b_leg"):
+            continue
+        product_b += 1
+        if not a.get("rules"):
+            without += 1
+            continue
+        attributed.update(a.get("attributed") or [])
+        refused.update(a.get("refused") or [])
+    rules = sorted(attributed | refused)
+    return {
+        "rules": rules,
+        "attributed": sorted(attributed),
+        "refused": sorted(refused),
+        "product_b_runs": product_b,
+        "product_b_runs_without_rule": without,
+        "of_runs": len(runs),
+        "mixed": len(rules) > 1,
+    }
+
+
 # ----------------------------------------------------------------------- building
 
 def build(results_root: str, datasets: List[str],
@@ -241,6 +408,10 @@ def build(results_root: str, datasets: List[str],
                                             else config in entry["registered_arms"]))
         cell["quality"] = cell_quality(cell_runs)
         cell["cost"] = cell_cost(cell_runs)
+        cell["attribution"] = cell_attribution(cell_runs)
+        # Hoisted to the cell so a consumer that reads only the cost block still sees
+        # that the figures under it were drawn by more than one windowing rule.
+        cell["cost_rule_mixed"] = cell["attribution"]["mixed"]
         cell["cost_provenance"] = S._cost_provenance(cell_runs)  # noqa: SLF001
         cell["source_datasets"] = _dataset_tally(cell_runs)
         cell["reps_registered"] = len(slots_by_cell[cell_key])
@@ -321,6 +492,8 @@ def cell_cost(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
     complete: List[float] = []
     partial = 0
     unavailable = 0
+    legs_total = 0
+    legs_unpriced = 0
     for run in runs:
         total, any_unavailable = run_total(run["summary"], "marginal")
         if total is None:
@@ -329,6 +502,11 @@ def cell_cost(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
             partial += 1
         else:
             complete.append(total)
+        # Counted for the renderer only — which legs went unpriced is what turns a
+        # bare "unavailable" into a stated reason. The selection above is untouched.
+        for leg in (run["summary"].get("legs") or []):
+            legs_total += 1
+            legs_unpriced += _leg_cost(leg, "marginal") is None
     return {
         "median_usd": st.median(complete) if complete else None,
         "min_usd": min(complete) if complete else None,
@@ -337,6 +515,8 @@ def cell_cost(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         "of_runs": len(runs),
         "runs_partially_costed": partial,
         "runs_uncosted": unavailable,
+        "legs": legs_total,
+        "legs_unpriced": legs_unpriced,
         "basis": "sum of per-leg marginal_operating_usd over all attempts in the run",
     }
 
@@ -364,6 +544,9 @@ def _empty_cell(task: str, config: str, cell_slots: List[Dict[str, Any]],
                        "provenance": {"all_original": True, "n_runs": 0},
                        "basis": "every attempt at every rep was truncated or voided"},
         "quality": cell_quality([]),
+        "cost": cell_cost([]),
+        "attribution": cell_attribution([]),
+        "cost_rule_mixed": False,
         "ecst": {"marginal_operating_usd": {"value": None, "status": S.UNAVAILABLE},
                  "attempt_cost_usd": {"median": None, "n": 0, "of_runs": 0}},
         "wallclock_s": {"median": None, "n": 0, "of_runs": 0},
@@ -468,6 +651,13 @@ def ledger(cells: List[Dict[str, Any]],
             f"({c['reps_filled']}/{c['reps_registered']})"
             for c in cells if 0 < c["reps_filled"] < c["reps_registered"]],
         "cells_costed_at_an_upper_bound": named(_has_upper_bound),
+        "cells_costed_under_more_than_one_rule": [
+            f"{c['task_id']}::{c['configuration_or_policy']} "
+            f"({','.join(c['attribution']['rules'])})"
+            for c in cells if c.get("cost_rule_mixed")],
+        "cells_with_an_unattested_attribution_rule": named(
+            lambda c: (c.get("attribution") or {}).get(
+                "product_b_runs_without_rule")),
         "cells_with_a_partially_costed_run": named(
             lambda c: (c.get("cost") or {}).get("runs_partially_costed")),
         "cells_with_an_uncosted_run": named(
@@ -492,6 +682,9 @@ def ledger(cells: List[Dict[str, Any]],
             "when the truth is that it was stopped.",
             "Datasets are superseded per rep, never pooled. Reps run under different "
             "agent budgets are different instruments.",
+            "The same applies to the money: a Product-B cost is only as comparable as "
+            "the rule that drew its provider window, which is why the rule is printed "
+            "beside the figure and a cell spanning two of them is marked.",
             "W3 and W4b have no graded quality on any run: the python stack's "
             "per-check capture came back empty for every one of them, and W3's sealed "
             "suite never executed at all (pytest usage error, exit 4, in all three "
@@ -529,14 +722,52 @@ def _fmt_quality(q: Dict[str, Any]) -> str:
     return out
 
 
+def _cost_unavailable_reason(cell: Dict[str, Any]) -> str:
+    """Why this cell has no median — read off the record, not keyed to the arm.
+
+    Reached only when no run in the cell was completely priced, so "some legs
+    priced" here means priced in runs that were nonetheless excluded from the
+    median for having an unpriced leg beside them.
+    """
+    c = cell.get("cost") or {}
+    if not c.get("of_runs"):
+        return "no run filled this cell"
+    unpriced, legs = c.get("legs_unpriced") or 0, c.get("legs") or 0
+    if unpriced and unpriced < legs:
+        return f"partial: {unpriced} of {legs} legs unpriced"
+    refused = (cell.get("attribution") or {}).get("refused") or []
+    if unpriced and refused:
+        return f"no priced leg; provider window refused ({','.join(refused)})"
+    return "no provider usage record"
+
+
 def _fmt_cost(cell: Dict[str, Any]) -> str:
     c = cell.get("cost") or {}
     if c.get("median_usd") is None:
-        return "unavailable"
+        return f"unavailable — {_cost_unavailable_reason(cell)}"
     out = f"{'≤' if _has_upper_bound(cell) else ''}${c['median_usd']:.4f}"
     if c["n"] != c["of_runs"]:
         out += f" (n={c['n']} of {c['of_runs']})"
     return out
+
+
+def _fmt_rules(cell: Dict[str, Any]) -> str:
+    """The provider-window rule(s) behind this cell's cost figure."""
+    a = cell.get("attribution") or {}
+    if not a.get("of_runs"):
+        return "—"
+    if not a.get("product_b_runs"):
+        return RULE_NOT_APPLICABLE
+    parts = list(a.get("rules") or [])
+    if a.get("product_b_runs_without_rule"):
+        parts.append("unavailable")
+    out = ",".join(parts)
+    # Marked when the cell's reps are not ESTABLISHED to be like-for-like — either
+    # because they demonstrably span two windowing rules, or because one rep's rule
+    # is unattested. An unknown rule is no more comparable than a different one, and
+    # assuming it matches its siblings is the inference this column exists to refuse.
+    unattested = a.get("mixed") or a.get("product_b_runs_without_rule")
+    return f"{out} ⚠" if unattested else out
 
 
 def _fmt_provenance(cell: Dict[str, Any]) -> str:
@@ -583,11 +814,20 @@ def render(table: Dict[str, Any], *, generated_at: str, harness_head: str) -> st
         "that disagreement is the point. A cost printed `≤` is a cache-blind upper "
         "bound on Product-B spend, not an exact figure.",
         "",
+        "**Cost rule** names the provider-window attribution rule each cell's "
+        "Product-B tokens were drawn under — `v1` a silence-bounded window, `v2` "
+        "serialized run ownership with an ingestion tail, `v3` the same window under "
+        "a rate ceiling. A refused window still names its rule: the rule was applied, "
+        "the tokens were withheld. Arms with no Product-B leg read `n/a`, because for "
+        "them no window was ever drawn — that is not a missing measurement. A cell "
+        "marked ⚠ spans more than one rule, so its reps were priced on more than one "
+        "instrument and its median is not a like-for-like figure.",
+        "",
         "## Cells",
         "",
         "| Task | Arm | Accepted | Quality (median) | Attempt cost (median) | "
-        "Wall-clock s | Reps | Provenance |",
-        "|---|---|---|---|---|---|---|---|",
+        "Cost rule | Wall-clock s | Reps | Provenance |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for c in table["cells"]:
         reps = f"{c['reps_filled']}/{c['reps_registered']}"
@@ -599,7 +839,8 @@ def render(table: Dict[str, Any], *, generated_at: str, harness_head: str) -> st
         L.append(
             f"| `{c['task_id']}` | **{c['configuration_or_policy']}** | "
             f"{c['acceptance']['display']} | {_fmt_quality(c['quality'])} | "
-            f"{_fmt_cost(c)} | {_fmt_wall(c)} | {reps} | {_fmt_provenance(c)} |")
+            f"{_fmt_cost(c)} | {_fmt_rules(c)} | {_fmt_wall(c)} | {reps} | "
+            f"{_fmt_provenance(c)} |")
 
     L += ["", "Quality metrics by task family: W1/W1b mutants caught, W3 sealed rules "
           "clean, W4b sealed assertions passed, W6 planted defects found (with "
@@ -713,6 +954,18 @@ def _render_ledger(led: Dict[str, Any]) -> List[str]:
         ("Cells costed at an upper bound", "cells_costed_at_an_upper_bound",
          "Product-B spend, priced cache-blind. Never restate one of these as an "
          "exact cost."),
+        ("Cells costed under more than one attribution rule",
+         "cells_costed_under_more_than_one_rule",
+         "The reps in these cells had their Product-B tokens drawn from the provider "
+         "meter under different windowing rules, so the cell's median is taken over "
+         "figures produced by more than one instrument. Marked ⚠ in the Cost rule "
+         "column. The rules are not a ranking and one does not correct another; they "
+         "are successive answers to *which slice of the meter is this run's*."),
+        ("Cells with an unattested attribution rule",
+         "cells_with_an_unattested_attribution_rule",
+         "A Product-B run in the cell carries no artifact naming the rule its window "
+         "was drawn under. Recorded `unavailable` and NOT filled in from the rule its "
+         "sibling reps ran under."),
         ("Cells with a partially costed run", "cells_with_a_partially_costed_run",
          "A dual-billed run whose second leg reported no usage. Its per-leg figures "
          "stand; its run total does not, and it is left out of the cell's median "

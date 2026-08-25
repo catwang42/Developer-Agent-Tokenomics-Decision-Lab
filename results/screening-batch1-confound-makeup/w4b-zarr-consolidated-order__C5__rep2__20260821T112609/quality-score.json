@@ -1,0 +1,15 @@
+{
+  "acceptance": "rejected",
+  "available": false,
+  "configuration_id": "C5",
+  "max": null,
+  "metric": "sealed_assertions_passed",
+  "reason": "gate-hidden.log was written by a gate that records per-check results and it carries none: the python stack's graded capture came back empty for this run, so only the sealed exit code is in the archive",
+  "rep": 2,
+  "schema": "quality-score/v1",
+  "score": null,
+  "source": "sealed runner stderr as archived by this run; nothing re-run, no sealed material read",
+  "source_log": "gate-hidden.log",
+  "status": "EXPLORATORY SECONDARY \u2014 the pre-registered outcome is the binary sealed gate; this does not override it",
+  "task_id": "w4b-zarr-consolidated-order"
+}

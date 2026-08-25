@@ -2,7 +2,7 @@
 
 **STATUS: PENDING** — this document opens at **CP-FINDINGS**.
 
-Generated 2026-08-21T12:28:52Z from `results/`; harness `a7f03af`. Zero model spend: nothing here re-runs an agent or a gate.
+Generated 2026-08-23T10:56:01Z from `results/`; harness `afcf79c`. Zero model spend: nothing here re-runs an agent or a gate.
 
 NON-COMPARATIVE / INTERNAL — descriptive per-cell figures only. No cross-product or cross-configuration ranking, no vendor claim, no model-efficiency attribution (CLAUDE.md rule 4, SPEC §1.2). Nothing here may appear in docs, on the site, or in any external-facing report before **CP-FINDINGS**.
 
@@ -14,52 +14,54 @@ Datasets are **superseded per rep**, never pooled. A slot is `(task_id, configur
 
 **Accepted** is the pre-registered outcome and the only primary one. **Quality** is exploratory secondary, extracted from archived sealed output; it never overrides a verdict, and the two columns are expected to disagree — that disagreement is the point. A cost printed `≤` is a cache-blind upper bound on Product-B spend, not an exact figure.
 
+**Cost rule** names the provider-window attribution rule each cell's Product-B tokens were drawn under — `v1` a silence-bounded window, `v2` serialized run ownership with an ingestion tail, `v3` the same window under a rate ceiling. A refused window still names its rule: the rule was applied, the tokens were withheld. Arms with no Product-B leg read `n/a`, because for them no window was ever drawn — that is not a missing measurement. A cell marked ⚠ spans more than one rule, so its reps were priced on more than one instrument and its median is not a like-for-like figure.
+
 ## Cells
 
-| Task | Arm | Accepted | Quality (median) | Attempt cost (median) | Wall-clock s | Reps | Provenance |
-|---|---|---|---|---|---|---|---|
-| `pilot-realworld-draft-articles` | **C2** | 3/3 | — | $0.2260 | 78 | 3/3 | 3 regrade-v2 |
-| `pilot-realworld-draft-articles` | **C3** | 2/2 | — | ≤$1.0032 | 276 | 2/3 ⚠ | 2 regrade-v2 |
-| `pilot-realworld-draft-articles` | **C3-med** | 3/3 | — | ≤$0.8109 | 223 | 3/3 | 3 regrade-v2 |
-| `pilot-realworld-draft-articles` | **C3-prev** | 2/2 | — | ≤$0.3797 | 132 | 2/3 ⚠ | 2 regrade-v2 |
-| `pilot-realworld-draft-articles` | **C5** | 2/2 | — | ≤$1.0427 (n=1 of 2) | 259 | 2/3 ⚠ | 2 regrade-v2 |
-| `pilot-realworld-draft-articles` | **P0** | 3/3 | — | $0.5673 | 115 | 3/3 | 3 regrade-v2 |
-| `w1-realworld-mapper-tests` | **C2** | 3/3 | 6/6 | $0.4061 | 94 | 3/3 | 3 regrade-v2, 3 changed |
-| `w1-realworld-mapper-tests` | **C3** | 3/3 | 6/6 | ≤$1.0317 | 301 | 3/3 | 3 regrade-v2, 3 changed |
-| `w1-realworld-mapper-tests` | **C3-med** | 3/3 | 6/6 | ≤$0.8777 | 217 | 3/3 | 3 regrade-v2, 3 changed |
-| `w1-realworld-mapper-tests` | **C3-prev** | 3/3 | 6/6 | ≤$0.9860 | 207 | 3/3 | 3 regrade-v2, 3 changed |
-| `w1-realworld-mapper-tests` | **C5** | 3/3 | 6/6 | ≤$2.0968 (n=2 of 3) | 436 | 3/3 | 1 original, 2 regrade-v2, 2 changed; 1 from `screening-batch1-confound-makeup` |
-| `w1-realworld-mapper-tests` | **P0** | 3/3 | 6/6 | $0.6166 | 149 | 3/3 | 3 regrade-v2, 3 changed |
-| `w1b-zarr-block-mask-properties` | **C2** | 0/3 | 7/7 | $1.8454 | 1309 | 3/3 | 3 regrade-v2 |
-| `w1b-zarr-block-mask-properties` | **C3** | 0/3 | 7/7 | ≤$5.6937 | 917 | 3/3 | 3 regrade-v2 |
-| `w1b-zarr-block-mask-properties` | **C3-med** | 0/3 | 7/7 | ≤$4.8368 | 832 | 3/3 | 3 regrade-v2 |
-| `w1b-zarr-block-mask-properties` | **C3-prev** | 0/3 | 7/7 | ≤$6.2909 | 635 | 3/3 | 3 regrade-v2 |
-| `w1b-zarr-block-mask-properties` | **C5** | 0/3 | 7/7 | ≤$12.5686 | 1765 | 3/3 | 3 regrade-v2 |
-| `w1b-zarr-block-mask-properties` | **P0** | 0/3 | 7/7 | $3.3656 | 1228 | 3/3 | 1 original, 2 regrade-v2; 1 from `screening-batch1-confound-makeup` |
-| `w3-sqlfluff-segment-method-migration` | **C2** | 0/3 | — | $7.3093 | 3236 | 3/3 | 1 original, 2 regrade-v2; 1 from `screening-batch1-confound-makeup`; 2 from `screening-batch1-makeup` |
-| `w3-sqlfluff-segment-method-migration` | **C3** | 0/3 | — | ≤$8.3401 (n=1 of 3) | 918 | 3/3 | 3 regrade-v2; 2 from `screening-batch1-makeup` |
-| `w3-sqlfluff-segment-method-migration` | **C3-med** | 0/3 | — | ≤$8.2767 | 912 | 3/3 | 3 regrade-v2 |
-| `w3-sqlfluff-segment-method-migration` | **C3-prev** | 0/3 | — | ≤$9.8591 | 913 | 3/3 | 3 regrade-v2 |
-| `w3-sqlfluff-segment-method-migration` | **C5** | no gradable run | — | unavailable | — | 0/3 ⚠ | — |
-| `w3-sqlfluff-segment-method-migration` | **P0** | 0/2 | — | $15.7401 | 5272 | 2/3 ⚠ | 1 original, 1 regrade-v2; 1 from `screening-batch1-confound-makeup`; 1 from `screening-batch1-makeup` |
-| `w3-sqlfluff-segment-method-migration` | **P1** | 0/2 | — | $21.4868 | 8002 | 2/3 ⚠ | 1 original, 1 regrade-v2; 1 from `screening-batch1-confound-makeup`; 1 from `screening-batch1-makeup` |
-| `w4-realworld-missing-user-id` | **C2** | 3/3 | — | $0.4465 | 112 | 3/3 | 3 regrade-v2 |
-| `w4-realworld-missing-user-id` | **C3** | 1/2 | — | ≤$1.3939 | 328 | 2/3 ⚠ | 2 regrade-v2 |
-| `w4-realworld-missing-user-id` | **C3-med** | 3/3 | — | ≤$0.6402 | 229 | 3/3 | 3 regrade-v2 |
-| `w4-realworld-missing-user-id` | **C3-prev** | 0/3 | — | ≤$1.1796 | 228 | 3/3 | 3 regrade-v2 |
-| `w4-realworld-missing-user-id` | **C5** | 2/3 | — | ≤$2.2357 | 450 | 3/3 | 3 regrade-v2 |
-| `w4-realworld-missing-user-id` | **P0** | 3/3 | — | $0.7959 | 204 | 3/3 | 3 regrade-v2 |
-| `w4b-zarr-consolidated-order` | **C2** | 0/3 | — | $0.7557 | 282 | 3/3 | 3 regrade-v2 |
-| `w4b-zarr-consolidated-order` | **C3** | 0/3 | — | ≤$5.2385 | 818 | 3/3 | 3 regrade-v2 |
-| `w4b-zarr-consolidated-order` | **C3-med** | 0/3 | — | ≤$1.3857 | 917 | 3/3 | 3 regrade-v2 |
-| `w4b-zarr-consolidated-order` | **C3-prev** | 0/3 | — | ≤$2.0892 | 913 | 3/3 | 3 regrade-v2 |
-| `w4b-zarr-consolidated-order` | **C5** | 0/3 | — | ≤$7.3831 (n=1 of 3) | 1271 | 3/3 | 2 original, 1 regrade-v2; 2 from `screening-batch1-confound-makeup` |
-| `w4b-zarr-consolidated-order` | **P0** | 0/3 | — | $1.1823 | 326 | 3/3 | 3 regrade-v2 |
-| `w6-hono-router-review` | **C2** | 1/3 | 4/6, 1 fabricated | $1.4230 | 780 | 3/3 | 1 original, 2 regrade-v2, 1 changed; 1 from `screening-batch1-confound-makeup`; 2 from `screening-batch1-makeup-w6` |
-| `w6-hono-router-review` | **C3** | 0/3 | 6/6, 3 fabricated | ≤$1.3797 | 352 | 3/3 | 3 regrade-v2; 3 from `screening-batch1-makeup-w6` |
-| `w6-hono-router-review` | **C3-med** | 1/3 | 6/6, 4 fabricated | ≤$0.7409 | 231 | 3/3 | 3 regrade-v2, 1 changed; 3 from `screening-batch1-makeup-w6` |
-| `w6-hono-router-review` | **C3-prev** | 0/3 | 5/6, 5 fabricated | ≤$0.8028 | 289 | 3/3 | 3 regrade-v2; 3 from `screening-batch1-makeup-w6` |
-| `w6-hono-router-review` | **P0** | 3/3 | 6/6 | $3.2237 | 694 | 3/3 | 3 regrade-v2, 3 changed; 3 from `screening-batch1-makeup-w6` |
+| Task | Arm | Accepted | Quality (median) | Attempt cost (median) | Cost rule | Wall-clock s | Reps | Provenance |
+|---|---|---|---|---|---|---|---|---|
+| `pilot-realworld-draft-articles` | **C2** | 3/3 | — | $0.2260 | n/a | 78 | 3/3 | 3 regrade-v2 |
+| `pilot-realworld-draft-articles` | **C3** | 2/2 | — | ≤$1.0032 | v1 | 276 | 2/3 ⚠ | 2 regrade-v2 |
+| `pilot-realworld-draft-articles` | **C3-med** | 3/3 | — | ≤$0.8109 | v1 | 223 | 3/3 | 3 regrade-v2 |
+| `pilot-realworld-draft-articles` | **C3-prev** | 2/2 | — | ≤$0.3797 | v1 | 132 | 2/3 ⚠ | 2 regrade-v2 |
+| `pilot-realworld-draft-articles` | **C5** | 2/2 | — | ≤$1.0427 (n=1 of 2) | v1,v2,v3 ⚠ | 259 | 2/3 ⚠ | 2 regrade-v2 |
+| `pilot-realworld-draft-articles` | **P0** | 3/3 | — | $0.5673 | n/a | 115 | 3/3 | 3 regrade-v2 |
+| `w1-realworld-mapper-tests` | **C2** | 3/3 | 6/6 | $0.4061 | n/a | 94 | 3/3 | 3 regrade-v2, 3 changed |
+| `w1-realworld-mapper-tests` | **C3** | 3/3 | 6/6 | ≤$1.0317 | v1 | 301 | 3/3 | 3 regrade-v2, 3 changed |
+| `w1-realworld-mapper-tests` | **C3-med** | 3/3 | 6/6 | ≤$0.8777 | v1 | 217 | 3/3 | 3 regrade-v2, 3 changed |
+| `w1-realworld-mapper-tests` | **C3-prev** | 3/3 | 6/6 | ≤$0.9860 | v1 | 207 | 3/3 | 3 regrade-v2, 3 changed |
+| `w1-realworld-mapper-tests` | **C5** | 3/3 | 6/6 | ≤$2.0968 (n=2 of 3) | v1,v3 ⚠ | 436 | 3/3 | 1 original, 2 regrade-v2, 2 changed; 1 from `screening-batch1-confound-makeup` |
+| `w1-realworld-mapper-tests` | **P0** | 3/3 | 6/6 | $0.6166 | n/a | 149 | 3/3 | 3 regrade-v2, 3 changed |
+| `w1b-zarr-block-mask-properties` | **C2** | 0/3 | 7/7 | $1.8454 | n/a | 1309 | 3/3 | 3 regrade-v2 |
+| `w1b-zarr-block-mask-properties` | **C3** | 0/3 | 7/7 | ≤$5.6937 | v1,v2,v3 ⚠ | 917 | 3/3 | 3 regrade-v2 |
+| `w1b-zarr-block-mask-properties` | **C3-med** | 0/3 | 7/7 | ≤$4.8368 | v1,v2,v3 ⚠ | 832 | 3/3 | 3 regrade-v2 |
+| `w1b-zarr-block-mask-properties` | **C3-prev** | 0/3 | 7/7 | ≤$6.2909 | v1,v2,v3 ⚠ | 635 | 3/3 | 3 regrade-v2 |
+| `w1b-zarr-block-mask-properties` | **C5** | 0/3 | 7/7 | ≤$12.5686 | v1,v2,v3 ⚠ | 1765 | 3/3 | 3 regrade-v2 |
+| `w1b-zarr-block-mask-properties` | **P0** | 0/3 | 7/7 | $3.3656 | n/a | 1228 | 3/3 | 1 original, 2 regrade-v2; 1 from `screening-batch1-confound-makeup` |
+| `w3-sqlfluff-segment-method-migration` | **C2** | 0/3 | — | $7.3093 | n/a | 3236 | 3/3 | 1 original, 2 regrade-v2; 1 from `screening-batch1-confound-makeup`; 2 from `screening-batch1-makeup` |
+| `w3-sqlfluff-segment-method-migration` | **C3** | 0/3 | — | ≤$8.3401 (n=1 of 3) | v1,v2,v3 ⚠ | 918 | 3/3 | 3 regrade-v2; 2 from `screening-batch1-makeup` |
+| `w3-sqlfluff-segment-method-migration` | **C3-med** | 0/3 | — | ≤$8.2767 | v1,v2,v3 ⚠ | 912 | 3/3 | 3 regrade-v2 |
+| `w3-sqlfluff-segment-method-migration` | **C3-prev** | 0/3 | — | ≤$9.8591 | v1,v2,v3 ⚠ | 913 | 3/3 | 3 regrade-v2 |
+| `w3-sqlfluff-segment-method-migration` | **C5** | no gradable run | — | unavailable — no run filled this cell | — | — | 0/3 ⚠ | — |
+| `w3-sqlfluff-segment-method-migration` | **P0** | 0/2 | — | $15.7401 | n/a | 5272 | 2/3 ⚠ | 1 original, 1 regrade-v2; 1 from `screening-batch1-confound-makeup`; 1 from `screening-batch1-makeup` |
+| `w3-sqlfluff-segment-method-migration` | **P1** | 0/2 | — | $21.4868 | n/a | 8002 | 2/3 ⚠ | 1 original, 1 regrade-v2; 1 from `screening-batch1-confound-makeup`; 1 from `screening-batch1-makeup` |
+| `w4-realworld-missing-user-id` | **C2** | 3/3 | — | $0.4465 | n/a | 112 | 3/3 | 3 regrade-v2 |
+| `w4-realworld-missing-user-id` | **C3** | 1/2 | — | ≤$1.3939 | v1 | 328 | 2/3 ⚠ | 2 regrade-v2 |
+| `w4-realworld-missing-user-id` | **C3-med** | 3/3 | — | ≤$0.6402 | v1 | 229 | 3/3 | 3 regrade-v2 |
+| `w4-realworld-missing-user-id` | **C3-prev** | 0/3 | — | ≤$1.1796 | v1 | 228 | 3/3 | 3 regrade-v2 |
+| `w4-realworld-missing-user-id` | **C5** | 2/3 | — | ≤$2.2357 | v1 | 450 | 3/3 | 3 regrade-v2 |
+| `w4-realworld-missing-user-id` | **P0** | 3/3 | — | $0.7959 | n/a | 204 | 3/3 | 3 regrade-v2 |
+| `w4b-zarr-consolidated-order` | **C2** | 0/3 | — | $0.7557 | n/a | 282 | 3/3 | 3 regrade-v2 |
+| `w4b-zarr-consolidated-order` | **C3** | 0/3 | — | ≤$5.2385 | v1,v2,v3 ⚠ | 818 | 3/3 | 3 regrade-v2 |
+| `w4b-zarr-consolidated-order` | **C3-med** | 0/3 | — | ≤$1.3857 | v1 | 917 | 3/3 | 3 regrade-v2 |
+| `w4b-zarr-consolidated-order` | **C3-prev** | 0/3 | — | ≤$2.0892 | v1,v2,v3 ⚠ | 913 | 3/3 | 3 regrade-v2 |
+| `w4b-zarr-consolidated-order` | **C5** | 0/3 | — | ≤$7.3831 (n=1 of 3) | v1,v2,v3 ⚠ | 1271 | 3/3 | 2 original, 1 regrade-v2; 2 from `screening-batch1-confound-makeup` |
+| `w4b-zarr-consolidated-order` | **P0** | 0/3 | — | $1.1823 | n/a | 326 | 3/3 | 3 regrade-v2 |
+| `w6-hono-router-review` | **C2** | 1/3 | 4/6, 1 fabricated | $1.4230 | n/a | 780 | 3/3 | 1 original, 2 regrade-v2, 1 changed; 1 from `screening-batch1-confound-makeup`; 2 from `screening-batch1-makeup-w6` |
+| `w6-hono-router-review` | **C3** | 0/3 | 6/6, 3 fabricated | ≤$1.3797 | v3 | 352 | 3/3 | 3 regrade-v2; 3 from `screening-batch1-makeup-w6` |
+| `w6-hono-router-review` | **C3-med** | 1/3 | 6/6, 4 fabricated | ≤$0.7409 | v3 | 231 | 3/3 | 3 regrade-v2, 1 changed; 3 from `screening-batch1-makeup-w6` |
+| `w6-hono-router-review` | **C3-prev** | 0/3 | 5/6, 5 fabricated | ≤$0.8028 | v3 | 289 | 3/3 | 3 regrade-v2; 3 from `screening-batch1-makeup-w6` |
+| `w6-hono-router-review` | **P0** | 3/3 | 6/6 | $3.2237 | n/a | 694 | 3/3 | 3 regrade-v2, 3 changed; 3 from `screening-batch1-makeup-w6` |
 
 Quality metrics by task family: W1/W1b mutants caught, W3 sealed rules clean, W4b sealed assertions passed, W6 planted defects found (with fabrications counted separately and never netted off).
 
@@ -162,6 +164,27 @@ Product-B spend, priced cache-blind. Never restate one of these as an exact cost
 - `w6-hono-router-review::C3-med`
 - `w6-hono-router-review::C3-prev`
 
+### Cells costed under more than one attribution rule
+
+The reps in these cells had their Product-B tokens drawn from the provider meter under different windowing rules, so the cell's median is taken over figures produced by more than one instrument. Marked ⚠ in the Cost rule column. The rules are not a ranking and one does not correct another; they are successive answers to *which slice of the meter is this run's*.
+
+- `pilot-realworld-draft-articles::C5 (v1,v2,v3)`
+- `w1-realworld-mapper-tests::C5 (v1,v3)`
+- `w1b-zarr-block-mask-properties::C3 (v1,v2,v3)`
+- `w1b-zarr-block-mask-properties::C3-med (v1,v2,v3)`
+- `w1b-zarr-block-mask-properties::C3-prev (v1,v2,v3)`
+- `w1b-zarr-block-mask-properties::C5 (v1,v2,v3)`
+- `w3-sqlfluff-segment-method-migration::C3 (v1,v2,v3)`
+- `w3-sqlfluff-segment-method-migration::C3-med (v1,v2,v3)`
+- `w3-sqlfluff-segment-method-migration::C3-prev (v1,v2,v3)`
+- `w4b-zarr-consolidated-order::C3 (v1,v2,v3)`
+- `w4b-zarr-consolidated-order::C3-prev (v1,v2,v3)`
+- `w4b-zarr-consolidated-order::C5 (v1,v2,v3)`
+
+### Cells with an unattested attribution rule
+
+None.
+
 ### Cells with a partially costed run
 
 A dual-billed run whose second leg reported no usage. Its per-leg figures stand; its run total does not, and it is left out of the cell's median rather than entered as a floor.
@@ -217,5 +240,6 @@ None.
 - Graded quality is EXPLORATORY SECONDARY, extracted from archived sealed output. The pre-registered outcome is the binary gate and does not move.
 - Truncated runs are excluded from quality extraction entirely: a partial score from a run the harness cut off reads as a model that found little, when the truth is that it was stopped.
 - Datasets are superseded per rep, never pooled. Reps run under different agent budgets are different instruments.
+- The same applies to the money: a Product-B cost is only as comparable as the rule that drew its provider window, which is why the rule is printed beside the figure and a cell spanning two of them is marked.
 - W3 and W4b have no graded quality on any run: the python stack's per-check capture came back empty for every one of them, and W3's sealed suite never executed at all (pytest usage error, exit 4, in all three grading generations — original, regrade-v2, and the confound makeup's live grading under a gate that does carry the per-check step). No verdict depends on it — see report/findings/graded-quality-extraction.md.
 - No W3 or W4b run in any arm passed the public checks (0 of 32 and 0 of 20 runs carrying a public gate), so neither task discriminates between arms and no comparative reading may be taken from either.

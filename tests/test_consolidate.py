@@ -23,8 +23,32 @@ import unittest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from harness.analysis import consolidate as C  # noqa: E402
+from harness.collectors.vertex_token_collector import (  # noqa: E402
+    ATTRIBUTION_METHOD_V2,
+    ATTRIBUTION_METHOD_V3,
+    BACKFILL_EVENT,
+    BACKFILL_EVENT_V2,
+    BACKFILL_EVENT_V3,
+    REFUSAL_MARKERS,
+)
+from harness.telemetry.costing import CACHE_BLIND  # noqa: E402
 
 SYNTHETIC = "SYNTHETIC test fixture — not a measurement"
+
+#: Artifacts as each collector version ACTUALLY wrote them, which is what the reader
+#: has to cope with — not a tidied-up common shape. v1 wrote no ownership statement at
+#: all, v2 wrote one that predates the ``rule`` field, and only v3 names the rule.
+_ATTRIBUTION_AS_WRITTEN = {
+    "v1": {},
+    "v2": {"attribution_rule": {"id": ATTRIBUTION_METHOD_V2}},
+    "v3": {"attribution_rule": {"id": ATTRIBUTION_METHOD_V3, "rule": "v3"}},
+}
+_EVENT_TYPE = {"v1": BACKFILL_EVENT, "v2": BACKFILL_EVENT_V2, "v3": BACKFILL_EVENT_V3}
+_MARKER = dict(REFUSAL_MARKERS)
+
+
+def _as_rules(spec):
+    return () if spec is None else ((spec,) if isinstance(spec, str) else tuple(spec))
 
 
 def _slot(value, confidence="derived", **extra):
@@ -38,7 +62,8 @@ class _Lab:
         self.root = root
 
     def run(self, dataset, task, config, rep, stamp, *, accepted=True,
-            legs=((0.5,),), truncated=None, void=False, quality=None):
+            legs=((0.5,),), truncated=None, void=False, quality=None,
+            product_b_legs=(), backfill=None, refusal=None):
         run_id = f"{task}__{config}__rep{rep}__{stamp}"
         run_dir = os.path.join(self.root, dataset, run_id)
         os.makedirs(run_dir)
@@ -54,7 +79,10 @@ class _Lab:
                           else _slot(None, "unavailable", reason=SYNTHETIC)),
                       "fully_allocated_usd": (
                           _slot(cost[0]) if cost[0] is not None
-                          else _slot(None, "unavailable", reason=SYNTHETIC))}
+                          else _slot(None, "unavailable", reason=SYNTHETIC)),
+                      # What marks a leg as Product B's, here and in recost.py alike.
+                      **({"cost_basis_qualifier": CACHE_BLIND}
+                         if i in product_b_legs else {})}
                      for i, cost in enumerate(legs)],
         }
         with open(os.path.join(run_dir, "summary.json"), "w", encoding="utf-8") as fh:
@@ -66,6 +94,15 @@ class _Lab:
                                  "ts": "2026-08-20T10:01:00+00:00",
                                  **({"stop_reason": truncated} if truncated else {})})
                      + "\n")
+            for rule in _as_rules(backfill):
+                fh.write(json.dumps({"event_type": _EVENT_TYPE[rule],
+                                     "ts": "2026-08-20T11:00:00+00:00",
+                                     **_ATTRIBUTION_AS_WRITTEN[rule]}) + "\n")
+        for rule in _as_rules(refusal):
+            with open(os.path.join(run_dir, _MARKER[rule]), "w",
+                      encoding="utf-8") as fh:
+                json.dump({"SYNTHETIC": SYNTHETIC, "refusal": "contaminated_window",
+                           **_ATTRIBUTION_AS_WRITTEN[rule]}, fh)
         # Truncation is read from the archived product, not from a flag: an absent or
         # empty diff IS the signal, so the fixture writes what the harness would.
         with open(os.path.join(run_dir, "agent-solution.diff"), "w",
@@ -228,6 +265,177 @@ class CellFigures(unittest.TestCase):
 
     def test_quality_declares_itself_secondary(self):
         self.assertIn("EXPLORATORY SECONDARY", C.cell_quality([])["status"])
+
+
+class WhichWindowingRulePricedTheCell(unittest.TestCase):
+    """A cost figure means nothing without the rule that drew its window.
+
+    Batch 1's Product-B legs were attributed under v1 and v2, the confound makeup
+    under v3. Two cells priced under two rules are two instruments, and a table that
+    prints their costs side by side unlabelled manufactures the exact confound this
+    repo exists to catch.
+    """
+
+    def setUp(self):
+        self.root = tempfile.mkdtemp(prefix="SYNTHETIC-consolidate-")
+        self.addCleanup(shutil.rmtree, self.root, True)
+        self.lab = _Lab(self.root)
+        self.datasets = ["screening-batch1", "screening-batch1-confound-makeup"]
+
+    def _cell(self, task="t", config="C3"):
+        cells = {(c["task_id"], c["configuration_or_policy"]): c
+                 for c in C.build(self.root, self.datasets)["cells"]}
+        return cells[(task, config)]
+
+    def test_a_cell_under_one_rule_names_that_rule(self):
+        for rep in (1, 2, 3):
+            self.lab.run("screening-batch1-confound-makeup", "t", "C3", rep,
+                         f"2026082{rep}T000000", product_b_legs=(0,), backfill="v3")
+        cell = self._cell()
+        self.assertEqual(["v3"], cell["attribution"]["rules"])
+        self.assertFalse(cell["cost_rule_mixed"])
+        self.assertEqual("v3", C._fmt_rules(cell))
+
+    def test_a_cell_filled_from_two_datasets_declares_both_rules(self):
+        # Exactly the shape supersession produces: reps 2 and 3 survive from batch 1
+        # under v1, rep 1 was re-run in the confound makeup under v3. Both are the
+        # cell's own reps; neither is dropped, and the median spans both instruments.
+        self.lab.run("screening-batch1", "t", "C3", 2, "20260818T010000",
+                     product_b_legs=(0,), backfill="v1")
+        self.lab.run("screening-batch1", "t", "C3", 3, "20260818T020000",
+                     product_b_legs=(0,), backfill="v1")
+        self.lab.run("screening-batch1-confound-makeup", "t", "C3", 1,
+                     "20260821T000000", product_b_legs=(0,), backfill="v3")
+        cell = self._cell()
+        self.assertEqual(["v1", "v3"], cell["attribution"]["rules"])
+        self.assertTrue(cell["cost_rule_mixed"])
+        # The mark is what tells a reader the median is not a like-for-like figure.
+        self.assertEqual("v1,v3 ⚠", C._fmt_rules(cell))
+
+    def test_a_v2_statement_predating_the_rule_field_is_read_from_its_method_id(self):
+        # The archived v2 artifacts carry an ownership dict with an ``id`` and no
+        # ``rule``. Reading only ``rule`` would render them unavailable; defaulting
+        # them to v2 would be an inference. The method id IS the collector's own name
+        # for the rule, so it is read, not guessed.
+        self.lab.run("screening-batch1", "t", "C3", 1, "20260818T000000",
+                     product_b_legs=(0,), backfill="v2")
+        self.assertEqual(["v2"], self._cell()["attribution"]["rules"])
+
+    def test_a_refusal_only_run_still_names_the_rule_it_was_refused_under(self):
+        # A refused window means the tokens are unavailable. It does NOT mean no rule
+        # was drawn — filing it as ruleless would read as though the cell had never
+        # been put to the instrument at all.
+        self.lab.run("screening-batch1-confound-makeup", "t", "C3", 1,
+                     "20260821T000000", legs=((None,),), product_b_legs=(0,),
+                     refusal="v3")
+        cell = self._cell()
+        self.assertEqual(["v3"], cell["attribution"]["rules"])
+        self.assertEqual(["v3"], cell["attribution"]["refused"])
+        self.assertEqual([], cell["attribution"]["attributed"])
+        self.assertEqual("v3", C._fmt_rules(cell))
+
+    def test_a_v1_refusal_beside_a_v2_attribution_keeps_both(self):
+        # Four archived runs are in exactly this state. Both records stand: the two
+        # rules draw different windows, so one refusing is not overturned by the
+        # other attributing.
+        self.lab.run("screening-batch1", "t", "C3", 1, "20260818T000000",
+                     product_b_legs=(0,), backfill="v2", refusal="v1")
+        cell = self._cell()
+        self.assertEqual(["v1", "v2"], cell["attribution"]["rules"])
+        self.assertEqual(["v2"], cell["attribution"]["attributed"])
+        self.assertEqual(["v1"], cell["attribution"]["refused"])
+        self.assertTrue(cell["cost_rule_mixed"])
+
+    def test_an_arm_with_no_product_b_leg_reads_n_a_not_unavailable(self):
+        # Nothing is missing for a Product-A-only arm: no provider window was ever
+        # drawn for it. Printing "unavailable" would invent a gap in the record.
+        self.lab.run("screening-batch1", "t", "P0", 1, "20260818T000000")
+        cell = self._cell(config="P0")
+        self.assertEqual([], cell["attribution"]["rules"])
+        self.assertEqual(0, cell["attribution"]["product_b_runs"])
+        self.assertEqual(C.RULE_NOT_APPLICABLE, C._fmt_rules(cell))
+        self.assertFalse(cell["cost_rule_mixed"])
+
+    def test_a_product_b_run_with_no_artifact_is_unavailable_never_a_siblings_rule(self):
+        # CLAUDE.md rule 3. The other two reps ran under v3; that says nothing about
+        # this one, and filling it in would fabricate a provenance.
+        for rep in (1, 2):
+            self.lab.run("screening-batch1-confound-makeup", "t", "C3", rep,
+                         f"2026082{rep}T000000", product_b_legs=(0,), backfill="v3")
+        self.lab.run("screening-batch1-confound-makeup", "t", "C3", 3,
+                     "20260823T000000", product_b_legs=(0,))
+        cell = self._cell()
+        self.assertEqual(1, cell["attribution"]["product_b_runs_without_rule"])
+        self.assertEqual(3, cell["attribution"]["product_b_runs"])
+        self.assertEqual("v3,unavailable ⚠", C._fmt_rules(cell))
+        # ...but the cell is not CLAIMED to span two rules. It might well be all v3;
+        # what is true is that nobody knows, and the ⚠ says that much and no more.
+        self.assertFalse(cell["cost_rule_mixed"])
+
+    def test_a_cell_with_no_run_at_all_claims_neither_a_rule_nor_its_absence(self):
+        for rep in (1, 2):
+            self.lab.run("screening-batch1", "t", "C5", rep, f"2026081{rep}T000000",
+                         truncated="claude_timeout")
+        self.assertEqual("—", C._fmt_rules(self._cell(config="C5")))
+
+
+class AnUnavailableCostSaysWhy(unittest.TestCase):
+    """A bare "unavailable" is indistinguishable from "we did not look"."""
+
+    def setUp(self):
+        self.root = tempfile.mkdtemp(prefix="SYNTHETIC-consolidate-")
+        self.addCleanup(shutil.rmtree, self.root, True)
+        self.lab = _Lab(self.root)
+
+    def _cell(self, task="t", config="C3"):
+        cells = {(c["task_id"], c["configuration_or_policy"]): c
+                 for c in C.build(self.root, ["screening-batch1"])["cells"]}
+        return cells[(task, config)]
+
+    def test_a_refused_window_is_named_with_the_rule_that_refused_it(self):
+        self.lab.run("screening-batch1", "t", "C3", 1, "20260818T000000",
+                     legs=((None,),), product_b_legs=(0,), refusal="v3")
+        self.assertEqual("unavailable — no priced leg; provider window refused (v3)",
+                         C._fmt_cost(self._cell()))
+
+    def test_a_partly_priced_cell_says_how_many_legs_went_unpriced(self):
+        # The run is excluded from the median for having an unpriced leg — that
+        # exclusion is unchanged. What is new is that the row says so.
+        self.lab.run("screening-batch1", "t", "C5", 1, "20260818T000000",
+                     legs=((10.0,), (None,)), product_b_legs=(1,))
+        self.assertEqual("unavailable — partial: 1 of 2 legs unpriced",
+                         C._fmt_cost(self._cell(config="C5")))
+
+    def test_no_usage_record_at_all_says_exactly_that(self):
+        self.lab.run("screening-batch1", "t", "C3", 1, "20260818T000000",
+                     legs=((None,),), product_b_legs=(0,))
+        self.assertEqual("unavailable — no provider usage record",
+                         C._fmt_cost(self._cell()))
+
+    def test_a_cell_no_run_filled_is_not_dressed_up_as_a_missing_meter(self):
+        for rep in (1, 2):
+            self.lab.run("screening-batch1", "t", "C5", rep, f"2026081{rep}T000000",
+                         truncated="claude_timeout")
+        self.assertEqual("unavailable — no run filled this cell",
+                         C._fmt_cost(self._cell(config="C5")))
+
+    def test_a_priced_cell_renders_exactly_what_it_rendered_before(self):
+        # The whole change is presentation on the unavailable path. A cell that has a
+        # figure must render byte-for-byte what it did before, reason strings and all.
+        for rep in (1, 2, 3):
+            self.lab.run("screening-batch1", "t", "C3", rep, f"2026081{rep}T000000",
+                         legs=((0.25,),), product_b_legs=(0,), backfill="v3")
+        self.assertEqual("$0.2500", C._fmt_cost(self._cell()))
+
+    def test_the_upper_bound_marker_still_rides_on_the_cell_not_the_run(self):
+        # One cache-blind figure bounds the whole cell; it is not diluted by the
+        # exactly-priced runs beside it. Marked from the cell's cost provenance, which
+        # this pass does not touch.
+        self.lab.run("screening-batch1", "t", "C3", 1, "20260818T000000",
+                     legs=((0.25,),))
+        cell = dict(self._cell(), cost_provenance={"any_upper_bound": True})
+        self.assertTrue(C._has_upper_bound(cell))
+        self.assertEqual("≤$0.2500", C._fmt_cost(cell))
 
 
 class TheTableReportsWhatIsMissing(unittest.TestCase):
