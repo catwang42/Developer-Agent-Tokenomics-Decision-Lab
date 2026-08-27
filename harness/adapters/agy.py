@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from typing import Any, Dict, List, Optional
 
 from harness.container.exec import leg_container_name, resolve_spawn, spawn_with_timeout
@@ -28,6 +29,7 @@ from .base import (
     agent_env,
     cli_version,
     leg_identity_payload,
+    overrun_payload,
     session_payload,
 )
 
@@ -72,6 +74,26 @@ AUTO_UPDATE_CONDITION = f"disabled_via_{AUTO_UPDATE_DISABLE_ENV}"
 def agy_env() -> Dict[str, str]:
     """:func:`agent_env` plus the updater kill-switch."""
     return {**agent_env(), AUTO_UPDATE_DISABLE_ENV: "1"}
+
+
+def _overrun_warning(spec: AttemptSpec, kill_s: float):
+    """Operator-visible half of warn-don't-kill; ``None`` when no soft budget.
+
+    Same contract as the Product-A adapter's: called AT the crossing so a long
+    batch names the overrunning cell while it is still running, with the
+    machine-readable stamp added by ``overrun_payload`` when the attempt ends.
+    """
+    if spec.budget_s is None:
+        return None
+
+    def warn(budget_s: float) -> None:
+        print(
+            f"[overrun] leg={spec.leg_id} passed its {int(budget_s)}s soft budget; "
+            f"continuing to a {int(kill_s)}s hard kill (warn-don't-kill profile)",
+            file=sys.stderr, flush=True,
+        )
+
+    return warn
 
 
 class ProductVersionMismatch(RuntimeError):
@@ -283,13 +305,18 @@ class AgyAdapter(Adapter):
             "print_timeout": r.print_timeout or "product_default",
             "effort_pin": r.effort_pin or "unpinned",
             "argv": list(argv), "cwd": cwd, "timeout_s": timeout_s,
+            "budget_s": spec.budget_s if spec.budget_s is not None else "none",
             "container_name": cname or "host-mode",
         }
         payload: Optional[Dict[str, Any]] = None
         proc = spawn_with_timeout(
             argv, cwd=cwd, env=agy_env(),  # FIX B
             timeout_s=timeout_s, container_name=cname,
+            budget_s=spec.budget_s,
+            on_overrun=_overrun_warning(spec, timeout_s),
         )
+        overrun = overrun_payload(spec, proc)
+        invocation.update({k: v for k, v in overrun.items() if k != "budget_s"})
         if proc.timed_out:
             invocation.update(exit_code="timeout", stdout=proc.stdout,
                               stderr=proc.stderr,
@@ -297,7 +324,8 @@ class AgyAdapter(Adapter):
             emit("failure", leg=spec.leg_id, category="agy_timeout",
                  exit_code=EXIT_TIMEOUT, timeout_s=timeout_s,
                  container_name=cname or "host-mode",
-                 container_disposition=proc.container or "no-container")
+                 container_disposition=proc.container or "no-container",
+                 **overrun)
         else:
             # Record the product's exit/output for invocation.txt (redacted by the
             # runner). For a black-box product this raw stdout is the only place its
@@ -312,7 +340,9 @@ class AgyAdapter(Adapter):
 
         usage = usage_from_agy_json(payload)
         extra_usage = unmapped_usage_keys(payload)
-        completed: Dict[str, Any] = {"usage": usage, **leg_meta}
+        # Soft-budget stamp ({} unless a driver profile set one). An overrun is a
+        # property of this call, not a failure — see base.overrun_payload.
+        completed: Dict[str, Any] = {"usage": usage, **leg_meta, **overrun}
         if extra_usage:
             # Only when non-empty, so a run against a product that emits nothing
             # unmapped derives byte-identically to one recorded before this field.

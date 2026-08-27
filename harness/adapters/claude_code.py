@@ -16,7 +16,8 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict, List, Optional, Tuple
+import sys
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from harness.container.exec import leg_container_name, resolve_spawn, spawn_with_timeout
 from harness.telemetry.telemetry import tiered, unavailable
@@ -32,6 +33,7 @@ from .base import (
     agent_env,
     cli_version,
     leg_identity_payload,
+    overrun_payload,
     session_payload,
 )
 
@@ -211,6 +213,28 @@ def _unavailable_usage(reason: str) -> Dict[str, Any]:
     return {cls: unavailable(reason) for cls in _ALL_USAGE_CLASSES}
 
 
+def _overrun_warning(spec: AttemptSpec, kill_s: float):
+    """The operator-visible half of warn-don't-kill, or ``None`` when no budget.
+
+    Called by the spawn seam AT the moment the soft budget is crossed, not
+    afterwards, so a long batch says which cell is running over while it is still
+    running. The machine-readable half is :func:`overrun_payload`, stamped on the
+    event when the attempt finishes. Warnings go to stderr; stdout belongs to the
+    product's JSON.
+    """
+    if spec.budget_s is None:
+        return None
+
+    def warn(budget_s: float) -> None:
+        print(
+            f"[overrun] leg={spec.leg_id} passed its {int(budget_s)}s soft budget; "
+            f"continuing to a {int(kill_s)}s hard kill (warn-don't-kill profile)",
+            file=sys.stderr, flush=True,
+        )
+
+    return warn
+
+
 def _declared_legs(spec: AttemptSpec) -> List[Tuple[str, str, ResolvedModel]]:
     """The billing legs this attempt is *declared* to have (id, role, resolved).
 
@@ -362,6 +386,17 @@ def _emit_delegated_usage(emit: EmitFn, spec: AttemptSpec, payload: Dict[str, An
 class ClaudeCodeAdapter(Adapter):
     name = "claude_code"
 
+    #: Optional provenance hook, ``fn(leg_id, result_text)``, called once per
+    #: attempt with the product's final assistant text. Off (``None``) everywhere
+    #: except the transfer-probe CALIBRATION path, whose subject is a
+    #: function-completion problem whose deliverable is the response itself, not
+    #: a repository edit (``harness/runner/transfer_calibration.py``).
+    #:
+    #: This is response TEXT, kept as run provenance. It is never read as
+    #: telemetry: token counts, costs and timings come from the product's usage
+    #: metadata on the events below and from nowhere else (CLAUDE.md rule 2).
+    on_response: Optional[Callable[[str, str], None]] = None
+
     def run_attempt(self, spec: AttemptSpec, subject_dir: str, emit: EmitFn) -> AttemptOutcome:
         if os.environ.get("LAB_ALLOW_SPEND") != "1":
             raise RuntimeError(
@@ -396,12 +431,17 @@ class ClaudeCodeAdapter(Adapter):
             "leg": spec.leg_id, "role": spec.role,
             "product_version": cli_version("claude", self.container),
             "argv": list(argv), "cwd": cwd, "timeout_s": timeout_s,
+            "budget_s": spec.budget_s if spec.budget_s is not None else "none",
             "container_name": cname or "host-mode",
         }
         proc = spawn_with_timeout(
             argv, cwd=cwd, env=agent_env(),  # scrub task pointers (FIX B)
             timeout_s=timeout_s, container_name=cname,
+            budget_s=spec.budget_s,
+            on_overrun=_overrun_warning(spec, timeout_s),
         )
+        overrun = overrun_payload(spec, proc)
+        invocation.update({k: v for k, v in overrun.items() if k != "budget_s"})
         if proc.timed_out:
             # Record the CLI's exit/output (partial, if any) for invocation.txt — a
             # command that produced no output is itself the diagnosis (the runner
@@ -411,7 +451,8 @@ class ClaudeCodeAdapter(Adapter):
                               container_disposition=proc.container or "no-container")
             emit("failure", leg=spec.leg_id, category="claude_timeout",
                  timeout_s=timeout_s, container_name=cname or "host-mode",
-                 container_disposition=proc.container or "no-container")
+                 container_disposition=proc.container or "no-container",
+                 **overrun)
             _emit_lost_usage(emit, spec, "run timed out before product JSON returned")
             return AttemptOutcome(identity=_identity(r), invocation=invocation)
         invocation.update(exit_code=proc.returncode, stdout=proc.stdout, stderr=proc.stderr)
@@ -424,7 +465,8 @@ class ClaudeCodeAdapter(Adapter):
             emit("failure", leg=spec.leg_id, category="adapter_json_parse",
                  returncode=proc.returncode,
                  stderr_snippet=(proc.stderr or "")[:500],
-                 stdout_snippet=(proc.stdout or "")[:200])
+                 stdout_snippet=(proc.stdout or "")[:200],
+                 **overrun)
             _emit_lost_usage(emit, spec, "product JSON unparseable")
             return AttemptOutcome(identity=_identity(r), invocation=invocation)
 
@@ -445,7 +487,12 @@ class ClaudeCodeAdapter(Adapter):
             "subtype": payload.get("subtype"),
             "result_chars": len(payload.get("result") or ""),
             "product_reported_cost_usd": payload.get("total_cost_usd"),
+            # Soft-budget stamp ({} unless a driver profile set one). An overrun
+            # is a property of this call, not a failure — see overrun_payload.
+            **overrun,
         }
+        if self.on_response is not None:
+            self.on_response(spec.leg_id, payload.get("result") or "")
         if dele:
             _emit_delegated_usage(emit, spec, payload, run_fields)
         else:

@@ -23,8 +23,10 @@ import json
 import os
 import re
 import subprocess
+import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
+from typing import (Any, Callable, Dict, Iterator, List, Optional, Sequence,
+                    Tuple)
 
 # Network modes we recognise. ``none`` = fully offline (the gate posture, always).
 # Any other value is passed verbatim to ``docker run --network`` — the agent leg
@@ -294,6 +296,14 @@ class SpawnResult:
     ``timed_out`` distinguishes a workshop kill from a product exit; ``container``
     records what the kill actually achieved, so a run whose container could not be
     reaped says so in the event log instead of looking clean.
+
+    ``elapsed_s`` is wall time around the child, measured with a monotonic clock.
+    It is diagnostic provenance for the caller, which decides what (if anything)
+    to record — this module never emits telemetry.
+
+    ``overran`` is set only when a soft ``budget_s`` was supplied and the child
+    outlived it. It means "recorded, not stopped": the child kept running and
+    ``timed_out`` may still be False.
     """
 
     returncode: Optional[int]
@@ -303,6 +313,8 @@ class SpawnResult:
     #: ``None`` when nothing needed killing (no container, or it exited normally);
     #: else ``"killed"`` / ``"already_gone"`` / ``"kill_failed: <stderr>"``.
     container: Optional[str] = None
+    elapsed_s: Optional[float] = None
+    overran: bool = False
 
 
 def _container_ids(name: str, *, running_only: bool) -> str:
@@ -361,6 +373,8 @@ def spawn_with_timeout(
     env: Optional[Dict[str, str]],
     timeout_s: float,
     container_name: Optional[str] = None,
+    budget_s: Optional[float] = None,
+    on_overrun: Optional[Callable[[float], None]] = None,
 ) -> SpawnResult:
     """Run ``argv`` under a workshop-owned timeout that actually stops the work.
 
@@ -372,21 +386,62 @@ def spawn_with_timeout(
 
     Partial stdout/stderr from the killed child is preserved: for a timed-out attempt
     that output is often the only diagnosis there is.
+
+    ``budget_s`` adds a SOFT line below ``timeout_s`` (the ``transfer-probe``
+    driver profile). When the child outlives it, ``on_overrun(budget_s)`` is
+    called once, ``overran`` is set, and the child is left alone to finish or to
+    be killed at ``timeout_s``. The soft path is entered only when a budget is
+    supplied AND sits strictly below the kill; otherwise this function takes the
+    original single-timeout path unchanged, byte for byte, so nothing about the
+    batch-1 contract moves.
     """
-    try:
-        proc = subprocess.run(  # noqa: S603 - workshop-owned command
-            list(argv), cwd=cwd, capture_output=True, text=True, check=False,
-            timeout=timeout_s, env=env,
-        )
-    except subprocess.TimeoutExpired as exc:
-        killed = kill_container(container_name) if container_name else None
-        return SpawnResult(
-            returncode=None, stdout=exc.stdout or "", stderr=exc.stderr or "",
-            timed_out=True, container=killed,
-        )
-    return SpawnResult(
-        returncode=proc.returncode, stdout=proc.stdout, stderr=proc.stderr,
-    )
+    started = time.monotonic()
+
+    def done(**kw: Any) -> SpawnResult:
+        return SpawnResult(elapsed_s=time.monotonic() - started, **kw)
+
+    if budget_s is None or budget_s >= timeout_s:
+        try:
+            proc = subprocess.run(  # noqa: S603 - workshop-owned command
+                list(argv), cwd=cwd, capture_output=True, text=True, check=False,
+                timeout=timeout_s, env=env,
+            )
+        except subprocess.TimeoutExpired as exc:
+            killed = kill_container(container_name) if container_name else None
+            return done(returncode=None, stdout=exc.stdout or "",
+                        stderr=exc.stderr or "", timed_out=True, container=killed)
+        return done(returncode=proc.returncode, stdout=proc.stdout, stderr=proc.stderr)
+
+    # Soft-budget path. Two waits on one child: the first expires at the budget
+    # and only reports; the second is the real kill. `communicate` is resumable
+    # after a TimeoutExpired — it keeps its partial buffers — which is why the
+    # child is not killed between the two waits.
+    overran = False
+    with subprocess.Popen(  # noqa: S603 - workshop-owned command
+        list(argv), cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, env=env,
+    ) as proc:
+        try:
+            stdout, stderr = proc.communicate(timeout=budget_s)
+        except subprocess.TimeoutExpired:
+            overran = True
+            if on_overrun is not None:
+                on_overrun(float(budget_s))
+            try:
+                stdout, stderr = proc.communicate(timeout=timeout_s - budget_s)
+            except subprocess.TimeoutExpired as exc:
+                proc.kill()
+                # Drain what the child already wrote; `communicate` after a kill
+                # returns promptly and is the only way to recover partial output.
+                try:
+                    stdout, stderr = proc.communicate(timeout=30)
+                except subprocess.TimeoutExpired:
+                    stdout, stderr = exc.stdout or "", exc.stderr or ""
+                killed = kill_container(container_name) if container_name else None
+                return done(returncode=None, stdout=stdout or "", stderr=stderr or "",
+                            timed_out=True, container=killed, overran=True)
+        return done(returncode=proc.returncode, stdout=stdout or "",
+                    stderr=stderr or "", overran=overran)
 
 
 # --------------------------------------------------------------------------- #
