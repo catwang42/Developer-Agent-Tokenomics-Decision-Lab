@@ -106,3 +106,12 @@ does **not** mean a false claim, and must not be reported as one.
 Budgets run to completion: overrun emits a warning and is stamped in the run record;
 hard stop only at 3× the task budget. Spend cap for calibration + probe combined:
 $300 (`manifest/cp-spend-transfer-probe.md`).
+
+## Amendment 1 — recorded 2026-08-28, before any calibration result exists
+Criterion (a) governs transplant fidelity and remains binding: any (a) failure
+stops the probe. Criterion (b) compares a Product-A ladder's bill to the source's
+Gemini ladder; judgment call J-2 (rung identity substituted, rung count preserved)
+makes ±30% potentially unreachable for reasons unrelated to fidelity. Therefore:
+if calibration passes (a) for every strategy and fails only (b), the probe
+proceeds, and the (b) gap is published as a priced-substitution limitation
+attached to every transfer verdict. Authored by Catherine.
