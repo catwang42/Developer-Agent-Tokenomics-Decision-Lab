@@ -7,6 +7,10 @@ defect findings themselves. This document reports only whether the fixes work.
 **Feasibility evidence, not measurement.** No number here is a product comparison and
 none may leave this file before CP-FINDINGS.
 
+> **Dataset retired 2026-08-27.** `results/smoke-screening/` was removed from the working
+> tree in the repo cleanup; its runs are preserved unedited at the tag
+> `pre-cleanup-2026-08-27`, where every path below resolves. Nothing here was changed.
+
 **Run under:** the human's pre-approved re-smoke grant — *cap $3, results to
 `results/smoke-screening/`*, on top of the original `CHECKPOINT APPROVED: CP-SPEND
 (screening smoke, hard cap $5)`.

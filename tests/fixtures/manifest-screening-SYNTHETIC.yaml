@@ -22,7 +22,8 @@ repin_date: 2026-08-16           # screening-window re-pin (this file's current 
 cohort: pilot
 pricing_snapshot: pricing/prices-2026-08-16.json
 # Loaded engineer cost per minute — HEAC input for the human-effort rubric
-# (report/batch3/human-effort-rubric.md; metrics.md HEAC). This is a DECLARED org
+# (human-effort rubric, archived at tag pre-cleanup-2026-08-27; metrics.md HEAC).
+# This is a DECLARED org
 # input, NOT a measurement, and is never converted to headcount/FTE (SPEC 1.2).
 loaded_rate_per_minute:
   value: 1.60            # sample loaded engineer rate ÷ 60
@@ -181,7 +182,8 @@ print_timeout_basis: >
   15m0s, raised from agy's 5m0s default (`agy --help`: "--print-timeout Timeout for
   print mode wait (default 5m0s)"). Grounded in the batch-3-era wallclocks, and
   stated as a BOUND rather than an estimate because the only Product-B datapoint is
-  right-censored: the 2026-07-26 verified-invocation smoke (results/smoke/, agy
+  right-censored: the 2026-07-26 verified-invocation smoke (dataset archived at tag
+  pre-cleanup-2026-08-27, agy
   1.1.7) ran 360.1s agent-leg wallclock and ended in agy's own "Error: timeout
   waiting for response" (exit 1) at the 5-minute default — so Product B needs MORE
   than 5 minutes on the pilot task and we do not know how much more. The batch-1/2
@@ -250,7 +252,7 @@ subject_isolation:
     # binary; this pin and agy_sha256 would change together.
     agy_version_drift:
       spec_2_9_recorded: "1.1.4 -> 1.1.7"
-      last_run_observed: "1.1.7"        # results/smoke/...__C3__rep1__20260726T093603/invocation.txt
+      last_run_observed: "1.1.7"        # smoke ...__C3__rep1__20260726T093603 (archived at tag)
       host_today: "1.1.13"              # `agy --version`, 2026-08-16
       brief_requested: "1.1.7"
       resolution: pinned_to_host_today  # human decision 2026-08-16; 1.1.7 unobtainable

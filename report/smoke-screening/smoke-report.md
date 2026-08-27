@@ -5,6 +5,11 @@ Documents that dataset and nothing else. This is a **feasibility smoke, not a
 measurement**: no number here is a product comparison, and none may leave this file
 before CP-FINDINGS.
 
+> **Dataset retired 2026-08-27.** `results/smoke-screening/` was removed from the working
+> tree in the repo cleanup. Every `results/smoke-screening/…` path in this file and in
+> `re-smoke/` resolves at the tag `pre-cleanup-2026-08-27`, where the runs are preserved
+> unedited. Nothing in this report was changed.
+
 **Run under:** `CHECKPOINT APPROVED: CP-SPEND (screening smoke, hard cap $5,
 results to results/smoke-screening/)`.
 **Actual spend: $0.79 of the $5 cap** (known floor; see §6).

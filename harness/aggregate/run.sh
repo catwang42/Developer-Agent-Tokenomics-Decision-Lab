@@ -2,8 +2,8 @@
 # Thin wrapper for the non-comparative aggregation view. Runs from the repo root so
 # the `harness` package imports; prefers the project venv python.
 #
-#   bash harness/aggregate/run.sh results/feasibility
-#   bash harness/aggregate/run.sh results/feasibility --json-out /tmp/agg.json
+#   bash harness/aggregate/run.sh results/screening-batch1
+#   bash harness/aggregate/run.sh results/screening-batch1 --json-out /tmp/agg.json
 #
 # Output is INTERNAL / NON-COMPARATIVE: descriptive per-cell stats only, no vendor
 # ranking (CLAUDE.md 1.2 / rule 4).

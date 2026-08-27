@@ -191,7 +191,7 @@ def compute(feasibility_dir: str,
 
 if __name__ == "__main__":  # pragma: no cover - manual/reporting use
     import sys
-    d = sys.argv[1] if len(sys.argv) > 1 else "results/feasibility"
+    d = sys.argv[1] if len(sys.argv) > 1 else "results/screening-batch1"
     _repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     manifest = sys.argv[2] if len(sys.argv) > 2 \
         else os.path.join(_repo, "manifest", "delivery-manifest.yaml")

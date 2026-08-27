@@ -4,7 +4,7 @@ Turns ``(task, configuration/policy, manifest)`` into an immutable event log plu
 derived, validated run summary. Exit 0 only when the audit-grade telemetry
 validator passes on the completed run directory.
 
-Design (see plans/PHASE-3-harness-feasibility.md):
+Design:
   * Adapters emit telemetry events; they never write the summary, run the gate, or
     fabricate usage (missing usage -> ``unavailable``, not 0).
   * The runner owns the clock, the acceptance gate (deterministic, independent of
