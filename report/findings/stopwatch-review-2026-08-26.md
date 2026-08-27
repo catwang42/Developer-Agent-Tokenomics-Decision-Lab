@@ -50,6 +50,23 @@ The W6 review reports showed a different pattern: localized findings reduced sea
 
 The practical takeaway is that human review cost depends heavily on scope, precision, and trustworthiness, not just whether the final code passes a gate.
 
+## Adjudication of the two contested claims (2026-08-26)
+
+Both resolved against the sealed artifacts, not against the reviewer.
+
+- **d (P0 rep1) finding #3**: matched D2 by line. The report's described failure
+  direction contradicts the map's note; reading the mutant, the guard is strictly
+  more permissive than the original, so the report is correct and D2's note is
+  miswritten. The sealed map needs a correction.
+- **b (C2 rep2) node.ts:172**: describes D5 correctly in substance but reports it
+  22 lines off, inside a declared false-accusation clean region. Scored twice —
+  D5 MISSED and the claim FABRICATED. At the correct line the run would have been
+  5/6 with 0 fabrications, which passes. The FAIL turns entirely on the offset.
+
+Consequence: "fabricated" in this study means a report that fell outside the ±3
+line window, not a false claim. Reported fabrication counts must be described as
+off-map reports.
+
 ## Limitations
 
 Scratch review repos inherited upstream `.github/dependabot.yml`, so Dependabot
