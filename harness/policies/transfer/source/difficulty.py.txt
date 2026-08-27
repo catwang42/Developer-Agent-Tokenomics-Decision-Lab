@@ -1,0 +1,35 @@
+@dataclass
+class Difficulty:
+    """What the contained evidence says about how hard this failure is."""
+
+    level: str                          # one of LEVELS
+    reasons: tuple = ()
+    failing: int = 0
+    failure_classes: tuple = ()
+    profile: str = ""
+    identities: frozenset = frozenset()
+    typed: bool = True                  # False when no fact tier was available
+    # The guard slug (`src.evaluator.GUARD_REASONS`) when this failure happened
+    # before the suite ran; `""` when the suite ran and produced real evidence.
+    guard: str = ""
+
+    @property
+    def is_hard(self) -> bool:
+        """Worth a frontier model, if the policy allows one."""
+        return self.level in ("broad", "stalled")
+
+    @property
+    def is_environment(self) -> bool:
+        """Nothing a different model would have changed."""
+        return self.level == "environment"
+
+    def as_dict(self):
+        return {
+            "level": self.level,
+            "reasons": list(self.reasons),
+            "failing": self.failing,
+            "failure_classes": list(self.failure_classes),
+            "profile": self.profile,
+            "typed": self.typed,
+            "guard": self.guard,
+        }

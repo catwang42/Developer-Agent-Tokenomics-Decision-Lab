@@ -1,0 +1,88 @@
+def extract_code(text):
+    """Extract Python code block from LLM model response."""
+    m = re.search(r"```(?:python)?\s*(.*?)```", text, re.DOTALL)
+    return (m.group(1) if m else text).strip()
+
+# The runner tail appended to every candidate program. It lives in
+# src/straitjacket.py because its shape is dictated by capture determinism:
+# identical failing code must produce identical bytes, or the same failure
+# mints a new artifact on every attempt.
+_UNITTEST_RUNNER = sj.DETERMINISTIC_UNITTEST_TAIL
+
+def run_bigcodebench(problem, solution_code):
+    """Execute the BigCodeBench unittest suite for one candidate solution.
+
+    Returns ``(passed, evidence)``. When the harness is available the program
+    runs under ``ctx run``: stdout/stderr are content-addressed into the
+    artifact store and the failure comes back as a bounded digest plus a
+    retrieval handle. Otherwise it falls back to a plain subprocess with the
+    native tail truncation, and the evidence is marked ``contained=False``.
+    """
+    program = solution_code + "\n\n" + problem["test"] + _UNITTEST_RUNNER
+
+    if sj.available():
+        return _run_bigcodebench_contained(program)
+    return _run_bigcodebench_native(program)
+
+
+def _run_bigcodebench_contained(program):
+    workdir = sj.new_sandbox("bcb")
+    try:
+        (workdir / "prog.py").write_text(program, encoding="utf-8")
+        try:
+            run = sj.contained_run(
+                [sys.executable, "prog.py"],
+                cwd=workdir,
+                timeout=120.0,
+                # Keep the host's absolute interpreter path out of the
+                # manifest and the model-visible digest.
+                record_argv=["python3", "prog.py"],
+                env_extra=sj.CAPTURE_ENV,
+            )
+        except sj.SJUnavailable as e:
+            return False, _guard_evidence(f"harness_error: {e}", "harness_error")
+
+        if run.timed_out:
+            return False, _from_run(run)
+        if run.exit_code == 0:
+            _record_capture(run)
+            return True, Evidence("", run=run, digest=run.digest, contained=True)
+        return False, _from_run(run)
+    finally:
+        sj.drop_sandbox(workdir)
+
+
+def _run_bigcodebench_native(program):
+    """Uncontained execution path (harness disabled). Kept so the benchmark
+    can still run the non-straitjacket arms without ctx-harness installed."""
+    workdir = tempfile.mkdtemp(prefix="bcb_")
+    path = os.path.join(workdir, "prog.py")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(program)
+    try:
+        env = {**os.environ, **sj.CAPTURE_ENV}
+        r = subprocess.run([sys.executable, path], capture_output=True, text=True,
+                           timeout=120, cwd=workdir, env=env)
+        if r.returncode == 0:
+            return True, Evidence("")
+        return False, Evidence(sj.tail_to_cap(r.stderr.strip() or "test failed"))
+    except subprocess.TimeoutExpired:
+        return False, Evidence("timeout: execution exceeded 120s")
+    except Exception as e:
+        return False, Evidence(f"execution_error: {e}")
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+
+def missing_code_error(code, entry_point):
+    """Check if the extracted code defines the requested function entry point.
+
+    This is a birth-gate rejection: the candidate is refused before execution,
+    so there is no unbounded output to contain. The message is returned as
+    bounded :class:`Evidence` so downstream treatment is uniform.
+    """
+    if f"def {entry_point}" in code:
+        return None
+    return _guard_evidence(
+        f"model response contains no `def {entry_point}` code block")
+

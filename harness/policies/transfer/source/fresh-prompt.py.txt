@@ -1,0 +1,15 @@
+def _fresh_prompt(problem, digest, attempts):
+    """Ask the frontier model to start over rather than patch a dead end.
+
+    A candidate that several cheaper models failed to repair is often the
+    wrong approach, not a nearly-right one — repairing it anchors the frontier
+    model to that approach. This arm tests whether abandoning it does better.
+    """
+    base = _build_initial_prompt(problem, role_type="solver")
+    return (
+        base
+        + f"\n\nNOTE: {attempts} cheaper model attempts failed on this task. "
+        + "The most recent failure, as a bounded test digest:\n"
+        + f"```\n{digest}\n```\n\n"
+        + "Do not assume the previous approach was close. Solve it your own way."
+    )

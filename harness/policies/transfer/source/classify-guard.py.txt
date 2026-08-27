@@ -1,0 +1,41 @@
+def _classify_guard(evidence, guard, previous):
+    """Type a failure that happened *before* the repository's suite ran.
+
+    Why this is not just "shallow": on a dataset where the model has to emit a
+    complete unified diff, `apply_failed` is the single most common outcome,
+    and it is neither shallow nor readable from a fact tier — the suite never
+    ran, so there is no profile and no census. Before this existed every such
+    failure landed in the untyped branch below, classified as `shallow`, and
+    an evidence gate consequently never fired on the *dominant* failure in the
+    sweep. The router was reading a constant.
+    """
+    failure_class = getattr(evidence, "failure_class", "") or ""
+    common = dict(profile="guard/v1", typed=True, guard=guard,
+                  failure_classes=(failure_class,) if failure_class else ())
+
+    if failure_class in _ENVIRONMENT_CLASSES:
+        return Difficulty(
+            level="environment",
+            reasons=(f"{guard}: the environment failed, not the model",),
+            **common)
+
+    if failure_class in _MALFORMED_CLASSES:
+        return Difficulty(
+            level="shallow",
+            reasons=(f"{guard}: response was not a usable diff",),
+            **common)
+
+    # `apply_failed`. One occurrence is a local defect — a miscounted hunk, a
+    # context line off by a word — and the next cheap rung fixes those. The
+    # same thing twice running means the model cannot see the tree it is
+    # patching, which is exactly the "hand this over" signal a stall is.
+    repeated = previous is not None and getattr(previous, "guard", "") == guard
+    if repeated:
+        return Difficulty(
+            level="stalled",
+            reasons=(f"{guard} survived the last repair turn",),
+            **common)
+    return Difficulty(
+        level="local",
+        reasons=(f"{guard}: patch did not land on this tree",),
+        **common)

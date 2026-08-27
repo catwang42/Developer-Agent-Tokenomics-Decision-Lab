@@ -1,0 +1,7 @@
+SOLVER_ROLE = (
+    "You are an expert Python programmer. Complete the function below. You are given its imports, "
+    "signature, and docstring; several real libraries must be used correctly. Output the COMPLETE "
+    "solution: all needed imports and the full function definition, handling edge cases and the "
+    "documented return/exception behavior exactly. Output ONLY one ```python code block, no "
+    "explanation.\n\n"
+)

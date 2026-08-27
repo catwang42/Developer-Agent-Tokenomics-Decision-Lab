@@ -1,0 +1,22 @@
+BROAD_FAILURE_ITEMS = 3
+
+# Failure classes that indicate the candidate never really ran: the model
+# produced something that does not import or parse. These are cheap to fix and
+# escalating on them wastes frontier budget.
+_SHALLOW_CLASSES = {
+    "SyntaxError", "IndentationError", "TabError",
+    "ImportError", "ModuleNotFoundError", "NameError",
+}
+
+LEVELS = ("shallow", "local", "broad", "stalled", "environment")
+
+# Guard reasons whose failure says nothing about the model. A row whose
+# container never started, whose graded tests could not be restored or whose
+# execution raised is a missing measurement; buying a frontier model for it
+# spends the study's most expensive resource on a Docker problem.
+_ENVIRONMENT_CLASSES = {"EnvironmentError"}
+
+# Pre-execution guard failures that a cheap rung fixes as readily as an
+# expensive one: the model wrote prose, or fenced something that is not a diff,
+# or was cut off mid-diff by the output cap.
+_MALFORMED_CLASSES = {"MalformedPatch"}

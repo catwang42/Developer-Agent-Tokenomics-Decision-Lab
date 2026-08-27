@@ -1,0 +1,24 @@
+
+
+import re as _re, sys as _sys, unittest as _ut
+_ut.TestCase.maxDiff = None
+
+
+class _SteadyStream:
+    """stderr proxy that pins the runner's elapsed-time digits."""
+
+    _RAN = _re.compile(r"(Ran \d+ tests? in )[\d.]+s")
+
+    def __init__(self, stream):
+        self._stream = stream
+
+    def write(self, text):
+        self._stream.write(self._RAN.sub(r"\g<1>0.000s", text))
+
+    def flush(self):
+        self._stream.flush()
+
+
+_res = _ut.TextTestRunner(verbosity=0, stream=_SteadyStream(_sys.stderr)).run(
+    _ut.TestLoader().loadTestsFromTestCase(TestCases))
+_sys.exit(0 if _res.wasSuccessful() else 1)

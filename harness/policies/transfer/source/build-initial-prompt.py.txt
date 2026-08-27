@@ -1,0 +1,7 @@
+def _build_initial_prompt(problem, role_type="solver"):
+    # Python function completion (BCB / WebDev)
+    prompt_text = problem.get("complete_prompt", "")
+    if role_type == "advisor":
+        return ADVISOR_ROLE + f"Problem:\n```python\n{prompt_text}\n```"
+    else:
+        return SOLVER_ROLE + f"Problem:\n```python\n{prompt_text}\n```\n\nWrite the complete solution."
