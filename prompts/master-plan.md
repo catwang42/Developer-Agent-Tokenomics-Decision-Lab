@@ -228,6 +228,11 @@ Close-out consolidation, branch feat/final-report. No spend, no agent runs.
    Existing findings files stay as receipts; FINDINGS.md links to them.
 5. Tests green. PR, do not merge. Report: RANKS(W6/W4) / W4B-COST-ORDER /
    BREAK-EVEN / HEAC / OVERRUNS / diff-proof / SURPRISES. Stop.
+6. Also reconcile the slot count: the table header says "117 of 122 slots" but
+42 cells x 3 reps = 126 and the ledger accounts for 9 empty slots. Determine
+which figure the code derives and correct the header (or the derivation) so the
+table, its ledger, and report/README.md all agree. State in your report which
+was wrong and why.
 ```
 
 Review: the diff-proof (batch-1 unchanged), the three HEAC numbers' arithmetic,
