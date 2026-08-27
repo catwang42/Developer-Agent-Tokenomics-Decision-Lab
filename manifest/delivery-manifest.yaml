@@ -343,6 +343,38 @@ routing_policies:
     frozen_date: 2026-08-16   # human FREEZE APPROVED; hash verified against the file
     governs: [C5]
     extracted_from: harness/configurations/C5.yaml   # rules verbatim; commit d900358
+  # Transplanted routing arms of the transfer probe. Unlike P3 — extracted from one of
+  # OUR configuration files — each of these is a frozen, declarative restatement of a
+  # third-party benchmark's published strategy; the adapters read the spec and hold no
+  # routing logic of their own. The spec file itself records the source repo, commit and
+  # the sha256 of every verbatim extract it quotes, so pinning the spec's bytes here
+  # pins the whole chain. Fidelity is NOT asserted by this pin: it is measured by
+  # harness/runner/transfer_calibration.py against the source's own oracle, and the
+  # probe driver refuses to start until that passes.
+  # Source for all three: https://github.com/lexha-redstone/tokenomics-benchmark-multi-llms
+  # @ 1a18b04385f9a0da16439ba5f48a2f68ac08d53d (Apache-2.0), extracts under
+  # harness/policies/transfer/source/ (NOTICE.md holds the per-file blob shas).
+  R9:
+    path: harness/policies/transfer/r9-spec.yaml
+    sha256: sha256:ff9a6ae8eb32f1325d8fd6e3f6b494d863749536392ccd90649105142f60e2a8
+    status: frozen
+    frozen_date: 2026-08-27   # human FREEZE APPROVED; hash verified against the file
+    governs: [R9]
+    extracted_from: harness/policies/transfer/source/   # 13 verbatim extracts, each hashed in the spec
+  R6:
+    path: harness/policies/transfer/r6-spec.yaml
+    sha256: sha256:936b6dda8d9c3f2beee57aa8d73989edc3882103157060eace1a1836c9cc740d
+    status: frozen
+    frozen_date: 2026-08-27   # human FREEZE APPROVED; hash verified against the file
+    governs: [R6]
+    extracted_from: harness/policies/transfer/source/   # 13 verbatim extracts, each hashed in the spec
+  R10:
+    path: harness/policies/transfer/r10-spec.yaml
+    sha256: sha256:4ddff66e3020f2d2f6eb9a4e2071b9b5792855d08bdb3183a618dcd264ef11d1
+    status: frozen
+    frozen_date: 2026-08-27   # human FREEZE APPROVED; hash verified against the file
+    governs: [R10]
+    extracted_from: harness/policies/transfer/source/   # 14 verbatim extracts, each hashed in the spec
 
 # Pinned benchmark tasks (Phase 2). Concrete SHAs live here only; task dirs mirror
 # these and add gate wiring (tests/test_tasks.py enforces agreement).

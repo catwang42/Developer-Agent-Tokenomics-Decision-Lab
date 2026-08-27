@@ -183,7 +183,24 @@ class Preflight(unittest.TestCase):
             self.assertTrue(r.detail.strip(), f"{r.code} has no detail")
 
     def test_all_refusals_are_reported_not_just_the_first(self) -> None:
-        self.assertGreater(len(self.refusals), 1)
+        """An operator fixing one gate only to be told about the next is N
+        round-trips where one would do.
+
+        Asserted against a manifest with the pins removed rather than the live
+        one: since the 2026-08-27 CP-SCHEMA widening and the manifest freeze,
+        real state produces exactly one refusal (CALIBRATION), so the live
+        preflight can no longer demonstrate the property.
+        """
+        import tempfile
+
+        doc = manifest()
+        doc.pop("routing_policies", None)
+        with tempfile.TemporaryDirectory() as tmp:
+            refusals = T.preflight(doc, calibration_dir=tmp)
+        codes = [r.code for r in refusals]
+        self.assertEqual(sorted(set(codes)), ["CALIBRATION", "MANIFEST-PIN"])
+        self.assertEqual(codes.count("MANIFEST-PIN"), 3,
+                         "one refusal per unpinned arm, not one for the batch")
 
     def test_the_specs_themselves_load_cleanly(self) -> None:
         self.assertNotIn("SPEC", self.codes,

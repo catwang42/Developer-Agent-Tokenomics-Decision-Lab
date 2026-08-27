@@ -76,7 +76,12 @@ def _gate_type(task: dict) -> str:
 # C3-med, C3-prev and P2 were added 2026-08-17: the schema had them since the
 # 2026-08-16 widening, these lists did not, so a run in one of those arms was
 # silently invisible to every check here.
-VALID_CONFIGS = {"C1", "C2", "C3", "C3-med", "C3-prev", "C4", "C5", "P0", "P1", "P2"}
+# R9/R6/R10 (the transfer probe's transplanted routing arms) were added with the
+# 2026-08-27 CP-SCHEMA widening. They are NOT registered screening arms: no
+# task.yaml declares them, and test_configurations_are_the_registered_screening_arms
+# below is what keeps them out of the screening matrix.
+VALID_CONFIGS = {"C1", "C2", "C3", "C3-med", "C3-prev", "C4", "C5", "P0", "P1", "P2",
+                 "R9", "R6", "R10"}
 # Run dir convention: <task_id>__<CONFIG>__rep<N>__<UTCstamp>. The config token must
 # admit an internal hyphen (C3-med, C3-prev) — the old [A-Z0-9]+ matched neither, so
 # those run dirs did not merely fail the checks, they were skipped by them. The
