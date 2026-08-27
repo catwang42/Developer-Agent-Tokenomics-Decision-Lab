@@ -115,3 +115,20 @@ makes ±30% potentially unreachable for reasons unrelated to fidelity. Therefore
 if calibration passes (a) for every strategy and fails only (b), the probe
 proceeds, and the (b) gap is published as a priced-substitution limitation
 attached to every transfer verdict. Authored by Catherine.
+
+## Amendment 2 — recorded 2026-08-28 SGT, before any strategy calibration result exists
+Calibration refused in pre-flight: BigCodeBench/101's reference tests fetch a
+remote URL at test time and all four error (HTTP 403) from this environment, so
+the oracle cannot score the source's own canonical solution. No model was called,
+$0 was spent, and r9/r6/r10 were never executed, so no strategy result existed
+when this was written.
+Disposition: BigCodeBench/101 is REPLACED in the calibration slice, not dropped,
+preserving the registered >=4-of-5 threshold. Replacement rule (mechanical, no
+model involvement): the lowest-numbered task in the source's published
+BigCodeBench-Hard run set, not already in the slice, whose canonical solution
+grades PASS with network disabled in this environment. The selected id and its
+record_sha256 are recorded in harness/policies/transfer/calibration-slice.yaml.
+Finding recorded: 1 of 5 sampled source tasks has a non-hermetic oracle
+(test-time third-party fetch). To be reported to the source repo's author.
+Note: dates in this file are SGT; Amendment 1's 2026-08-28 is SGT (UTC 08-27).
+Authored by Catherine.
