@@ -4,18 +4,28 @@ Three CP-DATA telemetry-completeness reports once overwrote each other because n
 forbade it. These tests make the append-only, one-authoritative, paired-with-a-dataset
 structure a hard gate:
 
-  - every ``results/feasibility-batch*/`` has a matching ``report/batch*/``;
+  - every dataset-scoped ``report/<name>/`` has the matching ``results/<name>/``;
   - every non-empty dataset directory under ``results/`` is named in results/README.md;
-  - every report under ``report/batchN/`` carries a STATUS banner in its first 5 lines;
-  - exactly one telemetry-completeness.md is marked AUTHORITATIVE;
+  - every report under a dataset-scoped ``report/<name>/`` carries a STATUS banner in
+    its first 5 lines;
+  - at most one telemetry-completeness.md is marked AUTHORITATIVE;
   - nothing lives directly in ``report/`` except README.md and REPORT-SPEC.md.
+
+The feasibility era (``results/feasibility-batch*/`` paired with ``report/batch*/``) was
+removed in the 2026-08-27 cleanup, so the pairing rule is asserted against the screening
+datasets that remain. The rule itself is unchanged: a report folder never exists without
+the dataset it documents.
+
+Note on ``test_at_most_one_authoritative_telemetry``: no telemetry-completeness.md exists
+in the tree today, so the assertion is "never more than one" rather than "exactly one".
+Requiring existence would encode a premise the repo no longer satisfies; the guardrail
+stays armed for the reports that land next.
 
 Offline, no spend: pure filesystem inspection of the repo.
 """
 
 from __future__ import annotations
 
-import os
 import pathlib
 import re
 import unittest
@@ -26,6 +36,10 @@ REPORT = ROOT / "report"
 
 STATUS_RE = re.compile(r"STATUS:\s*\*{0,2}\s*(AUTHORITATIVE|SUPERSEDED|PENDING)")
 AUTHORITATIVE_RE = re.compile(r"STATUS:\s*\*{0,2}\s*AUTHORITATIVE")
+
+# report/ subdirectories that are NOT dataset-scoped: they document no single dataset,
+# so the pairing rule does not apply to them.
+NON_DATASET_REPORT_DIRS = {"findings", "workshop-dashboard", "smoke-screening"}
 
 
 def _first_lines(path: pathlib.Path, n: int = 5) -> str:
@@ -38,20 +52,29 @@ def _dataset_dirs():
     return sorted(p for p in RESULTS.iterdir() if p.is_dir())
 
 
+def _dataset_scoped_report_dirs():
+    """report/ subdirectories that claim to document one named dataset."""
+    return sorted(
+        p for p in REPORT.iterdir()
+        if p.is_dir() and p.name not in NON_DATASET_REPORT_DIRS
+    )
+
+
 def _is_nonempty_dataset(d: pathlib.Path) -> bool:
     """A dir counts as a non-empty dataset if it holds any file other than .gitkeep."""
     return any(p.is_file() and p.name != ".gitkeep" for p in d.rglob("*"))
 
 
 class ReportResultsStructure(unittest.TestCase):
-    def test_batch_datasets_have_matching_report(self):
-        batches = sorted(RESULTS.glob("feasibility-batch*"))
-        self.assertTrue(batches, "expected at least one results/feasibility-batch*/")
-        for d in batches:
-            report_dir = REPORT / d.name.replace("feasibility-", "")  # feasibility-batch3 -> batch3
+    def test_report_dirs_pair_with_a_dataset(self):
+        report_dirs = _dataset_scoped_report_dirs()
+        self.assertTrue(report_dirs, "expected at least one dataset-scoped report/<name>/")
+        for r in report_dirs:
+            dataset = RESULTS / r.name
             self.assertTrue(
-                report_dir.is_dir(),
-                f"{d.name} has no matching {report_dir.relative_to(ROOT)}/ (pairing rule)",
+                dataset.is_dir(),
+                f"report/{r.name}/ documents no dataset: expected "
+                f"results/{r.name}/ (pairing rule, CLAUDE.md rule 8)",
             )
 
     def test_nonempty_datasets_listed_in_readme(self):
@@ -63,9 +86,11 @@ class ReportResultsStructure(unittest.TestCase):
                     f"non-empty dataset results/{d.name}/ is not listed in results/README.md",
                 )
 
-    def test_batch_reports_have_status_banner(self):
-        reports = sorted(REPORT.glob("batch*/*.md"))
-        self.assertTrue(reports, "expected reports under report/batch*/")
+    def test_dataset_reports_have_status_banner(self):
+        reports = sorted(
+            m for r in _dataset_scoped_report_dirs() for m in r.rglob("*.md")
+        )
+        self.assertTrue(reports, "expected .md reports under a dataset-scoped report/<name>/")
         for r in reports:
             head = _first_lines(r, 5)
             self.assertRegex(
@@ -74,13 +99,12 @@ class ReportResultsStructure(unittest.TestCase):
                 f"PENDING) in its first 5 lines",
             )
 
-    def test_exactly_one_authoritative_telemetry(self):
-        telem = sorted(REPORT.glob("batch*/telemetry-completeness.md"))
-        self.assertTrue(telem, "expected telemetry-completeness.md under report/batch*/")
+    def test_at_most_one_authoritative_telemetry(self):
+        telem = sorted(REPORT.glob("*/telemetry-completeness.md"))
         authoritative = [t for t in telem if AUTHORITATIVE_RE.search(_first_lines(t, 5))]
-        self.assertEqual(
+        self.assertLessEqual(
             len(authoritative), 1,
-            "exactly one telemetry-completeness.md must be marked AUTHORITATIVE in its "
+            "at most one telemetry-completeness.md may be marked AUTHORITATIVE in its "
             f"STATUS banner; found {len(authoritative)}: "
             f"{[str(t.relative_to(ROOT)) for t in authoritative]}",
         )
@@ -91,7 +115,7 @@ class ReportResultsStructure(unittest.TestCase):
         self.assertEqual(
             stray, [],
             f"only {sorted(allowed)} may live directly in report/; found stray: {stray} "
-            f"(batch reports go in report/batchN/, findings in report/findings/)",
+            f"(dataset reports go in report/<dataset-name>/, findings in report/findings/)",
         )
 
 

@@ -37,7 +37,7 @@ in-flight batch appears here; figures enter public material only through CP-FIND
 
 | Receipt | What it says | Evidence |
 |---|---|---|
-| **A roster that can't fail anything can't rank anything** | Batch 3: 27/27 controlled runs accepted, zero escalations — a ceiling effect that motivated rebuilding the task roster around commit-mined, post-cutoff work | [`report/batch3/telemetry-completeness.md`](report/batch3/telemetry-completeness.md) · [`tasks/suite/WORKLOADS.md`](tasks/suite/WORKLOADS.md) |
+| **A roster that can't fail anything can't rank anything** | Batch 3: 27/27 controlled runs accepted, zero escalations — a ceiling effect that motivated rebuilding the task roster around commit-mined, post-cutoff work | [`report/batch3/telemetry-completeness.md`](https://github.com/catwang42/Developer-Agent-Tokenomics-Decision-Lab/blob/pre-cleanup-2026-08-27/report/batch3/telemetry-completeness.md) (archived at tag `pre-cleanup-2026-08-27`) · [`tasks/suite/WORKLOADS.md`](tasks/suite/WORKLOADS.md) |
 | **Four human-authored sealed acceptance gates** | W4b, W3, W1b and W6 authored, 10-point validated and frozen *before* the screening window; the sealed set is human-held, never committed, and its hash is recorded on every graded run | [`manifest/cp-screen-prereg.md`](manifest/cp-screen-prereg.md) §3 · [`docs/sealed-evaluation.md`](docs/sealed-evaluation.md) |
 | **A seven-point benchmark audit checklist** | Self-reported tokens · unmeasured claims · confounded variables · cache-blind math · no quality gate · n=1 · decorative extrapolation — one canonical wording, one canonical home | [`docs/cheatsheet.md`](docs/cheatsheet.md) |
 | **Three comparison types, never one chart** | A finding is a product black-box result, a within-product model result, or a routing-policy result; the renderer bands them with a labelled gap and never sorts across them | [`docs/cheatsheet.md`](docs/cheatsheet.md) (point 3) · [`docs/screening-report.md`](docs/screening-report.md) |
@@ -143,8 +143,10 @@ shell + Python + Node. The **benchmark subjects** are the AI coding agents under
 measurement, driven through declared adapters
 ([`harness/adapters/`](harness/adapters/README.md)). The **build agent** was Claude Code,
 which constructed this repo phase by phase — that is provenance only
-([`CLAUDE.md`](CLAUDE.md), [`GETTING_STARTED.md`](GETTING_STARTED.md),
-[`plans/`](plans/)); it appears nowhere in the runtime path.
+([`CLAUDE.md`](CLAUDE.md), [`GETTING_STARTED.md`](GETTING_STARTED.md), and the phase
+plans archived at tag
+[`pre-cleanup-2026-08-27`](https://github.com/catwang42/Developer-Agent-Tokenomics-Decision-Lab/tree/pre-cleanup-2026-08-27/plans));
+it appears nowhere in the runtime path.
 
 - **Source of truth:** [`SPEC.md`](SPEC.md) (frozen v2.1.1 — do not edit)
 - **Layers (SPEC §0):** 1. Methodology (`methodology/`) · 2A. Balanced reference benchmark

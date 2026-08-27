@@ -27,13 +27,20 @@ Public repo = free GitHub Pages. Then on GitHub: **Settings → Pages → Source
 Actions** (the deploy workflow is already in the repo).
 
 ## 2. The build loop (repeat per phase, 0 → 6)
+
+> **Phases 0–6 are complete.** `plans/PHASE-N-*.md` was retired from the working tree in
+> the 2026-08-27 cleanup and is preserved at the tag
+> [`pre-cleanup-2026-08-27`](https://github.com/catwang42/Developer-Agent-Tokenomics-Decision-Lab/tree/pre-cleanup-2026-08-27/plans).
+> This section is kept because the loop below is how new work on this repo is still run —
+> fetch the phase file from the tag, or substitute your own task brief for it.
+
 ```bash
 claude --permission-mode plan     # start read-only; or press Shift+Tab to cycle modes
 ```
 Kickoff prompt (adjust N):
-> Read CLAUDE.md and SPEC.md fully. Then read plans/PHASE-N-*.md and propose your
-> implementation plan for Phase N only — files, commands, verification. Do not write
-> anything yet.
+> Read CLAUDE.md and SPEC.md fully. Then read the Phase-N plan (from the
+> `pre-cleanup-2026-08-27` tag) and propose your implementation plan for Phase N only —
+> files, commands, verification. Do not write anything yet.
 
 Then:
 1. **Review the plan.** Push back until it names files and verification. Approve.
@@ -51,9 +58,9 @@ Then:
 ## 3. Automation dial (choose per phase)
 - **Recommended (phases 1–4):** interactive, plan-first, accept-edits during execution.
 - **Low-risk phases (0, 5):** more autonomy is fine:
-  `claude --permission-mode acceptEdits "Execute plans/PHASE-0-bootstrap.md per CLAUDE.md; stop at any checkpoint."`
+  `claude --permission-mode acceptEdits "Execute the Phase-0 bootstrap plan per CLAUDE.md; stop at any checkpoint."`
 - **Headless (CI-style, no-spend phases only):**
-  `claude -p "Execute plans/PHASE-0-bootstrap.md per CLAUDE.md" --max-turns 40 --max-budget-usd 5`
+  `claude -p "Execute the Phase-0 bootstrap plan per CLAUDE.md" --max-turns 40 --max-budget-usd 5`
   Never run spend-gated phases headless — checkpoints need you.
 - Resume an interrupted phase: `claude --resume` (or `claude --continue`).
 

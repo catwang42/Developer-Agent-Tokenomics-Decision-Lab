@@ -7,7 +7,7 @@ KNOWN, plus the count of unavailable-cost legs). This is deliberately NOT a
 cross-product/cross-config ranking: no "A beats B", no vendor claim (CLAUDE.md
 rule 4). Unavailable costs are surfaced, never zero-filled (rule 3).
 
-Run:  python -m harness.aggregate.aggregate results/feasibility
+Run:  python -m harness.aggregate.aggregate results/screening-batch1
 """
 
 from __future__ import annotations
@@ -170,7 +170,8 @@ def render_table(agg: Dict[str, Any]) -> str:
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         description="Non-comparative per-cell aggregation over run result records")
-    ap.add_argument("results_dir", help="dir of run subdirs (e.g. results/feasibility)")
+    ap.add_argument("results_dir",
+                    help="dir of run subdirs (e.g. results/screening-batch1)")
     ap.add_argument("--json-out", default=None,
                     help="also write the aggregate JSON to this path")
     args = ap.parse_args(argv)

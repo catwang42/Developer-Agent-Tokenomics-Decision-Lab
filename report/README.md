@@ -1,133 +1,81 @@
-# report/ — how to read the feasibility reports
+# report/ — index of screening datasets and the reports they feed
 
-New here? Start with this file, then open the **authoritative** report:
-[`report/batch3/telemetry-completeness.md`](batch3/telemetry-completeness.md).
+126 planned boxes, 153 runs bought, 117 filled, 9 empty with reasons below.
 
-## What these reports measure — and what they do not claim
+**NON-COMPARATIVE / INTERNAL.** No number in any dataset below is a vendor claim, and
+none may appear in the docs, on the site, or in any external-facing report before
+**CP-FINDINGS** (SPEC §1.2 claims register). Every screening report is **PENDING** — the
+folders exist, but they open at **CP-DATA**.
 
-These reports answer one question: **does the measurement system work?** They record
-whether the harness produces validator-passing, honestly-tiered telemetry (token counts,
-cost reconstructed without model self-report, cache state, isolation posture) across the
-task/config matrix.
+## Index
 
-They are **NON-COMPARATIVE and internal-only** (SPEC §1.2 claims register). They do
-**not** rank vendors or products, do not make "audit-grade" or vendor-superiority claims,
-do not convert anything to headcount/FTE, and put **no number into any public docs/site**
-before the CP-FINDINGS checkpoint. A metric that "computes" here means the *instrument*
-works, not that one tool beats another.
+| Dataset (`results/`) | What it is | Runs | Report its numbers feed |
+|---|---|---|---|
+| `screening-batch1/` | Screening batch 1 relaunch, 42 cells; repaired offline at zero model spend (36 verdicts amended by re-running the sealed gates against archived diffs, 15 voided as unscoreable, Product-B usage re-attributed under collector rules v2/v3) | 122 | `report/screening-batch1/` — PENDING; holds `README.md`, `decision-table.{json,md}`, `backfill.json`, `backfill-v2.json`, `backfill-v3.json` |
+| `screening-batch1-makeup/` | The W3 makeup pass, 4 cells — 4 arms × 2 reps re-run under the per-task `agent_timeout_s` pin (7200s), which is what lets the W3-escalation registration be graded | 8 | No paired folder — feeds `report/findings/consolidated-table.md` (and `regrade-v2.md`) |
+| `screening-batch1-makeup-w6/` | The W6 makeup pass, 5 cells — 5 arms × 3 reps at the 1200s pin under the fixed review-delivery instrument, replacing batch 1's 15 void W6 cells (the artifact under review was never delivered) | 15 | No paired folder — feeds `report/findings/consolidated-table.md` (and `regrade-v2.md`) |
+| `screening-batch1-confound-makeup/` | The confound makeup, 5 cells — named replacement slots for runs earlier bounds cut short, each re-bought under its own task's pinned budget; 8 of 11 planned slots ran, 3 were refused by the contamination guard and never billed | 8 | `report/screening-batch1-confound-makeup/` — PENDING; holds `backfill-v3.json`. Also feeds `report/findings/consolidated-table.md` |
+| `screening-batch1-aborted-20260817-gatefix/` | **Not a screening result.** Batch 1's first attempt, halted by the kill switch at 5/126 runs when `container_gate()` never mounted the sealed hidden set and every run graded `acceptance.result: error`. Telemetry is real; the outcome variable is absent, so no cell is gradable. Retained as provenance for $1.86 of real spend | 5 | None — no CP-DATA report; its own `batch1.log` is the record |
 
-## Which dataset is authoritative today
+Run counts reconcile: 122 + 8 + 15 + 8 = **153 runs bought** across the four screening
+datasets, of which **117** fill a slot and **36** are superseded (a slot's later attempt
+supersedes the earlier one; attempts are never pooled or averaged). The aborted dataset's
+5 runs are outside this accounting.
 
-**`report/batch3/`** documents the authoritative dataset (`results/feasibility-batch3/`).
-Exactly **one** telemetry-completeness report is AUTHORITATIVE at any time; every other is
-SUPERSEDED. The chain: batch 1 (NO_WRITE defect) → batch 2 (pre-isolation-FIX harness) →
-**batch 3 (current)**.
+## The 9 empty boxes
 
-## The pairing rule: every dataset names its report
+42 cells × 3 registered reps = **126** slots; 117 are filled, so 9 are empty. None of
+them is unexplained missing data.
 
-Every dataset directory under `results/` names the report that documents it (see
-`results/README.md`). The common case is a one-to-one pairing:
+**Refused by the contamination guard (7).** Re-bought under an approved CP-SPEND, then
+refused at the door: the collector measured background traffic on the subject model and
+would not start, because a cost attributed across someone else's traffic is not a
+measurement. **Nothing was billed and nothing was run.** The remedy is a quiet window.
 
-> `report/batchN/`  ⟷  `results/feasibility-batchN/`
+- `pilot-realworld-draft-articles` **C3** rep 3
+- `pilot-realworld-draft-articles` **C3-prev** rep 3
+- `pilot-realworld-draft-articles` **C5** rep 3
+- `w3-sqlfluff-segment-method-migration` **C5** reps 1, 2 and 3
+- `w4-realworld-missing-user-id` **C3** rep 2
 
-So `report/batch2/` documents `results/feasibility-batch2/`, and so on. This is what keeps
-the repo navigable: from any dataset you can find its report, and from any report you can
-find its runs.
+**Budget exhaustion (2).** Every attempt ran out of wall-clock, and the slot was re-bought
+at least once under a longer budget before being cut off again. *Does not complete within
+the budget we bought* is the result for that slot — a finding, not a hole.
 
-**Cross-cutting and one-off datasets are documented inside the relevant batch report, not
-in their own folders — this is a decision, not an omission:**
-- **warm-series** (`results/feasibility-warm-series/`) → batch 3 report **§4.4**
-- **revalidation** (`results/revalidation/`) → batch 3 report **appendix**
-- **smoke** (`results/smoke/`) → batch 3 report **§4**
+- `w3-sqlfluff-segment-method-migration` **P0** rep 1 (1812s, then 7210s)
+- `w3-sqlfluff-segment-method-migration` **P1** rep 1 (3642s, then 9453s)
 
-The one exception is the **screening smoke**, which does get its own folder because it is
-not batch-3-era and not a telemetry dataset at all: `report/smoke-screening/` documents
-`results/smoke-screening/` — the smoke itself in `smoke-report.md`, and the verification
-of the fixes it forced in `re-smoke/re-smoke-report.md` (append-only, not a rewrite).
-Both are **harness evidence, not measurements**.
+One cell, `w3-sqlfluff-segment-method-migration::C5`, therefore has no evidence at all and
+is reported with no verdict — which is not the same statement as a rejection.
 
-They are small, single-purpose datasets tied to batch-3-era conclusions; giving each its
-own `report/` folder would fragment the record without adding clarity.
+> **Slot-count note.** `report/findings/consolidated-table.{md,json}` currently reads
+> "117 of 122" and carries `n_slots: 122`. That figure does not reconcile with its own
+> per-cell data (all 42 cells register 3 reps → 126). The per-cell figures above are the
+> verified ones; the header is queued for correction in the consolidation step.
 
-## How to read the criteria table
+## Coming Friday
 
-Each telemetry-completeness report has a pass/fail table (its §2) with one row per
-feasibility criterion. The verdicts:
+The **transfer-probe** datasets land Friday and will be added to this index — name,
+description, run count and the report they feed, on the same terms as the rows above.
 
-- **PASS** — the criterion is met on the dataset (e.g. validator passes with zero
-  zero-fills; cost reconstructed without self-report).
-- **PARTIAL** — partially met, with the gap stated explicitly and carried as a named
-  condition (e.g. a capability proven in one mode but not another).
-- **PENDING** — not yet collected, but planned and not fabricated (e.g. human-effort
-  timings awaiting reviewers). PENDING is honest absence, never a zero-fill.
+## The rest of report/
 
-"Unavailable" fields inside a run are recorded as `unavailable` with a confidence tier —
-never imputed or zero-filled (a core non-fabrication rule).
+- `REPORT-SPEC.md` — what a report must contain.
+- `findings/` — cross-cutting investigations that are not scoped to one dataset: the
+  gate-fairness audit, the subject-isolation leak and its verification, the W1
+  coverage ceiling, model-pin resolution, the Vertex token-metric surface, the
+  regrade-v2 sweep, graded-quality extraction, the confound-makeup enumeration, the
+  `agy` JSON-flag defect, and the consolidated screening table (**PENDING**, opens at
+  CP-FINDINGS).
+- `smoke-screening/` — the screening smoke and the re-smoke that verified its fixes.
+  **Harness evidence, not measurements.** Its dataset was removed in the 2026-08-27
+  cleanup; see the note in `smoke-screening/smoke-report.md`.
+- `workshop-dashboard/` — dashboard spec.
 
-## Why superseded batches are kept, not deleted
+Only `README.md` and `REPORT-SPEC.md` live directly in `report/`.
 
-A superseded report is a **historical record**. Each batch was collected on a materially
-different harness version, so its numbers are only meaningful against that version — they
-are never edited to describe a later batch, and they are never pooled with the authoritative
-set. Retaining them (rather than deleting) means any figure ever produced can be traced to
-the exact runs and harness that produced it. Each superseded report carries a **STATUS**
-banner in its first few lines giving the date, the reason, and its successor.
+## Provenance
 
-## Where cross-cutting findings live
-
-Investigations that are **not** dataset-scoped live in
-[`report/findings/`](findings/) — e.g. the gate-fairness audit, the subject-isolation leak
-finding and its verification, the W1 coverage-ceiling analysis, and the screening-window
-[model-pin resolution](findings/model-pin-resolution-2026-08-16.md) (which model ids
-actually resolve, and what usage shape they report), and the
-[Vertex token-metric surface](findings/vertex-token-metric-surface-2026-08-16.md)
-(what the billing plane exposes: whether effort levels are separable, and whether
-cached input tokens are). These describe harness/task properties that span batches,
-so they are not tied to a single `batchN/`.
-
-Three more were added by the final analysis pass, and each spans every screening
-dataset rather than any one of them:
-
-- [offline regrade-v2 sweep](findings/regrade-v2.md) — what re-grading the archived
-  diffs under gate images carrying the PR #27 content digest changed, separating
-  grader artifacts from genuine failures;
-- [graded quality extraction](findings/graded-quality-extraction.md) — the
-  exploratory-secondary quality figures read out of already-archived sealed output,
-  and why W3 and W4b yield none;
-- [confound-makeup enumeration](findings/confound-makeup-enumeration.log) — every
-  truncated run no later attempt replaced, and the derivation of the replacement
-  slots from it;
-- [consolidated screening table](findings/consolidated-table.md) — one row
-  per cell over all four screening datasets, superseded per rep and never pooled,
-  with both pre-registrations graded and a limitation ledger assembled from the data.
-  **PENDING — it opens at CP-FINDINGS**, and no number in it may appear in the docs
-  or on the site before then.
-
-And one instrument defect found afterwards, by reading the harness rather than
-running it:
-
-- [the agy JSON-flag defect](findings/agy-json-flag-defect.md) — the adapter never
-  asked agy for its JSON output mode, so no Product-B usage was ever captured
-  (0 of 153 archived invocations); what was built on top of that silence, and why
-  it changes no number already recorded.
-
-## Layout
-
-```
-report/
-  README.md                      ← you are here
-  REPORT-SPEC.md                 ← what a report must contain
-  batch1/telemetry-completeness.md   (SUPERSEDED)
-  batch2/telemetry-completeness.md   (SUPERSEDED)
-  batch2/human-effort-rubric.md      (SUPERSEDED — never completed)
-  batch3/telemetry-completeness.md   (AUTHORITATIVE)
-  batch3/human-effort-rubric.md      (PENDING — active criterion-6 instrument)
-  smoke-screening/smoke-report.md         (AUTHORITATIVE — the screening smoke)
-  smoke-screening/re-smoke/re-smoke-report.md
-                                     (AUTHORITATIVE — verification of the smoke's fixes)
-  findings/                      ← cross-cutting, non-dataset-scoped investigations
-  workshop-dashboard/            ← dashboard spec
-```
-
-Only `README.md` and `REPORT-SPEC.md` live directly in `report/`; everything else is under
-`batchN/`, `smoke-screening/`, `findings/`, or `workshop-dashboard/`.
+The feasibility-era reports (`batch1/`, `batch2/`, `batch3/`) and every non-screening
+dataset under `results/` were removed in the 2026-08-27 repo cleanup. They are recoverable
+in full at the tag **`pre-cleanup-2026-08-27`**.

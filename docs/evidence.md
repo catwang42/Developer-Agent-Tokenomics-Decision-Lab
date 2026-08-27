@@ -34,14 +34,15 @@ The rules that were fixed before any data was collected.
 
 ## Instrument reports
 
-One report per dataset, paired by name; exactly one telemetry-completeness report is
-AUTHORITATIVE at a time, and every superseded one is retained as provenance.
+One report per dataset, paired by name. The feasibility-era reports were retired from the
+working tree in the 2026-08-27 cleanup and are preserved, unedited, at the tag
+`pre-cleanup-2026-08-27` — the links below resolve there.
 
 | Report | Status |
 |---|---|
-| [How to read these reports](https://github.com/catwang42/Developer-Agent-Tokenomics-Decision-Lab/blob/main/report/README.md) | Start here — the pairing rule and the claims boundary |
-| [Batch 3 telemetry completeness](https://github.com/catwang42/Developer-Agent-Tokenomics-Decision-Lab/blob/main/report/batch3/telemetry-completeness.md) | **AUTHORITATIVE** — also the home of the 27/27 ceiling-effect finding |
-| [Batch 2](https://github.com/catwang42/Developer-Agent-Tokenomics-Decision-Lab/blob/main/report/batch2/telemetry-completeness.md) · [Batch 1](https://github.com/catwang42/Developer-Agent-Tokenomics-Decision-Lab/blob/main/report/batch1/telemetry-completeness.md) | SUPERSEDED — retained as provenance, never edited |
+| [Report index](https://github.com/catwang42/Developer-Agent-Tokenomics-Decision-Lab/blob/main/report/README.md) | Start here — the screening datasets, the pairing rule and the claims boundary |
+| [Batch 3 telemetry completeness](https://github.com/catwang42/Developer-Agent-Tokenomics-Decision-Lab/blob/pre-cleanup-2026-08-27/report/batch3/telemetry-completeness.md) | ARCHIVED at the tag — the home of the 27/27 ceiling-effect finding |
+| [Batch 2](https://github.com/catwang42/Developer-Agent-Tokenomics-Decision-Lab/blob/pre-cleanup-2026-08-27/report/batch2/telemetry-completeness.md) · [Batch 1](https://github.com/catwang42/Developer-Agent-Tokenomics-Decision-Lab/blob/pre-cleanup-2026-08-27/report/batch1/telemetry-completeness.md) | ARCHIVED at the tag — superseded when written, never edited |
 | [Datasets index](https://github.com/catwang42/Developer-Agent-Tokenomics-Decision-Lab/blob/main/results/README.md) | Every directory under `results/`, what it is, and the report that documents it |
 
 ## Standing findings

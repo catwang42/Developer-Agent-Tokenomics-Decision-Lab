@@ -4,7 +4,10 @@ Two sources, deliberately:
 
   * **The real batch-3 dataset** (`results/feasibility-batch3/`, read-only) — the data
     contract has to hold against the shape the harness actually writes, including the
-    C1 warm-series cell where two of three runs have no cost.
+    C1 warm-series cell where two of three runs have no cost. That dataset was retired
+    from the working tree in the 2026-08-27 cleanup and lives at the tag
+    `pre-cleanup-2026-08-27`; these tests **skip** when it is absent, and run again if
+    it is restored.
   * **SYNTHETIC in-memory fixtures** built in a tmpdir for the paths batch 3 does not
     exercise: zero accepted outcomes, a wholly unavailable token class, a missing event
     log, and a missing loaded rate.

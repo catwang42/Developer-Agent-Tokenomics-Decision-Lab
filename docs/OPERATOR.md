@@ -93,7 +93,7 @@ run). Preserves `node_modules`.
 ### 6. Aggregate a dataset — descriptive, NON-COMPARATIVE
 
 ```bash
-bash harness/aggregate/run.sh results/feasibility-batch3
+bash harness/aggregate/run.sh results/screening-batch1
 ```
 Exit `0`; prints a NON-COMPARATIVE per-cell table (acceptance counts + descriptive cost
 stats over known costs only; unavailable-cost legs counted, never zero-imputed). Add
@@ -102,7 +102,7 @@ stats over known costs only; unavailable-cost legs counted, never zero-imputed).
 ### 7. Compute metrics (ECST / QA-ECST / HEAC) — NON-COMPARATIVE
 
 ```bash
-.venv/bin/python -m harness.evaluator.metrics results/feasibility-batch3 > /tmp/metrics.json
+.venv/bin/python -m harness.evaluator.metrics results/screening-batch1 > /tmp/metrics.json
 ```
 Exit `0`; writes a NON-COMPARATIVE metric bundle (JSON) to stdout. HEAC uses
 `loaded_rate_per_minute` declared in `manifest/delivery-manifest.yaml` (a declared org
@@ -155,7 +155,7 @@ Live warm-series (rep 1 cold, reps 2..n resumed; bills the subject's provider):
 ```bash
 LAB_ALLOW_SPEND=1 bash harness/runner/run-warm-series.sh \
   --task tasks/pilot-realworld --config C1 --reps 3 \
-  --phase feasibility-warm-series --spend-cap-usd <N>
+  --phase warm-series --spend-cap-usd <N>
 ```
 
 Syntax-check either without spending:
@@ -191,13 +191,13 @@ If you fork this repo to run your own measurements:
   batch).** Every dataset directory under `results/` is listed in the repo's
   `results/README.md` and names the report that documents it. The pairing rule is:
 
-  > `report/batchN/`  ⟷  `results/feasibility-batchN/`
+  > `report/<dataset-name>/`  ⟷  `results/<dataset-name>/`
 
-  **If you run a new batch (e.g. `results/feasibility-batch4/`) you must create the paired
-  `report/batch4/` folder**, with a telemetry-completeness report carrying a `STATUS`
+  **If you run a new batch (e.g. `results/screening-batch2/`) you must create the paired
+  `report/screening-batch2/` folder**, with a report carrying a `STATUS`
   banner (`AUTHORITATIVE`, `SUPERSEDED`, or `PENDING`) in its first five lines — and
-  exactly one telemetry-completeness report may be `AUTHORITATIVE` at a time. Skip this
-  and `tests/test_report_structure.py` (operation 2 above) fails. Cross-cutting
+  no more than one telemetry-completeness report may be `AUTHORITATIVE` at a time. Skip
+  this and `tests/test_report_structure.py` (operation 2 above) fails. Cross-cutting
   investigations that are not dataset-scoped go under `report/findings/`. See the repo's
   `report/README.md` for the full convention.
 - **Never fabricate telemetry.** Every usage field is either product-authoritative or

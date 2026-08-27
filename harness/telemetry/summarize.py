@@ -1,7 +1,7 @@
 """Decision table: per task × configuration/policy summary for one results batch.
 
-Reads a batch directory of run records (``results/feasibility-batchN/``, and any future
-``results/screening-batchN/``) and emits the pair that the Phase-5 report page consumes:
+Reads a batch directory of run records (``results/screening-batchN/``, and any future
+batch on the same layout) and emits the pair that the Phase-5 report page consumes:
 
     <out-dir>/decision-table.json    the data contract (stable keys, machine-readable)
     <out-dir>/decision-table.md      the same content as a reviewable table
@@ -62,8 +62,8 @@ produced here may appear in docs, on the site, or in an external-facing report b
 
 Run::
 
-    python -m harness.telemetry.summarize results/feasibility-batch3
-    python -m harness.telemetry.summarize results/feasibility-batch3 --out-dir /tmp/dt
+    python -m harness.telemetry.summarize results/screening-batch1
+    python -m harness.telemetry.summarize results/screening-batch1 --out-dir /tmp/dt
 """
 
 from __future__ import annotations
@@ -1909,8 +1909,10 @@ def render_markdown(table: Dict[str, Any]) -> str:
 # ------------------------------------------------------------------------------ CLI
 
 def default_out_dir(batch_dir: str) -> Optional[str]:
-    """``results/feasibility-batch3`` -> ``report/batch3``; ``results/screening-batch1``
-    -> ``report/screening-batch1`` (CLAUDE.md rule 8 pairing)."""
+    """``results/screening-batch1`` -> ``report/screening-batch1`` (CLAUDE.md rule 8
+    pairing). The retired feasibility era mapped ``results/feasibility-batchN`` ->
+    ``report/batchN``; that branch is kept so an archived batch restored from the
+    ``pre-cleanup-2026-08-27`` tag still resolves to its own report directory."""
     name = os.path.basename(os.path.normpath(batch_dir))
     if name.startswith("feasibility-batch"):
         return os.path.join(_REPO, "report", name[len("feasibility-"):])
@@ -1922,7 +1924,7 @@ def default_out_dir(batch_dir: str) -> Optional[str]:
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         description="Emit decision-table.json + decision-table.md for one results batch")
-    ap.add_argument("batch_dir", help="e.g. results/feasibility-batch3")
+    ap.add_argument("batch_dir", help="e.g. results/screening-batch1")
     ap.add_argument("--out-dir", default=None,
                     help="output directory (default: the paired report/ directory)")
     ap.add_argument("--manifest", default=None,
