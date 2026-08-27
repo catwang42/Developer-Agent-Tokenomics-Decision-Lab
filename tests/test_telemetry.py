@@ -131,9 +131,22 @@ class ValidatorTests(unittest.TestCase):
                 ok, reasons = validate_summary(summary)
                 self.assertTrue(ok, msg=f"reasons: {reasons}")
 
+    def test_configuration_id_enum_accepts_the_cp_schema_2026_08_27_additions(self):
+        """CP-SCHEMA 2026-08-27: additive widening for the transfer probe's three
+        transplanted routing arms. Without it every probe cell would execute, bill,
+        and only then fail summary validation on configuration_id alone.
+        """
+        for config_id in ("R9", "R6", "R10"):
+            with self.subTest(configuration_id=config_id):
+                summary = _load("summary-valid-SYNTHETIC.json")
+                summary["configuration_id"] = config_id
+                ok, reasons = validate_summary(summary)
+                self.assertTrue(ok, msg=f"reasons: {reasons}")
+
     def test_widening_was_additive_only(self):
         """Every id valid before the widening is still valid (no v2.0 summary breaks)."""
-        for config_id in ("C1", "C2", "C3", "C4", "C5", "P0", "P1"):
+        for config_id in ("C1", "C2", "C3", "C3-med", "C3-prev", "C4", "C5",
+                          "P0", "P1", "P2"):
             with self.subTest(configuration_id=config_id):
                 summary = _load("summary-valid-SYNTHETIC.json")
                 summary["configuration_id"] = config_id
@@ -141,7 +154,8 @@ class ValidatorTests(unittest.TestCase):
                 self.assertTrue(ok, msg=f"reasons: {reasons}")
         # ...and the enum is still closed: a near-miss on a new id is still rejected.
         # "C3med"/"C3-Med" in particular must NOT silently pass as the effort arm.
-        for config_id in ("C3prev", "C3-PREV", "C3med", "C3-Med", "C3-medium", "P3", "p2"):
+        for config_id in ("C3prev", "C3-PREV", "C3med", "C3-Med", "C3-medium", "P3", "p2",
+                          "r9", "R-9", "R09", "R1", "R11"):
             with self.subTest(rejected=config_id):
                 summary = _load("summary-valid-SYNTHETIC.json")
                 summary["configuration_id"] = config_id
@@ -154,7 +168,8 @@ class ValidatorTests(unittest.TestCase):
         for note in ("v2.1 2026-08-16: additive enum widening (C3-prev, P2), "
                      "human-approved; all v2.0 summaries remain valid.",
                      "additive widening (C3-med), human-approved 2026-08-16; "
-                     "all prior summaries remain valid."):
+                     "all prior summaries remain valid.",
+                     "v2.2 2026-08-27: additive enum widening (R9, R6, R10"):
             self.assertIn(note, schema["description"])
 
     def test_c3_med_is_a_distinct_cell_from_c3(self):

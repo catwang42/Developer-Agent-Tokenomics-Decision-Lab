@@ -19,6 +19,8 @@ screening report is **PENDING** and opens at **CP-DATA**.
 | `pilot-reference/` | empty until CP-FINDINGS (≥5 reps/cell; write-protected; human merges only) | — (populated at CP-FINDINGS) |
 | `screening/` | empty until further Phase-4 screening (hypothesis-seeking positioning evidence, SPEC §5) | — (populated when used) |
 | `screening-batchN/` | **not yet created** — Phase-4 screening batches beyond batch 1 (W1–W7 × configurations); one directory per batch, same append-only rule | `report/screening-batchN/` (pairs by name; `decision-table.{json,md}` from `harness/telemetry/summarize.py`) |
+| `transfer-probe-calibration/` | **not yet created** — the transfer probe's calibration slice: 5 pinned BigCodeBench-Hard records × {R9, R6, R10}, graded by the **source benchmark's own unit-test oracle** and costed by ours. Not a lab result and never pooled with one: it exists only to test whether our transplant of the three published routing strategies is faithful, against the pre-registered criterion (≥4/5 pass match **and** cost within ±30%). Written by `harness/runner/transfer_calibration.py`, which writes a report pass or fail; a failing, incomplete or dry-run report blocks the probe | `results/transfer-probe-calibration/<arm>/calibration-report.json` — written by the calibration run itself and read by the probe driver's preflight. Read out at CP-DATA alongside `report/transfer-probe/`; it is a precondition record, not a dataset anyone cites |
+| `transfer-probe/` | **not yet created** — the transfer probe: 27 cells = {W4, W6, W4b} × {R9, R6, R10} × 3 reps, run order W4 → W6 → W4b. **NEW ARM CONDITION — never pooled with batch 1 or its makeups**: under the `transfer-probe` driver profile `agent_timeout_s` is a *soft* budget (stamped as `overrun_s`, not enforced) with a hard kill at 3×, and Product B's `--print-timeout` is re-pinned per task, so the timing instrument is not the one batch 1 ran. Registered in `manifest/preregistrations/2026-08-27-transfer-probe.md`; spend governed by `manifest/cp-spend-transfer-probe.md` (cap $300, **shared with the calibration**). Written by `harness/runner/transfer_probe.py`, which refuses to start until every arm has a passing calibration report | `report/transfer-probe/` (pairs by name; **not yet created**, opens at CP-DATA) |
 | `cohort/` | **gitignored** — workshop exercise data (not tracked) | — |
 
 Notes:
@@ -27,8 +29,12 @@ Notes:
   under batch 1's flat bound and the same cell re-run under its own pinned budget are two
   instruments; averaging them would report a number no run produced.
 - Datasets are **immutable provenance** — do not edit or re-run them.
-- The **transfer-probe** datasets land Friday and will be added to this table and to
-  `report/README.md`.
+- The two **transfer-probe** rows are listed *before* their directories exist, which is
+  the order rule 8 requires: a dataset that appears without a README entry naming the
+  report that documents it is an orphan the moment it is written. The probe driver's
+  preflight checks this file and refuses to launch without the entry. Neither directory
+  exists yet and neither has been run; their row still owes `report/README.md` an index
+  entry with the run count once they do.
 
 ## Removed in the 2026-08-27 cleanup
 
