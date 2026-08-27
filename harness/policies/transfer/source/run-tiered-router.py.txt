@@ -1,0 +1,99 @@
+def run_tiered_router(problem, tiers=None, gate="after_ladder",
+                      frontier=OPUS_5_ID, frontier_mode="repair",
+                      frontier_max_calls=1, error_treatment="straitjacket"):
+    """Escalating ladder of cheap tiers with an evidence-gated frontier tier.
+
+    Returns the standard metrics dict plus ``routing``: which rungs ran,
+    whether the frontier model was invoked, and what the gate saw each time.
+    """
+    from .routing import GATES, EscalationTrace, classify
+
+    tiers = list(tiers or [(GEMINI_35_FLASH_LITE_ID, None),
+                           (GEMINI_37_FLASH_ID, "low")])
+    gate_fn = GATES[gate] if isinstance(gate, str) else gate
+    trace = EscalationTrace()
+
+    # --- rung 0: the first (cheapest) tier generates -----------------------
+    gen_model, gen_think = tiers[0]
+    prompt = _build_initial_prompt(problem, role_type="solver")
+    text, usage, dt = dispatch_model(gen_model, prompt, thinking_level=gen_think,
+                                     problem=problem)
+    trace.rungs.append(f"{gen_model}/{gen_think or 'off'}")
+    passed, err, sol = _eval_solution(problem, text)
+
+    tot_usd, tot_out = usage["as_run_usd"], usage["output"]
+    tot_tok, tot_dt = usage["total_tokens"], dt
+    loop = 0
+    frontier_calls = 0
+    difficulty = None
+
+    if passed:
+        trace.solved_at = trace.rungs[-1]
+
+    # --- escalating repair turns ------------------------------------------
+    while not passed:
+        difficulty = classify(err, previous=difficulty)
+        if (getattr(gate_fn, "requires_typed_evidence", False)
+                and difficulty is not None and not difficulty.typed
+                and not trace.degraded):
+            # An evidence gate without typed evidence is a counter gate wearing
+            # the wrong label. Say so rather than publishing the row as-is.
+            trace.degraded = True
+            _warn_once(
+                f"{gate if isinstance(gate, str) else gate_fn.__name__}: no typed "
+                "evidence available (profile has no fact tier, or SJ_BACKEND is not "
+                "'library'). This arm is falling back to ladder-exhaustion "
+                "behaviour and is NOT testing the evidence gate."
+            )
+        escalate, why = gate_fn(difficulty, loop + 1, len(tiers))
+        if escalate and frontier_calls >= frontier_max_calls:
+            escalate, why = False, f"frontier budget spent ({frontier_max_calls})"
+        trace.record(loop + 1, difficulty, escalate, why)
+
+        if escalate:
+            target, think = frontier, None
+        elif loop + 1 < len(tiers):
+            target, think = tiers[loop + 1]
+        else:
+            break  # cheap rungs exhausted and the gate said no
+
+        digest, tr_usage, _ = _treat_error(err, error_treatment, problem=problem)
+        tot_usd += tr_usage["as_run_usd"]
+        tot_out += tr_usage["output"]
+        tot_tok += tr_usage["total_tokens"]
+
+        if escalate and frontier_mode == "fresh":
+            repair_prompt = _fresh_prompt(problem, digest, loop + 1)
+        else:
+            repair_prompt = _repair_prompt(problem, sol, digest,
+                                           _EVIDENCE_LABEL[error_treatment])
+
+        r_text, r_usage, r_dt = dispatch_model(target, repair_prompt,
+                                               thinking_level=think, problem=problem)
+        tot_usd += r_usage["as_run_usd"]
+        tot_out += r_usage["output"]
+        tot_tok += r_usage["total_tokens"]
+        tot_dt += r_dt
+        loop += 1
+        trace.rungs.append(f"{target}/{think or 'off'}")
+        if escalate:
+            frontier_calls += 1
+            trace.frontier_used = True
+            trace.frontier_rung = loop
+
+        passed, err, sol = _eval_solution(problem, r_text)
+        if passed:
+            trace.solved_at = trace.rungs[-1]
+
+    return {
+        "passed": passed,
+        "as_run_usd": round(tot_usd, 6),
+        "output_tokens": tot_out,
+        "total_tokens": tot_tok,
+        "seconds": round(tot_dt, 1),
+        "error": "" if passed else err,
+        "repair_loops": loop,
+        "triage_usd": 0.0,
+        "routing": trace.as_dict(),
+        "patch": sol,
+    }

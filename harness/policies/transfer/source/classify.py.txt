@@ -1,0 +1,58 @@
+def classify(evidence, previous=None):
+    """Read the typed evidence graph for one failure.
+
+    ``previous`` is the :class:`Difficulty` from the prior attempt, used to
+    detect a stall: the same failing identities surviving a repair turn means
+    the model is not converging, which is the clearest "hand this over" signal
+    there is.
+    """
+    run = getattr(evidence, "run", None)
+    graph = run.evidence_graph() if run is not None else None
+    profile = getattr(run, "profile", "") or ""
+
+    guard = getattr(evidence, "reason", "") or ""
+    if guard:
+        return _classify_guard(evidence, guard, previous)
+
+    if graph is None:
+        # No fact tier. `text/v1` means nothing recognised the output as a test
+        # run at all — usually a crash before the suite started. Treat it as
+        # shallow: cheap models fix these, and there is no census to reason
+        # over anyway.
+        return Difficulty(
+            level="shallow",
+            reasons=("no typed evidence (profile has no fact tier)",),
+            profile=profile,
+            typed=False,
+        )
+
+    items = tuple(graph.items)
+    identities = frozenset(i.id for i in items)
+    classes = tuple(sorted({i.failure_class for i in items if i.failure_class}))
+    failing = int(graph.aggregate.get("failing", len(items)))
+
+    reasons = []
+    level = "local"
+
+    if items and all((c in _SHALLOW_CLASSES) for c in classes):
+        level = "shallow"
+        reasons.append(f"failure classes are all shallow: {', '.join(classes)}")
+    elif failing >= BROAD_FAILURE_ITEMS:
+        level = "broad"
+        reasons.append(f"{failing} distinct failing identities (>= {BROAD_FAILURE_ITEMS})")
+    else:
+        reasons.append(f"{failing} failing identity/identities")
+
+    if previous is not None and identities and identities == previous.identities:
+        level = "stalled"
+        reasons.append("identical failing identities survived the last repair turn")
+
+    return Difficulty(
+        level=level,
+        reasons=tuple(reasons),
+        failing=failing,
+        failure_classes=classes,
+        profile=profile,
+        identities=identities,
+        typed=True,
+    )

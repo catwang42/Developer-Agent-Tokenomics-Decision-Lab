@@ -1,0 +1,74 @@
+{
+  "_SYNTHETIC": "SYNTHETIC — hand-written public acceptance reports for transfer-probe gate tests. These are NOT run output. No cell of results/transfer-probe or results/transfer-probe-calibration produced any of this; every check id, status and detail string below was written by hand to exercise one branch of harness/adapters/transfer_spec.classify + gate_decision. Never copy any of it into results/.",
+  "_shape": "Each scenario is a gate-public.json as harness/runner/run.py writes one: {checks: [{id, status, detail}, ...]}. Check ids are the real ones the suite uses, because the specs' check_classes maps are keyed by them.",
+  "scenarios": {
+    "fluent_but_locationally_wrong": {
+      "_why": "THE REGISTERED MECHANISM (prereg: transfer BREAKS on W6). A review deliverable that is fluent, well-formed, in scope, and passes every PUBLIC check — and that the sealed grader rejects because it flagged the wrong location. The public report an evidence gate reads shows nothing wrong, so r9 must classify it shallow and must NOT escalate. r9 spends three cheap rungs on a run no cheap rung can fix. If a change to the gate ever makes this escalate, the arm has stopped being r9.",
+      "report": {
+        "checks": [
+          {"id": "P4-build", "status": "pass", "detail": "build ok"},
+          {"id": "P3-typecheck", "status": "pass", "detail": "no type errors"},
+          {"id": "P5-no-leakage", "status": "pass", "detail": "no sealed material referenced"},
+          {"id": "P6-diff-scope", "status": "pass", "detail": "1 file changed, within scope"},
+          {"id": "P1-public-test", "status": "pass", "detail": "review artifact present and parseable"}
+        ]
+      }
+    },
+    "shallow_typecheck_only": {
+      "_why": "One shallow class failing. However many turns it takes, an evidence gate keeps it cheap until the rungs run out.",
+      "report": {
+        "checks": [
+          {"id": "P3-typecheck", "status": "fail", "detail": "src/app.ts(12,3): TS2339 Property 'userId' does not exist"},
+          {"id": "P4-build", "status": "pass", "detail": "build ok"},
+          {"id": "P1-public-test", "status": "pass", "detail": "2 passed"}
+        ]
+      }
+    },
+    "local_two_behavioural": {
+      "_why": "Two distinct failing behavioural identities: below broad_failure_items (3), so level=local and the gate keeps it cheap until the ladder is exhausted.",
+      "report": {
+        "checks": [
+          {"id": "P1-public-test", "status": "fail", "detail": "1 failing: returns undefined for missing user id"},
+          {"id": "P2-regression", "status": "fail", "detail": "1 failing: existing route contract changed"},
+          {"id": "P4-build", "status": "pass", "detail": "build ok"}
+        ]
+      }
+    },
+    "broad_three_behavioural": {
+      "_why": "Three distinct failing behavioural identities: level=broad, which is_hard, so an evidence gate escalates at the first opportunity while a counting gate still waits for the ladder to run out. This is the r9-vs-r6 difference in one fixture.",
+      "report": {
+        "checks": [
+          {"id": "P1-public-test", "status": "fail", "detail": "3 failing"},
+          {"id": "P2-regression", "status": "fail", "detail": "2 failing"},
+          {"id": "T2-suite-green", "status": "fail", "detail": "suite red"},
+          {"id": "P4-build", "status": "pass", "detail": "build ok"}
+        ]
+      }
+    },
+    "environment_guard": {
+      "_why": "The subject tree could not be read. No model fixes this, so every gate declines regardless of kind or attempt count.",
+      "report": {
+        "checks": [
+          {"id": "G0-subject-readable", "status": "fail", "detail": "subject dir unreadable"},
+          {"id": "P1-public-test", "status": "fail", "detail": "not run"},
+          {"id": "P2-regression", "status": "fail", "detail": "not run"},
+          {"id": "T2-suite-green", "status": "fail", "detail": "not run"}
+        ]
+      }
+    },
+    "malformed_guard": {
+      "_why": "The response was not a usable artefact (out-of-scope diff, sealed material referenced). The source's guard branch types this shallow: a cheap rung fixes a malformed answer as readily as an expensive one.",
+      "report": {
+        "checks": [
+          {"id": "P5-no-leakage", "status": "fail", "detail": "references tasks/suite/W4-complex-bugfix/hidden"},
+          {"id": "P6-diff-scope", "status": "fail", "detail": "9 files changed, outside declared scope"},
+          {"id": "P4-build", "status": "pass", "detail": "build ok"}
+        ]
+      }
+    },
+    "no_failing_checks_but_rejected": {
+      "_why": "Same public surface as fluent_but_locationally_wrong but with zero checks listed at all — the degenerate report. classify must say 'public report shows no failing checks' and stay typed; it must never read an empty census as 'hard'.",
+      "report": {"checks": []}
+    }
+  }
+}

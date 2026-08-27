@@ -1,0 +1,9 @@
+    "r0b_opus5_solo": {
+        "id": "r0b_opus5_solo",
+        "name": "R0b. Baseline: claude-opus-5 solo (3 rungs)",
+        "category": "6. gemini-3.7 + opus-5 routing study",
+        "triage_mode": "Straitjacket contained digest ($0.00)",
+        "models": "Claude Opus-5 x3",
+        "fn": lambda p: run_tiered_router(
+            p, tiers=[(OPUS_5_ID, None)] * 3, gate="never"),
+    },

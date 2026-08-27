@@ -1,0 +1,9 @@
+@_plain
+def gate_after_ladder(difficulty, attempt, total_rungs):
+    """Escalate only once every cheap rung has failed. The conservative
+    baseline, and the shape `sj_escalation_shield` already uses."""
+    if difficulty is not None and difficulty.is_environment:
+        return False, f"environment failure ({difficulty.guard}); no model fixes this"
+    if attempt >= total_rungs:
+        return True, f"all {total_rungs} cheap rungs exhausted"
+    return False, f"cheap rungs remain ({attempt}/{total_rungs})"

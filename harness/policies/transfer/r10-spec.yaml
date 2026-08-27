@@ -1,0 +1,551 @@
+# r10 — "Opus re-solves from scratch". Transplanted strategy spec, FROZEN.
+#
+# This file is DATA. harness/adapters/transfer_r10.py reads it and nothing else.
+# Prereg (authoritative): manifest/preregistrations/2026-08-27-transfer-probe.md
+#
+# r10 is the CONTROL ARM of this probe, and it is not optional. It is identical
+# to r6 in every respect except one line — `frontier_mode: fresh` — so the
+# frontier turn consumes NONE of the cheap model's output except a bounded
+# digest. The three arms therefore form a gradient of trust in what the cheap
+# model produced: r9 READS the failure evidence, r6 COUNTS it, r10 DISCARDS it.
+# If W6 transfer breaks in the predicted order (r10 best, r6 partial, r9 worst),
+# that gradient is the explanation.
+
+spec_version: 1
+strategy_id: r10
+configuration_id: R10
+source_arm_id: r10_opus_fresh_solve
+name: "R10. Gemini ladder -> Opus-5 re-solves from scratch (not a repair)"
+
+source:
+  repo: https://github.com/lexha-redstone/tokenomics-benchmark-multi-llms
+  sha: 1a18b04385f9a0da16439ba5f48a2f68ac08d53d
+  licence: Apache-2.0
+  fetched_via: raw.githubusercontent.com + api.github.com tree listing
+  fetched_utc: "2026-08-27"
+  files:
+    - path: src/architectures.py
+      git_blob_sha: f621fae49484db5b87b9b5ab4a8086e28e2978fe
+      sha256: 6ba556806ce1e69d7481cd4575fd99fd3d7cb5ebdc12ed90aeef86af2b2d7437
+      bytes: 62699
+    - path: src/routing.py
+      git_blob_sha: 29cd12030566229e2cf95d840a252d0f1ffaeda2
+      sha256: bc31b76474d59d226a887a0db1cada707de771e3751aa613b7ebbddc893f71ef
+      bytes: 13887
+    - path: src/config.py
+      git_blob_sha: 05f3085ba7642a2fdceb65a3492e2b71c708d8f0
+      sha256: 56c23d2971f43becd5d002b7bf394aeaf9ebd5c3a6cc767cd26126eebe7d8b96
+      bytes: 7670
+    - path: src/evaluator.py
+      git_blob_sha: 83f696d753ea4b3eb0e1839b9e48674039673bdf
+      sha256: 96102c4da4044988bcfe2df3e5dbef83d8a7c05402785d91725bf106a5a5af77
+      bytes: 74058
+    - path: bigCodeBench-hard/results/bcb_router_results.json
+      git_blob_sha: fdbe517a7b6816ce3608a7c8630987d0830f7701
+      sha256: 3ab058dd6e2e9036c6314b33189367455c4c15b6d1ab75ab5d65fa69b64346e9
+      bytes: 3493685
+
+extracts:
+  - file: source/arm-r10.py.txt
+    from: src/architectures.py
+    symbol: 'VARIANT_REGISTRY["r10_opus_fresh_solve"]'
+    sha256: 73d6a5f5392eedcbfed61c2415675f750d2c6563b22fa8de4e078504d58cea78
+  - file: source/run-tiered-router.py.txt
+    from: src/architectures.py
+    symbol: run_tiered_router
+    sha256: d5758cd42aa9ca3d59d00827f2bced27c75c625bbf42a7c4aaa5f86e684476c3
+  - file: source/gate-after-ladder.py.txt
+    from: src/routing.py
+    symbol: gate_after_ladder
+    sha256: 16fbcdd002b92fa3526a5675927e35c6938e0c3ad205f53399cf0b187f444beb
+  - file: source/fresh-prompt.py.txt
+    from: src/architectures.py
+    symbol: _fresh_prompt
+    sha256: f7979ce4c235bcbeea41e25544f77885dfd13f2ae9317ed9e859928b3f1d5fc6
+  - file: source/classify.py.txt
+    from: src/routing.py
+    symbol: classify
+    sha256: 7bfe19a587ed0116e718c591cd38b7ecee05f0add96e0661bb3a5e711eb65b62
+  - file: source/classify-guard.py.txt
+    from: src/routing.py
+    symbol: _classify_guard
+    sha256: 924a0b09f21e15bae9678d9dffb9eb27b5833a56950bbc40bf37becee428ebe4
+  - file: source/difficulty.py.txt
+    from: src/routing.py
+    symbol: Difficulty
+    sha256: 6eb67fb0897873a96b464df6a1b34ab5e3a6a0e500fab22d7bfeeabfa6b6c2da
+  - file: source/routing-constants.py.txt
+    from: src/routing.py
+    symbol: "BROAD_FAILURE_ITEMS .. _MALFORMED_CLASSES"
+    sha256: 123dc7a8236896376dc73a0b7b9f7fc54236511510c14baa0daaa344f74e439e
+  - file: source/solver-role.py.txt
+    from: src/config.py
+    symbol: SOLVER_ROLE
+    sha256: 811a69cea8b31b6e6b8619b685ae7e8ed97f60f8234ac9b8a2a4cc7e30fc098e
+  - file: source/repair-role.py.txt
+    from: src/config.py
+    symbol: REPAIR_ROLE
+    sha256: 1835282fe100df5ac3c67a176c9ac6e1cf2fa5bb82ba2f388fc32f6fcf5e696a
+  - file: source/build-initial-prompt.py.txt
+    from: src/architectures.py
+    symbol: _build_initial_prompt
+    sha256: 7a58212a14912826913a34b5e4faa06f78da5e32bd6bc551aec2c50067ccda8e
+  - file: source/repair-prompt.py.txt
+    from: src/architectures.py
+    symbol: _repair_prompt
+    sha256: 519f1ed7dc1a3608e05f69667f5c4a2fdcb4907454cdfac0a5be75dc6e11e246
+  - file: source/treat-error.py.txt
+    from: src/architectures.py
+    symbol: _treat_error
+    sha256: 4ca3a0d681cd947397dae2d2b34629f724ba06e24237901f3861f2f61204b905
+  - file: source/eval-solution.py.txt
+    from: src/architectures.py
+    symbol: _eval_solution
+    sha256: 604299966a51deb8f044178451fbf52fd3e552a86772ba5d9198534b394f4949
+
+published_reference:
+  n: 148
+  passed: 122
+  pass_rate: 0.824
+  total_as_run_usd: 5.084928
+  cost_per_solved_usd: 0.04168
+  avg_output_tokens: 4046.0
+  models: "Lite -> 3.7 low -> 3.7 medium -> Opus-5 (fresh solve)"
+  triage_mode: "Straitjacket contained digest ($0.00)"
+  source_rank_note: >
+    Third of the three on the source's own cost-per-solved ranking
+    ($0.041680 vs r9's $0.035312 and r6's $0.045226 — r10 is between them on
+    cost but below r6 on pass rate). The prereg registers a RANK-INVERSION
+    prediction for W6: the arm ranked third in the source is predicted to
+    transfer best here, because the property the source penalised (ignoring the
+    cheap model's work) is the property that survives a grader the cheap model's
+    work cannot satisfy.
+
+source_definition:
+  entry: run_tiered_router
+  tiers:
+    - {model: gemini-3.5-flash-lite, thinking_level: null}
+    - {model: gemini-3.7-flash, thinking_level: low}
+    - {model: gemini-3.7-flash, thinking_level: medium}
+  gate: after_ladder        # GATES["after_ladder"] == gate_after_ladder
+  frontier: claude-opus-5
+  frontier_mode: fresh      # <-- the ONLY difference from r6
+  frontier_max_calls: 1
+  error_treatment: straitjacket
+  diff_from_r6:
+    changed_keys: [frontier_mode]
+    r6: repair
+    r10: fresh
+    note: >
+      Identical tiers, identical gate, identical frontier, identical budget,
+      identical triage. Any r6-vs-r10 difference measured in this probe is
+      attributable to the fresh/repair switch and to nothing else — which is
+      what makes r10 usable as a control.
+
+lab_execution:
+  policy_family: B2_escalation
+  adapter: transfer_r10
+  rungs:
+    - {rung: 0, leg_id: rung0_economical, role: economical, model_ref: ECONOMICAL_MODEL_A}
+    - {rung: 1, leg_id: rung1_economical, role: economical, model_ref: ECONOMICAL_MODEL_A}
+    - {rung: 2, leg_id: rung2_economical, role: economical, model_ref: ECONOMICAL_MODEL_A}
+  frontier:
+    leg_id: frontier_strong
+    role: strong
+    model_ref: STRONG_MODEL_A
+    mode: fresh
+    max_calls: 1
+  anchors:
+    frontier_equals: P0
+    cheap_approximates: C2
+    r0a_version_mismatch:
+      source_model: claude-sonnet-5
+      lab_model_ref: ECONOMICAL_MODEL_A
+      status: approximate
+      note: >
+        The source's cheap baseline is claude-sonnet-5; this lab's economical
+        Product-A tier is claude-sonnet-4-6. Every comparison against r0a is
+        APPROXIMATE and must be labelled so. The frontier anchor (r0b / P0,
+        claude-opus-5) is an exact match and carries no such caveat.
+    fresh_frontier_approaches_p0:
+      note: >
+        r10's frontier turn is a from-scratch solve by STRONG_MODEL_A with the
+        task statement plus a bounded digest. That is close to, but NOT the same
+        as, a P0 run: P0 has no prior cheap attempts, no digest, and no cheap
+        spend on the bill. Treat r10 as "P0 preceded by a cheap ladder that was
+        paid for and then discarded", never as P0.
+
+# --------------------------------------------------------------------------- #
+# Gate — identical to r6's. A counter, not a reader.
+# --------------------------------------------------------------------------- #
+gate:
+  kind: after_ladder
+  source_symbol: gate_after_ladder
+  failure_count_trigger:
+    fires_when: "attempt >= total_rungs"
+    total_rungs: 3
+    frontier_fires_on_attempt: 3
+    frontier_is_model_call_number: 4
+  min_attempt: null
+  requires_typed_evidence: false
+  reads_failure_content: false
+  rules:
+    - {order: 1, when: "difficulty.is_environment", escalate: false,
+       why: "environment failure ({guard}); no model fixes this"}
+    - {order: 2, when: "attempt >= total_rungs", escalate: true,
+       why: "all {total_rungs} cheap rungs exhausted"}
+    - {order: 3, when: "otherwise", escalate: false,
+       why: "cheap rungs remain ({attempt}/{total_rungs})"}
+  degrade_if_untyped: false
+  frontier_budget_override_why: "frontier budget spent ({max_calls})"
+
+# --------------------------------------------------------------------------- #
+# The discard rule — r10's defining behaviour
+# --------------------------------------------------------------------------- #
+discard_rule:
+  applies_to: the frontier turn only
+  source_symbol: _fresh_prompt
+  source_file: source/fresh-prompt.py.txt
+  # Verbatim from the source docstring; quoted, not paraphrased:
+  source_rationale: |
+    A candidate that several cheaper models failed to repair is often the
+    wrong approach, not a nearly-right one — repairing it anchors the frontier
+    model to that approach. This arm tests whether abandoning it does better.
+  discarded:
+    - failed_artefact          # the cheap rungs' solution/report/patch
+    - repair_history           # the prior turns' prompts and responses
+    - conversation_state       # fresh session; no --resume, no cache carry-over
+    - per_rung_evidence        # the classifier output for earlier attempts
+  carries_over:
+    - id: attempt_count
+      what: "the integer count of failed cheaper attempts"
+      appears_as: "NOTE: {attempts} cheaper model attempts failed on this task."
+    - id: digest
+      what: "the bounded straitjacket digest of the MOST RECENT failure only"
+      cap_chars: 2500
+      cost_usd: 0.0
+  carries_over_nothing_else: true
+  cheap_rungs_unchanged: >
+    Rungs 1 and 2 are still ordinary repair turns that DO see the failed
+    artefact. `fresh` governs the frontier turn alone. An implementation that
+    made every turn fresh would be a different arm and must not be labelled r10.
+  billing: >
+    The discarded cheap rungs are still on the bill. r10 pays for work it then
+    refuses to read — which is exactly the cost-of-failure question W4b asks.
+
+prompts:
+  calibration:
+    rung0:
+      builder: _build_initial_prompt
+      role_file: source/solver-role.py.txt
+      shape: "SOLVER_ROLE + 'Problem:\\n```python\\n' + complete_prompt + '\\n```\\n\\nWrite the complete solution.'"
+    repair:                     # cheap rungs 1..2
+      builder: _repair_prompt
+      role_file: source/repair-role.py.txt
+      evidence_label: "Straitjacket Triaged Error Digest"
+      shape: "REPAIR_ROLE + 'Problem:' + statement + 'Current solution:' + sol + label + digest + 'Write the complete corrected solution.'"
+    frontier:                   # the fresh solve
+      builder: _fresh_prompt
+      role_file: source/solver-role.py.txt
+      shape: "_build_initial_prompt(problem, role_type='solver') + fresh_suffix"
+      fresh_suffix_verbatim: |
+        NOTE: {attempts} cheaper model attempts failed on this task. The most recent failure, as a bounded test digest:
+        ```
+        {digest}
+        ```
+
+        Do not assume the previous approach was close. Solve it your own way.
+  probe:
+    rung0:
+      source: task.yaml prompt
+      wrapper: none
+    repair:
+      role_file: source/repair-role.py.txt
+      role_substitution:
+        applies_to: probe
+        text: |
+          A previous attempt at the task below FAILED its acceptance checks.
+          Read the bounded check digest, find the defect, and produce the
+          COMPLETE corrected artefact the task asks for — not a diff, not a
+          fragment, and not a description of what you would change.
+      evidence_label: "Public Acceptance-Check Digest"
+    frontier:
+      base: task.yaml prompt      # unmodified, exactly as rung 0 received it
+      fresh_suffix_verbatim: |
+        NOTE: {attempts} cheaper model attempts failed on this task. The most recent failure, as a bounded test digest:
+        ```
+        {digest}
+        ```
+
+        Do not assume the previous approach was close. Solve it your own way.
+      suffix_status: >
+        Carried over BYTE-EXACT from the source, including the word "test" in
+        "bounded test digest". See J-9: this is the one place the probe keeps
+        source wording that is inaccurate for W6, because the alternative is
+        editing the sentence that defines the arm.
+      workspace: >
+        The frontier turn starts from the task's pristine subject tree, not from
+        the tree the cheap rungs left behind. The discard is enforced by the
+        harness, not requested in the prompt.
+    digest:
+      producer: harness
+      cost_usd: 0.0
+      api_calls: 0
+      content: "one line per FAILING public check: '<id>: <detail>'"
+      cap_chars: 2500
+      scope: most recent failing attempt only
+
+# --------------------------------------------------------------------------- #
+evidence:
+  reads: [gate_public_report]
+  never_reads: [gate_hidden_report, sealed_defect_map, hidden_test_output]
+  report_path: gate-public.json
+  report_shape: '{"gate": "public", "checks": [{"id", "status", "detail"}]}'
+  used_by_gate: [is_environment]
+  broad_failure_items: 3
+  levels: [shallow, local, broad, stalled, environment]
+  is_hard_levels: [broad, stalled]
+  check_classes:
+    G0-subject-readable: environment
+    P6-diff-scope: malformed
+    P5-no-leakage: malformed
+    T1-diff-scope: malformed
+    P3-typecheck: shallow
+    P4-build: shallow
+    P1-public-test: behavioural
+    P2-regression: behavioural
+    T2-suite-green: behavioural
+    T3-coverage: behavioural
+    T4-tests-pass: behavioural
+  unmapped_check_class: behavioural
+  stalled_overrides: true
+
+  # --- CALIBRATION PROFILE ------------------------------------------------- #
+  # The probe classifies from OUR public acceptance-check report. Calibration
+  # classifies from the SOURCE's oracle output, because calibration runs the
+  # source's own BigCodeBench-Hard tasks under the source's own unit-test suite
+  # and there is no acceptance-check report to read.
+  #
+  # In the source, the typed evidence comes from an external capture harness
+  # (`ctx run`) that returns an evidence GRAPH: per-test identities plus a
+  # failure_class each. That harness is not part of the source repository and is
+  # not installed in this lab. The source's own fallback when it is missing is
+  # `typed=False`, which makes an evidence gate degrade to ladder exhaustion —
+  # i.e. r9 stops being r9. Calibrating r9 that way would compare our r6 against
+  # their r9 and call the difference a transfer failure.
+  #
+  # So the calibration profile reconstructs the same two facts from the unittest
+  # runner's own stderr, which the pinned deterministic tail makes reproducible:
+  # failing identities from the runner's FAIL:/ERROR: lines, and a failure class
+  # from each traceback's exception name. The LEVEL RULES are untouched — the
+  # same shallow-class set, the same broad_failure_items, the same stall check.
+  # This is judgment call J-11 and it is the largest one in the transplant: an
+  # evidence gate is only as faithful as its evidence, and ours is derived from
+  # text where theirs came from an instrumented run.
+  calibration:
+    source_symbol: classify
+    fact_tier: reconstructed_from_unittest_stderr
+    fact_tier_in_source: ctx-harness evidence graph (external tool, not vendored)
+    identity_pattern: '^(?:FAIL|ERROR): (\S+)'
+    exception_pattern: '^([A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception|Warning))\b'
+    shallow_classes:                   # routing._SHALLOW_CLASSES, verbatim
+      - SyntaxError
+      - IndentationError
+      - TabError
+      - ImportError
+      - ModuleNotFoundError
+      - NameError
+    environment_classes:               # routing._ENVIRONMENT_CLASSES, verbatim
+      - EnvironmentError
+    untyped_when: >
+      No FAIL:/ERROR: line and no exception name could be read from the runner's
+      output. Recorded untyped, exactly as the source records a missing fact
+      tier — never silently downgraded to a count.
+
+mechanism_under_test: >
+  r10 is the only arm whose frontier turn is not conditioned on the cheap
+  model's output, so it is the only arm that cannot inherit a cheap failure the
+  public gate could not see. On W6 the sealed gate scores by line proximity
+  (+-3 lines) and a rejected review can pass every public check
+  (measured: w6...C2__rep2 public_gate=pass, sealed verdict=rejected); an arm
+  that repairs such a report is anchored to a locationally-wrong claim, while an
+  arm that discards it is not. Predicted to transfer BEST of the three on W6,
+  inverting its third-place source rank. On W4b it pays the full ladder and then
+  a full frontier solve, so it is predicted to sit with r9 (~=) below r6 on
+  cost-of-failure. On W4 all three are predicted to hold.
+
+judgment_calls:
+  - id: J-1
+    decision: >
+      Recorded as a routing policy (harness/policies/) although a run stores it
+      in `configuration_id` alongside P0/P1/P2.
+    alternative: A harness/configurations/R10.yaml stack file.
+    why: >
+      A configuration declares the stack, a policy declares the routing decision
+      (SPEC 2.1c). r6/r9/r10 differ ONLY in the routing decision.
+    risk: >
+      `configuration_id` carries values from two axes. It already did; this
+      widens an existing ambiguity rather than creating one.
+  - id: J-2
+    decision: >
+      The three cheap rungs are all ECONOMICAL_MODEL_A. Rung COUNT (3) and
+      frontier (1, Opus-5) preserved exactly; rung identity is not.
+    alternative: >
+      PRODUCT_B_ECON_TIER_PREV -> PRODUCT_B_ECON_TIER_MED -> PRODUCT_B_ECON_TIER.
+    why: >
+      (a) The registered W4b finding is the BILL, and Product-B usage is a
+      cache-blind upper bound or `unavailable`. (b) The prereg's anchors are
+      Product A. (c) manifest effort_rule forbids mixing effort with routing.
+    risk: >
+      Three identical rungs weaken "ladder" to "retry with evidence". For r10
+      this bites LEAST of the three arms: r10's claim is about what the frontier
+      turn ignores, and it ignores the ladder's output whatever the ladder was.
+      The ladder's COST still matters to the W4b reading, and that is preserved.
+  - id: J-3
+    decision: >
+      Failing public CHECK IDS stand in for the source's typed failing
+      identities, mapped by `evidence.check_classes`.
+    alternative: Parse per-stack test output to recover real test identities.
+    why: >
+      gate-public.json already exists and W6 has `stack: none` and no test
+      output at all.
+    risk: >
+      Coarse granularity. Affects r10 least: its gate consults the
+      classification only for the environment short-circuit, and its frontier
+      turn reads the digest rather than the classification.
+  - id: J-4
+    decision: >
+      Two prompt profiles: calibration verbatim from source; probe substitutes
+      REPAIR_ROLE's text and the task statement.
+    alternative: Use REPAIR_ROLE verbatim on probe tasks.
+    why: >
+      REPAIR_ROLE says "FAILED its unit tests" and demands "one ```python code
+      block". W6's deliverable is review-report.txt.
+    risk: The probe's repair turn is not the source's repair turn. Pinned here.
+  - id: J-5
+    decision: The digest is harness-produced from gate-public.json at $0.00.
+    alternative: An LLM triage digest (the source's `llm` treatment).
+    why: >
+      r10 declares `error_treatment: straitjacket` — the $0 contained digest.
+    risk: >
+      Smaller and less informative than the source's contained test-frame
+      extraction. For r10 the digest is the ONLY thing that crosses into the
+      frontier turn, so a weaker digest weakens this arm more than it weakens
+      r6 — in the direction of MORE discard, not less. Directionally safe for
+      the control role; still a real difference from the source.
+  - id: J-6
+    decision: >
+      `frontier_max_calls: 1` preserved, including the source's behaviour that a
+      spent budget sends the ladder back to a cheap rung.
+    alternative: End the run when the frontier attempt fails.
+    why: It is what the source does, and its published per-task costs include it.
+    risk: >
+      For r10 the post-frontier cheap turn would be a repair of the FRESH
+      solution, not of the discarded one. That is what the source's loop does;
+      it is preserved rather than special-cased, and the routing events make it
+      visible if it happens.
+  - id: J-7
+    decision: The r0a sonnet version mismatch is recorded and carried as "approximate".
+    alternative: Re-pin ECONOMICAL_MODEL_A to claude-sonnet-5.
+    why: >
+      Re-pinning a manifest model is a human decision with batch-comparability
+      consequences; this instrument does not touch the manifest.
+    risk: Every r0a-referenced comparison is approximate. Labelled, not resolved.
+  - id: J-8
+    decision: >
+      The discard is enforced by the HARNESS (pristine subject tree, fresh
+      session, no resume, no repair history), not merely requested in the prompt.
+    alternative: >
+      Keep the cheap rungs' working tree and rely on "Solve it your own way".
+    why: >
+      A prompt instruction to ignore context is not a measurement that context
+      was absent. If the frontier turn can see the failed artefact on disk, the
+      control arm is not a control and the r6-vs-r10 contrast means nothing.
+    risk: >
+      Slightly stronger than the source, whose problems are single-function and
+      carry no working tree, so the distinction does not arise there. This
+      resolves an ambiguity the source never had to resolve; it resolves it in
+      the direction the arm's name and docstring state.
+  - id: J-9
+    decision: >
+      The fresh-solve suffix is carried over byte-exact, including "as a bounded
+      test digest", even on W6 where the digest is of acceptance checks and not
+      of tests.
+    alternative: Substitute "check digest" for "test digest" on probe tasks.
+    why: >
+      The prompt file says "Do not paraphrase prompts". This sentence IS the
+      arm — it is the instruction that operationalises the discard. Two of the
+      three probe tasks (W4, W4b) do run tests, so a substitution would also
+      make the probe internally inconsistent.
+    risk: >
+      On W6 the frontier model is told "test digest" about a digest of
+      acceptance checks. Recorded here so any W6 r10 result is read with it in
+      view. Contrast J-4, where the substitution WAS made: there the mismatch
+      was structural (the deliverable is not a Python function and the verbatim
+      role would have demanded one); here it is one inaccurate noun.
+  - id: J-10
+    decision: >
+      r10 is run in every cell of the design, not sampled, despite being the
+      source's third-ranked arm.
+    alternative: Run r9 and r6 only and treat P0 as the control.
+    why: >
+      P0 has no cheap ladder on its bill and no digest in its prompt, so a
+      P0 comparison cannot separate "the frontier model is better" from "not
+      reading the cheap output is better". Only r10 holds everything but the
+      fresh/repair switch constant. The prereg registers the rank inversion as
+      a prediction, which requires r10 to be measured, not assumed.
+    risk: >
+      A third of the probe's 27 cells and a third of the $300 cap go to the arm
+      least likely to be adopted. Accepted: without it the other two arms are
+      uninterpretable.
+  - id: J-11
+    decision: >
+      For the CALIBRATION profile only, the typed evidence the gate reads is
+      reconstructed from the unittest runner's stderr (failing identities from
+      FAIL:/ERROR: lines, failure classes from traceback exception names) instead
+      of from the source's external capture harness, whose evidence graph is not
+      vendored with the source and is not installed here.
+    alternative: >
+      Run calibration with no fact tier, exactly as the source does when the
+      harness is absent.
+    why: >
+      With no fact tier the source's own code marks the run degraded and an
+      evidence gate becomes a counter gate — r9 stops being r9. A calibration
+      that compares our ladder-exhaustion arm against their evidence-gated arm
+      would report a transfer failure that is entirely an artefact of a missing
+      tool. The LEVEL RULES are untouched: same shallow-class set, same
+      broad_failure_items, same stall check.
+    risk: >
+      Highest-consequence judgment call in the transplant. Our identities are
+      test method names parsed from text; theirs came from an instrumented run.
+      Where the two disagree, r9's calibration rows will disagree with the
+      published ones for a reason that is ours, not the strategy's. Recorded in
+      the calibration report as a non-gating diagnostic (routing_shape_match) so
+      a mismatch is visible rather than absorbed into the pass/fail criterion.
+  - id: J-12
+    decision: >
+      Calibration reads the product's FINAL RESPONSE TEXT as the candidate
+      solution and grades it with the source's `extract_code` +
+      `missing_code_error`, instead of grading a file the agent wrote. The
+      source's prompts are then used byte for byte, with no added delivery
+      instruction.
+    alternative: >
+      Append "write the solution to solution.py" to the source's prompt and grade
+      the file the CLI leaves behind.
+    why: >
+      The calibration profile's whole claim is that the prompts are the source's,
+      byte for byte; a delivery instruction would break that on the one path
+      whose job is to detect exactly that kind of drift. The source's subject is
+      a chat completion whose deliverable IS the response, and `extract_code`
+      already handles both a fenced block and a bare body.
+    risk: >
+      The subject is an agentic CLI, not a chat completion: it may use tools,
+      take several turns, and write files that calibration ignores, and its
+      turn count is not the source's one-shot call. Two consequences, both
+      recorded rather than corrected — the calibration bill includes agentic
+      overhead the published figures never had (which biases criterion (b)
+      upward, in the same direction as the structural blocker already recorded
+      in calibration-slice.yaml), and a run that solves the task by writing a
+      file but never restates the code in its reply is scored a birth-gate
+      failure. The response text is kept beside each attempt so that case is
+      identifiable rather than invisible.

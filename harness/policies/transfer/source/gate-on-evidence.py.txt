@@ -1,0 +1,26 @@
+def gate_on_evidence(min_attempt=1):
+    """Escalate as soon as the evidence looks hard, but never before
+    `min_attempt` failures — one cheap attempt is worth making regardless,
+    because it is nearly free and often enough."""
+    def gate(difficulty, attempt, total_rungs):
+        if attempt < min_attempt:
+            return False, f"attempt {attempt} < min_attempt {min_attempt}"
+        if difficulty is None:
+            return False, "no difficulty signal"
+        # Checked before `is_hard` and before the exhaustion fallback: a
+        # container that never started does not become worth $15/Mtok because
+        # the cheap rungs ran out.
+        if difficulty.is_environment:
+            return False, f"environment failure ({difficulty.guard}); no model fixes this"
+        if difficulty.is_hard:
+            return True, f"evidence says {difficulty.level}: {'; '.join(difficulty.reasons)}"
+        if attempt >= total_rungs:
+            return True, f"cheap rungs exhausted ({attempt}/{total_rungs})"
+        return False, f"evidence says {difficulty.level}; keep it cheap"
+    gate.__name__ = f"gate_on_evidence_{min_attempt}"
+    # Declared so the router can refuse to present an evidence-gated arm that
+    # silently ran as a counter gate. Without the fact tier every failure
+    # classifies as `shallow`, the gate never fires early, and the row looks
+    # like a result rather than a no-op.
+    gate.requires_typed_evidence = True
+    return gate

@@ -1,0 +1,22 @@
+def _treat_error(err, treatment="straitjacket", problem=None,
+                 triage_model=GEMINI_35_FLASH_LITE_ID):
+    """Apply one error treatment. Returns ``(payload, usage, seconds)``.
+
+    The native payload is NOT re-truncated here. ``Evidence`` already carries
+    the uncontained path's tail-truncated payload (``SJ_RAW_CAP``); clipping it
+    a second time with a different budget is what made the native arm measure
+    as 37% better than its own baseline.
+    """
+    if treatment == "native":
+        # Idempotent for Evidence (already capped at capture); enforces the
+        # invariant for a plain string that never went through the harness.
+        out = (sj.tail_to_cap(err), dict(_ZERO_USAGE), 0.0)
+    elif treatment == "llm":
+        out = triage_error(err, model_id=triage_model)
+    elif treatment == "straitjacket":
+        out = triage_error_straitjacket(err, problem=problem)
+    else:
+        raise ValueError(
+            f"unknown error treatment {treatment!r}; expected one of {TREATMENTS}")
+    record_evidence_sent(err, out[0], treatment)
+    return out

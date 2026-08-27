@@ -22,6 +22,7 @@ runner refuses to start if any required field is missing or still a placeholder.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import hashlib
 import json
 import os
@@ -39,6 +40,21 @@ import yaml
 
 from harness.adapters import REAL_ADAPTERS, ResolvedModel, StubAdapter
 from harness.adapters import agy as agy_adapter
+from harness.adapters.transfer_base import (
+    LadderState,
+    LadderStep,
+    degraded_now,
+    ladder_legs,
+    ladder_prompt,
+    next_step,
+    routing_payload,
+)
+from harness.adapters.transfer_spec import (
+    TransferSpec,
+    TransferSpecError,
+    classify,
+    load_spec,
+)
 from harness.adapters.base import (
     SUBJECT_PROFILE_CONTAINER_AGENT,
     SUBJECT_PROFILE_CONTAINER_GATE,
@@ -71,6 +87,8 @@ from harness.container.exec import (
 )
 from harness.results.record import build_result_record
 from harness.runner import delegation
+from harness.runner.profiles import (DEFAULT_PROFILE, PROFILES, DriverProfile,
+                                     get_profile)
 from harness.telemetry.costing import cost_for_legs, load_prices
 from harness.telemetry.telemetry import EventLog, derive_summary, tiered, unavailable, validate
 
@@ -108,6 +126,13 @@ _PLACEHOLDERS = {
 _PRODUCT_LABELS = {"PRODUCT_A": "Product A", "PRODUCT_B": "Product B"}
 _POLICY_FILES = {"P0": "p0-baseline.yaml", "P1": "p1-cheap-first.yaml",
                  "P2": "p2-delegation.yaml"}
+
+# Transplanted routing arms: configuration_id -> strategy spec id under
+# harness/policies/transfer/. These are NOT in the telemetry schema's frozen
+# configuration_id enum, and widening it is a CP-SCHEMA human decision — so a plan
+# can be built and dry-run, but a live run is refused by the probe driver's
+# preflight until the enum is widened and the specs are pinned in the manifest.
+TRANSFER_CONFIGS = {"R9": "r9", "R6": "r6", "R10": "r10"}
 
 # The telemetry schema (CP-SCHEMA) enumerates the configuration ids a summary may
 # carry; a run whose id is outside it cannot be recorded, however well it runs, so
@@ -222,10 +247,17 @@ class LegPlan:
 class RunPlan:
     adapter_name: str
     legs: List[LegPlan]
-    policy: str  # "static" | "cheap_first" | "scripted_delegation" | "workflow"
+    #: "static" | "cheap_first" | "scripted_delegation" | "workflow" | "transfer_ladder"
+    policy: str
     # Set only under scripted delegation (P2): the pinned split's legs, brief and
     # executor binding, handed to the adapter as ONE attempt that bills two models.
     delegation: Optional[DelegationPlan] = None
+    # Which leg (if any) is the expensive one, for the frontier_token_share
+    # diagnostic. Declared by the plan rather than inferred from a leg name, so an
+    # arm whose expensive leg is not called "conductor" still reports the share.
+    frontier_leg_id: Optional[str] = None
+    # Set only under the transfer ladder: the loaded, sha-verified strategy spec.
+    transfer: Optional[TransferSpec] = None
 
 
 def _delegation_plan(pol: Dict[str, Any], manifest: Dict[str, Any], task: Optional["Task"],
@@ -368,10 +400,32 @@ def resolve_config_policy(cfg: Dict[str, Any], config_id: str,
     return ResolvedPolicy(policy_id=policy_id, rel_path=rel_path, sha256=sha, doc=doc)
 
 
+def transfer_plan(config_id: str, manifest: Dict[str, Any]) -> RunPlan:
+    """Build the ladder plan for a transplanted arm (R9 / R6 / R10).
+
+    Every leg the arm *may* bill is declared up front — three cheap rungs and the
+    frontier — because a leg that appears only when it runs makes an escalating
+    run and a non-escalating run look like different experiments. Legs that do not
+    run emit no events and so never reach the summary.
+    """
+    try:
+        spec = load_spec(TRANSFER_CONFIGS[config_id])
+    except TransferSpecError as exc:
+        raise RunnerError(str(exc)) from exc
+    product = _PRODUCT_LABELS["PRODUCT_A"]
+    legs = [LegPlan(leg_id, role, resolve_model(manifest, model_ref, product))
+            for leg_id, role, model_ref in ladder_legs(spec)]
+    return RunPlan(spec.adapter, legs, "transfer_ladder",
+                   frontier_leg_id=spec.frontier.leg_id, transfer=spec)
+
+
 def build_plan(config_id: str, manifest: Dict[str, Any], task: Optional["Task"] = None,
                *, require_frozen: bool = True) -> RunPlan:
     cfg_dir = os.path.join(REPO_ROOT, "harness", "configurations")
     pol_dir = os.path.join(REPO_ROOT, "harness", "policies")
+
+    if config_id in TRANSFER_CONFIGS:  # transplanted routing arms (transfer probe)
+        return transfer_plan(config_id, manifest)
 
     if config_id in _POLICY_FILES:  # P0 / P1 / P2 run on the controlled harness (Product A).
         pol = _load_yaml(os.path.join(pol_dir, _POLICY_FILES[config_id]))
@@ -797,10 +851,64 @@ def _gate(dry_run: bool, scenario: str, leg_id: str, task: "Task",
     return real_gate(task.task_dir, run_dir, subject_dir)
 
 
+def restage_subject_pristine(task: "Task", run_dir: str,
+                             launch: Optional[ContainerLaunch],
+                             subject_dir: str, *, dry_run: bool, why: str) -> str:
+    """Throw away the working tree and put the pristine one back. Returns the subject dir.
+
+    Only the fresh-solve arm (r10) needs this, and it is the arm's DEFINING
+    behaviour: its frontier turn must not see the cheap ladder's failed artefact.
+    Enforcing that in the harness rather than asking for it in the prompt is
+    judgment call J-8 — a model told to ignore a file it can still read has not
+    discarded anything, and the whole r6-vs-r10 comparison would rest on the
+    model's compliance instead of on the condition.
+
+    Container mode is the real path: the agent's edits live in a named Docker
+    volume, so removing it and creating an empty one makes the next container
+    re-seed from the image's pristine ``/subject``. Host mode re-runs the task's
+    own reset and re-stages outside the repo, returning a NEW directory the caller
+    must use from then on. ``--dry-run`` does nothing but say so.
+    """
+    print(f"[transfer] discarding the working tree before the frontier turn: {why}",
+          file=sys.stderr)
+    if dry_run:
+        return subject_dir
+    if launch is not None and launch.agent_volume:
+        remove_volume(launch.agent_volume)
+        create_volume(launch.agent_volume)
+        if is_review_task(task):
+            stage_review_artifact_container(launch.image, launch.agent_volume, task)
+        return subject_dir
+    staged = _setup_subject(task, run_dir, reset_log="reset-fresh-solve.txt")
+    # The previous staging is now dead weight outside the repo; drop it rather than
+    # leaving a full node_modules tree per fresh-solve run on the box.
+    old_root = os.path.dirname(os.path.abspath(subject_dir))
+    if old_root.startswith(tempfile.gettempdir()):
+        shutil.rmtree(old_root, ignore_errors=True)
+    return staged
+
+
+def _apply_timing(resolved: ResolvedModel, timing) -> ResolvedModel:
+    """The leg's resolved model with the profile's ``--print-timeout`` in force.
+
+    A COPY, never an in-place edit: the manifest's pinned value stays intact on
+    the plan, so what the manifest declared and what the profile substituted are
+    both recoverable. Returns the original object unchanged when the profile
+    re-pins nothing, so the default path allocates nothing and compares equal.
+
+    Only Product B reads ``print_timeout`` (Product A's CLI has no such flag), so
+    under a Product-A-only plan this is a no-op that still records its intent.
+    """
+    if timing.print_timeout == resolved.print_timeout:
+        return resolved
+    return dataclasses.replace(resolved, print_timeout=timing.print_timeout)
+
+
 def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
             emit, *, dry_run: bool, scenario: str,
             cache_state: str, base_session: str, resume: bool,
-            launch: Optional[ContainerLaunch] = None
+            launch: Optional[ContainerLaunch] = None,
+            profile: Optional[DriverProfile] = None
             ) -> Tuple[Dict[str, Any], Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
     """Run the plan's policy, emitting events.
 
@@ -811,6 +919,11 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
     identity: Dict[str, Any] = {}
     leg_options: Dict[str, Dict[str, Any]] = {}
     invocations: List[Dict[str, Any]] = []
+    # The driver profile decides how this run treats time: the hard kill, whether
+    # the task budget is soft, and whether the product's own --print-timeout is
+    # re-pinned per task. `None` = the batch-1 default, which reproduces exactly
+    # what every shipped dataset ran under.
+    prof = profile or get_profile(DEFAULT_PROFILE)
 
     def record_outcome(leg: LegPlan, outcome: Any) -> None:
         """Fold one adapter outcome into the run's identity, costing options, argv log."""
@@ -821,9 +934,16 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
             opts.setdefault("seat_allocation_usd", leg.resolved.seat_allocation_usd)
         leg_options[leg.leg_id] = opts
         if outcome.invocation:
-            invocations.append(outcome.invocation)
+            # The timing contract in force, recorded as run provenance beside the
+            # argv it applied to (invocation.txt is not telemetry).
+            invocations.append({**outcome.invocation, "driver_profile": prof.name})
 
-    def run_leg(leg: LegPlan, leg_index: int) -> None:
+    # The subject tree in force. Only r10's fresh-solve discard ever changes it
+    # mid-run (host mode re-stages to a new directory), so everything downstream
+    # reads it from here rather than closing over the opening value.
+    subject = {"dir": subject_dir}
+
+    def run_leg(leg: LegPlan, leg_index: int, prompt: Optional[str] = None) -> None:
         # Session ids MUST be valid UUIDs — the claude CLI's --session-id rejects
         # anything else (and then prints a non-JSON error, losing all usage
         # telemetry). Warm-series and the first cold leg use base_session (a valid
@@ -834,10 +954,14 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
             leg_session = base_session
         else:
             leg_session = str(uuid.uuid4())
-        spec = AttemptSpec(leg.leg_id, leg.role, leg.resolved, task.prompt,
+        timing = prof.timeouts(task.agent_timeout_s, leg.resolved.print_timeout)
+        resolved = _apply_timing(leg.resolved, timing)
+        spec = AttemptSpec(leg.leg_id, leg.role, resolved,
+                           task.prompt if prompt is None else prompt,
                            cache_state=cache_state, session_id=leg_session,
-                           resume=resume, timeout_s=task.agent_timeout_s)
-        record_outcome(leg, adapter.run_attempt(spec, subject_dir, emit))
+                           resume=resume, timeout_s=timing.kill_s,
+                           budget_s=timing.budget_s)
+        record_outcome(leg, adapter.run_attempt(spec, subject["dir"], emit))
 
     # Fix 5: archive the agent's diff the instant its work is complete and BEFORE
     # any gate step mutates the tree (the gate restores src/tests and applies
@@ -852,8 +976,8 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
             # Container mode: the tree is in a Docker volume, not on the host.
             _archive_agent_diff_container(launch, task, run_dir)
             archived["done"] = True
-        elif subject_dir:
-            _archive_agent_diff(subject_dir, run_dir)  # agent-solution.diff (pre-gate)
+        elif subject["dir"]:
+            _archive_agent_diff(subject["dir"], run_dir)  # agent-solution.diff (pre-gate)
             archived["done"] = True
 
     itr: Optional[str] = None
@@ -870,7 +994,7 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
         # leg) is preserved in post-gate.diff below. No escalation fired in batch 2.
         archive_pre_gate()
         passed, result, checks = _gate(dry_run, scenario, econ.leg_id, task, run_dir,
-                                       launch, subject_dir)
+                                       launch, subject["dir"])
         if passed:
             cr = "economical"
         else:
@@ -881,7 +1005,7 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
                  reason="gate_fail", failed_leg=econ.leg_id)
             run_leg(strong, 1)
             passed, result, checks = _gate(dry_run, scenario, strong.leg_id, task, run_dir,
-                                           launch, subject_dir)
+                                           launch, subject["dir"])
             cr = "strong"
     elif plan.policy == "scripted_delegation":
         # P2/B3: ONE product invocation that bills every leg the pinned split
@@ -889,12 +1013,14 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
         # product's per-model usage metadata across the legs (it does not decide the
         # assignment — the split file did that before the run).
         conductor, *others = plan.legs
-        spec = AttemptSpec(conductor.leg_id, conductor.role, conductor.resolved,
+        timing = prof.timeouts(task.agent_timeout_s, conductor.resolved.print_timeout)
+        spec = AttemptSpec(conductor.leg_id, conductor.role,
+                           _apply_timing(conductor.resolved, timing),
                            task.prompt, cache_state=cache_state,
                            session_id=base_session, resume=resume,
                            delegation=plan.delegation,
-                           timeout_s=task.agent_timeout_s)
-        outcome = adapter.run_attempt(spec, subject_dir, emit)
+                           timeout_s=timing.kill_s, budget_s=timing.budget_s)
+        outcome = adapter.run_attempt(spec, subject["dir"], emit)
         record_outcome(conductor, outcome)
         for leg in others:
             # Per-leg costing options for a leg that shares the attempt: only what
@@ -908,19 +1034,74 @@ def execute(plan: RunPlan, task: Task, adapter, subject_dir: str, run_dir: str,
         cr = "scripted_split"
         archive_pre_gate()
         passed, result, checks = _gate(dry_run, scenario, conductor.leg_id, task,
-                                       run_dir, launch, subject_dir)
+                                       run_dir, launch, subject["dir"])
+    elif plan.policy == "transfer_ladder":
+        # Transplanted routing arm (R9/R6/R10). The runner drives the ladder: it
+        # runs the deterministic gate between attempts, asks the STRATEGY SPEC what
+        # to do next, and records the decision with the evidence it was made on.
+        # Nothing about the strategy is decided here — see
+        # harness/adapters/transfer_base.next_step.
+        tspec = plan.transfer
+        if tspec is None:  # pragma: no cover - build_plan always sets it
+            raise RunnerError("transfer_ladder plan carries no strategy spec")
+        legs_by_id = {leg.leg_id: leg for leg in plan.legs}
+        itr = f"transfer_{tspec.strategy_id}"
+        state = LadderState()
+        step = LadderStep(attempt=0, leg_id=tspec.rungs[0].leg_id, is_frontier=False)
+        report: Optional[Dict[str, Any]] = None
+        difficulty = None
+        while True:
+            if step.is_frontier and tspec.discards_failed_artefact:
+                # r10's defining condition, enforced rather than requested (J-8).
+                subject["dir"] = restage_subject_pristine(
+                    task, run_dir, launch, subject["dir"], dry_run=dry_run,
+                    why=f"{tspec.strategy_id} frontier_mode=fresh")
+            run_leg(legs_by_id[step.leg_id], step.attempt,
+                    prompt=ladder_prompt(tspec, step, task.prompt, report))
+            archive_pre_gate()  # before the gate touches the tree (Fix 5)
+            passed, result, checks = _gate(dry_run, scenario, step.leg_id, task,
+                                           run_dir, launch, subject["dir"])
+            cr = step.leg_id
+            if passed:
+                break
+            # Evidence for the gate: the PUBLIC report only. In --dry-run the
+            # synthetic gate produces none, so difficulty comes back untyped and an
+            # evidence arm degrades to ladder-exhaustion — correct, and flagged.
+            report = (checks or {}).get("public")
+            difficulty = classify(report, tspec, previous=difficulty)
+            if degraded_now(tspec, state, difficulty):
+                state = dataclasses.replace(state, degraded=True)
+                print(f"[transfer] {tspec.strategy_id}: no typed evidence available; "
+                      f"this arm is falling back to ladder-exhaustion behaviour and "
+                      f"is NOT testing its evidence gate", file=sys.stderr)
+            nxt, decision = next_step(tspec, state, difficulty)
+            payload = routing_payload(tspec, decision, difficulty, report,
+                                      degraded=state.degraded)
+            if nxt is None:
+                emit("failure", category="ladder_exhausted", leg=step.leg_id,
+                     routing=payload)
+                break
+            if nxt.is_frontier:
+                emit("escalation", from_route=step.leg_id, to_route=nxt.leg_id,
+                     reason="gate_escalate", failed_leg=step.leg_id, routing=payload)
+            else:
+                emit("retry", leg=nxt.leg_id, reason="gate_fail", routing=payload)
+            state = dataclasses.replace(
+                state, attempt=nxt.attempt, previous=difficulty,
+                frontier_calls=state.frontier_calls + (1 if nxt.is_frontier else 0))
+            step = nxt
     else:  # static | workflow
         for i, leg in enumerate(plan.legs):
             run_leg(leg, i)
         archive_pre_gate()  # all agent legs done; archive before the gate mutates the tree
         passed, result, checks = _gate(dry_run, scenario, "main", task, run_dir,
-                                       launch, subject_dir)
+                                       launch, subject["dir"])
 
     # Optional post-gate snapshot for provenance — the tree AFTER the gate's own
     # edits (test_compat_patch, restores). Written to a SEPARATE file, never merged
     # into agent-solution.diff (Fix 5). Host-mode real runs only.
-    if not dry_run and subject_dir:
-        _archive_agent_diff(subject_dir, run_dir, filename="post-gate.diff")
+    if not dry_run and subject["dir"]:
+        _archive_agent_diff(subject["dir"], run_dir, filename="post-gate.diff")
 
     emit("acceptance", result=result, gate_checks=checks,
          intention_to_route=itr, completed_route=cr)
@@ -941,15 +1122,37 @@ def _leg_billed_tokens(usage: Dict[str, Any]) -> Optional[int]:
     return total if any_avail else None
 
 
-def _frontier_token_share(legs: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Conductor share of tokens across legs — a C5 diagnostic only (never a claim)."""
+def _frontier_token_share(legs: List[Dict[str, Any]],
+                          frontier_leg_id: str = "conductor",
+                          *, absent_means_zero: bool = False) -> Dict[str, Any]:
+    """Frontier leg's share of tokens across legs — a diagnostic only, never a claim.
+
+    ``frontier_leg_id`` is declared by the plan (C5's ``conductor``, a transfer
+    arm's ``frontier_strong``) rather than assumed, so the diagnostic means the
+    same thing in both and neither has to be renamed to get it.
+
+    ``absent_means_zero`` says what a MISSING frontier leg means, which differs by
+    policy and must not be guessed:
+
+      * C5 (default, False): the conductor is the workflow's entry point. If it
+        left no leg, something went wrong with the run, and the share is
+        unavailable — not zero.
+      * A routing arm (True): the frontier not running is the arm's measured
+        outcome, and its most common one. Recording that as missing telemetry
+        would erase the cheap runs the whole strategy exists to produce. Note this
+        is not imputation: the leg does not exist, so there is no unmeasured
+        quantity to zero-fill. A frontier leg that DID run but reported unreadable
+        usage still returns unavailable, as it must.
+    """
     per_leg = {leg["leg_id"]: _leg_billed_tokens(leg.get("usage") or {}) for leg in legs}
-    if any(v is None for v in per_leg.values()) or "conductor" not in per_leg:
+    if any(v is None for v in per_leg.values()):
+        return unavailable("token counts unavailable on one or more legs")
+    if frontier_leg_id not in per_leg and not absent_means_zero:
         return unavailable("token counts unavailable on one or more legs")
     total = sum(per_leg.values())
     if total == 0:
         return unavailable("zero total tokens")
-    return tiered(round(per_leg["conductor"] / total, 6), "derived")
+    return tiered(round(per_leg.get(frontier_leg_id, 0) / total, 6), "derived")
 
 
 def build_economics(legs: List[Dict[str, Any]], prices: Dict[str, Any],
@@ -1021,6 +1224,13 @@ def assemble_and_validate(events: List[Dict[str, Any]], *, run_id: str, task: Ta
             leg["fully_allocated_usd"] = view["fully_allocated_usd"]
     if plan.policy == "workflow":
         summary["frontier_token_share"] = _frontier_token_share(summary["legs"])
+    elif plan.policy == "transfer_ladder" and plan.frontier_leg_id:
+        # Per-run frontier share for the transplanted arms: what fraction of the
+        # run's tokens the expensive model consumed. 0.0 on a run that never
+        # escalated (see _frontier_token_share) — that is the arm working, not a
+        # gap in the telemetry.
+        summary["frontier_token_share"] = _frontier_token_share(
+            summary["legs"], plan.frontier_leg_id, absent_means_zero=True)
 
     with open(os.path.join(run_dir, "summary.json"), "w", encoding="utf-8") as fh:
         json.dump(summary, fh, indent=2, sort_keys=True)
@@ -1517,7 +1727,7 @@ def _stage_subject_outside_repo(source_repo: str) -> str:
     return staged_repo
 
 
-def _setup_subject(task: "Task", run_dir: str) -> str:
+def _setup_subject(task: "Task", run_dir: str, reset_log: str = "reset.txt") -> str:
     task_dir = task.task_dir
     tt = os.path.join(REPO_ROOT, "harness", "task-tools")
     env = {**os.environ, "TASK_DIR": task_dir}
@@ -1526,7 +1736,9 @@ def _setup_subject(task: "Task", run_dir: str) -> str:
         ["bash", os.path.join(tt, "reset.sh")], env=env, check=True,
         capture_output=True, text=True,
     )
-    with open(os.path.join(run_dir, "reset.txt"), "w", encoding="utf-8") as fh:
+    # `reset_log` is a parameter so a mid-run re-stage (r10's fresh-solve discard)
+    # records its own tree hash instead of overwriting the run's opening one.
+    with open(os.path.join(run_dir, reset_log), "w", encoding="utf-8") as fh:
         fh.write(reset.stdout)  # records the reset tree hash (determinism check input)
     # FIX A: hand the agent a subject tree staged OUTSIDE the lab repo, so canonical/,
     # hidden/ and task.yaml cannot be reached by relative traversal from its cwd.
@@ -1632,6 +1844,7 @@ def execute_and_validate_run(
     agent_containerized: bool = False,
     prices: Dict[str, Any], pricing_snapshot: str, config_id: str,
     dry_run: bool, scenario: str,
+    profile: Optional[DriverProfile] = None,
 ) -> Tuple[bool, List[str]]:
     """Run one attempt-set into ``run_dir`` and validate its telemetry.
 
@@ -1654,7 +1867,7 @@ def execute_and_validate_run(
         plan, task, adapter, subject_dir or "", run_dir, emit,
         dry_run=dry_run, scenario=scenario,
         cache_state=cache_state, base_session=base_session, resume=resume,
-        launch=launch,
+        launch=launch, profile=profile,
     )
     # Record the exact CLI command(s) executed (run artifact, not telemetry) so a
     # run can be diagnosed retroactively; credential-bearing env is redacted.
@@ -1716,7 +1929,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                     help="configuration or policy id: "
                          "C1|C2|C3|C3-med|C3-prev|C4|C5|P0|P1|P2. P2 is "
                          "scripted delegation (B3): it needs the task's pinned, frozen "
-                         "split.yaml (a live run is refused on a draft split)")
+                         "split.yaml (a live run is refused on a draft split). "
+                         "R9|R6|R10 are the transplanted routing arms (transfer probe); "
+                         "they are dry-runnable, and a live run of one is refused until "
+                         "the schema enum and the manifest pins are widened by a human "
+                         "(harness/runner/transfer_probe.py preflight)")
     ap.add_argument("--manifest", default=os.path.join(REPO_ROOT, "manifest", "delivery-manifest.yaml"))
     ap.add_argument("--phase", default="feasibility", help="results/<phase>/ for live runs")
     ap.add_argument("--rep", type=int, default=1)
@@ -1757,6 +1974,15 @@ def main(argv: Optional[List[str]] = None) -> int:
                     help="raw docker --network for the agent container, used only "
                          "when --subject-egress none. Recorded verbatim; carries no "
                          "claim that the lab allowlist was in force.")
+    ap.add_argument("--profile", default=DEFAULT_PROFILE,
+                    choices=tuple(sorted(PROFILES)),
+                    help="driver timing profile (harness/runner/profiles.py). "
+                         "batch1 = the shipped contract: kill at agent_timeout_s, no "
+                         "soft budget, manifest --print-timeout. transfer-probe = "
+                         "agent_timeout_s becomes a SOFT budget (stamped, not "
+                         "enforced), hard kill at 3x, --print-timeout re-pinned per "
+                         "task. A profile is a run CONDITION: datasets recorded under "
+                         "different profiles are not comparable on timing.")
     ap.add_argument("--dry-run", action="store_true",
                     help="synthetic adapters + gate; no spend/clone/network")
     ap.add_argument("--out-root", default=None,
@@ -1881,6 +2107,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             manifest_rel=os.path.relpath(args.manifest, REPO_ROOT),
             prices=prices, pricing_snapshot=pricing_snapshot, config_id=args.config,
             dry_run=args.dry_run, scenario=args.stub_scenario,
+            profile=get_profile(args.profile),
         )
 
         # The staged subject tree (FIX A) is transient scratch outside the lab repo;

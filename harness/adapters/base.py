@@ -200,11 +200,20 @@ class AttemptSpec:
     everywhere else, and an adapter that does not implement delegation must say so
     rather than silently running the conductor leg alone.
 
-    ``timeout_s`` is the TASK's agent budget (``agent_timeout_s``, pinned in
-    task.yaml and mirrored in the manifest), not a tuning knob the adapter picks: a
-    flat bound across a suite spanning a one-file mapper test and a twelve-file
-    migration right-censors the big tasks and says nothing about the small ones.
-    ``None`` falls back to the adapter's own default.
+    ``timeout_s`` is the HARD kill the runner will enforce, not a tuning knob the
+    adapter picks: a flat bound across a suite spanning a one-file mapper test and
+    a twelve-file migration right-censors the big tasks and says nothing about the
+    small ones. ``None`` falls back to the adapter's own default. Under the default
+    ``batch1`` driver profile it is the task's ``agent_timeout_s`` (pinned in
+    task.yaml and mirrored in the manifest); a profile may set it higher.
+
+    ``budget_s`` is the SOFT budget: the line whose crossing is *recorded* rather
+    than enforced (``harness/runner/profiles.py``). ``None`` — every batch-1 and
+    batch-2 run — means there is no soft line and ``timeout_s`` is the only one.
+    When it is set and the attempt outlives it, the adapter stamps
+    ``overrun_flag``/``overrun_s`` and the attempt keeps running to ``timeout_s``.
+    This exists because a cost-of-failure measurement taken from a truncated
+    attempt reports the budget instead of the bill.
     """
 
     leg_id: str
@@ -216,6 +225,7 @@ class AttemptSpec:
     resume: bool = False
     delegation: Optional[DelegationPlan] = None
     timeout_s: Optional[int] = None
+    budget_s: Optional[int] = None
 
 
 def session_payload(spec: "AttemptSpec") -> Dict[str, Any]:
@@ -227,6 +237,42 @@ def session_payload(spec: "AttemptSpec") -> Dict[str, Any]:
     """
     return {"session_id": spec.session_id, "resumed": spec.resume,
             "cache_state": spec.cache_state}
+
+
+def overrun_payload(spec: "AttemptSpec", proc: Any) -> Dict[str, Any]:
+    """Soft-budget fields an adapter stamps onto its completed/failure event.
+
+    Returns ``{}`` when no soft budget is in force, so a run under the default
+    ``batch1`` profile derives byte-identically to one recorded before soft
+    budgets existed. Otherwise:
+
+      ``budget_s``      the soft line that was in force
+      ``elapsed_s``     measured wall time around the child, rounded to 1dp
+      ``overrun_flag``  True when the attempt outlived the budget
+      ``overrun_s``     how far past it the attempt ran (0.0 when inside)
+
+    Carried in an existing event's payload — the event vocabulary is frozen
+    (CP-SCHEMA) and an overrun is not a new kind of thing that happened, it is a
+    property of the model call that already has an event.
+
+    An overrun is NOT a failure: the attempt continued and may well have passed.
+    Nothing here increments a failure or retry count.
+    """
+    if spec.budget_s is None:
+        return {}
+    elapsed = getattr(proc, "elapsed_s", None)
+    payload: Dict[str, Any] = {"budget_s": spec.budget_s}
+    if elapsed is None:
+        # The spawn seam did not report a duration. Recorded as unavailable, as
+        # any other missing measurement is — never inferred from the budget.
+        payload["elapsed_s"] = unavailable("spawn did not report a duration")
+        payload["overrun_flag"] = bool(getattr(proc, "overran", False))
+        return payload
+    payload["elapsed_s"] = round(float(elapsed), 1)
+    over = float(elapsed) - float(spec.budget_s)
+    payload["overrun_flag"] = bool(getattr(proc, "overran", False)) or over > 0
+    payload["overrun_s"] = round(max(0.0, over), 1)
+    return payload
 
 
 @dataclass

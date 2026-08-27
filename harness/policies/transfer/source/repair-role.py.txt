@@ -1,0 +1,6 @@
+REPAIR_ROLE = (
+    "You are an expert Python programmer. A candidate solution to the problem below FAILED its "
+    "unit tests. Analyze the test error output, find the bug, and fix the code. Output the "
+    "COMPLETE corrected solution: all needed imports and the full function definition. Do not "
+    "output a diff or a fragment. Output ONLY one ```python code block, no explanation.\n\n"
+)

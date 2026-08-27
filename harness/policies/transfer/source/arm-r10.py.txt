@@ -1,0 +1,10 @@
+    "r10_opus_fresh_solve": {
+        "id": "r10_opus_fresh_solve",
+        "name": "R10. Gemini ladder -> Opus-5 re-solves from scratch (not a repair)",
+        "category": "6. gemini-3.7 + opus-5 routing study",
+        "triage_mode": "Straitjacket contained digest ($0.00)",
+        "models": "Lite -> 3.7 low -> 3.7 medium -> Opus-5 (fresh solve)",
+        "fn": lambda p: run_tiered_router(
+            p, tiers=[(GEMINI_35_FLASH_LITE_ID, None), (GEMINI_37_FLASH_ID, "low"), (GEMINI_37_FLASH_ID, "medium")],
+            gate="after_ladder", frontier=OPUS_5_ID, frontier_mode="fresh"),
+    },

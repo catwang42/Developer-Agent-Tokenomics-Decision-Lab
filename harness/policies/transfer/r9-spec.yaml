@@ -1,0 +1,529 @@
+# r9 — "escalate on evidence". Transplanted strategy spec, FROZEN.
+#
+# This file is DATA. The adapters (harness/adapters/transfer_r9.py) read it and
+# nothing else; there is no second copy of any rule here in Python. If a value
+# below is wrong, the run is wrong — that is the point of pinning it.
+#
+# Prereg (authoritative): manifest/preregistrations/2026-08-27-transfer-probe.md
+# r9 is the source's RECOMMENDED DEFAULT and the arm whose gate reads the cheap
+# model's own failure evidence. It is the arm the prereg predicts transfers worst
+# on W6, and the reason is written down in `mechanism_under_test` below.
+
+spec_version: 1
+strategy_id: r9
+configuration_id: R9              # what a run records as configuration_id
+source_arm_id: r9_opus_on_evidence
+name: "R9. Gemini ladder -> Opus-5 when the digest says the failure is hard"
+
+# --------------------------------------------------------------------------- #
+# Provenance
+# --------------------------------------------------------------------------- #
+source:
+  repo: https://github.com/lexha-redstone/tokenomics-benchmark-multi-llms
+  sha: 1a18b04385f9a0da16439ba5f48a2f68ac08d53d
+  licence: Apache-2.0
+  fetched_via: raw.githubusercontent.com + api.github.com tree listing
+  fetched_utc: "2026-08-27"
+  # git blob shas are from the tree at the sha above; sha256 is over the file
+  # bytes as fetched. Both recorded: the blob sha proves WHICH revision, the
+  # sha256 proves the bytes we actually read.
+  files:
+    - path: src/architectures.py
+      git_blob_sha: f621fae49484db5b87b9b5ab4a8086e28e2978fe
+      sha256: 6ba556806ce1e69d7481cd4575fd99fd3d7cb5ebdc12ed90aeef86af2b2d7437
+      bytes: 62699
+    - path: src/routing.py
+      git_blob_sha: 29cd12030566229e2cf95d840a252d0f1ffaeda2
+      sha256: bc31b76474d59d226a887a0db1cada707de771e3751aa613b7ebbddc893f71ef
+      bytes: 13887
+    - path: src/config.py
+      git_blob_sha: 05f3085ba7642a2fdceb65a3492e2b71c708d8f0
+      sha256: 56c23d2971f43becd5d002b7bf394aeaf9ebd5c3a6cc767cd26126eebe7d8b96
+      bytes: 7670
+    - path: src/evaluator.py
+      git_blob_sha: 83f696d753ea4b3eb0e1839b9e48674039673bdf
+      sha256: 96102c4da4044988bcfe2df3e5dbef83d8a7c05402785d91725bf106a5a5af77
+      bytes: 74058
+    - path: bigCodeBench-hard/results/bcb_router_results.json
+      git_blob_sha: fdbe517a7b6816ce3608a7c8630987d0830f7701
+      sha256: 3ab058dd6e2e9036c6314b33189367455c4c15b6d1ab75ab5d65fa69b64346e9
+      bytes: 3493685
+
+# Byte-exact extracts kept beside this file. sha256 is over the extract as
+# written to disk (one trailing newline, no other transformation).
+# tests/test_transfer_specs.py re-hashes every one of these on every test run.
+extracts:
+  - file: source/arm-r9.py.txt
+    from: src/architectures.py
+    symbol: 'VARIANT_REGISTRY["r9_opus_on_evidence"]'
+    sha256: 0cfd229462439882b26da4f43271a1a246dcd24ffbd9f6cc9edd8bffce86e773
+  - file: source/run-tiered-router.py.txt
+    from: src/architectures.py
+    symbol: run_tiered_router
+    sha256: d5758cd42aa9ca3d59d00827f2bced27c75c625bbf42a7c4aaa5f86e684476c3
+  - file: source/gate-on-evidence.py.txt
+    from: src/routing.py
+    symbol: gate_on_evidence
+    sha256: 0dda87ed22d2997817923d486b2c25616b556aaa9126f08478db22b3ca2c5736
+  - file: source/classify.py.txt
+    from: src/routing.py
+    symbol: classify
+    sha256: 7bfe19a587ed0116e718c591cd38b7ecee05f0add96e0661bb3a5e711eb65b62
+  - file: source/classify-guard.py.txt
+    from: src/routing.py
+    symbol: _classify_guard
+    sha256: 924a0b09f21e15bae9678d9dffb9eb27b5833a56950bbc40bf37becee428ebe4
+  - file: source/difficulty.py.txt
+    from: src/routing.py
+    symbol: Difficulty
+    sha256: 6eb67fb0897873a96b464df6a1b34ab5e3a6a0e500fab22d7bfeeabfa6b6c2da
+  - file: source/routing-constants.py.txt
+    from: src/routing.py
+    symbol: "BROAD_FAILURE_ITEMS .. _MALFORMED_CLASSES"
+    sha256: 123dc7a8236896376dc73a0b7b9f7fc54236511510c14baa0daaa344f74e439e
+  - file: source/solver-role.py.txt
+    from: src/config.py
+    symbol: SOLVER_ROLE
+    sha256: 811a69cea8b31b6e6b8619b685ae7e8ed97f60f8234ac9b8a2a4cc7e30fc098e
+  - file: source/repair-role.py.txt
+    from: src/config.py
+    symbol: REPAIR_ROLE
+    sha256: 1835282fe100df5ac3c67a176c9ac6e1cf2fa5bb82ba2f388fc32f6fcf5e696a
+  - file: source/build-initial-prompt.py.txt
+    from: src/architectures.py
+    symbol: _build_initial_prompt
+    sha256: 7a58212a14912826913a34b5e4faa06f78da5e32bd6bc551aec2c50067ccda8e
+  - file: source/repair-prompt.py.txt
+    from: src/architectures.py
+    symbol: _repair_prompt
+    sha256: 519f1ed7dc1a3608e05f69667f5c4a2fdcb4907454cdfac0a5be75dc6e11e246
+  - file: source/treat-error.py.txt
+    from: src/architectures.py
+    symbol: _treat_error
+    sha256: 4ca3a0d681cd947397dae2d2b34629f724ba06e24237901f3861f2f61204b905
+  - file: source/eval-solution.py.txt
+    from: src/architectures.py
+    symbol: _eval_solution
+    sha256: 604299966a51deb8f044178451fbf52fd3e552a86772ba5d9198534b394f4949
+
+# Published figures for this arm at the pinned sha (n=148 BigCodeBench-Hard).
+# Recorded so the calibration gate has a reference it did not compute itself.
+# These are the SOURCE's numbers under the SOURCE's oracle. They are not our
+# measurements and must never be presented as such.
+published_reference:
+  n: 148
+  passed: 120
+  pass_rate: 0.811
+  total_as_run_usd: 4.237424
+  cost_per_solved_usd: 0.035312
+  avg_output_tokens: 2615.5
+  models: "Lite -> 3.7 low -> 3.7 medium -> Opus-5 (evidence gate)"
+  triage_mode: "Straitjacket digest + evidence-gated escalation ($0.00)"
+
+# --------------------------------------------------------------------------- #
+# The strategy, as the source defines it
+# --------------------------------------------------------------------------- #
+source_definition:
+  entry: run_tiered_router
+  tiers:
+    - {model: gemini-3.5-flash-lite, thinking_level: null}
+    - {model: gemini-3.7-flash, thinking_level: low}
+    - {model: gemini-3.7-flash, thinking_level: medium}
+  gate: evidence            # GATES["evidence"] == gate_on_evidence(min_attempt=1)
+  frontier: claude-opus-5
+  frontier_mode: repair
+  frontier_max_calls: 1
+  error_treatment: straitjacket
+
+# --------------------------------------------------------------------------- #
+# The strategy, as this lab executes it
+# --------------------------------------------------------------------------- #
+# Model refs are PLACEHOLDERS and resolve only through
+# manifest/delivery-manifest.yaml (harness/policies/README.md rule 2). No model
+# id and no price appears in this file.
+lab_execution:
+  policy_family: B2_escalation      # cheap attempt -> gate -> escalate (SPEC 2.1b)
+  adapter: transfer_r9
+  # Three cheap rungs then one frontier rung: the source's rung COUNT, preserved.
+  # The rung IDENTITY differs — see judgment call J-2.
+  rungs:
+    - {rung: 0, leg_id: rung0_economical, role: economical, model_ref: ECONOMICAL_MODEL_A}
+    - {rung: 1, leg_id: rung1_economical, role: economical, model_ref: ECONOMICAL_MODEL_A}
+    - {rung: 2, leg_id: rung2_economical, role: economical, model_ref: ECONOMICAL_MODEL_A}
+  frontier:
+    leg_id: frontier_strong
+    role: strong
+    model_ref: STRONG_MODEL_A
+    mode: repair            # the failed attempt's work is HANDED TO the frontier
+    max_calls: 1
+  # Anchors already measured in this lab (prereg "Anchors already measured").
+  anchors:
+    frontier_equals: P0     # our P0 == their r0b, claude-opus-5, EXACT model match
+    cheap_approximates: C2  # our C2 ~= their r0a, sonnet 4.6 here vs sonnet 5 there
+    r0a_version_mismatch:
+      source_model: claude-sonnet-5
+      lab_model_ref: ECONOMICAL_MODEL_A
+      status: approximate
+      note: >
+        The source's cheap baseline is claude-sonnet-5; this lab's economical
+        Product-A tier is claude-sonnet-4-6. Every comparison against r0a is
+        therefore APPROXIMATE and must be labelled so. The frontier anchor
+        (r0b / P0, claude-opus-5) is an exact match and carries no such caveat.
+
+# --------------------------------------------------------------------------- #
+# Gate — the thing this arm actually is
+# --------------------------------------------------------------------------- #
+gate:
+  kind: evidence
+  source_symbol: gate_on_evidence
+  min_attempt: 1
+  requires_typed_evidence: true
+  # Evaluated in this order, first match wins. Transcribed from
+  # source/gate-on-evidence.py.txt; the `why` strings are the source's, verbatim,
+  # so a routing event in our log is greppable against theirs.
+  rules:
+    - {order: 1, when: "attempt < min_attempt", escalate: false,
+       why: "attempt {attempt} < min_attempt {min_attempt}"}
+    - {order: 2, when: "difficulty is None", escalate: false,
+       why: "no difficulty signal"}
+    - {order: 3, when: "difficulty.is_environment", escalate: false,
+       why: "environment failure ({guard}); no model fixes this"}
+    - {order: 4, when: "difficulty.is_hard", escalate: true,
+       why: "evidence says {level}: {reasons}"}
+    - {order: 5, when: "attempt >= total_rungs", escalate: true,
+       why: "cheap rungs exhausted ({attempt}/{total_rungs})"}
+    - {order: 6, when: "otherwise", escalate: false,
+       why: "evidence says {level}; keep it cheap"}
+  # Source invariant, preserved: an evidence gate that never receives typed
+  # evidence is a counter gate wearing the wrong label. Our engine sets
+  # `degraded: true` on the run and says so in the routing event, exactly as
+  # run_tiered_router's _warn_once does.
+  degrade_if_untyped: true
+  # Source invariant, preserved: once the frontier budget is spent the gate's
+  # "yes" is overridden and the ladder continues on cheap rungs.
+  frontier_budget_override_why: "frontier budget spent ({max_calls})"
+
+# --------------------------------------------------------------------------- #
+# Evidence — what the gate is allowed to read
+# --------------------------------------------------------------------------- #
+evidence:
+  # THE SEALED GATE IS NOT AN INPUT. Routing reads gate-public.json only. This is
+  # not an implementation convenience: it is the registered mechanism (prereg
+  # "Transplanted gates can only route on runtime-visible signals"). A gate that
+  # could read the sealed verdict would be measuring the oracle, not the strategy.
+  reads: [gate_public_report]
+  never_reads: [gate_hidden_report, sealed_defect_map, hidden_test_output]
+  report_path: gate-public.json
+  report_shape: '{"gate": "public", "checks": [{"id", "status", "detail"}]}'
+  # classify() equivalents, values transcribed from source/routing-constants.py.txt.
+  broad_failure_items: 3
+  levels: [shallow, local, broad, stalled, environment]
+  is_hard_levels: [broad, stalled]
+  # A failing check id maps to a source failure CLASS. The mapping is the
+  # transplant's load-bearing approximation — see judgment call J-3.
+  check_classes:
+    G0-subject-readable: environment   # the harness broke; no model fixes it
+    P6-diff-scope: malformed           # "response was not a usable diff" -> shallow
+    P5-no-leakage: malformed
+    T1-diff-scope: malformed
+    P3-typecheck: shallow              # does not parse / does not type -> shallow
+    P4-build: shallow
+    P1-public-test: behavioural        # a real test failure -> local or broad by count
+    P2-regression: behavioural
+    T2-suite-green: behavioural
+    T3-coverage: behavioural
+    T4-tests-pass: behavioural
+  unmapped_check_class: behavioural
+  # Levels, in the source's own precedence:
+  #   environment  : any failing check maps to `environment`
+  #   shallow      : every failing check maps to shallow or malformed
+  #   broad        : failing count >= broad_failure_items
+  #   stalled      : the failing id SET is identical to the previous attempt's
+  #   local        : otherwise
+  # `stalled` is evaluated last and overrides, exactly as classify() does.
+  stalled_overrides: true
+
+  # --- CALIBRATION PROFILE ------------------------------------------------- #
+  # The probe classifies from OUR public acceptance-check report. Calibration
+  # classifies from the SOURCE's oracle output, because calibration runs the
+  # source's own BigCodeBench-Hard tasks under the source's own unit-test suite
+  # and there is no acceptance-check report to read.
+  #
+  # In the source, the typed evidence comes from an external capture harness
+  # (`ctx run`) that returns an evidence GRAPH: per-test identities plus a
+  # failure_class each. That harness is not part of the source repository and is
+  # not installed in this lab. The source's own fallback when it is missing is
+  # `typed=False`, which makes an evidence gate degrade to ladder exhaustion —
+  # i.e. r9 stops being r9. Calibrating r9 that way would compare our r6 against
+  # their r9 and call the difference a transfer failure.
+  #
+  # So the calibration profile reconstructs the same two facts from the unittest
+  # runner's own stderr, which the pinned deterministic tail makes reproducible:
+  # failing identities from the runner's FAIL:/ERROR: lines, and a failure class
+  # from each traceback's exception name. The LEVEL RULES are untouched — the
+  # same shallow-class set, the same broad_failure_items, the same stall check.
+  # This is judgment call J-11 and it is the largest one in the transplant: an
+  # evidence gate is only as faithful as its evidence, and ours is derived from
+  # text where theirs came from an instrumented run.
+  calibration:
+    source_symbol: classify
+    fact_tier: reconstructed_from_unittest_stderr
+    fact_tier_in_source: ctx-harness evidence graph (external tool, not vendored)
+    identity_pattern: '^(?:FAIL|ERROR): (\S+)'
+    exception_pattern: '^([A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception|Warning))\b'
+    shallow_classes:                   # routing._SHALLOW_CLASSES, verbatim
+      - SyntaxError
+      - IndentationError
+      - TabError
+      - ImportError
+      - ModuleNotFoundError
+      - NameError
+    environment_classes:               # routing._ENVIRONMENT_CLASSES, verbatim
+      - EnvironmentError
+    untyped_when: >
+      No FAIL:/ERROR: line and no exception name could be read from the runner's
+      output. Recorded untyped, exactly as the source records a missing fact
+      tier — never silently downgraded to a count.
+
+# --------------------------------------------------------------------------- #
+# Prompts — verbatim, two profiles
+# --------------------------------------------------------------------------- #
+# The calibration profile IS the source's, byte for byte, because calibration
+# runs the source's own BigCodeBench-Hard tasks under the source's own oracle and
+# any deviation would make the fidelity check meaningless.
+#
+# The probe profile keeps the source's SCAFFOLDING verbatim (the repair role, the
+# digest block, the ordering) and substitutes this lab's pinned task prompt for
+# the BCB `complete_prompt`, because W4/W4b/W6 are not function-completion
+# problems and the source prompt has no referent on them. See judgment call J-4.
+prompts:
+  calibration:
+    rung0:
+      builder: _build_initial_prompt
+      role_file: source/solver-role.py.txt
+      shape: "SOLVER_ROLE + 'Problem:\\n```python\\n' + complete_prompt + '\\n```\\n\\nWrite the complete solution.'"
+    repair:
+      builder: _repair_prompt
+      role_file: source/repair-role.py.txt
+      evidence_label: "Straitjacket Triaged Error Digest"
+      shape: "REPAIR_ROLE + 'Problem:' + statement + 'Current solution:' + sol + label + digest + 'Write the complete corrected solution.'"
+  probe:
+    rung0:
+      source: task.yaml prompt          # this lab's pinned, hashed task prompt
+      wrapper: none                     # rung 0 is the task exactly as every other arm sees it
+    repair:
+      role_file: source/repair-role.py.txt
+      role_substitution:
+        # REPAIR_ROLE names "unit tests" and "the function definition"; on a review
+        # or bugfix task there is no function to re-emit. The role text is used
+        # VERBATIM for calibration and is REPLACED for the probe by the block
+        # below, which preserves its three moves (you failed, here is bounded
+        # evidence, emit the complete corrected artefact) without asserting a
+        # Python function exists. Recorded as judgment call J-4.
+        applies_to: probe
+        text: |
+          A previous attempt at the task below FAILED its acceptance checks.
+          Read the bounded check digest, find the defect, and produce the
+          COMPLETE corrected artefact the task asks for — not a diff, not a
+          fragment, and not a description of what you would change.
+      evidence_label: "Public Acceptance-Check Digest"
+      digest:
+        # The source's digest is produced by triage_error_straitjacket at $0.00 with
+        # no API call (source/treat-error.py.txt). Ours is likewise mechanical and
+        # free: the failing entries of gate-public.json, rendered. No model is asked
+        # to summarise anything, so no model self-report enters the loop
+        # (CLAUDE.md rule 2).
+        producer: harness
+        cost_usd: 0.0
+        api_calls: 0
+        content: "one line per FAILING public check: '<id>: <detail>'"
+        cap_chars: 2500       # source SJ_RAW_CAP, preserved
+  # The digest is the ONLY thing that crosses from a failed rung into the next
+  # prompt under `mode: repair`, plus the failed attempt's own artefact (`sol`).
+  carries_over: [failed_artefact, digest]
+
+# --------------------------------------------------------------------------- #
+# What this arm is in the probe
+# --------------------------------------------------------------------------- #
+mechanism_under_test: >
+  r9's gate reads the cheap model's own failure evidence, so it inherits whatever
+  that evidence is blind to. On W6 the sealed gate scores a review report by line
+  proximity (+/-3 lines) while every runtime-visible signal says the report is
+  fine; the prereg therefore predicts r9 under-escalates and transfers WORST of
+  the three. r10, which consumes none of the cheap output, is the control.
+  Registered break-even: escalation beats expensive-solo iff p_cheap >
+  C_cheap / C_exp (44% on W6 against an observed 33%).
+
+# --------------------------------------------------------------------------- #
+# Judgment calls
+# --------------------------------------------------------------------------- #
+# Every place where the transplant could not be mechanical. Listed because a
+# spec claiming zero judgment calls is a spec whose author did not look.
+judgment_calls:
+  - id: J-1
+    decision: >
+      The strategies are recorded as ROUTING POLICIES (harness/policies/) even
+      though a run records them in `configuration_id`, which is where P0/P1/P2
+      already sit. Nothing in the schema distinguishes the two axes.
+    alternative: A new `harness/configurations/R9.yaml` stack file.
+    why: >
+      A configuration declares the stack; a policy declares the routing decision
+      (SPEC 2.1c). These three differ ONLY in the routing decision — same models,
+      same products, same task. Filing them as configurations would have made the
+      one axis they vary invisible.
+    risk: >
+      `configuration_id` now carries values from two axes. It already did (P0/P1/P2
+      vs C1..C5); this widens an existing ambiguity rather than creating one.
+  - id: J-2
+    decision: >
+      The three cheap rungs are all ECONOMICAL_MODEL_A (Product A). The source's
+      rungs are three DIFFERENT Gemini tiers (flash-lite, 3.7-low, 3.7-medium).
+      Rung COUNT (3) and frontier (1, Opus-5) are preserved exactly; rung identity
+      is not.
+    alternative: >
+      Map the ladder onto Product B: PRODUCT_B_ECON_TIER_PREV (3.6 High) ->
+      PRODUCT_B_ECON_TIER_MED (3.7 Medium) -> PRODUCT_B_ECON_TIER (3.7 High).
+    why: >
+      Three reasons, in order of weight. (a) The registered W4b finding is THE
+      BILL — cost of failure. Product-B legs are cache-blind upper bounds at best
+      and frequently record usage as `unavailable`, so a Product-B ladder would
+      make the probe's primary measurement unmeasurable. (b) The prereg's anchors
+      are Product A: P0 == their r0b exactly, C2 ~= their r0a. A Product-B ladder
+      has no measured anchor in this lab. (c) manifest effort_rule forbids mixing
+      effort tiers with routing ("would confound routing with effort"); the
+      Product-B mapping mixes both effort AND model generation across rungs.
+    risk: >
+      Three identical rungs mean rungs 1 and 2 differ from rung 0 only by the
+      repair prompt and the accumulated evidence. That is exactly what the
+      source's own r0a/r0b baselines do (`tiers=[(SONNET_ID, None)] * 3`), so it
+      is a shape the source itself ships — but it does weaken "ladder" to "retry
+      with evidence" and any finding must say so. It also removes cross-product
+      routing from the probe entirely.
+  - id: J-3
+    decision: >
+      Failing PUBLIC CHECK IDS stand in for the source's typed failing
+      identities, and each check id is mapped to a source failure class by the
+      `evidence.check_classes` table above.
+    alternative: >
+      Parse test-runner output inside the subject tree to recover real failing
+      test identities, closer to the source's evidence graph.
+    why: >
+      The source's evidence graph is a by-product of a capture that already
+      happened (ContainedRun.evidence_graph). Our equivalent already-existing
+      by-product is gate-public.json. Re-deriving test identities would mean the
+      harness parsing per-stack test output for three different stacks, which is
+      new measurement machinery inside a probe — and on W6 (`stack: none`) there
+      is no test output to parse at all.
+    risk: >
+      Granularity loss. The source counts failing TEST identities; we count
+      failing CHECK ids, of which there are at most ~6. `broad_failure_items: 3`
+      is therefore a much coarser threshold here than there, and a run can be
+      `local` with many underlying test failures behind one failed check. This is
+      the single largest fidelity gap in the transplant and the calibration gate
+      does NOT test it (calibration runs BCB, where the source's own oracle
+      supplies real identities).
+  - id: J-4
+    decision: >
+      Two prompt profiles. Calibration uses the source's prompts byte for byte.
+      The probe keeps the source's repair SCAFFOLDING and digest ordering but
+      replaces REPAIR_ROLE's text (see `prompts.probe.repair.role_substitution`)
+      and substitutes the lab's pinned task prompt for BCB's `complete_prompt`.
+    alternative: Use REPAIR_ROLE verbatim on the probe tasks too.
+    why: >
+      REPAIR_ROLE says "FAILED its unit tests", "the full function definition",
+      "Output ONLY one ```python code block". On W6 the deliverable is
+      `review-report.txt`; on W4/W4b it is a repository edit. Verbatim text would
+      instruct the model to produce something the acceptance gate refuses, and
+      would measure prompt/task mismatch rather than routing.
+    risk: >
+      The probe's repair turn is NOT the source's repair turn. Any transfer
+      failure attributable to prompt wording rather than routing is a confound;
+      the substituted text is pinned here so a reader can judge it.
+  - id: J-5
+    decision: >
+      The digest is produced by the harness from gate-public.json at $0.00 with
+      no API call, mirroring triage_error_straitjacket.
+    alternative: An LLM-produced triage digest (the source's `llm` treatment).
+    why: >
+      All three transplanted arms declare `error_treatment: straitjacket`, i.e.
+      the $0 contained digest. An LLM digest would be a different arm (the source
+      has one) and would add an unbilled model call to every repair turn.
+    risk: >
+      Our digest is a list of failed check lines, not a contained test-frame
+      extraction. It is smaller and less informative than the source's. Recorded
+      because it plausibly biases r9 TOWARD under-escalating, which is the
+      direction the prereg already predicts — so a confirmed prediction here is
+      weaker evidence than it looks.
+  - id: J-6
+    decision: >
+      `frontier_max_calls: 1` is preserved, including the source's behaviour that
+      a spent frontier budget sends the ladder BACK to a cheap rung rather than
+      ending the run (observed in the published trace for BigCodeBench/101, where
+      r9's rungs are lite -> opus-5 -> 3.7-medium).
+    alternative: End the run once the frontier attempt fails.
+    why: It is what the source does, and the published per-task costs include it.
+    risk: >
+      On a lab task this means a cheap rung runs AFTER the expensive one, and the
+      final artefact graded is the cheap rung's. Counter-intuitive when reading a
+      run log; called out here so it is not read as a bug.
+  - id: J-7
+    decision: >
+      The sonnet version mismatch on the r0a anchor is recorded and carried into
+      every comparison as "approximate" (see lab_execution.anchors).
+    alternative: Re-pin ECONOMICAL_MODEL_A to claude-sonnet-5 for the probe.
+    why: >
+      Re-pinning a manifest model is a human decision with batch-comparability
+      consequences well beyond this probe, and this instrument does not touch the
+      manifest.
+    risk: Every r0a-referenced comparison is approximate. Labelled, not resolved.
+  - id: J-11
+    decision: >
+      For the CALIBRATION profile only, the typed evidence the gate reads is
+      reconstructed from the unittest runner's stderr (failing identities from
+      FAIL:/ERROR: lines, failure classes from traceback exception names) instead
+      of from the source's external capture harness, whose evidence graph is not
+      vendored with the source and is not installed here.
+    alternative: >
+      Run calibration with no fact tier, exactly as the source does when the
+      harness is absent.
+    why: >
+      With no fact tier the source's own code marks the run degraded and an
+      evidence gate becomes a counter gate — r9 stops being r9. A calibration
+      that compares our ladder-exhaustion arm against their evidence-gated arm
+      would report a transfer failure that is entirely an artefact of a missing
+      tool. The LEVEL RULES are untouched: same shallow-class set, same
+      broad_failure_items, same stall check.
+    risk: >
+      Highest-consequence judgment call in the transplant. Our identities are
+      test method names parsed from text; theirs came from an instrumented run.
+      Where the two disagree, r9's calibration rows will disagree with the
+      published ones for a reason that is ours, not the strategy's. Recorded in
+      the calibration report as a non-gating diagnostic (routing_shape_match) so
+      a mismatch is visible rather than absorbed into the pass/fail criterion.
+  - id: J-12
+    decision: >
+      Calibration reads the product's FINAL RESPONSE TEXT as the candidate
+      solution and grades it with the source's `extract_code` +
+      `missing_code_error`, instead of grading a file the agent wrote. The
+      source's prompts are then used byte for byte, with no added delivery
+      instruction.
+    alternative: >
+      Append "write the solution to solution.py" to the source's prompt and grade
+      the file the CLI leaves behind.
+    why: >
+      The calibration profile's whole claim is that the prompts are the source's,
+      byte for byte; a delivery instruction would break that on the one path
+      whose job is to detect exactly that kind of drift. The source's subject is
+      a chat completion whose deliverable IS the response, and `extract_code`
+      already handles both a fenced block and a bare body.
+    risk: >
+      The subject is an agentic CLI, not a chat completion: it may use tools,
+      take several turns, and write files that calibration ignores, and its
+      turn count is not the source's one-shot call. Two consequences, both
+      recorded rather than corrected — the calibration bill includes agentic
+      overhead the published figures never had (which biases criterion (b)
+      upward, in the same direction as the structural blocker already recorded
+      in calibration-slice.yaml), and a run that solves the task by writing a
+      file but never restates the code in its reply is scored a birth-gate
+      failure. The response text is kept beside each attempt so that case is
+      identifiable rather than invisible.

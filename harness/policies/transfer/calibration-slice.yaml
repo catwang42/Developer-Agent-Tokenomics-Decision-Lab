@@ -1,0 +1,372 @@
+# Calibration slice — 5 pinned BigCodeBench-Hard tasks. FROZEN.
+#
+# Read by harness/runner/transfer_calibration.py. The five task ids below are
+# the slice the prereg requires; the published per-task outcomes below are the
+# reference the AUTOMATIC gate compares against.
+#
+# Prereg (authoritative): manifest/preregistrations/2026-08-27-transfer-probe.md
+#   "Each reimplemented strategy runs a 5-task BigCodeBench-Hard slice under the
+#    source's own unit-test oracle and must (a) match the published per-task
+#    pass/fail on >=4 of 5 and (b) land within +-30% of the published arm cost.
+#    The runner evaluates this itself and exits non-zero on failure; the probe
+#    driver refuses to start without a passing report for every strategy.
+#    Fail -> stop. The fidelity finding is published instead of a transfer verdict."
+#
+# NOTHING IN THIS FILE IS A MEASUREMENT OF ANYTHING THIS LAB RAN. Every number
+# is either (a) read out of the source's published results file at the pinned
+# sha, or (b) explicitly labelled `derived_` and computed from those published
+# numbers with this lab's rate card. No run has happened.
+
+spec_version: 1
+slice_id: bcb-hard-5-2026-08-27
+
+source:
+  repo: https://github.com/lexha-redstone/tokenomics-benchmark-multi-llms
+  sha: 1a18b04385f9a0da16439ba5f48a2f68ac08d53d
+  licence: Apache-2.0
+  task_data:
+    path: bigCodeBench-hard/data/BigCodeBench-Hard-v0.1.4.jsonl
+    git_blob_sha: 2a82894de04ea5a1fce35ef31de4196ed45ba1ad
+    sha256: 5700298a2f3f6a1bc5eae393d3891ce675248ae2bc67c57e999ed64cf37df895
+    bytes: 779277
+    records: 148
+    record_keys: [canonical_solution, code_prompt, complete_prompt, entry_point, libs, task_id, test]
+  published_results:
+    path: bigCodeBench-hard/results/bcb_router_results.json
+    git_blob_sha: fdbe517a7b6816ce3608a7c8630987d0830f7701
+    sha256: 3ab058dd6e2e9036c6314b33189367455c4c15b6d1ab75ab5d65fa69b64346e9
+    bytes: 3493685
+    n: 148
+  oracle:
+    symbol: _eval_solution
+    extract: source/eval-solution.py.txt
+    what: >
+      The source's own unit-test oracle — the `test` field of the jsonl record,
+      executed against the candidate solution. Grading is theirs; cost is ours.
+      This runner does NOT re-grade with any lab gate, and no lab gate script is
+      involved in calibration.
+    # The two byte-exact extracts the oracle is REBUILT from here. Pinned in this
+    # file rather than in the arm specs because they are calibration-only: the
+    # probe never runs a unit-test oracle. harness/runner/transfer_calibration.py
+    # re-hashes both before it grades anything, and refuses on a mismatch.
+    extracts:
+      - file: source/bcb-oracle.py.txt
+        from: src/evaluator.py
+        symbol: "extract_code .. missing_code_error"
+        sha256: 16a8482b4761cec1435473f0837421363ea228b84d79ba56329d4af1b1604e88
+        bytes: 3645
+      - file: source/unittest-tail.py.txt
+        from: src/straitjacket.py
+        symbol: DETERMINISTIC_UNITTEST_TAIL
+        # The RUNTIME VALUE of the constant (ast.literal_eval of the assignment),
+        # not the assignment statement — it is appended to the candidate program
+        # verbatim, so the pinned bytes are the bytes that execute.
+        sha256: d63dcb5e649cccc99cf134990b31f4aec953565e801304b22b520782be106589
+        bytes: 609
+    program_shape: 'solution_code + "\n\n" + record["test"] + DETERMINISTIC_UNITTEST_TAIL'
+    verdict: "subprocess exit 0 == pass; 120s timeout; the source's own rule, unchanged"
+    birth_gate: >
+      missing_code_error: a response whose extracted code has no `def
+      {entry_point}` is refused BEFORE execution and recorded as a failed attempt,
+      exactly as the source refuses it. It is not scored differently from a
+      unit-test failure and it is never scored as a pass.
+    execution_posture:
+      where: host subprocess, `sys.executable prog.py`, cwd = a scratch dir
+      why: >
+        The source's contained path (`ctx run`) is the external harness that is
+        not vendored; the source's OWN fallback when it is absent is this plain
+        subprocess (`_run_bigcodebench_native`), so running the fallback is
+        running the source's code path rather than substituting one of ours.
+      caveat: >
+        The candidate program is model-written Python executed on the host with
+        no sandbox, which is the source's posture, not this lab's usual one (the
+        lab's subject isolation applies to the AGENT, not to a grader). The tasks
+        are the source's published BigCodeBench-Hard suite and the scratch dir is
+        removed after each attempt, but this is a genuine posture difference and
+        is recorded here rather than left implicit.
+
+# --------------------------------------------------------------------------- #
+# Run conditions — pinned here because a calibration is a comparison
+# --------------------------------------------------------------------------- #
+run_conditions:
+  driver_profile: transfer-probe     # harness/runner/profiles.py
+  agent_timeout_s: 600
+  timeout_basis: >
+    BigCodeBench-Hard problems are single-function completions; 600s is the SOFT
+    budget (stamped, not enforced) and 1800s the hard kill under the
+    transfer-probe profile. Pinned here rather than taken from a task.yaml
+    because these are the source's tasks, not this lab's, and they have no
+    task.yaml. A calibration attempt that overruns is recorded as an overrun and
+    still graded, for the same reason the probe does it: a truncated attempt
+    reports the budget instead of the bill.
+  # PRECONDITION, enforced by the runner before any model is called. Verified
+  # 2026-08-27 against the pinned jsonl on this VM's .venv: 3 of the 5 tasks
+  # FAILED, all with ModuleNotFoundError.
+  grading_environment:
+    preflight: >
+      Grade each task's own `canonical_solution` first. All five must pass. The
+      runner refuses to start otherwise (exit 2) — no model is called and no
+      report claiming a fidelity verdict is written.
+    why_it_is_a_refusal_not_a_warning: >
+      `ModuleNotFoundError` is in the source's `_SHALLOW_CLASSES`, transcribed
+      verbatim into every arm spec. On an interpreter missing numpy, every
+      candidate for every library-using task fails SHALLOW, so r9's evidence gate
+      correctly declines to escalate, all three arms run their cheap rungs and
+      stop, and the report blames the reimplementation for what is a missing
+      package. The failure mode is silent, self-consistent, and expensive.
+    libs_across_the_slice: [subprocess, ftplib, os, pandas, numpy, matplotlib,
+                            sklearn, seaborn, threading, socket, ipaddress]
+    libs_field_note: >
+      The records' `libs` field is a JSON-encoded STRING, not a list. The list
+      above was decoded by hand; the runner does not parse it and does not rely
+      on it — the canonical-solution preflight is the check that binds.
+    versions: >
+      NOT PINNED. The published rows were produced on the source's environment,
+      whose package versions are not recorded in the results file. A library
+      version difference can move a per-task outcome, so a pass_match failure
+      cannot be attributed to routing without checking this first.
+  error_treatment:
+    declared: straitjacket
+    implemented_as: tail_to_cap(stderr, 2500)
+    why: >
+      `triage_error_straitjacket` produces a CONTAINED digest via the same
+      external `ctx run` harness that is not vendored (see J-11). The source's
+      own fallback with the harness absent is `sj.tail_to_cap`, the last 2500
+      characters of stderr, which is what runs here. It is the source's code
+      path, not a substitute of ours, but it is the UNCONTAINED one: the digest
+      handed to a repair turn is a stderr tail rather than a contained
+      test-frame extraction.
+    cap_chars: 2500                  # SJ_RAW_CAP, preserved
+
+# --------------------------------------------------------------------------- #
+# Selection rule — deterministic, stated before the ids
+# --------------------------------------------------------------------------- #
+selection_rule:
+  intent: >
+    Five tasks that between them exercise every branch of the transplanted loop:
+    the no-escalation path, an r9-only early escalation (the behaviour that
+    distinguishes an evidence gate from a counter gate), a full-ladder
+    escalation that succeeds, one that fails, and a task where the three arms
+    disagree. A slice of five that all three arms pass tells you nothing.
+  procedure:
+    - Categories are evaluated in the fixed order listed under `categories`.
+    - Within a category, candidates are the 148 task ids whose published rows
+      satisfy the category predicate for all three arms.
+    - Candidates are ordered by the NUMERIC part of the task id, ascending.
+    - The first candidate is taken. Already-selected ids are never reused.
+  determinism: >
+    No randomness, no sampling seed, no tie-breaking by anything but the numeric
+    id. Re-running the procedure against the pinned results file reproduces the
+    same five ids; tests/test_transfer_calibration.py re-derives them.
+  categories:
+    - {key: A_no_gate_fired_all_pass,     predicate: "all three arms pass with a single rung and no gate evaluation"}
+    - {key: B_r9_only_early_escalation,   predicate: "r9 reaches the frontier before the ladder is exhausted; r6 and r10 do not"}
+    - {key: C_all_escalate_all_pass,      predicate: "all three arms reach the frontier and all three pass"}
+    - {key: D_all_escalate_all_fail,      predicate: "all three arms reach the frontier and all three fail"}
+    - {key: E_r9_fails_r6_passes,         predicate: "the arms disagree on the outcome"}
+
+# --------------------------------------------------------------------------- #
+# The five tasks
+# --------------------------------------------------------------------------- #
+tasks:
+  - task_id: BigCodeBench/13
+    category: A_no_gate_fired_all_pass
+    record_sha256: 3f528bbb41a520608beddb2b010149aafc074d4579bd78f9a36ac644ecb86c4f
+    record_bytes: 6104
+    published:
+      r9:  {passed: true, as_run_usd: 0.002476, rungs: ["gemini-3.5-flash-lite/off"]}
+      r6:  {passed: true, as_run_usd: 0.002336, rungs: ["gemini-3.5-flash-lite/off"]}
+      r10: {passed: true, as_run_usd: 0.002834, rungs: ["gemini-3.5-flash-lite/off"]}
+
+  - task_id: BigCodeBench/93
+    category: C_all_escalate_all_pass
+    record_sha256: d3cffbccaaf9067bd1ce80d3efccb6bb3db3cfd7ae410546496f3a833a8b48eb
+    record_bytes: 4336
+    published:
+      r9:  {passed: true, as_run_usd: 0.047743,
+            rungs: ["gemini-3.5-flash-lite/off", "gemini-3.7-flash/low", "claude-opus-5/off"]}
+      r6:  {passed: true, as_run_usd: 0.081425,
+            rungs: ["gemini-3.5-flash-lite/off", "gemini-3.7-flash/low", "gemini-3.7-flash/medium", "claude-opus-5/off"]}
+      r10: {passed: true, as_run_usd: 0.070679,
+            rungs: ["gemini-3.5-flash-lite/off", "gemini-3.7-flash/low", "gemini-3.7-flash/medium", "claude-opus-5/off"]}
+
+  - task_id: BigCodeBench/101
+    category: D_all_escalate_all_fail
+    record_sha256: 65eb632b95c1ab523aa42e6e3c6c38d0363e84d785cb36991c2ab19419958dda
+    record_bytes: 6713
+    published:
+      r9:  {passed: false, as_run_usd: 0.097907,
+            rungs: ["gemini-3.5-flash-lite/off", "claude-opus-5/off", "gemini-3.7-flash/medium"]}
+      r6:  {passed: false, as_run_usd: 0.13882,
+            rungs: ["gemini-3.5-flash-lite/off", "gemini-3.7-flash/low", "gemini-3.7-flash/medium", "claude-opus-5/off"]}
+      r10: {passed: false, as_run_usd: 0.071383,
+            rungs: ["gemini-3.5-flash-lite/off", "gemini-3.7-flash/low", "gemini-3.7-flash/medium", "claude-opus-5/off"]}
+    note: >
+      r9's rung list is the `frontier_max_calls` fallback in the open: the gate
+      fired on attempt 1, the frontier was spent, and the loop dropped BACK to a
+      cheap rung for the last attempt. Any reimplementation that ends the run
+      when the frontier attempt fails will not reproduce this row — which is
+      why J-6 preserves the behaviour in all three specs.
+
+  - task_id: BigCodeBench/147
+    category: E_r9_fails_r6_passes
+    record_sha256: 6c39eb9d2e7588f73e5ef6f73ef805fba6c6e411601ee8019c9a9241e76bbcdb
+    record_bytes: 3992
+    published:
+      r9:  {passed: false, as_run_usd: 0.043493,
+            rungs: ["gemini-3.5-flash-lite/off", "gemini-3.7-flash/low", "claude-opus-5/off"]}
+      r6:  {passed: true, as_run_usd: 0.051825,
+            rungs: ["gemini-3.5-flash-lite/off", "gemini-3.7-flash/low"]}
+      r10: {passed: true, as_run_usd: 0.026502,
+            rungs: ["gemini-3.5-flash-lite/off", "gemini-3.7-flash/low"]}
+    note: >
+      The counter-example to "earlier escalation is better": r9 spent the
+      frontier and failed on a task the second cheap rung solved for both other
+      arms. It is in the slice deliberately — a calibration slice on which the
+      evidence gate always looks good would not detect a reimplementation that
+      escalates too eagerly.
+
+  - task_id: BigCodeBench/241
+    category: B_r9_only_early_escalation
+    record_sha256: f4755e52241a93a581fb6d02fc16723340136a5cb9437e796fbd7588608a5974
+    record_bytes: 5147
+    published:
+      r9:  {passed: true, as_run_usd: 0.026903,
+            rungs: ["gemini-3.5-flash-lite/off", "claude-opus-5/off"]}
+      r6:  {passed: true, as_run_usd: 0.046515,
+            rungs: ["gemini-3.5-flash-lite/off", "gemini-3.7-flash/low", "gemini-3.7-flash/medium"]}
+      r10: {passed: true, as_run_usd: 0.04066,
+            rungs: ["gemini-3.5-flash-lite/off", "gemini-3.7-flash/low", "gemini-3.7-flash/medium"]}
+    note: >
+      The row that separates an evidence gate from a counter gate. r9 escalated
+      on attempt 1 and solved it in two calls for less money than the two
+      counter-gated arms spent staying cheap. If a reimplementation of r9
+      reproduces every other row but not this one, its gate is a counter.
+
+# --------------------------------------------------------------------------- #
+# Reference totals over the five tasks (published, at the pinned sha)
+# --------------------------------------------------------------------------- #
+published_slice_reference:
+  r9:
+    pass_vector: [true, true, false, false, true]     # in `tasks` order: 13, 93, 101, 147, 241
+    passed: 3
+    as_run_usd: 0.218522
+    input_tokens: 12448        # total_tokens - output_tokens, summed
+    output_tokens: 18666
+  r6:
+    pass_vector: [true, true, false, true, true]
+    passed: 4
+    as_run_usd: 0.320921
+    input_tokens: 13018
+    output_tokens: 37592
+  r10:
+    pass_vector: [true, true, false, true, true]
+    passed: 4
+    as_run_usd: 0.212058
+    input_tokens: 12204
+    output_tokens: 23885
+  token_note: >
+    The published per-task token counts are ARM TOTALS across all rungs, not
+    per-model. They cannot be split by model from the results file, so the
+    re-pricing below can only be given as a band.
+
+# --------------------------------------------------------------------------- #
+# Gate — evaluated by the runner, automatic, exits non-zero on failure
+# --------------------------------------------------------------------------- #
+gate:
+  authority: manifest/preregistrations/2026-08-27-transfer-probe.md
+  criteria:
+    - id: pass_match
+      rule: "per-task pass/fail matches `published.<arm>.passed` on >= 4 of 5"
+      gating: true
+    - id: cost_within_30pct
+      rule: "abs(measured_slice_usd - published_slice_usd) / published_slice_usd <= 0.30"
+      gating: true
+  applies_to: [r9, r6, r10]        # every strategy, independently
+  on_failure:
+    exit_code: nonzero
+    report: written anyway
+    downstream: >
+      harness/runner/transfer_probe.py refuses to start unless a report exists
+      for EVERY strategy with both criteria passing.
+    prereg_consequence: "Fail -> stop. The fidelity finding is published instead of a transfer verdict."
+  diagnostics_recorded_but_not_gating:
+    - id: routing_shape_match
+      rule: "per-task escalation decisions and rung count vs `published.<arm>.rungs`"
+      why: >
+        Separates "the routing logic differs" from "the models differ". A slice
+        that fails pass_match with matching routing shape is a model-quality
+        result; one that fails with a different routing shape is a
+        reimplementation bug.
+    - id: token_volume_delta
+      rule: "measured input/output tokens vs `published_slice_reference.<arm>`"
+    - id: frontier_reachability
+      rule: "the frontier was called at least once across the slice"
+      why: >
+        The source ships `frontier_is_reachable()` because five arms once
+        shipped in which the frontier branch was unreachable and nothing said
+        so. A calibration in which the frontier never fires is void regardless
+        of what it scores.
+
+# --------------------------------------------------------------------------- #
+# BLOCKER — criterion `cost_within_30pct` is not reachable on the lab ladder
+# --------------------------------------------------------------------------- #
+cost_criterion_blocker:
+  status: OPEN — needs a human decision before calibration is launched
+  problem: >
+    The published costs are for the source's ladder (gemini-3.5-flash-lite ->
+    gemini-3.7-flash low -> gemini-3.7-flash medium -> claude-opus-5). Judgment
+    call J-2 in all three specs runs the lab ladder instead (3x
+    ECONOMICAL_MODEL_A -> STRONG_MODEL_A). Criterion (b) compares a lab-ladder
+    bill against a source-ladder bill, so it measures the price difference
+    between two model families, not the fidelity of the reimplementation.
+  derived_estimate:
+    what: >
+      The published slice TOKEN VOLUMES re-priced at this lab's own rate card.
+      This holds volume fixed and varies only price, so it isolates the
+      price-only component of the gap. It is a DERIVED figure from published
+      numbers, not a measurement.
+    rate_card: pricing/prices-2026-08-16.json
+    rates_used:
+      claude-sonnet-4-6@default: {input_per_mtok: 3.0, output_per_mtok: 15.0}
+      claude-opus-5@default:     {input_per_mtok: 5.0, output_per_mtok: 25.0}
+    band_note: >
+      Lower bound prices the whole slice at ECONOMICAL_MODEL_A rates; upper
+      bound prices it at STRONG_MODEL_A rates. The real figure sits between,
+      because every arm mixes cheap rungs with at most one frontier call.
+    r9:  {published_usd: 0.218522, derived_all_economical_usd: 0.317334, derived_all_strong_usd: 0.528890, band_ratio: "1.5x - 2.4x"}
+    r6:  {published_usd: 0.320921, derived_all_economical_usd: 0.602934, derived_all_strong_usd: 1.004890, band_ratio: "1.9x - 3.1x"}
+    r10: {published_usd: 0.212058, derived_all_economical_usd: 0.394887, derived_all_strong_usd: 0.658145, band_ratio: "1.9x - 3.1x"}
+    conclusion: >
+      The tightest point in the band is +45% (r9, everything at economical
+      rates). The +-30% window closes at +30%. Criterion (b) is therefore
+      STRUCTURALLY UNPASSABLE on the lab ladder before a single token is spent,
+      and that is true from price alone — a real run would also change volume.
+  options:
+    - id: O1
+      what: Launch as specified and accept the failure.
+      consequence: >
+        Calibration exits non-zero, the probe driver refuses, and per the prereg
+        the fidelity finding is published instead of a transfer verdict. Costs
+        real money to learn something this file already shows arithmetically.
+    - id: O2
+      what: Calibrate on the source's own ladder.
+      needs: >
+        A direct provider-API adapter (the source calls raw APIs, not agent
+        CLIs), a pricing row for gemini-3.5-flash-lite (absent from
+        pricing/prices-2026-08-16.json), and thinking-level selectors the
+        Product-B surface does not expose. Touches pricing/ and the manifest.
+      consequence: >
+        Makes criterion (b) mean what it says. Largest change; the calibration
+        would then validate the routing logic only, and would certify nothing
+        about the probe's own ladder.
+    - id: O3
+      what: Amend criterion (b) to a ladder-normalised form.
+      examples: >
+        +-30% on token VOLUME rather than USD; or +-30% on the cost RATIOS
+        BETWEEN arms (r6/r9, r10/r9), which is what the rank-preservation
+        question actually needs.
+      consequence: A prereg amendment. Must be recorded as one, dated, before any run.
+  decision: NOT TAKEN HERE. The runner implements criterion (b) exactly as the
+    prereg words it, computes the diagnostics above alongside it, and exits
+    non-zero. No criterion has been quietly redefined.

@@ -1,0 +1,10 @@
+def _repair_prompt(problem, sol, digest, label="Straitjacket Triaged Error Digest"):
+    role = REPAIR_ROLE
+    statement = problem.get("complete_prompt", "")
+    return (
+        role
+        + f"Problem:\n```\n{statement}\n```\n\n"
+        + f"Current solution:\n```\n{sol}\n```\n\n"
+        + f"{label}:\n```\n{digest}\n```\n\n"
+        + "Write the complete corrected solution."
+    )

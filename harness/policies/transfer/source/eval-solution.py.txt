@@ -1,0 +1,7 @@
+def _eval_solution(problem, text):
+    code = extract_code(text)
+    guard = missing_code_error(code, problem.get("entry_point", "task_func"))
+    if guard:
+        return False, guard, code
+    passed, err = run_bigcodebench(problem, code)
+    return passed, err, code
