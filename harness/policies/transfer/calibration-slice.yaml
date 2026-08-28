@@ -18,7 +18,7 @@
 # numbers with this lab's rate card. No run has happened.
 
 spec_version: 1
-slice_id: bcb-hard-5-2026-08-27
+slice_id: bcb-hard-5-2026-08-28-amd2   # was bcb-hard-5-2026-08-27; Amendment 2 swapped 101 -> 15
 
 source:
   repo: https://github.com/lexha-redstone/tokenomics-benchmark-multi-llms
@@ -99,9 +99,14 @@ run_conditions:
     task.yaml. A calibration attempt that overruns is recorded as an overrun and
     still graded, for the same reason the probe does it: a truncated attempt
     reports the budget instead of the bill.
-  # PRECONDITION, enforced by the runner before any model is called. Verified
-  # 2026-08-27 against the pinned jsonl on this VM's .venv: 3 of the 5 tasks
-  # FAILED, all with ModuleNotFoundError.
+  # PRECONDITION, enforced by the runner before any model is called.
+  # Verified 2026-08-27 against the pinned jsonl on this VM's .venv: 3 of the 5
+  # tasks FAILED, all with ModuleNotFoundError.
+  # Re-verified 2026-08-27 UTC against /opt/conda/bin/python3, the interpreter the
+  # runner actually grades with (`sys.executable`): 13, 93, 147 and 241 all PASS;
+  # BigCodeBench/101 FAILED for a NON-library reason (test-time HTTP fetch, 403),
+  # which is what Amendment 2 removed it for. The replacement, BigCodeBench/15,
+  # was graded PASS under `unshare -rn` with the network genuinely disabled.
   grading_environment:
     preflight: >
       Grade each task's own `canonical_solution` first. All five must pass. The
@@ -114,8 +119,16 @@ run_conditions:
       correctly declines to escalate, all three arms run their cheap rungs and
       stop, and the report blames the reimplementation for what is a missing
       package. The failure mode is silent, self-consistent, and expensive.
-    libs_across_the_slice: [subprocess, ftplib, os, pandas, numpy, matplotlib,
-                            sklearn, seaborn, threading, socket, ipaddress]
+    # After Amendment 2: seaborn drops out with 101; csv enters with 15.
+    libs_across_the_slice: [subprocess, ftplib, os, csv, pandas, numpy,
+                            matplotlib, sklearn, threading, socket, ipaddress]
+    hermeticity_note: >
+      A task's `libs` field does not disclose whether its tests reach the
+      network. BigCodeBench/101 declared only pandas/numpy/matplotlib/seaborn and
+      still fetched a third-party URL inside its tests. The canonical-solution
+      preflight is what catches that; the libs list is not a substitute for it.
+      1 of the 5 originally sampled source tasks was non-hermetic in this way —
+      recorded in Amendment 2, to be reported to the source repo's author.
     libs_field_note: >
       The records' `libs` field is a JSON-encoded STRING, not a list. The list
       above was decoded by hand; the runner does not parse it and does not rely
@@ -178,6 +191,33 @@ tasks:
       r6:  {passed: true, as_run_usd: 0.002336, rungs: ["gemini-3.5-flash-lite/off"]}
       r10: {passed: true, as_run_usd: 0.002834, rungs: ["gemini-3.5-flash-lite/off"]}
 
+  # AMENDMENT 2 REPLACEMENT. Selected by the amendment's mechanical rule, NOT by
+  # the `selection_rule` category procedure above: "the lowest-numbered task in
+  # the source's published BigCodeBench-Hard run set, not already in the slice,
+  # whose canonical solution grades PASS with network disabled in this
+  # environment." BigCodeBench/15 is the lowest-numbered candidate in the pool of
+  # 143 and its canonical solution passed on the first evaluation, so no later
+  # candidate was reached. No model was involved and $0 was spent in selecting it.
+  #
+  # CONSEQUENCE, recorded rather than left implicit: 15 is a two-rung all-arms-pass
+  # row that never reaches the frontier, so the slice no longer covers category
+  # D_all_escalate_all_fail (the branch BigCodeBench/101 supplied). The amendment's
+  # rule is lowest-numbered-passing and says nothing about preserving the category,
+  # so the rule was applied as written and the coverage loss is reported instead of
+  # being engineered around. `frontier_reachability` is still satisfied by 93, 147
+  # and 241; no arm now has a published FAIL except r9 on 147.
+  - task_id: BigCodeBench/15
+    category: AMENDMENT_2_REPLACEMENT_uncategorised
+    record_sha256: bfd22c1832e1aab786f049e0fd6a91c930df68e180db159740f732d8f5e4193d
+    record_bytes: 6341
+    published:
+      r9:  {passed: true, as_run_usd: 0.019475,
+            rungs: ["gemini-3.5-flash-lite/off", "gemini-3.7-flash/low"]}
+      r6:  {passed: true, as_run_usd: 0.018137,
+            rungs: ["gemini-3.5-flash-lite/off", "gemini-3.7-flash/low"]}
+      r10: {passed: true, as_run_usd: 0.02114,
+            rungs: ["gemini-3.5-flash-lite/off", "gemini-3.7-flash/low"]}
+
   - task_id: BigCodeBench/93
     category: C_all_escalate_all_pass
     record_sha256: d3cffbccaaf9067bd1ce80d3efccb6bb3db3cfd7ae410546496f3a833a8b48eb
@@ -190,23 +230,16 @@ tasks:
       r10: {passed: true, as_run_usd: 0.070679,
             rungs: ["gemini-3.5-flash-lite/off", "gemini-3.7-flash/low", "gemini-3.7-flash/medium", "claude-opus-5/off"]}
 
-  - task_id: BigCodeBench/101
-    category: D_all_escalate_all_fail
-    record_sha256: 65eb632b95c1ab523aa42e6e3c6c38d0363e84d785cb36991c2ab19419958dda
-    record_bytes: 6713
-    published:
-      r9:  {passed: false, as_run_usd: 0.097907,
-            rungs: ["gemini-3.5-flash-lite/off", "claude-opus-5/off", "gemini-3.7-flash/medium"]}
-      r6:  {passed: false, as_run_usd: 0.13882,
-            rungs: ["gemini-3.5-flash-lite/off", "gemini-3.7-flash/low", "gemini-3.7-flash/medium", "claude-opus-5/off"]}
-      r10: {passed: false, as_run_usd: 0.071383,
-            rungs: ["gemini-3.5-flash-lite/off", "gemini-3.7-flash/low", "gemini-3.7-flash/medium", "claude-opus-5/off"]}
-    note: >
-      r9's rung list is the `frontier_max_calls` fallback in the open: the gate
-      fired on attempt 1, the frontier was spent, and the loop dropped BACK to a
-      cheap rung for the last attempt. Any reimplementation that ends the run
-      when the frontier attempt fails will not reproduce this row — which is
-      why J-6 preserves the behaviour in all three specs.
+  # BigCodeBench/101 was REMOVED here by Amendment 2 (recorded 2026-08-28 SGT) and
+  # replaced by BigCodeBench/15 above. Reason: its reference tests fetch a remote
+  # URL at test time and all four error with HTTP 403 from this environment, so
+  # the oracle cannot score the source's OWN canonical solution and the runner
+  # refuses in pre-flight (exit 2). This was established with no model call and
+  # $0 spent. Its published rows are preserved in git history at ea00397.
+  #
+  # It also carried the D_all_escalate_all_fail category and the `frontier_max_calls`
+  # fallback row described in the note now in that history; both are lost from the
+  # slice. See the AMENDMENT 2 REPLACEMENT block above.
 
   - task_id: BigCodeBench/147
     category: E_r9_fails_r6_passes
@@ -247,24 +280,26 @@ tasks:
 # Reference totals over the five tasks (published, at the pinned sha)
 # --------------------------------------------------------------------------- #
 published_slice_reference:
+  # Re-derived from the same pinned results file after the Amendment 2 swap
+  # (101 -> 15). `tasks` order is ascending numeric id, as before.
   r9:
-    pass_vector: [true, true, false, false, true]     # in `tasks` order: 13, 93, 101, 147, 241
-    passed: 3
-    as_run_usd: 0.218522
-    input_tokens: 12448        # total_tokens - output_tokens, summed
-    output_tokens: 18666
+    pass_vector: [true, true, true, false, true]      # in `tasks` order: 13, 15, 93, 147, 241
+    passed: 4
+    as_run_usd: 0.14009
+    input_tokens: 10347        # total_tokens - output_tokens, summed
+    output_tokens: 11492
   r6:
-    pass_vector: [true, true, false, true, true]
-    passed: 4
-    as_run_usd: 0.320921
-    input_tokens: 13018
-    output_tokens: 37592
+    pass_vector: [true, true, true, true, true]
+    passed: 5
+    as_run_usd: 0.200238
+    input_tokens: 10822
+    output_tokens: 24562
   r10:
-    pass_vector: [true, true, false, true, true]
-    passed: 4
-    as_run_usd: 0.212058
-    input_tokens: 12204
-    output_tokens: 23885
+    pass_vector: [true, true, true, true, true]
+    passed: 5
+    as_run_usd: 0.161815
+    input_tokens: 10145
+    output_tokens: 19981
   token_note: >
     The published per-task token counts are ARM TOTALS across all rungs, not
     per-model. They cannot be split by model from the results file, so the
@@ -334,9 +369,11 @@ cost_criterion_blocker:
       Lower bound prices the whole slice at ECONOMICAL_MODEL_A rates; upper
       bound prices it at STRONG_MODEL_A rates. The real figure sits between,
       because every arm mixes cheap rungs with at most one frontier call.
-    r9:  {published_usd: 0.218522, derived_all_economical_usd: 0.317334, derived_all_strong_usd: 0.528890, band_ratio: "1.5x - 2.4x"}
-    r6:  {published_usd: 0.320921, derived_all_economical_usd: 0.602934, derived_all_strong_usd: 1.004890, band_ratio: "1.9x - 3.1x"}
-    r10: {published_usd: 0.212058, derived_all_economical_usd: 0.394887, derived_all_strong_usd: 0.658145, band_ratio: "1.9x - 3.1x"}
+    # Re-derived after the Amendment 2 swap (101 -> 15) from the new
+    # published_slice_reference token volumes. Same method, same rate card.
+    r9:  {published_usd: 0.140090, derived_all_economical_usd: 0.203421, derived_all_strong_usd: 0.339035, band_ratio: "1.5x - 2.4x"}
+    r6:  {published_usd: 0.200238, derived_all_economical_usd: 0.400896, derived_all_strong_usd: 0.668160, band_ratio: "2.0x - 3.3x"}
+    r10: {published_usd: 0.161815, derived_all_economical_usd: 0.330150, derived_all_strong_usd: 0.550250, band_ratio: "2.0x - 3.4x"}
     conclusion: >
       The tightest point in the band is +45% (r9, everything at economical
       rates). The +-30% window closes at +30%. Criterion (b) is therefore
