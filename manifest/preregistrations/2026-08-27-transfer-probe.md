@@ -132,3 +132,20 @@ Finding recorded: 1 of 5 sampled source tasks has a non-hermetic oracle
 (test-time third-party fetch). To be reported to the source repo's author.
 Note: dates in this file are SGT; Amendment 1's 2026-08-28 is SGT (UTC 08-27).
 Authored by Catherine.
+
+## Amendment 3 — recorded 2026-08-28 SGT, after calibration verdicts, before any probe result
+Calibration outcome: r6 and r10 pass criterion (a) 5/5; r9 fails (a) at 3/5, with
+a diagnosed mechanism — its evidence gate received ~30-70 input tokens of
+stderr reconstructed from unit tests, versus ~10k tokens of typed evidence the
+source fed from an external capture harness that is not vendored in the public
+repo (J-11). r9 is therefore not reproducible from published artifacts.
+Disposition: r9 is EXCLUDED from this cycle's probe and its calibration failure
+is published as the fidelity finding the base rule promises. r6 and r10 proceed
+under Amendment 1 ((a) pass, (b)-only failure). Probe scope: {W6, W4b, W4} x
+{r6, r10} x rep1-3 = 18 cells.
+The (b) gaps (+1179% r6, +1022% r10) exceed the +-30% frame by far: source-vs-lab
+cost comparisons are NOT meaningful under the J-2 substitution and none will be
+published; cost claims are within-lab only, as the prereg's scope section states.
+Prediction restated: the r9-worst leg of the evidence-dependence ordering is
+untestable this cycle; the graded comparison is r10 vs r6 vs anchors.
+Authored by Catherine.
