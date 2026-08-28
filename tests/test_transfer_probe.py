@@ -3,13 +3,17 @@
 ``harness/runner/transfer_probe.py`` owns three things that cost money if they
 are wrong, and these tests pin all three.
 
-  * **The cell list** must be the registered one — 27 cells, the prereg's run
-    order, no silent extra rep and no silently dropped arm.
+  * **The cell list** must be the registered one — 18 cells since the prereg's
+    Amendment 3 excluded r9, the prereg's run order, no silent extra rep and no
+    silently dropped arm. The drop of r9 is asserted against the amendment, so a
+    fourth arm going missing still fails.
   * **The preflight** must refuse. Two of its refusals (the frozen
     ``configuration_id`` enum and the absent manifest policy pins) are live in
     this repo right now, so the tests assert against reality rather than against
     a mock; if a human widens the enum or pins the specs, the corresponding test
     flips to asserting the refusal has cleared, which is what it should do.
+    The one waivable refusal (CALIBRATION) has its waiver pinned too: what it
+    clears, what it must NOT clear, and that the reason reaches the dataset.
   * **Resume** must skip a cell that already produced a run directory. Getting
     this wrong re-buys cells that were already paid for — the same failure mode
     tests/test_batch_driver_resume.py pins for the screening driver.
@@ -37,25 +41,43 @@ def manifest():
 
 
 class RegisteredScope(unittest.TestCase):
-    """27 cells, {W6,W4b,W4} x {r9,r6,r10} x rep1-3, per the prereg."""
+    """18 cells, {W6,W4b,W4} x {r6,r10} x rep1-3 — the prereg as amended."""
 
     def setUp(self) -> None:
         self.cells = T.plan_cells()
 
-    def test_there_are_exactly_twenty_seven_cells(self) -> None:
-        self.assertEqual(len(self.cells), 27)
+    def test_there_are_exactly_eighteen_cells(self) -> None:
+        self.assertEqual(len(self.cells), 18)
 
     def test_the_three_registered_tasks_and_no_others(self) -> None:
         self.assertEqual({c.task_key for c in self.cells}, {"W4", "W6", "W4b"})
 
-    def test_the_three_registered_arms_and_no_others(self) -> None:
-        self.assertEqual({c.config_id for c in self.cells}, {"R9", "R6", "R10"})
+    def test_the_two_in_plan_arms_and_no_others(self) -> None:
+        self.assertEqual({c.config_id for c in self.cells}, {"R6", "R10"})
+
+    def test_r9_is_excluded_and_the_exclusion_is_stated_not_silent(self) -> None:
+        """Amendment 3. An arm may leave the plan only by being named as gone."""
+        self.assertNotIn("R9", {c.config_id for c in self.cells})
+        excluded = dict(T.EXCLUDED_CONFIGS)
+        self.assertIn("R9", excluded)
+        self.assertIn("Amendment 3", excluded["R9"])
+
+    def test_the_excluded_arm_keeps_its_spec_and_manifest_pin(self) -> None:
+        """Excluded from THIS cycle, not retracted: r9 must still load and be pinned.
+
+        If dropping an arm from the plan also quietly unpinned it, the fidelity
+        finding the exclusion produces would cite a spec nothing verifies.
+        """
+        from harness.runner.run import TRANSFER_CONFIGS, policy_manifest_pin
+
+        self.assertIn("R9", TRANSFER_CONFIGS)
+        self.assertTrue(policy_manifest_pin(manifest(), "R9"))
 
     def test_every_task_arm_pair_gets_exactly_three_reps(self) -> None:
         counts = {}
         for c in self.cells:
             counts[(c.task_key, c.config_id)] = counts.get((c.task_key, c.config_id), 0) + 1
-        self.assertEqual(len(counts), 9)
+        self.assertEqual(len(counts), 6)
         self.assertEqual(set(counts.values()), {3})
 
     def test_no_cell_is_duplicated(self) -> None:
@@ -72,10 +94,10 @@ class RegisteredScope(unittest.TestCase):
                          "means the tasks were interleaved")
 
     def test_reps_are_nested_inside_arms_so_a_cut_off_batch_stays_comparable(self) -> None:
-        """Rep-before-arm: any prefix has equal reps of all three arms per task."""
-        first_nine = self.cells[:9]
-        self.assertEqual([c.rep for c in first_nine], [1, 1, 1, 2, 2, 2, 3, 3, 3])
-        self.assertEqual([c.config_id for c in first_nine[:3]], ["R9", "R6", "R10"])
+        """Rep-before-arm: any prefix has equal reps of both arms per task."""
+        first_six = self.cells[:6]
+        self.assertEqual([c.rep for c in first_six], [1, 1, 2, 2, 3, 3])
+        self.assertEqual([c.config_id for c in first_six[:2]], ["R6", "R10"])
 
     def test_every_task_directory_exists_and_is_not_a_hidden_dir(self) -> None:
         for _key, rel in T.TASKS:
@@ -83,7 +105,7 @@ class RegisteredScope(unittest.TestCase):
             self.assertNotIn("hidden", rel)
 
     def test_the_cell_index_is_one_based_and_contiguous(self) -> None:
-        self.assertEqual([c.index for c in self.cells], list(range(1, 28)))
+        self.assertEqual([c.index for c in self.cells], list(range(1, 19)))
 
 
 class Timing(unittest.TestCase):
@@ -124,7 +146,7 @@ class CellCommands(unittest.TestCase):
     def test_the_command_carries_every_registered_run_condition(self) -> None:
         argv = T.cell_command(self.cell, spend_cap_usd=300.0, dry_run=False)
         pairs = dict(zip(argv, argv[1:]))
-        self.assertEqual(pairs["--config"], "R9")
+        self.assertEqual(pairs["--config"], "R6")
         self.assertEqual(pairs["--phase"], "transfer-probe")
         self.assertEqual(pairs["--profile"], "transfer-probe")
         self.assertEqual(pairs["--cache-state"], "cold")
@@ -199,20 +221,30 @@ class Preflight(unittest.TestCase):
             refusals = T.preflight(doc, calibration_dir=tmp)
         codes = [r.code for r in refusals]
         self.assertEqual(sorted(set(codes)), ["CALIBRATION", "MANIFEST-PIN"])
-        self.assertEqual(codes.count("MANIFEST-PIN"), 3,
-                         "one refusal per unpinned arm, not one for the batch")
+        self.assertEqual(codes.count("MANIFEST-PIN"), len(T.CONFIGS),
+                         "one refusal per unpinned in-plan arm, not one for the batch")
 
     def test_the_specs_themselves_load_cleanly(self) -> None:
         self.assertNotIn("SPEC", self.codes,
                          "a strategy spec or one of its pinned extracts has drifted")
 
     def test_calibration_blocks_until_it_has_been_run(self) -> None:
-        """The automatic gate. Flips to clear only once three live reports pass."""
+        """The automatic gate. Flips to clear only once the in-plan reports pass."""
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
             codes = {r.code for r in T.preflight(manifest(), calibration_dir=tmp)}
             self.assertIn("CALIBRATION", codes)
+
+    def test_the_gate_reads_only_the_arms_this_batch_will_run(self) -> None:
+        """r9 is excluded, so r9's report must not gate r6 and r10.
+
+        The reverse — an in-plan arm silently dropped from the gate — is the
+        expensive mistake, so the strategy list is derived from CONFIGS.
+        """
+        self.assertEqual(T.calibration_strategies(), ["r6", "r10"])
+        detail = " ".join(r.detail for r in self.refusals if r.code == "CALIBRATION")
+        self.assertNotIn("r9", detail)
 
     def test_the_frozen_schema_enum_blocks_the_arms(self) -> None:
         """R9/R6/R10 are outside the CP-SCHEMA enum; widening it is a human call.
@@ -224,7 +256,7 @@ class Preflight(unittest.TestCase):
         from harness.runner.run import schema_configuration_ids
 
         allowed = set(schema_configuration_ids())
-        if {"R9", "R6", "R10"} <= allowed:
+        if set(T.CONFIGS) <= allowed:
             self.assertNotIn("SCHEMA-ENUM", self.codes)
         else:
             self.assertIn("SCHEMA-ENUM", self.codes)
@@ -245,7 +277,7 @@ class Preflight(unittest.TestCase):
             doc["routing_policies"][config_id] = {"sha256": "sha256:" + "0" * 64}
         refusals = T.preflight(doc)
         pins = [r for r in refusals if r.code == "MANIFEST-PIN"]
-        self.assertEqual(len(pins), 3)
+        self.assertEqual(len(pins), len(T.CONFIGS))
         for r in pins:
             self.assertIn("hashes to", r.detail)
 
@@ -264,6 +296,120 @@ class Preflight(unittest.TestCase):
         self.assertEqual(listed, "RESULTS-README" not in self.codes)
 
 
+class CalibrationOverride(unittest.TestCase):
+    """The one waivable refusal: what the waiver clears, and what it must not.
+
+    The calibration reports say ``fail`` and are never edited — the waiver is
+    recorded beside the data instead. These tests pin that bargain: if the
+    override ever grew to cover a second gate, or stopped writing its reason into
+    the dataset, a batch could be bought on an unrecorded human say-so.
+    """
+
+    def setUp(self) -> None:
+        self.doc = manifest()
+
+    def test_the_override_clears_the_calibration_refusal(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            codes = {r.code for r in T.preflight(self.doc, calibration_dir=tmp,
+                                                 calibration_override=True)}
+        self.assertNotIn("CALIBRATION", codes)
+
+    def test_the_override_clears_nothing_else(self) -> None:
+        """Spec, schema, pins and README are not the human's to wave through."""
+        import tempfile
+
+        doc = manifest()
+        doc.pop("routing_policies", None)
+        with tempfile.TemporaryDirectory() as tmp:
+            codes = [r.code for r in T.preflight(doc, calibration_dir=tmp,
+                                                 calibration_override=True)]
+        self.assertEqual(sorted(set(codes)), ["MANIFEST-PIN"])
+        self.assertEqual(len(codes), len(T.CONFIGS))
+
+    def test_the_override_is_not_a_spend_approval(self) -> None:
+        """LAB_ALLOW_SPEND is a separate gate and the override cannot stand in."""
+        env = os.environ.pop("LAB_ALLOW_SPEND", None)
+        try:
+            buf, err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(err):
+                rc = T.main(["--live", "--launch", "--calibration-override"])
+            self.assertEqual(rc, T.EXIT_REFUSED)
+            self.assertIn("LAB_ALLOW_SPEND", err.getvalue())
+        finally:
+            if env is not None:
+                os.environ["LAB_ALLOW_SPEND"] = env
+
+    def test_the_reason_is_fixed_and_names_the_amendments(self) -> None:
+        """Not operator free text: a waiver is a pre-registered decision."""
+        reason = T.CALIBRATION_OVERRIDE_REASON
+        self.assertEqual(
+            reason,
+            "Amendment 1+3: (a) pass for all in-plan strategies, (b) waived, "
+            "r9 excluded")
+
+    def test_the_reason_reaches_the_dataset_marker(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "dataset")
+            path = T.write_marker(out, T.task_timeouts(),
+                                  calibration_override=True,
+                                  gate_reasons=["r6: calibration verdict is 'fail'"])
+            with open(path, encoding="utf-8") as fh:
+                text = fh.read()
+        self.assertIn(T.CALIBRATION_OVERRIDE_REASON, text)
+        self.assertIn("OVERRIDDEN", text)
+        self.assertIn("r6: calibration verdict is 'fail'", text,
+                      "the marker must record what the gate objected to, not just "
+                      "that a human disagreed")
+        self.assertIn("NEW ARM CONDITION", text, "the timing marker is still a marker")
+
+    def test_a_marker_written_without_the_override_claims_no_waiver(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = T.write_marker(os.path.join(tmp, "dataset"), T.task_timeouts())
+            with open(path, encoding="utf-8") as fh:
+                text = fh.read()
+        self.assertNotIn("OVERRIDDEN", text)
+
+    def test_the_plan_says_the_gate_was_overridden_rather_than_clear(self) -> None:
+        text = T.render_plan(T.plan_cells(), T.task_timeouts(), T.task_ids(),
+                             [], {}, spend_cap_usd=225.0, dry_run=False,
+                             out_root=None, manifest_path=None,
+                             calibration_override=True,
+                             gate_reasons=["r10: calibration verdict is 'fail'"])
+        self.assertIn("OVERRIDDEN", text)
+        self.assertIn(T.CALIBRATION_OVERRIDE_REASON, text)
+        self.assertIn("--calibration-override", text,
+                      "the printed launch command must carry the flag it needs")
+
+    def test_the_calibration_reports_are_not_touched_by_the_override(self) -> None:
+        """The waiver never launders the evidence: the reports still say fail."""
+        import hashlib
+
+        paths = [os.path.join(T.CALIBRATION_DIR, sid, "calibration-report.json")
+                 for sid in T.calibration_strategies()]
+        before = {}
+        for path in paths:
+            if not os.path.exists(path):
+                self.skipTest("calibration has not been run in this checkout")
+            with open(path, "rb") as fh:
+                before[path] = hashlib.sha256(fh.read()).hexdigest()
+
+        T.preflight(self.doc, calibration_override=True)
+
+        for path, digest in before.items():
+            with open(path, "rb") as fh:
+                self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), digest, path)
+            with open(path, encoding="utf-8") as fh:
+                self.assertEqual(json.load(fh).get("verdict"), "fail",
+                                 "the override exists precisely because the report "
+                                 "says fail; if it says pass, the waiver is stale")
+
+
 class Resume(unittest.TestCase):
     """A settled cell must never be re-bought."""
 
@@ -280,9 +426,9 @@ class Resume(unittest.TestCase):
 
         ids = T.task_ids()
         with tempfile.TemporaryDirectory() as tmp:
-            self._dataset(tmp, [f"{ids['W4']}__R9__rep1__20260827T120000"])
+            self._dataset(tmp, [f"{ids['W4']}__R6__rep1__20260827T120000"])
             settled = T.completed_cells(tmp, ids)
-            self.assertIn((ids["W4"], "R9", 1), settled)
+            self.assertIn((ids["W4"], "R6", 1), settled)
             self.assertEqual(len(settled), 1)
 
     def test_a_run_directory_without_a_result_is_not_settled(self) -> None:
@@ -290,7 +436,7 @@ class Resume(unittest.TestCase):
 
         ids = T.task_ids()
         with tempfile.TemporaryDirectory() as tmp:
-            os.makedirs(os.path.join(tmp, f"{ids['W4']}__R9__rep1__20260827T120000"))
+            os.makedirs(os.path.join(tmp, f"{ids['W4']}__R6__rep1__20260827T120000"))
             self.assertEqual(T.completed_cells(tmp, ids), {},
                              "a cell killed mid-flight must be retried, not skipped")
 
@@ -330,7 +476,7 @@ class Modes(unittest.TestCase):
         rc, out, err = self._main([])
         self.assertEqual(rc, T.EXIT_PLAN_ONLY)
         self.assertIn("PLAN ONLY", err)
-        self.assertIn("27 registered cells", out)
+        self.assertIn("18 registered cells", out)
 
     def test_live_without_launch_only_prints_the_plan(self) -> None:
         rc, _out, _err = self._main(["--live"])
@@ -366,7 +512,7 @@ class Modes(unittest.TestCase):
         self.assertIn("2026-08-27-transfer-probe.md", text)
         self.assertIn("cp-spend-transfer-probe.md", text)
         self.assertIn("NEW ARM CONDITION", text)
-        self.assertEqual(text.count("pending"), 27)
+        self.assertEqual(text.count("pending"), 18)
 
 
 class NoStrayWrites(unittest.TestCase):

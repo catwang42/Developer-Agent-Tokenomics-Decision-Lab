@@ -1,13 +1,22 @@
-"""Transfer-probe driver — the 27 registered cells, and the gate in front of them.
+"""Transfer-probe driver — the 18 registered cells, and the gate in front of them.
 
-Registered scope (``manifest/preregistrations/2026-08-27-transfer-probe.md``):
-``{W6, W4b, W4} x {r9, r6, r10} x rep1-3 = 27 cells``, dataset ``results/transfer-probe``,
-spend cap ``$300`` **shared with the calibration path**
+Registered scope (``manifest/preregistrations/2026-08-27-transfer-probe.md``) as
+amended: the base registration is ``{W6, W4b, W4} x {r9, r6, r10} x rep1-3 = 27
+cells``; **Amendment 3** excludes r9 from this cycle, leaving
+``{W6, W4b, W4} x {r6, r10} x rep1-3 = 18 cells``, dataset
+``results/transfer-probe``, spend cap ``$300`` **shared with the calibration path**
 (``manifest/cp-spend-transfer-probe.md``).
+
+r9 is not dropped for being inconvenient: it failed calibration criterion (a) at
+3/5 with a diagnosed mechanism (its evidence gate saw ~30-70 input tokens of
+stderr reconstructed from unit tests against the ~10k tokens of typed evidence
+the source fed from a capture harness that is not vendored — caveat J-11), so it
+is not reproducible from published artifacts. Its calibration failure is
+published as the fidelity finding rather than run as a probe arm.
 
 What this module is for
 -----------------------
-Everything that makes a batch of 27 live cells a *registered experiment* rather
+Everything that makes a batch of 18 live cells a *registered experiment* rather
 than a loop: the cell list and its order, the resume rule, the dataset marker,
 and — most of the module — the PREFLIGHT that refuses to start. It deliberately
 owns none of the per-run machinery. Each cell is executed by shelling out to
@@ -26,10 +35,14 @@ Three of the four refusals below are things that would otherwise be discovered
   1. **Calibration.** The probe's whole claim is that these are the source's
      strategies, not our paraphrase of them. That claim is only tested by
      ``harness/runner/transfer_calibration.py`` running them under the SOURCE's
-     own unit-test oracle. Until every strategy has a passing, non-dry-run
-     calibration report, a probe result measures an unvalidated reimplementation
-     and cannot be attributed to the published strategies at all. This gate is
-     automatic (prompt section D) and there is no flag to skip it.
+     own unit-test oracle. Until every IN-PLAN strategy has a passing,
+     non-dry-run calibration report, a probe result measures an unvalidated
+     reimplementation and cannot be attributed to the published strategies at
+     all. The gate reads only the arms this batch will actually run, so
+     excluding r9 (Amendment 3) also removes r9's report from the gate. It can
+     be overridden only by ``--calibration-override``, which is a HUMAN decision
+     that writes its reason into the dataset marker — see
+     :data:`CALIBRATION_OVERRIDE_REASON`.
   2. **The schema enum.** ``configuration_id`` is frozen under CP-SCHEMA and does
      not contain R9/R6/R10. A run whose id the schema will not accept executes,
      bills, and *then* fails validation at the summary step — 27 times. Widening
@@ -40,9 +53,11 @@ Three of the four refusals below are things that would otherwise be discovered
      did this run execute?", and CLAUDE.md rule 7 keeps model/price detail in the
      manifest. Pinning the three spec yamls is a human freeze, not a driver's job.
 
-Refusals 2 and 3 are therefore expected to fire today: **this driver cannot
-launch as shipped, by design.** It prints what a human must do. The fourth
-refusal is the ordinary one (``LAB_ALLOW_SPEND=1`` + a CP-SPEND approval).
+Refusals 2 and 3 fired as shipped and have since been cleared by the humans they
+name: the enum was widened under CP-SCHEMA on 2026-08-27 and the three specs are
+pinned in the manifest. Refusal 1 stands on its report and is waivable only as
+described above. The fourth refusal is the ordinary one (``LAB_ALLOW_SPEND=1`` +
+a CP-SPEND approval) and is not waivable at all.
 
 Timing
 ------
@@ -104,8 +119,29 @@ TASKS: Tuple[Tuple[str, str], ...] = (
 
 #: Configuration ids as ``run.py --config`` takes them (uppercase), in the
 #: prereg's order. ``TRANSFER_CONFIGS`` in run.py maps these to the spec ids.
-CONFIGS: Tuple[str, ...] = ("R9", "R6", "R10")
+#: R9 was registered here and was removed by Amendment 3; it stays in run.py's
+#: map and keeps its spec, manifest pin and calibration report, because the
+#: exclusion is a scope decision about THIS cycle, not a retraction of the arm.
+CONFIGS: Tuple[str, ...] = ("R6", "R10")
+
+#: Excluded by Amendment 3, kept named so the plan can say so out loud rather
+#: than a reader having to notice an absence.
+EXCLUDED_CONFIGS: Tuple[Tuple[str, str], ...] = (
+    ("R9", "Amendment 3: calibration (a) 3/5 with a diagnosed non-reproducibility "
+            "(J-11); published as the fidelity finding instead of run"),
+)
+
 REPS: Tuple[int, ...] = (1, 2, 3)
+
+#: The one reason ``--calibration-override`` records. A fixed string, not an
+#: operator-supplied one: the waiver it names is a specific pre-registered
+#: decision (Amendment 1 waives criterion (b); Amendment 3 excludes r9 and lets
+#: r6 and r10 proceed on their 5/5 criterion (a)), and a free-text field would
+#: turn a checkpointed decision into whatever the person at the keyboard typed.
+#: A different waiver needs a different amendment and a different constant.
+CALIBRATION_OVERRIDE_REASON = (
+    "Amendment 1+3: (a) pass for all in-plan strategies, (b) waived, r9 excluded"
+)
 
 #: House posture, unchanged from screening batch 1 (scripts/screening-batch1-driver.sh):
 #: cold cache, container isolation, allowlisted egress.
@@ -147,13 +183,13 @@ class Cell:
 def plan_cells(tasks: Sequence[Tuple[str, str]] = TASKS,
                configs: Sequence[str] = CONFIGS,
                reps: Sequence[int] = REPS) -> List[Cell]:
-    """The 27 cells in the order they will be run.
+    """The 18 cells in the order they will be run.
 
     Task-major (the registered run order), then REP, then arm. The rep-before-arm
     nesting is the one free choice here and it is made for interruption safety:
-    a batch cut off at any point has run the same number of reps of all three
+    a batch cut off at any point has run the same number of reps of both in-plan
     arms on the task in flight, so the arms stay comparable on partial data. The
-    alternative (arm-major) would leave, say, three reps of r9 and none of r10 —
+    alternative (arm-major) would leave, say, three reps of r6 and none of r10 —
     a partial dataset that cannot be read at all. Interruption is the expected
     case, not the exceptional one: the idle reaper on this VM can stop a long
     batch, which is why resume exists (:func:`completed_cells`).
@@ -225,9 +261,22 @@ class Refusal:
         return f"  [{self.code}] {self.detail}\n      -> {self.remedy}"
 
 
-def _calibration_refusals(calibration_dir: str) -> List[Refusal]:
-    ok, reasons = CAL.calibration_is_clear(calibration_dir)
-    if ok:
+def calibration_strategies(configs: Sequence[str] = CONFIGS) -> List[str]:
+    """The strategy ids the gate reads: the in-plan arms, lowercased.
+
+    Derived from the cell list rather than from ``CAL.STRATEGIES`` so that an arm
+    excluded from the batch is also excluded from the gate. Reading all three
+    would make r9's calibration failure — the very reason it is not being run —
+    block the two arms Amendment 3 says proceed.
+    """
+    return [c.lower() for c in configs]
+
+
+def _calibration_refusals(calibration_dir: str, configs: Sequence[str] = CONFIGS,
+                          *, override: bool = False) -> List[Refusal]:
+    ok, reasons = CAL.calibration_is_clear(calibration_dir,
+                                           calibration_strategies(configs))
+    if ok or override:
         return []
     return [Refusal(
         code="CALIBRATION",
@@ -235,8 +284,23 @@ def _calibration_refusals(calibration_dir: str) -> List[Refusal]:
                 "own oracle: " + "; ".join(reasons)),
         remedy=("run the calibration command printed below to completion and check "
                 "its report; a probe run before it measures our reimplementation, "
-                "not the published strategies"),
+                "not the published strategies. If the report is a considered human "
+                "waiver rather than a missing run, pass --calibration-override, "
+                "which records the waiver in the dataset marker"),
     )]
+
+
+def calibration_override_note(calibration_dir: str,
+                              configs: Sequence[str] = CONFIGS) -> List[str]:
+    """The gate's own reasons, for the record. Empty when the gate is clear.
+
+    What the override is overriding, in the gate's words rather than the
+    operator's, so the marker states both and a reader can disagree with the
+    human without re-running anything.
+    """
+    _ok, reasons = CAL.calibration_is_clear(calibration_dir,
+                                            calibration_strategies(configs))
+    return reasons
 
 
 def _schema_refusals(configs: Sequence[str] = CONFIGS) -> List[Refusal]:
@@ -341,15 +405,21 @@ def _results_readme_refusals(dataset: str = DATASET,
 
 def preflight(manifest: Dict[str, Any], *, calibration_dir: str = CALIBRATION_DIR,
               configs: Sequence[str] = CONFIGS,
-              dataset: str = DATASET) -> List[Refusal]:
+              dataset: str = DATASET,
+              calibration_override: bool = False) -> List[Refusal]:
     """Everything that must be true before a single dollar is spent.
 
     All checks run and ALL refusals are returned, never just the first: an
     operator fixing a schema enum only to be told about a manifest pin, then
     about calibration, is three round-trips where one would do.
+
+    ``calibration_override`` suppresses the CALIBRATION refusal and nothing else.
+    It cannot reach the spec, schema, manifest-pin or README gates, and it does
+    not touch ``LAB_ALLOW_SPEND``.
     """
     return (_spec_refusals(configs)
-            + _calibration_refusals(calibration_dir)
+            + _calibration_refusals(calibration_dir, configs,
+                                    override=calibration_override)
             + _schema_refusals(configs)
             + _manifest_pin_refusals(manifest, configs)
             + _results_readme_refusals(dataset))
@@ -431,7 +501,8 @@ def cell_command(cell: Cell, *, spend_cap_usd: float, dry_run: bool,
 
 
 def launch_commands(*, spend_cap_usd: float = DEFAULT_SPEND_CAP_USD,
-                    source_root: str = "<path-to-source-checkout>") -> List[Tuple[str, str]]:
+                    source_root: str = "<path-to-source-checkout>",
+                    calibration_override: bool = False) -> List[Tuple[str, str]]:
     """``(label, command)`` for the two live launches, in the order they must run.
 
     Calibration first and probe second is not a preference: the probe's preflight
@@ -450,8 +521,11 @@ def launch_commands(*, spend_cap_usd: float = DEFAULT_SPEND_CAP_USD,
         "  --live --launch \\\n"
         f"  --spend-cap-usd {spend_cap_usd:g}"
     )
+    if calibration_override:
+        probe += " \\\n  --calibration-override"
+    n_cells = len(TASKS) * len(CONFIGS) * len(REPS)
     return [("1. calibration (gates the probe)", calib),
-            ("2. probe (27 cells)", probe)]
+            (f"2. probe ({n_cells} cells)", probe)]
 
 
 def shared_cap_note(spend_cap_usd: float) -> str:
@@ -489,13 +563,17 @@ def render_plan(cells: Sequence[Cell], timeouts: Dict[str, int],
                 ids: Dict[str, str], refusals: Sequence[Refusal],
                 settled: Dict[Tuple[str, str, int], str],
                 *, spend_cap_usd: float, dry_run: bool,
-                out_root: Optional[str], manifest_path: Optional[str]) -> str:
+                out_root: Optional[str], manifest_path: Optional[str],
+                calibration_override: bool = False,
+                gate_reasons: Sequence[str] = ()) -> str:
     """The whole plan as text: cells, timing, resume state, preflight, commands."""
     lines: List[str] = []
     lines.append(f"transfer probe — {len(cells)} registered cells "
                  f"(dataset results/{DATASET})")
     lines.append("prereg: manifest/preregistrations/2026-08-27-transfer-probe.md")
     lines.append("CP-SPEND: manifest/cp-spend-transfer-probe.md")
+    for config_id, why in EXCLUDED_CONFIGS:
+        lines.append(f"excluded arm: {config_id} — {why}")
     lines.append("")
     lines.append(f"profile: {PROFILE.name} — {PROFILE.summary}")
     lines.append("  NEW ARM CONDITION: not comparable with batch-1/batch-2 timing.")
@@ -529,9 +607,16 @@ def render_plan(cells: Sequence[Cell], timeouts: Dict[str, int],
             lines.append(r.render())
     else:
         lines.append("PREFLIGHT: clear")
+    if calibration_override:
+        lines.append("  [CALIBRATION] OVERRIDDEN by --calibration-override (human).")
+        lines.append(f"      reason recorded in the dataset marker: "
+                     f"{CALIBRATION_OVERRIDE_REASON}")
+        for reason in gate_reasons:
+            lines.append(f"      gate said: {reason}")
     lines.append("")
     lines.append("launch commands (verbatim; this driver does not run them)")
-    for label, command in launch_commands(spend_cap_usd=spend_cap_usd):
+    for label, command in launch_commands(spend_cap_usd=spend_cap_usd,
+                                          calibration_override=calibration_override):
         lines.append("")
         lines.append(f"  # {label}")
         for line in command.splitlines():
@@ -545,12 +630,50 @@ def render_plan(cells: Sequence[Cell], timeouts: Dict[str, int],
     return "\n".join(lines) + "\n"
 
 
-def write_marker(batch_dir: str, timeouts: Dict[str, int]) -> str:
-    """Write the dataset's NEW-ARM timing marker. Called only at launch."""
+def write_marker(batch_dir: str, timeouts: Dict[str, int],
+                 *, calibration_override: bool = False,
+                 gate_reasons: Sequence[str] = ()) -> str:
+    """Write the dataset's NEW-ARM timing marker. Called only at launch.
+
+    When the calibration gate was overridden the marker also carries the waiver:
+    the fixed reason, the gate's own objections, and the scope. The dataset is
+    the only artifact a later reader is guaranteed to have in front of them, so
+    a waiver that lived only in a shell history would be invisible at CP-DATA.
+    """
     os.makedirs(batch_dir, exist_ok=True)
     path = os.path.join(batch_dir, "TIMING-PROFILE.md")
+    text = P.dataset_marker(PROFILE, dataset=f"results/{DATASET}", tasks=timeouts)
+    if calibration_override:
+        lines = [
+            "## Calibration gate: OVERRIDDEN by a human",
+            "",
+            f"Reason recorded: **{CALIBRATION_OVERRIDE_REASON}**",
+            "",
+            "Invoked as `--calibration-override`. Scope: the CALIBRATION preflight "
+            "refusal only. The spec, schema-enum, manifest-pin and results-README "
+            "gates were satisfied, not waived, and `LAB_ALLOW_SPEND=1` was still "
+            "required.",
+            "",
+            f"In-plan arms at launch: {', '.join(CONFIGS)}. "
+            f"Excluded: {', '.join(c for c, _ in EXCLUDED_CONFIGS)} "
+            "(see the prereg's Amendment 3).",
+            "",
+        ]
+        if gate_reasons:
+            lines += ["What the gate objected to, in its own words:", ""]
+            lines += [f"- {reason}" for reason in gate_reasons]
+            lines += [""]
+        lines += [
+            "The calibration reports were NOT edited. "
+            "`results/transfer-probe-calibration/` records verdict `fail` for every "
+            "strategy and is the evidence for this waiver, not a contradiction of it: "
+            "the failure is criterion (b), a source-vs-lab price comparison that "
+            "Amendment 1 waived as unpassable under the J-2 model substitution.",
+            "",
+        ]
+        text = text + "\n".join(lines)
     with open(path, "w", encoding="utf-8") as fh:
-        fh.write(P.dataset_marker(PROFILE, dataset=f"results/{DATASET}", tasks=timeouts))
+        fh.write(text)
     return path
 
 
@@ -572,7 +695,8 @@ def append_ledger(batch_dir: str, record: Dict[str, Any]) -> None:
 # --------------------------------------------------------------------------- #
 def run_probe(*, mode: str, spend_cap_usd: float, manifest_path: str,
               out_root: Optional[str], calibration_dir: str,
-              cells: Optional[Sequence[Cell]] = None) -> int:
+              cells: Optional[Sequence[Cell]] = None,
+              calibration_override: bool = False) -> int:
     """Plan, preflight and (only if asked) execute the registered cells."""
     import yaml
 
@@ -591,14 +715,19 @@ def run_probe(*, mode: str, spend_cap_usd: float, manifest_path: str,
         batch_dir = DATASET_DIR
 
     settled = completed_cells(batch_dir, ids)
-    refusals = preflight(manifest, calibration_dir=calibration_dir)
+    refusals = preflight(manifest, calibration_dir=calibration_dir,
+                         calibration_override=calibration_override)
+    gate_reasons = (calibration_override_note(calibration_dir)
+                    if calibration_override else [])
     manifest_arg = (manifest_path
                     if os.path.abspath(manifest_path) != os.path.abspath(DEFAULT_MANIFEST)
                     else None)
 
     print(render_plan(cells, timeouts, ids, refusals, settled,
                       spend_cap_usd=spend_cap_usd, dry_run=dry_run,
-                      out_root=out_root, manifest_path=manifest_arg))
+                      out_root=out_root, manifest_path=manifest_arg,
+                      calibration_override=calibration_override,
+                      gate_reasons=gate_reasons))
 
     if mode == "plan-only":
         print("[probe] PLAN ONLY — nothing was launched.", file=sys.stderr)
@@ -624,8 +753,13 @@ def run_probe(*, mode: str, spend_cap_usd: float, manifest_path: str,
         return EXIT_REFUSED
 
     os.makedirs(batch_dir, exist_ok=True)
-    marker = write_marker(batch_dir, timeouts)
+    marker = write_marker(batch_dir, timeouts,
+                          calibration_override=calibration_override,
+                          gate_reasons=gate_reasons)
     print(f"[probe] timing marker: {marker}")
+    if calibration_override:
+        print(f"[probe] calibration gate OVERRIDDEN — recorded in {marker}: "
+              f"{CALIBRATION_OVERRIDE_REASON}")
 
     overall = EXIT_OK
     failed: List[str] = []
@@ -679,8 +813,9 @@ def run_probe(*, mode: str, spend_cap_usd: float, manifest_path: str,
 
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
-        description=("Transfer-probe driver: 27 registered cells "
-                     "({W6,W4b,W4} x {r9,r6,r10} x rep1-3) into results/transfer-probe. "
+        description=("Transfer-probe driver: 18 registered cells "
+                     "({W6,W4b,W4} x {r6,r10} x rep1-3, r9 excluded by the prereg's "
+                     "Amendment 3) into results/transfer-probe. "
                      "Default mode prints the plan and launches nothing."))
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--plan-only", action="store_true",
@@ -698,6 +833,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--manifest", default=DEFAULT_MANIFEST)
     ap.add_argument("--calibration-dir", default=CALIBRATION_DIR,
                     help="where the calibration reports live (the preflight gate)")
+    ap.add_argument("--calibration-override", action="store_true",
+                    help="HUMAN WAIVER of the CALIBRATION refusal only, recording "
+                         f"the fixed reason {CALIBRATION_OVERRIDE_REASON!r} into the "
+                         "dataset's TIMING-PROFILE.md. Waives no other gate and does "
+                         "not stand in for LAB_ALLOW_SPEND. The calibration reports "
+                         "are never edited")
     ap.add_argument("--out-root", default=None,
                     help="output root for --dry-run (default: a temp dir; never results/)")
     ap.add_argument("--spend-cap-usd", type=float, default=DEFAULT_SPEND_CAP_USD,
@@ -720,7 +861,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         return run_probe(mode=selected, spend_cap_usd=args.spend_cap_usd,
                          manifest_path=args.manifest, out_root=args.out_root,
-                         calibration_dir=args.calibration_dir)
+                         calibration_dir=args.calibration_dir,
+                         calibration_override=args.calibration_override)
     except (ProbeError, OSError) as exc:
         print(f"[probe] {exc}", file=sys.stderr)
         return EXIT_REFUSED
