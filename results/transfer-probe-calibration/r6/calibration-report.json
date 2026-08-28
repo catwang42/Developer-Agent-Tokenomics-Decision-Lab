@@ -1,0 +1,310 @@
+{
+  "configuration_id": "R6",
+  "criteria": [
+    {
+      "gating": true,
+      "id": "pass_match",
+      "matches": 5,
+      "of": 5,
+      "rule": "per-task pass/fail matches the published row on >= 4 of 5",
+      "status": "pass"
+    },
+    {
+      "detail": "See cost_criterion_blocker in calibration-slice.yaml: this criterion compares a Product-A ladder's bill against a Gemini ladder's and was shown unpassable before the run. A failure here is expected and is NOT evidence that the routing logic differs \u2014 read routing_shape_match for that.",
+      "gating": true,
+      "id": "cost_within_30pct",
+      "measured_slice_usd": 2.5607365,
+      "published_slice_usd": 0.200238,
+      "relative_delta": 11.788464,
+      "rule": "abs(measured - published) / published <= 0.30",
+      "status": "fail"
+    }
+  ],
+  "degraded_cells": [],
+  "diagnostics": [
+    {
+      "gating": false,
+      "id": "routing_shape_match",
+      "matches": 4,
+      "of": 5,
+      "per_task": [
+        {
+          "measured": [
+            "cheap"
+          ],
+          "published": [
+            "cheap"
+          ],
+          "task_id": "BigCodeBench/13"
+        },
+        {
+          "measured": [
+            "cheap",
+            "cheap"
+          ],
+          "published": [
+            "cheap",
+            "cheap"
+          ],
+          "task_id": "BigCodeBench/15"
+        },
+        {
+          "measured": [
+            "cheap",
+            "cheap",
+            "cheap",
+            "frontier"
+          ],
+          "published": [
+            "cheap",
+            "cheap",
+            "cheap",
+            "frontier"
+          ],
+          "task_id": "BigCodeBench/93"
+        },
+        {
+          "measured": [
+            "cheap",
+            "cheap"
+          ],
+          "published": [
+            "cheap",
+            "cheap"
+          ],
+          "task_id": "BigCodeBench/147"
+        },
+        {
+          "measured": [
+            "cheap",
+            "cheap"
+          ],
+          "published": [
+            "cheap",
+            "cheap",
+            "cheap"
+          ],
+          "task_id": "BigCodeBench/241"
+        }
+      ],
+      "rule": "per-task escalation decisions and rung count vs the published rungs"
+    },
+    {
+      "gating": false,
+      "id": "token_volume_delta",
+      "measured": {
+        "confidence": "derived",
+        "value": {
+          "input_tokens": 70,
+          "output_tokens": 31870
+        }
+      },
+      "published": {
+        "input_tokens": 10822,
+        "output_tokens": 24562
+      },
+      "rule": "measured input/output tokens vs published_slice_reference"
+    },
+    {
+      "detail": "a calibration in which the frontier never fires is void regardless of what it scores",
+      "frontier_calls": 1,
+      "gating": false,
+      "id": "frontier_reachability",
+      "rule": "the frontier was called at least once across the slice",
+      "status": "pass"
+    }
+  ],
+  "driver_profile": "transfer-probe",
+  "dry_run": false,
+  "fidelity_caveats": [
+    "J-2: rung identity differs (three Product-A economical rungs vs three Gemini tiers). Rung COUNT and the frontier are preserved.",
+    "J-11: the evidence the gate reads is reconstructed from unittest stderr; the source's typed evidence came from an external capture harness that is not vendored.",
+    "J-12: the subject is an agentic CLI, not a chat completion. Its final response text is graded; agentic overhead is in the bill.",
+    "cost_criterion_blocker: criterion (b) compares two model families' prices and was shown unpassable before the run."
+  ],
+  "gate_kind": "after_ladder",
+  "generated_utc": "2026-08-27T16:50:31+00:00",
+  "grading": "the source's own BigCodeBench unit-test oracle; no lab gate ran",
+  "incomplete": null,
+  "per_task": [
+    {
+      "category": "A_no_gate_fired_all_pass",
+      "degraded": false,
+      "measured_cost": {
+        "basis": "marginal_api_cost",
+        "confidence": "derived",
+        "value": 0.0695145
+      },
+      "measured_passed": true,
+      "measured_shape": [
+        "cheap"
+      ],
+      "pass_match": true,
+      "published_passed": true,
+      "published_shape": [
+        "cheap"
+      ],
+      "stop_reason": "passed",
+      "task_id": "BigCodeBench/13"
+    },
+    {
+      "category": "AMENDMENT_2_REPLACEMENT_uncategorised",
+      "degraded": false,
+      "measured_cost": {
+        "basis": "marginal_api_cost",
+        "confidence": "derived",
+        "value": 0.2174475
+      },
+      "measured_passed": true,
+      "measured_shape": [
+        "cheap",
+        "cheap"
+      ],
+      "pass_match": true,
+      "published_passed": true,
+      "published_shape": [
+        "cheap",
+        "cheap"
+      ],
+      "stop_reason": "passed",
+      "task_id": "BigCodeBench/15"
+    },
+    {
+      "category": "C_all_escalate_all_pass",
+      "degraded": false,
+      "measured_cost": {
+        "basis": "marginal_api_cost",
+        "confidence": "derived",
+        "value": 1.8241765
+      },
+      "measured_passed": true,
+      "measured_shape": [
+        "cheap",
+        "cheap",
+        "cheap",
+        "frontier"
+      ],
+      "pass_match": true,
+      "published_passed": true,
+      "published_shape": [
+        "cheap",
+        "cheap",
+        "cheap",
+        "frontier"
+      ],
+      "stop_reason": "passed",
+      "task_id": "BigCodeBench/93"
+    },
+    {
+      "category": "E_r9_fails_r6_passes",
+      "degraded": false,
+      "measured_cost": {
+        "basis": "marginal_api_cost",
+        "confidence": "derived",
+        "value": 0.318366
+      },
+      "measured_passed": true,
+      "measured_shape": [
+        "cheap",
+        "cheap"
+      ],
+      "pass_match": true,
+      "published_passed": true,
+      "published_shape": [
+        "cheap",
+        "cheap"
+      ],
+      "stop_reason": "passed",
+      "task_id": "BigCodeBench/147"
+    },
+    {
+      "category": "B_r9_only_early_escalation",
+      "degraded": false,
+      "measured_cost": {
+        "basis": "marginal_api_cost",
+        "confidence": "derived",
+        "value": 0.131232
+      },
+      "measured_passed": true,
+      "measured_shape": [
+        "cheap",
+        "cheap"
+      ],
+      "pass_match": true,
+      "published_passed": true,
+      "published_shape": [
+        "cheap",
+        "cheap",
+        "cheap"
+      ],
+      "stop_reason": "passed",
+      "task_id": "BigCodeBench/241"
+    }
+  ],
+  "prereg": "manifest/preregistrations/2026-08-27-transfer-probe.md",
+  "pricing_snapshot": "pricing/prices-2026-08-16.json",
+  "reference_consistency": {
+    "as_run_usd_total_matches_rows": true,
+    "declared_total_usd": 0.200238,
+    "pass_vector_matches_rows": true,
+    "summed_rows_usd": 0.200238
+  },
+  "report_type": "transfer-probe-calibration",
+  "slice_id": "bcb-hard-5-2026-08-28-amd2",
+  "source_provenance": {
+    "files": [
+      {
+        "bytes": 779277,
+        "path": "/tmp/lexha-src/bigCodeBench-hard/data/BigCodeBench-Hard-v0.1.4.jsonl",
+        "repo_path": "bigCodeBench-hard/data/BigCodeBench-Hard-v0.1.4.jsonl",
+        "sha256": "5700298a2f3f6a1bc5eae393d3891ce675248ae2bc67c57e999ed64cf37df895"
+      },
+      {
+        "bytes": 3493685,
+        "path": "/tmp/lexha-src/bigCodeBench-hard/results/bcb_router_results.json",
+        "repo_path": "bigCodeBench-hard/results/bcb_router_results.json",
+        "sha256": "3ab058dd6e2e9036c6314b33189367455c4c15b6d1ab75ab5d65fa69b64346e9"
+      }
+    ],
+    "licence": "Apache-2.0",
+    "oracle_environment": [
+      {
+        "canonical_passed": true,
+        "detail": "",
+        "libs": "['subprocess', 'ftplib', 'os']",
+        "task_id": "BigCodeBench/13"
+      },
+      {
+        "canonical_passed": true,
+        "detail": "",
+        "libs": "['subprocess', 'csv', 'os']",
+        "task_id": "BigCodeBench/15"
+      },
+      {
+        "canonical_passed": true,
+        "detail": "",
+        "libs": "['pandas', 'numpy', 'matplotlib', 'sklearn']",
+        "task_id": "BigCodeBench/93"
+      },
+      {
+        "canonical_passed": true,
+        "detail": "",
+        "libs": "['threading', 'socket', 'ipaddress']",
+        "task_id": "BigCodeBench/147"
+      },
+      {
+        "canonical_passed": true,
+        "detail": "",
+        "libs": "['numpy', 'matplotlib', 'sklearn']",
+        "task_id": "BigCodeBench/241"
+      }
+    ],
+    "repo": "https://github.com/lexha-redstone/tokenomics-benchmark-multi-llms",
+    "sha": "1a18b04385f9a0da16439ba5f48a2f68ac08d53d",
+    "verified": true
+  },
+  "spec_sha256": "936b6dda8d9c3f2beee57aa8d73989edc3882103157060eace1a1836c9cc740d",
+  "status_banner": "STATUS: PENDING (awaiting CP-DATA review) \u2014 calibration verdict: FAIL",
+  "strategy_id": "r6",
+  "verdict": "fail"
+}
