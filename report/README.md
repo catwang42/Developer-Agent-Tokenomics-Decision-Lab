@@ -58,6 +58,15 @@ is reported with no verdict — which is not the same statement as a rejection.
 The **transfer-probe** datasets land Friday and will be added to this index — name,
 description, run count and the report they feed, on the same terms as the rows above.
 
+One transfer-probe dataset already exists and is registered ahead of that index entry,
+because it is not a result and will never carry one:
+`results/transfer-probe-aborted-20260830-authfail/` — 11 R9 runs on 2026-08-30 in which
+every billing leg failed authentication (`"Not logged in"`, zero tokens, **$0.00**) after
+the launch environment lost its Vertex routing variables. Paired report:
+`report/transfer-probe-aborted-20260830-authfail/` (**AUTHORITATIVE**, complete; no
+CP-DATA gate, because there is no telemetry to account for). Its runs sit outside all slot
+accounting, as `screening-batch1-aborted-20260817-gatefix/`'s five do.
+
 ## The rest of report/
 
 - `REPORT-SPEC.md` — what a report must contain.

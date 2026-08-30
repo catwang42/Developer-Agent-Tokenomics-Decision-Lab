@@ -20,15 +20,16 @@ This is a NEW ARM CONDITION. Runs under this profile are not comparable with bat
 | w6-hono-router-review | 1200 | 1200s | 3600s | 20m0s |
 ## Calibration gate: OVERRIDDEN by a human
 
-Reason recorded: **Amendment 1+3: (a) pass for all in-plan strategies, (b) waived, r9 excluded**
+Reason recorded: **Amendment 1+5: (a) pass for r6/r10 (5/5) and r9 (4/5, Amendment-4 evidence repair), (b) waived; r9 runs as an EXPLORATORY arm, never pooled or ranked with r6/r10**
 
 Invoked as `--calibration-override`. Scope: the CALIBRATION preflight refusal only. The spec, schema-enum, manifest-pin and results-README gates were satisfied, not waived, and `LAB_ALLOW_SPEND=1` was still required.
 
-In-plan arms at launch: R6, R10. Excluded: R9 (see the prereg's Amendment 3).
+In-plan arms at launch: R6, R10, R9. Excluded: none — Amendment 5 re-entered R9 as an EXPLORATORY arm, reported in its own tier and never pooled or ranked with the confirmatory R6/R10 cells.
 
 What the gate objected to, in its own words:
 
-- r6: calibration verdict is 'fail', not 'pass'
-- r10: calibration verdict is 'fail', not 'pass'
+- r6: no calibration report at results/transfer-probe-calibration-amd4
+- r10: no calibration report at results/transfer-probe-calibration-amd4
+- r9: calibration verdict is 'fail', not 'pass'
 
-The calibration reports were NOT edited. `results/transfer-probe-calibration/` records verdict `fail` for every strategy and is the evidence for this waiver, not a contradiction of it: the failure is criterion (b), a source-vs-lab price comparison that Amendment 1 waived as unpassable under the J-2 model substitution.
+The calibration reports were NOT edited. `results/transfer-probe-calibration/` records verdict `fail` for every strategy and is the evidence for this waiver, not a contradiction of it: the overall verdict fails on criterion (b), a source-vs-lab price comparison that Amendment 1 waived as unpassable under the J-2 model substitution. Criterion (a), the one that governs fidelity, passes: 5/5 for r6 and r10 in that directory. R9's criterion (a) is 4/5 and lives in a SEPARATE dataset, `results/transfer-probe-calibration-amd4/` (the Amendment-4 evidence-path repair); its superseded 3/5 report is still in `results/transfer-probe-calibration/`, so an r9 objection quoted above may be the stale one — read the amd4 report for r9.

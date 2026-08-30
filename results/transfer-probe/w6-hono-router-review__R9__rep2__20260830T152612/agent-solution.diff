@@ -1,0 +1,13 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/review-report.txt b/review-report.txt
+new file mode 100644
+index 00000000..12cb155f
+--- /dev/null
++++ b/review-report.txt
+@@ -0,0 +1,5 @@
++src/router/reg-exp-router/node.ts:30 — compareKey returns -1 (wildcard before non-wildcard) instead of 1 when a is ONLY_WILDCARD or TAIL_WILDCARD and b is not TAIL_WILDCARD, reversing sort order so wildcards match before specific patterns in the alternation.
++src/router/reg-exp-router/node.ts:67 — The condition `i <= len - 1` is always true for any valid loop index in `for (let i = 0; i < len; i++)`, so `*` always resolves to ONLY_WILDCARD_REG_EXP_STR and never to LABEL_REG_EXP_STR, making mid-path wildcard handling incorrect and the LABEL_REG_EXP_STR branch dead code.
++src/router/reg-exp-router/node.ts:152 — The backslash escape for regex metacharacters was removed (`\`${k}\`` instead of `\`\\${k}\``), so literal route segments containing metacharacters such as `.` or `+` produce unescaped regex patterns that match unintended paths.
++src/router/reg-exp-router/trie.ts:55 — `this.paths[path] = [++this.#index, paramAssoc]` stores the post-increment index (1, 2, …) while `insert` was called with the pre-increment value (0, 1, …), causing every `handlerData[pathData[0]]` lookup in `#buildMatcher` to be off by one and return undefined for all dynamic routes.
++src/router/reg-exp-router/router.ts:76 — `this.#tries![method] = this.#tries![METHOD_NAME_ALL]` aliases the new method-specific trie to the shared ALL trie, so the subsequent `#insertPath(method, p)` calls on line 81 re-insert already-registered paths into the ALL trie, triggering PATH_ERROR for any app that mixes per-method and catch-all route registrations.

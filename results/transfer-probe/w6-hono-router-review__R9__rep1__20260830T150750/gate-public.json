@@ -1,0 +1,40 @@
+{
+  "gate": "public",
+  "checks": [
+    {
+      "id": "G0-subject-readable",
+      "status": "pass",
+      "detail": "git can read the subject tree (diff-scope is meaningful)"
+    },
+    {
+      "id": "P6-diff-scope",
+      "status": "pass",
+      "detail": "only allowed path(s) changed vs pin"
+    },
+    {
+      "id": "P5-no-leakage",
+      "status": "pass",
+      "detail": "no canonical patch / solution markers in tree"
+    },
+    {
+      "id": "P3-typecheck",
+      "status": "pass",
+      "detail": "not applicable (review task)"
+    },
+    {
+      "id": "P4-build",
+      "status": "pass",
+      "detail": "not applicable (review task)"
+    },
+    {
+      "id": "P1-public-test",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "P2-regression",
+      "status": "pass",
+      "detail": "baseline suite ()"
+    }
+  ]
+}
