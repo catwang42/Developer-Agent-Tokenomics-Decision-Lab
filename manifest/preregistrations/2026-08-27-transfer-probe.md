@@ -165,3 +165,19 @@ calibration iterations. Predictions for r9 remain those frozen 2026-08-27
 within the existing $300 cap. On fail, or no pass by 22:00 SGT 2026-08-30:
 r9 stays excluded, the fidelity finding stands, consolidation proceeds without
 it. Authored by Catherine.
+
+## Amendment 5 — recorded 2026-08-30 SGT, after the Amendment-4 result (4/5) was known
+Amendment 4's window closed with r9 at 4/5. The one mismatched cell
+(BigCodeBench/147, published fail / measured pass) was decided by the cheap
+rung passing at turn 2 — the evidence gate never fired there, so the mismatch
+comes from rung-model substitution (J-2), the same artifact Amendment 1
+already waived for cost comparisons, not from the evidence path. Every cell
+the evidence gate actually influenced matched, including 93, which the
+Amendment-4 repair flipped. On that basis r9's 9 cells ({W4,W6,W4b} x
+rep1-3) run tonight as an EXPLORATORY arm: reported in its own tier, never
+pooled or ranked with the confirmatory r6/r10 cells, and every r9 figure
+labelled "entered by post-result Amendment 5". Predictions for r9 remain
+those frozen 2026-08-27. Calibration dir:
+results/transfer-probe-calibration-amd4. Spend: up to $120 within the $300
+cap. This amendment was written after seeing the 4/5; that timing is part of
+the record. Authored by Catherine.
