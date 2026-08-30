@@ -22,10 +22,12 @@ Nothing here spends. The driver's own default mode launches nothing.
 """
 
 import contextlib
+import importlib
 import io
 import json
 import os
 import unittest
+from unittest import mock
 
 import yaml
 
@@ -517,9 +519,25 @@ class Modes(unittest.TestCase):
 
 class NoStrayWrites(unittest.TestCase):
     def test_importing_the_driver_creates_no_dataset_directory(self) -> None:
-        self.assertFalse(os.path.exists(T.DATASET_DIR),
-                         "the dataset directory must be created at launch, by run.py, "
-                         "and never as an import side effect")
+        """Importing the driver must not create any directory.
+
+        This asserts on behaviour, not on the filesystem. ``results/transfer-probe/``
+        is a committed dataset — it is present in every fresh checkout — so its
+        existence on disk proves nothing either way about import side effects.
+        The property that actually matters is that ``os.makedirs`` is never
+        reached at module scope; the dataset directory is created at launch, by
+        run.py, inside a function.
+        """
+        with mock.patch("os.makedirs") as makedirs:
+            importlib.reload(T)
+        self.assertEqual(
+            makedirs.call_args_list, [],
+            "importing the driver called os.makedirs "
+            f"{makedirs.call_count} time(s): {makedirs.call_args_list}. "
+            "Directories must be created at launch, by run.py, and never as an "
+            "import side effect. (Note: this does not check whether "
+            "results/transfer-probe/ exists on disk — it is a committed dataset, "
+            "so its presence proves nothing.)")
 
     def test_the_dataset_and_calibration_paths_are_under_results(self) -> None:
         self.assertTrue(T.DATASET_DIR.startswith(os.path.join(ROOT, "results")))
