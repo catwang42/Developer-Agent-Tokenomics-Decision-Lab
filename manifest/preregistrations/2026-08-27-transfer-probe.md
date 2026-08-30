@@ -149,3 +149,19 @@ published; cost claims are within-lab only, as the prereg's scope section states
 Prediction restated: the r9-worst leg of the evidence-dependence ordering is
 untestable this cycle; the graded comparison is r10 vs r6 vs anchors.
 Authored by Catherine.
+
+## Amendment 4 — recorded 2026-08-30 SGT, before any r9 probe cell exists
+r9 re-enters the probe if and only if a repaired evidence path passes
+calibration criterion (a) at 5/5 — the same gate every strategy faced,
+threshold unchanged. The repair may alter only HOW failure evidence is captured
+and digested; it may consist of installing the source's own capture harness
+(ctx-harness, github.com/vamsiramakrishnan/straitjacket) at a pinned commit,
+recorded in the spec's provenance with "author confirmation pending". Gate
+logic, thresholds and prompts stay verbatim from the frozen spec. Iterating the
+evidence mechanism against the source's published rows is calibration, not
+tuning: it fits the reimplementation to THEIR measured behaviour. Max 2
+calibration iterations. Predictions for r9 remain those frozen 2026-08-27
+(transfers worst, by mechanism). On pass: +9 cells ({W6,W4b,W4} x rep1-3),
+within the existing $300 cap. On fail, or no pass by 22:00 SGT 2026-08-30:
+r9 stays excluded, the fidelity finding stands, consolidation proceeds without
+it. Authored by Catherine.
