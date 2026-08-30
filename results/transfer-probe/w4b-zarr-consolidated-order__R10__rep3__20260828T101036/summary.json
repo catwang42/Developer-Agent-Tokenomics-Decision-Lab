@@ -1,0 +1,513 @@
+{
+  "acceptance": {
+    "completed_route": "frontier_strong",
+    "gate_checks": {
+      "hidden": {
+        "gate": "hidden",
+        "hash": "sha256:acb4b0a0b50bf30e1bd1e093cabc296397ca86688c1eae5556afada57d932ce7",
+        "status": "fail",
+        "version": "sealed-w4b-v1 2026-08-17 permutation+depth3"
+      },
+      "public": {
+        "checks": [
+          {
+            "detail": "git can read the subject tree (diff-scope is meaningful)",
+            "id": "G0-subject-readable",
+            "status": "pass"
+          },
+          {
+            "detail": "only allowed path(s) changed vs pin",
+            "id": "P6-diff-scope",
+            "status": "pass"
+          },
+          {
+            "detail": "no canonical patch / solution markers in tree",
+            "id": "P5-no-leakage",
+            "status": "pass"
+          },
+          {
+            "detail": "no typecheck declared (skipped)",
+            "id": "P3-typecheck",
+            "status": "pass"
+          },
+          {
+            "detail": ".venv/bin/python -c \"import zarr; import zarr.core.group\"",
+            "id": "P4-build",
+            "status": "pass"
+          },
+          {
+            "detail": "consolidated-metadata nesting is order-independent (upstream PR repro)",
+            "id": "P1-public-test",
+            "status": "fail"
+          },
+          {
+            "detail": "baseline suite (tests/test_metadata)",
+            "id": "P2-regression",
+            "status": "fail"
+          }
+        ],
+        "gate": "public"
+      }
+    },
+    "intention_to_route": "transfer_r10",
+    "result": "rejected"
+  },
+  "behavior": {
+    "escalations": {
+      "confidence": "derived",
+      "value": 1
+    },
+    "failures_by_category": {
+      "confidence": "derived",
+      "value": {
+        "ladder_exhausted": 1
+      }
+    },
+    "file_read_bytes": {
+      "confidence": "unavailable",
+      "reason": "byte counts not measured",
+      "value": null
+    },
+    "file_reads": {
+      "confidence": "unavailable",
+      "reason": "no file_read events",
+      "value": null
+    },
+    "files_modified": {
+      "confidence": "unavailable",
+      "reason": "file modifications not tracked in event log",
+      "value": null
+    },
+    "retries": {
+      "confidence": "derived",
+      "value": 2
+    },
+    "subagent_calls": {
+      "confidence": "derived",
+      "value": 0
+    },
+    "tool_calls_by_type": {
+      "confidence": "unavailable",
+      "reason": "no tool_invoked events",
+      "value": null
+    },
+    "turns": {
+      "confidence": "derived",
+      "value": 4
+    },
+    "verifier_calls": {
+      "confidence": "derived",
+      "value": 0
+    }
+  },
+  "configuration_id": "R10",
+  "economics": {
+    "cost_basis": "marginal_api_cost",
+    "fully_allocated_usd": {
+      "confidence": "derived",
+      "value": 10.8196973
+    },
+    "machine_cost_usd": {
+      "confidence": "unavailable",
+      "reason": "not supplied to deriver",
+      "value": null
+    },
+    "marginal_operating_usd": {
+      "confidence": "derived",
+      "value": 10.8196973
+    },
+    "pricing_snapshot": "prices-2026-08-16.json",
+    "provider_cost_usd": {
+      "confidence": "unavailable",
+      "reason": "not supplied to deriver",
+      "value": null
+    },
+    "subscription_allocation_basis": {
+      "confidence": "unavailable",
+      "reason": "not supplied to deriver",
+      "value": null
+    },
+    "total_cost_usd": {
+      "confidence": "derived",
+      "value": 10.8196973
+    }
+  },
+  "frontier_token_share": {
+    "confidence": "derived",
+    "value": 0.379088
+  },
+  "hidden_test_hash": "sha256:acb4b0a0b50bf30e1bd1e093cabc296397ca86688c1eae5556afada57d932ce7",
+  "human_effort": {
+    "active_minutes": {
+      "confidence": "unavailable",
+      "reason": "not recorded",
+      "value": null
+    },
+    "blocked_minutes": {
+      "confidence": "unavailable",
+      "reason": "not recorded",
+      "value": null
+    },
+    "correction_minutes": {
+      "confidence": "unavailable",
+      "reason": "not recorded",
+      "value": null
+    },
+    "review_minutes": {
+      "confidence": "unavailable",
+      "reason": "not recorded",
+      "value": null
+    }
+  },
+  "identity": {
+    "auth_billing_path": {
+      "confidence": "authoritative",
+      "value": "controlled_api"
+    },
+    "cache_state": {
+      "confidence": "authoritative",
+      "value": "cold"
+    },
+    "contamination_tier": "post_cutoff",
+    "model_or_selector": {
+      "confidence": "authoritative",
+      "value": "claude-sonnet-4-6@default"
+    },
+    "network_policy": {
+      "confidence": "authoritative",
+      "value": "agent-leg: egress-allowlist:model-api-v1@sha256:ce78aa16d545; 9-host-patterns; deny-by-default; internal-network=lab-egress; proxy-enforced-CONNECT-443-only | gate: none"
+    },
+    "permission_profile": {
+      "confidence": "authoritative",
+      "value": "skip-all-tools-inside-container; container-isolated; image=subject-agent; fs-namespace-confined; no-canonical|hidden|task.yaml-in-image(build-asserted); cwd-confined-/subject; harness-env-pointers-scrubbed; credentials-mounted-read-only; product-CLIs-baked-at-pinned-versions; egress-allowlisted-see-network_policy; non-root-in-container(uid-matched-to-host-operator)"
+    },
+    "product": {
+      "confidence": "authoritative",
+      "value": "Product A"
+    },
+    "product_version": {
+      "confidence": "unavailable",
+      "reason": "not supplied to deriver",
+      "value": null
+    },
+    "provider": {
+      "confidence": "authoritative",
+      "value": "google_vertex"
+    },
+    "reasoning_config": {
+      "confidence": "unavailable",
+      "reason": "not supplied to deriver",
+      "value": null
+    },
+    "region": {
+      "confidence": "proxy_observed",
+      "value": "global"
+    },
+    "session_state": {
+      "confidence": "authoritative",
+      "value": "fresh"
+    }
+  },
+  "legs": [
+    {
+      "cost_basis": "marginal_api_cost",
+      "fully_allocated_usd": {
+        "confidence": "derived",
+        "value": 0.8639052
+      },
+      "leg_id": "rung0_economical",
+      "marginal_operating_usd": {
+        "basis": "marginal_api_cost",
+        "components": {
+          "cache_creation_tokens": 0.42504,
+          "cache_read_tokens": 0.2379192,
+          "input_tokens": 6.6e-05,
+          "output_tokens": 0.20088
+        },
+        "confidence": "derived",
+        "rate_keys": {
+          "cache_creation_tokens": "cache_write_1h",
+          "cache_read_tokens": "cache_read",
+          "input_tokens": "input",
+          "output_tokens": "output"
+        },
+        "value": 0.8639052
+      },
+      "model_or_selector": {
+        "confidence": "authoritative",
+        "value": "claude-sonnet-4-6@default"
+      },
+      "provider": {
+        "confidence": "authoritative",
+        "value": "google_vertex"
+      },
+      "role": "economical",
+      "usage": {
+        "cache_creation_tokens": {
+          "confidence": "authoritative",
+          "value": 70840
+        },
+        "cache_read_tokens": {
+          "confidence": "authoritative",
+          "value": 793064
+        },
+        "input_tokens": {
+          "confidence": "authoritative",
+          "value": 22
+        },
+        "output_tokens": {
+          "confidence": "authoritative",
+          "value": 13392
+        },
+        "reasoning_tokens": {
+          "confidence": "unavailable",
+          "reason": "no event reported this token class",
+          "value": null
+        },
+        "tool_result_tokens": {
+          "confidence": "unavailable",
+          "reason": "no event reported this token class",
+          "value": null
+        }
+      }
+    },
+    {
+      "cost_basis": "marginal_api_cost",
+      "fully_allocated_usd": {
+        "confidence": "derived",
+        "value": 2.7503346
+      },
+      "leg_id": "rung1_economical",
+      "marginal_operating_usd": {
+        "basis": "marginal_api_cost",
+        "components": {
+          "cache_creation_tokens": 1.1508,
+          "cache_read_tokens": 0.4638186,
+          "input_tokens": 6.6e-05,
+          "output_tokens": 1.13565
+        },
+        "confidence": "derived",
+        "rate_keys": {
+          "cache_creation_tokens": "cache_write_1h",
+          "cache_read_tokens": "cache_read",
+          "input_tokens": "input",
+          "output_tokens": "output"
+        },
+        "value": 2.7503346
+      },
+      "model_or_selector": {
+        "confidence": "authoritative",
+        "value": "claude-sonnet-4-6@default"
+      },
+      "provider": {
+        "confidence": "authoritative",
+        "value": "google_vertex"
+      },
+      "role": "economical",
+      "usage": {
+        "cache_creation_tokens": {
+          "confidence": "authoritative",
+          "value": 191800
+        },
+        "cache_read_tokens": {
+          "confidence": "authoritative",
+          "value": 1546062
+        },
+        "input_tokens": {
+          "confidence": "authoritative",
+          "value": 22
+        },
+        "output_tokens": {
+          "confidence": "authoritative",
+          "value": 75710
+        },
+        "reasoning_tokens": {
+          "confidence": "unavailable",
+          "reason": "no event reported this token class",
+          "value": null
+        },
+        "tool_result_tokens": {
+          "confidence": "unavailable",
+          "reason": "no event reported this token class",
+          "value": null
+        }
+      }
+    },
+    {
+      "cost_basis": "marginal_api_cost",
+      "fully_allocated_usd": {
+        "confidence": "derived",
+        "value": 2.3342805
+      },
+      "leg_id": "rung2_economical",
+      "marginal_operating_usd": {
+        "basis": "marginal_api_cost",
+        "components": {
+          "cache_creation_tokens": 0.813528,
+          "cache_read_tokens": 0.4691955,
+          "input_tokens": 7.2e-05,
+          "output_tokens": 1.051485
+        },
+        "confidence": "derived",
+        "rate_keys": {
+          "cache_creation_tokens": "cache_write_1h",
+          "cache_read_tokens": "cache_read",
+          "input_tokens": "input",
+          "output_tokens": "output"
+        },
+        "value": 2.3342805
+      },
+      "model_or_selector": {
+        "confidence": "authoritative",
+        "value": "claude-sonnet-4-6@default"
+      },
+      "provider": {
+        "confidence": "authoritative",
+        "value": "google_vertex"
+      },
+      "role": "economical",
+      "usage": {
+        "cache_creation_tokens": {
+          "confidence": "authoritative",
+          "value": 135588
+        },
+        "cache_read_tokens": {
+          "confidence": "authoritative",
+          "value": 1563985
+        },
+        "input_tokens": {
+          "confidence": "authoritative",
+          "value": 24
+        },
+        "output_tokens": {
+          "confidence": "authoritative",
+          "value": 70099
+        },
+        "reasoning_tokens": {
+          "confidence": "unavailable",
+          "reason": "no event reported this token class",
+          "value": null
+        },
+        "tool_result_tokens": {
+          "confidence": "unavailable",
+          "reason": "no event reported this token class",
+          "value": null
+        }
+      }
+    },
+    {
+      "cost_basis": "marginal_api_cost",
+      "fully_allocated_usd": {
+        "confidence": "derived",
+        "value": 4.871177
+      },
+      "leg_id": "frontier_strong",
+      "marginal_operating_usd": {
+        "basis": "marginal_api_cost",
+        "components": {
+          "cache_creation_tokens": 2.99057,
+          "cache_read_tokens": 1.198462,
+          "input_tokens": 0.00057,
+          "output_tokens": 0.681575
+        },
+        "confidence": "derived",
+        "rate_keys": {
+          "cache_creation_tokens": "cache_write_1h",
+          "cache_read_tokens": "cache_read",
+          "input_tokens": "input",
+          "output_tokens": "output"
+        },
+        "value": 4.871177
+      },
+      "model_or_selector": {
+        "confidence": "authoritative",
+        "value": "claude-opus-5@default"
+      },
+      "provider": {
+        "confidence": "authoritative",
+        "value": "google_vertex"
+      },
+      "role": "strong",
+      "usage": {
+        "cache_creation_tokens": {
+          "confidence": "authoritative",
+          "value": 299057
+        },
+        "cache_read_tokens": {
+          "confidence": "authoritative",
+          "value": 2396924
+        },
+        "input_tokens": {
+          "confidence": "authoritative",
+          "value": 114
+        },
+        "output_tokens": {
+          "confidence": "authoritative",
+          "value": 27263
+        },
+        "reasoning_tokens": {
+          "confidence": "unavailable",
+          "reason": "no event reported this token class",
+          "value": null
+        },
+        "tool_result_tokens": {
+          "confidence": "unavailable",
+          "reason": "no event reported this token class",
+          "value": null
+        }
+      }
+    }
+  ],
+  "manifest_ref": "manifest/delivery-manifest.yaml",
+  "run_id": "w4b-zarr-consolidated-order__R10__rep3__20260828T101036",
+  "task_id": "w4b-zarr-consolidated-order",
+  "task_suite_version": "screening-v1",
+  "usage": {
+    "cache_creation_tokens": {
+      "confidence": "authoritative",
+      "value": 697285
+    },
+    "cache_read_tokens": {
+      "confidence": "authoritative",
+      "value": 6300035
+    },
+    "code_exec_charges_usd": {
+      "confidence": "unavailable",
+      "reason": "not exposed by this configuration",
+      "value": null
+    },
+    "code_exec_usage": {
+      "confidence": "unavailable",
+      "reason": "not exposed by this configuration",
+      "value": null
+    },
+    "input_tokens": {
+      "confidence": "authoritative",
+      "value": 182
+    },
+    "output_tokens": {
+      "confidence": "authoritative",
+      "value": 186464
+    },
+    "reasoning_tokens": {
+      "confidence": "unavailable",
+      "reason": "no event reported this token class",
+      "value": null
+    },
+    "search_charges_usd": {
+      "confidence": "unavailable",
+      "reason": "not exposed by this configuration",
+      "value": null
+    },
+    "search_ops": {
+      "confidence": "unavailable",
+      "reason": "not exposed by this configuration",
+      "value": null
+    },
+    "tool_result_tokens": {
+      "confidence": "unavailable",
+      "reason": "no event reported this token class",
+      "value": null
+    }
+  }
+}

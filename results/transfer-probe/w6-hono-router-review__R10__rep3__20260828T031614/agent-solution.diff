@@ -1,0 +1,13 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/review-report.txt b/review-report.txt
+new file mode 100644
+index 00000000..90729e68
+--- /dev/null
++++ b/review-report.txt
+@@ -0,0 +1,5 @@
++src/router/reg-exp-router/node.ts:30 — compareKey returns -1 when a is any wildcard type and b is a non-wildcard, sorting wildcards before specific patterns and reversing match priority so wildcards win over specific routes.
++src/router/reg-exp-router/node.ts:71 — The condition `i <= len - 1` is always true within the loop (equivalent to the loop guard `i < len`), so `*` unconditionally produces ONLY_WILDCARD_REG_EXP_STR regardless of position; the correct last-token check is `i === len - 1`.
++src/router/reg-exp-router/node.ts:156 — The backslash escape for regex metacharacters was removed (`\`${k}\`` instead of `\`\\${k}\``), leaving literal URL characters such as `.` unescaped in the built regex pattern and causing incorrect route matching.
++src/router/reg-exp-router/trie.ts:55 — Off-by-one: `#root.insert` receives the pre-increment value of `this.#index` as the handler slot, but `paths[path]` records `++this.#index` (post-increment), so the slot stored in `paths` is always one higher than what the regex records, causing every dynamic-route handler lookup to return undefined.
++src/router/reg-exp-router/router.ts:74 — `this.#tries![method]` is assigned the same Trie object reference as `this.#tries![METHOD_NAME_ALL]`; the subsequent loop then calls `#insertPath(method, p)` for each existing path, re-inserting them into the shared trie and triggering a duplicate-path UnsupportedPathError on the first route added for any new HTTP method.

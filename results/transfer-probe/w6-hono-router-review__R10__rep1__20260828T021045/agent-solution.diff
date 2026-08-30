@@ -1,0 +1,13 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/review-report.txt b/review-report.txt
+new file mode 100644
+index 00000000..2ad59dc4
+--- /dev/null
++++ b/review-report.txt
+@@ -0,0 +1,5 @@
++src/router/reg-exp-router/node.ts:26 — compareKey returns -1 (wildcard sorts before specific patterns) when a is ONLY_WILDCARD or TAIL_WILDCARD and b is not TAIL_WILDCARD, giving wildcards higher regex alternation priority than specific routes and breaking routing specificity.
++src/router/reg-exp-router/node.ts:65 — condition `i <= len - 1` is always true inside the for-loop (i ranges 0..len-1), so every bare `*` token is mapped to ONLY_WILDCARD_REG_EXP_STR regardless of position; the intent was `i === len - 1` to distinguish a trailing wildcard from a mid-path label.
++src/router/reg-exp-router/node.ts:150 — regex meta-character path segments are no longer escaped: `${k}` replaces the original `\\${k}`, so a segment such as `.` is inserted into the generated RegExp unescaped and matches any character instead of a literal dot.
++src/router/reg-exp-router/trie.ts:55 — `++this.#index` pre-increments before storing into `paths[path]`, so `paths[path][0]` is always one greater than the index passed to `node.insert`; `#buildMatcher` populates `handlerData` at the off-by-one index while `indexReplacementMap` points to the original index, making every dynamic route's handlers unreachable.
++src/router/reg-exp-router/router.ts:74 — `this.#tries![method] = this.#tries![METHOD_NAME_ALL]` stores a reference to the same Trie object rather than a copy, so subsequent method-specific path insertions mutate the shared ALL trie and cause routes from one method to appear in matchers built for unrelated methods.
