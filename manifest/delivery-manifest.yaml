@@ -356,11 +356,21 @@ routing_policies:
   # harness/policies/transfer/source/ (NOTICE.md holds the per-file blob shas).
   R9:
     path: harness/policies/transfer/r9-spec.yaml
-    sha256: sha256:ff9a6ae8eb32f1325d8fd6e3f6b494d863749536392ccd90649105142f60e2a8
+    sha256: sha256:291f825395af71a7b6b6584ffe2d0493c8c3c993294edf45e1ace8cd3e03ecbe
     status: frozen
-    frozen_date: 2026-08-27   # human FREEZE APPROVED; hash verified against the file
+    frozen_date: 2026-08-30   # re-pinned under prereg Amendment 4; hash verified against the file
     governs: [R9]
     extracted_from: harness/policies/transfer/source/   # 13 verbatim extracts, each hashed in the spec
+    # Re-pinned 2026-08-30. Previous hash
+    # ff9a6ae8eb32f1325d8fd6e3f6b494d863749536392ccd90649105142f60e2a8 (frozen
+    # 2026-08-27) governs results/transfer-probe-calibration/r9 as it stood
+    # before Amendment 4. The change is confined to
+    # `evidence.calibration` (the fact tier is now the source's own capture
+    # harness, pinned at ctx-harness 7c69ea7, "author confirmation pending")
+    # and to judgment calls J-11/J-13 that record it. Gate logic, thresholds,
+    # prompts, the escalation rule and all 13 extract hashes are unchanged —
+    # Amendment 4 permits altering only how failure evidence is captured and
+    # digested. Diff the two revisions before trusting this sentence.
   R6:
     path: harness/policies/transfer/r6-spec.yaml
     sha256: sha256:936b6dda8d9c3f2beee57aa8d73989edc3882103157060eace1a1836c9cc740d

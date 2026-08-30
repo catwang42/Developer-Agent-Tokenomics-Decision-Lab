@@ -81,11 +81,19 @@ from harness.adapters.transfer_base import (
     next_step,
     routing_payload,
 )
+from harness.adapters.transfer_capture import (
+    CaptureError,
+    capture_config,
+    interpreter as capture_interpreter,
+    preflight as capture_preflight,
+    run_contained,
+)
 from harness.adapters.transfer_spec import (
     SPEC_DIR,
     Difficulty,
     TransferSpec,
     TransferSpecError,
+    classify_from_evidence_graph,
     classify_from_unittest,
     load_spec,
 )
@@ -290,25 +298,70 @@ class OracleResult:
 
     passed: bool
     #: Verbatim failure text the repair turn will be digested from. Empty on pass.
+    #: On the contained path this is ``ContainedRun.native_payload()`` — the same
+    #: stream, tail-truncated the same way, so the record is comparable.
     evidence: str
     returncode: Optional[int]
     timed_out: bool
     #: True when the candidate was refused before execution (birth gate).
     birth_gate: bool
+    #: Contained path only: the harness's own bounded digest. Empty elsewhere,
+    #: in which case the caller digests ``evidence`` as it always did.
+    digest: str = ""
+    #: Contained path only: the typed evidence graph, or ``None`` for no fact
+    #: tier. ``None`` and "the path was not contained" are different states and
+    #: the caller distinguishes them with :attr:`contained`.
+    graph: Optional[Dict[str, Any]] = None
+    contained: bool = False
+    #: The harness's own accounting for this capture (raw vs digest tokens,
+    #: handle, profile). Recorded per attempt; never used for routing.
+    capture: Dict[str, Any] = dataclasses.field(default_factory=dict)
 
 
 def grade(record: Dict[str, Any], solution_code: str, tail: str,
-          *, timeout_s: int = ORACLE_TIMEOUT_S) -> OracleResult:
+          *, timeout_s: int = ORACLE_TIMEOUT_S,
+          capture: Optional[Dict[str, Any]] = None) -> OracleResult:
     """Run the source's unit-test suite over one candidate. Their rule, unchanged.
 
     ``program = solution + "\\n\\n" + record["test"] + TAIL``; exit 0 is a pass;
     120s is a failure, not an error. The scratch dir is removed either way.
+
+    ``capture`` is the spec's ``evidence.calibration.capture_harness`` block when
+    the arm declares one. With it, the program runs through the source's own
+    ``ContainedRun`` flow (``evaluator._run_bigcodebench_contained``) and the
+    failure comes back as the harness's digest plus a typed evidence graph;
+    without it, the plain subprocess below is unchanged. The GRADING RULE is the
+    same in both: exit 0 passes, and nothing else decides.
     """
     err = missing_code_error(solution_code, record["entry_point"])
     if err is not None:
         return OracleResult(passed=False, evidence=err, returncode=None,
                             timed_out=False, birth_gate=True)
     program = solution_code + "\n\n" + record["test"] + tail
+
+    if capture:
+        # No fallback. A row whose evidence is labelled as the source's digest
+        # has to have been produced by the source's harness; substituting our
+        # regex when the harness is missing is the failure Amendment 4 exists to
+        # repair, silently repeated.
+        run = run_contained(program, config=capture,
+                            grading_python=sys.executable, timeout_s=float(timeout_s))
+        if run.timed_out:
+            return OracleResult(
+                passed=False, evidence=f"timeout: execution exceeded {timeout_s}s",
+                returncode=run.exit_code, timed_out=True, birth_gate=False,
+                digest=run.digest, graph=run.graph, contained=True,
+                capture=dict(run.metrics))
+        if run.passed:
+            return OracleResult(passed=True, evidence="", returncode=0,
+                                timed_out=False, birth_gate=False, contained=True,
+                                capture=dict(run.metrics))
+        return OracleResult(
+            passed=False, evidence=run.native_payload.strip() or "test failed",
+            returncode=run.exit_code, timed_out=False, birth_gate=False,
+            digest=run.digest, graph=run.graph, contained=True,
+            capture=dict(run.metrics))
+
     workdir = tempfile.mkdtemp(prefix="bcb_cal_")
     path = os.path.join(workdir, "prog.py")
     try:
@@ -333,7 +386,8 @@ def grade(record: Dict[str, Any], solution_code: str, tail: str,
 
 
 def verify_oracle_environment(records: Sequence[Dict[str, Any]], tail: str,
-                              *, timeout_s: int = ORACLE_TIMEOUT_S
+                              *, timeout_s: int = ORACLE_TIMEOUT_S,
+                              capture: Optional[Dict[str, Any]] = None
                               ) -> List[Dict[str, Any]]:
     """Grade each task's OWN reference answer. Every one of them must pass.
 
@@ -354,11 +408,16 @@ def verify_oracle_environment(records: Sequence[Dict[str, Any]], tail: str,
 
     Returns one row per task. The caller refuses on any ``canonical_passed:
     False``.
+
+    It runs through ``capture`` when the arm declares one, so the preflight also
+    proves the capture harness can execute the real programs end to end — an
+    oracle check that skipped the harness would clear a path the slice does not
+    take.
     """
     rows: List[Dict[str, Any]] = []
     for record in records:
         code = record["complete_prompt"] + record["canonical_solution"]
-        result = grade(record, code, tail, timeout_s=timeout_s)
+        result = grade(record, code, tail, timeout_s=timeout_s, capture=capture)
         last = (result.evidence or "").strip().splitlines()
         rows.append({
             "task_id": record["task_id"],
@@ -608,6 +667,7 @@ def run_cell(spec: TransferSpec, record: Dict[str, Any], solver: Solver,
     (``transfer_base.next_step``) — if it were reimplemented here, calibration
     would be validating a second implementation and certifying the first.
     """
+    cap_cfg = capture_config(spec)
     task_slug = record["task_id"].replace("/", "_")
     cell_dir = os.path.join(out_dir, spec.strategy_id, task_slug)
     os.makedirs(cell_dir, exist_ok=True)
@@ -637,11 +697,12 @@ def run_cell(spec: TransferSpec, record: Dict[str, Any], solver: Solver,
         finally:
             shutil.rmtree(workdir, ignore_errors=True)
         code = extract_code(response)
-        result = grade(record, code, tail)
+        result = grade(record, code, tail, capture=cap_cfg)
         emit("test_run", leg=step.leg_id, task_id=record["task_id"],
              oracle="source_bigcodebench_unittest", passed=result.passed,
              returncode=result.returncode, timed_out=result.timed_out,
-             birth_gate_refusal=result.birth_gate)
+             birth_gate_refusal=result.birth_gate,
+             capture=(result.capture or None))
         with open(os.path.join(cell_dir, f"attempt{step.attempt}-response.txt"),
                   "w", encoding="utf-8") as fh:
             fh.write(response)
@@ -659,8 +720,21 @@ def run_cell(spec: TransferSpec, record: Dict[str, Any], solver: Solver,
             passed = True
             break
 
-        digest = tail_to_cap(result.evidence, cap_chars)
-        difficulty = classify_from_unittest(result.evidence, spec, previous=difficulty)
+        if result.contained:
+            # The source's `triage_error_straitjacket`: return the digest the
+            # harness already produced. Nothing is re-summarised and no line is
+            # selected by keyword. `tail_to_cap` is the spec's declared cap and
+            # is idempotent — a digest is far under it, so this is a no-op that
+            # keeps the declared bound enforced rather than assumed.
+            digest = tail_to_cap(result.digest, cap_chars)
+            difficulty = classify_from_evidence_graph(result.graph, spec,
+                                                      previous=difficulty)
+            evidence_source = "ctx_harness_evidence_graph"
+        else:
+            digest = tail_to_cap(result.evidence, cap_chars)
+            difficulty = classify_from_unittest(result.evidence, spec,
+                                                previous=difficulty)
+            evidence_source = "unittest_stderr"
         rec.difficulty = difficulty.as_dict() if difficulty else None
         if degraded_now(spec, state, difficulty):
             state = dataclasses.replace(state, degraded=True)
@@ -670,7 +744,7 @@ def run_cell(spec: TransferSpec, record: Dict[str, Any], solver: Solver,
         nxt, decision = next_step(spec, state, difficulty)
         payload = routing_payload(spec, decision, difficulty, None,
                                   degraded=state.degraded,
-                                  evidence_source="unittest_stderr",
+                                  evidence_source=evidence_source,
                                   evidence={"text": digest,
                                             "birth_gate_refusal": result.birth_gate})
         if nxt is None:
@@ -863,6 +937,29 @@ def _status_banner(dry_run: bool, verdict: str) -> str:
             f"{verdict.upper()}")
 
 
+def _evidence_caveat(spec: TransferSpec, provenance: Dict[str, Any]) -> str:
+    """Which evidence tier this arm's gate actually read — J-11, or its repair.
+
+    An arm that ran the source's capture harness must not carry J-11's wording,
+    and an arm that did not must not carry the repair's. The caveat is derived
+    from the provenance the run recorded rather than written by hand, so the two
+    can never drift apart.
+    """
+    harness = (provenance.get("capture_harness") or {}).get(spec.strategy_id)
+    if not harness:
+        return ("J-11: the evidence the gate reads is reconstructed from unittest "
+                "stderr; the source's typed evidence came from an external capture "
+                "harness that is not vendored.")
+    return (
+        "J-13 (supersedes J-11 for this arm): the evidence the gate reads is the "
+        f"typed evidence graph and digest produced by {harness['repo']}"
+        f"@{harness['commit'][:7]} ({harness.get('package', 'ctx-harness')} "
+        f"{harness.get('ctx_version', '?')}) through the source's own wrapper. "
+        "The identification of that package as the harness behind the published "
+        "rows is this lab's inference from the digest header and API surface and "
+        "is NOT confirmed by the upstream author.")
+
+
 def build_report(spec: TransferSpec, cells: Sequence[CellResult],
                  doc: Dict[str, Any], *, dry_run: bool, provenance: Dict[str, Any],
                  manifest_pricing: str, incomplete: Optional[str] = None
@@ -887,9 +984,7 @@ def build_report(spec: TransferSpec, cells: Sequence[CellResult],
         "fidelity_caveats": [
             "J-2: rung identity differs (three Product-A economical rungs vs three "
             "Gemini tiers). Rung COUNT and the frontier are preserved.",
-            "J-11: the evidence the gate reads is reconstructed from unittest "
-            "stderr; the source's typed evidence came from an external capture "
-            "harness that is not vendored.",
+            _evidence_caveat(spec, provenance),
             "J-12: the subject is an agentic CLI, not a chat completion. Its final "
             "response text is graded; agentic overhead is in the bill.",
             "cost_criterion_blocker: criterion (b) compares two model families' "
@@ -1095,10 +1190,42 @@ def main(argv: Optional[List[str]] = None) -> int:
               "this dry run exercises the pins, the gate arithmetic and the report "
               "shape only.", file=sys.stderr)
 
+    # Is the capture harness actually there? Only arms that DECLARE one are
+    # checked, so r6 and r10 are untouched by this. Refusing here rather than
+    # degrading is the source's own `require()` rule: an evidence gate reading a
+    # fallback is a counter gate wearing the wrong label, and finding that out
+    # after a live slice has been billed is finding it out too late.
+    capture_cfg: Optional[Dict[str, Any]] = None
+    capture_status: Dict[str, Any] = {}
+    for sid in strategies:
+        try:
+            cfg = capture_config(load_spec(sid, args.spec_dir))
+        except TransferSpecError as exc:
+            print(f"[calibration] refused ({sid}): {exc}", file=sys.stderr)
+            return EXIT_REFUSED
+        if not cfg:
+            continue
+        try:
+            status = capture_preflight(cfg)
+        except (CaptureError, OSError, ValueError) as exc:
+            print(f"[calibration] refused ({sid}): capture harness unusable: {exc}",
+                  file=sys.stderr)
+            return EXIT_REFUSED
+        status["interpreter"] = capture_interpreter(cfg)
+        status["repo"] = cfg.get("repo")
+        status["commit"] = cfg.get("commit")
+        capture_status[sid] = status
+        capture_cfg = cfg
+        print(f"[calibration] {sid}: capture harness "
+              f"{cfg.get('package')} {status.get('ctx_version')} under "
+              f"{status['interpreter']}", file=sys.stderr)
+    if capture_status:
+        provenance["capture_harness"] = capture_status
+
     # Can this interpreter recognise a known-good answer? If not, nothing below
     # means anything — see verify_oracle_environment. $0, no model, always run.
     if records:
-        env_rows = verify_oracle_environment(records, tail)
+        env_rows = verify_oracle_environment(records, tail, capture=capture_cfg)
         provenance["oracle_environment"] = env_rows
         broken = [r for r in env_rows if not r["canonical_passed"]]
         if broken:

@@ -36,7 +36,7 @@ import json
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, FrozenSet, List, Optional, Sequence, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional, Sequence, Set, Tuple
 
 import yaml
 
@@ -432,24 +432,97 @@ def classify_from_unittest(stderr: str, spec: TransferSpec,
     identities = frozenset(id_re.findall(text))
     classes = tuple(sorted(set(exc_re.findall(text))))
 
-    if not identities and not classes:
+    return _level_from_facts(
+        identities, classes, None, spec, previous,
+        shallow=shallow, environment=environment,
+        untyped_reason="no typed evidence (nothing in the runner output parsed as a "
+                       "failing identity or an exception class)",
+    )
+
+
+def classify_from_evidence_graph(graph: Optional[Dict[str, Any]], spec: TransferSpec,
+                                 previous: Optional[Difficulty] = None) -> Difficulty:
+    """Type one BigCodeBench failure from the capture harness's evidence graph.
+
+    The same two facts :func:`classify_from_unittest` reconstructs with a regex,
+    read instead from ``ContainedRun.evidence_graph()`` — the source's own fact
+    tier, produced by the profile's ``extract()`` rather than by us. This is the
+    Amendment 4 repair of r9's evidence path: what changed is where the facts
+    come from, not what is done with them.
+
+    The LEVEL RULES are the frozen spec's and are shared, line for line, with
+    the regex path below :func:`_level_from_facts` — same ``shallow_classes``,
+    same ``environment_classes``, same ``broad_failure_items``, same stall
+    check. Two differences in the FACTS, both of which are the point of the
+    repair rather than a deviation from the spec:
+
+    * identities are the profile's test identities (``__main__.TestCases.test_a``)
+      instead of whatever ``^(?:FAIL|ERROR): (\\S+)`` captured;
+    * ``failing`` is the graph's own attested count (``aggregate.failing``,
+      failures plus errors) instead of the number of regex matches that survived
+      truncation.
+
+    ``graph is None`` means no profile recognised the output as a test run.
+    That is the source's no-fact-tier branch and it is reported as UNTYPED, so
+    an evidence gate degrades loudly instead of routing on a count.
+    """
+    cal = _opt(spec.doc, "evidence.calibration") or {}
+    shallow = set(cal.get("shallow_classes") or ())
+    environment = set(cal.get("environment_classes") or ())
+
+    if graph is None:
         return Difficulty(
             level="shallow",
-            reasons=("no typed evidence (nothing in the runner output parsed as a "
-                     "failing identity or an exception class)",),
+            reasons=("no typed evidence (profile has no fact tier)",),
             typed=False,
         )
+
+    items = list(graph.get("items") or ())
+    identities = frozenset(str(i.get("id") or "") for i in items if i.get("id"))
+    classes = tuple(sorted({
+        str(i.get("failure_class")) for i in items if i.get("failure_class")}))
+    aggregate = graph.get("aggregate") or {}
+    attested = aggregate.get("failing")
+    failing = int(attested) if isinstance(attested, int) else len(items)
+
+    return _level_from_facts(
+        identities, classes, failing, spec, previous,
+        shallow=shallow, environment=environment,
+        untyped_reason="no typed evidence (the evidence graph carries no failing "
+                       "identity and no failure class)",
+    )
+
+
+def _level_from_facts(identities: FrozenSet[str], classes: Tuple[str, ...],
+                      failing: Optional[int], spec: TransferSpec,
+                      previous: Optional[Difficulty], *,
+                      shallow: Set[str], environment: Set[str],
+                      untyped_reason: str) -> Difficulty:
+    """The spec's level rules over two facts, whatever produced them.
+
+    One implementation, called by both calibration evidence paths. It is factored
+    out for exactly one reason: Amendment 4 permits changing how r9's failure
+    evidence is captured and forbids changing the gate. A second copy of these
+    rules for the graph path would make that promise unverifiable by reading.
+
+    ``failing`` is ``None`` when the caller has no attested count and the rule
+    "count the identities you found" applies; the graph path passes the harness's
+    own count. The THRESHOLD it is compared against is the spec's either way.
+    """
+    if not identities and not classes:
+        return Difficulty(level="shallow", reasons=(untyped_reason,), typed=False)
 
     if classes and set(classes) & environment:
         guard = sorted(set(classes) & environment)[0]
         return Difficulty(
             level="environment",
             reasons=(f"{guard}: the environment failed, not the model",),
-            failing=len(identities), failure_classes=classes,
-            identities=identities, typed=True, guard=guard,
+            failing=(failing if failing is not None else len(identities)),
+            failure_classes=classes, identities=identities, typed=True, guard=guard,
         )
 
-    failing = len(identities) or len(classes)
+    if failing is None:
+        failing = len(identities) or len(classes)
     reasons: List[str] = []
     if classes and all(c in shallow for c in classes):
         level = "shallow"
