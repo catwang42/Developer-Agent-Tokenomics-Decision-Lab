@@ -1,0 +1,11 @@
+  [pass] G0-subject-readable — git can read the subject tree (diff-scope is meaningful)
+== public gate (w4b-zarr-consolidated-order) ==
+  [fail] P6-diff-scope — unexpected changes (incl. any test-file edit): changes/4227.bugfix.md
+  [pass] P5-no-leakage — no canonical patch / solution markers in tree
+  [pass] P3-typecheck — no typecheck declared (skipped)
+  [pass] P4-build — .venv/bin/python -c "import zarr; import zarr.core.group"
+  [fail] P1-public-test — consolidated-metadata nesting is order-independent (upstream PR repro)
+  [fail] P2-regression — baseline suite (tests/test_metadata)
+== public gate: FAIL ==
+
+--- exit: 1

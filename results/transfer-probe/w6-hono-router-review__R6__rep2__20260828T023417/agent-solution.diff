@@ -1,0 +1,14 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/review-report.txt b/review-report.txt
+new file mode 100644
+index 00000000..7ecc72a7
+--- /dev/null
++++ b/review-report.txt
+@@ -0,0 +1,6 @@
++src/router/reg-exp-router/node.ts:30 — compareKey returns -1 for both compareKey(wildcard, literal) and compareKey(literal, wildcard), making the comparator non-antisymmetric and producing undefined sort order whenever a wildcard key and a non-wildcard key share the same #children map.
++src/router/reg-exp-router/node.ts:65 — The condition `i <= len - 1` is always true because the loop invariant is `i < len`, so the LABEL_REG_EXP_STR fallback for a mid-path `*` token is dead code and every `*` token is treated as ONLY_WILDCARD_REG_EXP_STR regardless of position.
++src/router/reg-exp-router/node.ts:94 — The conflict guard for pattern children is `regexpStr === ONLY_WILDCARD_REG_EXP_STR && regexpStr !== TAIL_WILDCARD_REG_EXP_STR`; the second clause is vacuously true, so TAIL_WILDCARD_REG_EXP_STR receives no conflict check and can be inserted alongside other pattern children without throwing PATH_ERROR.
++src/router/reg-exp-router/node.ts:150 — Regex metacharacter keys are emitted as `${k}` instead of `\\${k}`, removing the backslash escape that was present in the original code and causing metacharacters in static-branch path segments to be interpreted as regex operators in the compiled pattern.
++src/router/reg-exp-router/trie.ts:55 — `this.paths[path] = [++this.#index, paramAssoc]` stores the post-incremented index while `#root.insert` received the pre-incremented value, so every dynamic route's handler is stored in handlerData one slot higher than the index embedded in the regex, causing all dynamic route lookups to return the wrong (or undefined) handler.
++src/router/reg-exp-router/router.ts:76 — `this.#tries![method] = this.#tries![METHOD_NAME_ALL]` assigns a reference rather than a copy, so subsequent `#insertPath(method, p)` calls mutate the shared METHOD_NAME_ALL Trie and corrupt routing for all-method routes.
