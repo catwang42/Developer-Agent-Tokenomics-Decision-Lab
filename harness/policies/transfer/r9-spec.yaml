@@ -251,26 +251,71 @@ evidence:
   #
   # In the source, the typed evidence comes from an external capture harness
   # (`ctx run`) that returns an evidence GRAPH: per-test identities plus a
-  # failure_class each. That harness is not part of the source repository and is
-  # not installed in this lab. The source's own fallback when it is missing is
-  # `typed=False`, which makes an evidence gate degrade to ladder exhaustion —
-  # i.e. r9 stops being r9. Calibrating r9 that way would compare our r6 against
-  # their r9 and call the difference a transfer failure.
+  # failure_class each. That harness is not part of the source repository. The
+  # source's own fallback when it is missing is `typed=False`, which makes an
+  # evidence gate degrade to ladder exhaustion — i.e. r9 stops being r9.
+  # Calibrating r9 that way would compare our r6 against their r9 and call the
+  # difference a transfer failure.
   #
-  # So the calibration profile reconstructs the same two facts from the unittest
-  # runner's own stderr, which the pinned deterministic tail makes reproducible:
-  # failing identities from the runner's FAIL:/ERROR: lines, and a failure class
-  # from each traceback's exception name. The LEVEL RULES are untouched — the
-  # same shallow-class set, the same broad_failure_items, the same stall check.
-  # This is judgment call J-11 and it is the largest one in the transplant: an
-  # evidence gate is only as faithful as its evidence, and ours is derived from
-  # text where theirs came from an instrumented run.
+  # AMENDED 2026-08-30 under prereg Amendment 4. The harness was found, pinned
+  # and installed (`capture_harness` below), so the two facts are no longer
+  # reconstructed: they are read from the harness's own evidence graph, through
+  # the source's own wrapper, exactly as the published rows were produced. What
+  # changed is where the facts come from. The LEVEL RULES did not change and are
+  # the same lines of code the regex path runs — same shallow-class set, same
+  # broad_failure_items, same stall check (harness/adapters/transfer_spec.py,
+  # `_level_from_facts`). Amendment 4 permits altering only how failure evidence
+  # is captured and digested; this is that change and nothing else.
+  #
+  # The superseded reconstruction is left recorded below (`identity_pattern`,
+  # `exception_pattern`) because it is what produced the 2026-08-27 r9 dataset
+  # and a reader comparing the two runs needs to see what the earlier one read.
+  # It is no longer on r9's path: with `capture_harness` declared, the runner
+  # refuses rather than falling back to it.
   calibration:
     source_symbol: classify
-    fact_tier: reconstructed_from_unittest_stderr
-    fact_tier_in_source: ctx-harness evidence graph (external tool, not vendored)
-    identity_pattern: '^(?:FAIL|ERROR): (\S+)'
-    exception_pattern: '^([A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception|Warning))\b'
+    fact_tier: ctx_harness_evidence_graph
+    fact_tier_in_source: ctx-harness evidence graph (same harness, now installed)
+    fact_tier_superseded: reconstructed_from_unittest_stderr   # until 2026-08-30
+    # --- the source's capture harness, as installed here (Amendment 4) ------- #
+    # Identified as the source's `ctx run` from the digest header
+    # (`[ctx run:<id> profile=<profile>]`), the package name, and the API surface
+    # the source's wrapper calls. The upstream author has NOT confirmed this
+    # identification; the pin is exact either way, but the claim that this is
+    # *the* harness behind the published rows is unconfirmed.
+    capture_harness:
+      status: installed
+      author_confirmation: pending
+      repo: https://github.com/vamsiramakrishnan/straitjacket
+      commit: 7c69ea70aa40e1017aa6114b19e977225dd4166f
+      package: ctx-harness
+      package_version: 0.35.1
+      build_backend: hatchling
+      import_root: ctx
+      # sha256 over the installed package directory: the 144 non-.pyc files
+      # under site-packages/ctx, as
+      #   find . -type f ! -name '*.pyc' | sort | xargs sha256sum | sha256sum
+      installed_sha256: 016aca7bf3a2424d78d0e35fc0938acdf877bc393b2998a82f88609a1f5b5f33
+      # ctx-harness requires Python >= 3.11; this lab's harness runs on 3.10, so
+      # the capture — and only the capture — runs under its own interpreter. The
+      # graded CHILD still runs under the harness interpreter, which is where
+      # the slice's scientific stack lives, so the oracle did not move.
+      interpreter: ~/.cache/lab-ctx-venv/bin/python
+      interpreter_version: CPython 3.12.14
+      interpreter_env_override: LAB_CTX_PYTHON
+      # We do not call ctx directly: DigestContext.load needs a Store, a
+      # Workspace and a stream manifest that only the source's wrapper builds.
+      wrapper:
+        path: harness/vendor/straitjacket.py
+        from_repo: https://github.com/lexha-redstone/tokenomics-benchmark-multi-llms
+        from_sha: 1a18b04385f9a0da16439ba5f48a2f68ac08d53d
+        from_path: src/straitjacket.py
+        sha256: b67f81be502c427030d87f6ebf68ad9c1f87ff5f950bb87a8455c9482dadc35b
+      flow: evaluator._run_bigcodebench_contained   # reproduced in harness/vendor/sj_capture.py
+      digest_from: ContainedRun.digest              # triage_error_straitjacket's return
+      facts_from: ContainedRun.evidence_graph()     # classify()'s input
+    identity_pattern: '^(?:FAIL|ERROR): (\S+)'      # SUPERSEDED — see above
+    exception_pattern: '^([A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception|Warning))\b'  # SUPERSEDED
     shallow_classes:                   # routing._SHALLOW_CLASSES, verbatim
       - SyntaxError
       - IndentationError
@@ -477,12 +522,14 @@ judgment_calls:
       manifest.
     risk: Every r0a-referenced comparison is approximate. Labelled, not resolved.
   - id: J-11
+    status: RESOLVED 2026-08-30 by J-13 (prereg Amendment 4)
     decision: >
-      For the CALIBRATION profile only, the typed evidence the gate reads is
-      reconstructed from the unittest runner's stderr (failing identities from
-      FAIL:/ERROR: lines, failure classes from traceback exception names) instead
-      of from the source's external capture harness, whose evidence graph is not
-      vendored with the source and is not installed here.
+      SUPERSEDED. For the CALIBRATION profile only, the typed evidence the gate
+      reads was reconstructed from the unittest runner's stderr (failing
+      identities from FAIL:/ERROR: lines, failure classes from traceback
+      exception names) instead of from the source's external capture harness,
+      whose evidence graph was believed unavailable. Kept because it is what
+      produced the 2026-08-27 r9 calibration dataset.
     alternative: >
       Run calibration with no fact tier, exactly as the source does when the
       harness is absent.
@@ -500,6 +547,35 @@ judgment_calls:
       published ones for a reason that is ours, not the strategy's. Recorded in
       the calibration report as a non-gating diagnostic (routing_shape_match) so
       a mismatch is visible rather than absorbed into the pass/fail criterion.
+      This risk is what the 2026-08-27 run realised, and it is why Amendment 4
+      authorised the repair below.
+  - id: J-13
+    decision: >
+      The source's capture harness is installed at a pinned commit
+      (`evidence.calibration.capture_harness`) and the calibration profile reads
+      its digest and its typed evidence graph, through the source's own vendored
+      wrapper, end to end. J-11's reconstruction is retired from r9's path.
+    alternative: Keep J-11's regex reconstruction and accept the 3/5 pass match.
+    why: >
+      Prereg Amendment 4: r9 re-enters only if a repaired evidence path passes
+      criterion (a) at 5/5, and the repair may change only HOW failure evidence
+      is captured and digested. Reading the facts the source's own harness types
+      is the smallest change that removes the gap, because it removes our
+      derivation entirely rather than improving it. Gate logic, thresholds,
+      prompts and the escalation rule are unchanged; the level rules are
+      literally the same function the regex path calls.
+    risk: >
+      Three, all recorded rather than resolved. (a) The identification of
+      ctx-harness as the source's `ctx run` is this lab's inference and is
+      "author confirmation pending" — if it is the wrong harness, the facts are
+      a different tool's facts and the fidelity claim weakens to "an instrumented
+      evidence graph" rather than "theirs". (b) The digest the model repairs from
+      changed (harness digest, not a raw stderr tail), so r9's repair turns are
+      not comparable, prompt for prompt, with the 2026-08-27 r9 dataset; that
+      dataset is superseded, not amended. (c) The capture now runs under a second
+      interpreter. The graded child does not, so the oracle is unmoved, but the
+      run has one more moving part than r6 and r10 have and any r9-only anomaly
+      must be checked against it first.
   - id: J-12
     decision: >
       Calibration reads the product's FINAL RESPONSE TEXT as the candidate
