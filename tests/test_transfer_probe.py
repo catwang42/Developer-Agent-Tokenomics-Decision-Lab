@@ -3,10 +3,12 @@
 ``harness/runner/transfer_probe.py`` owns three things that cost money if they
 are wrong, and these tests pin all three.
 
-  * **The cell list** must be the registered one — 18 cells since the prereg's
-    Amendment 3 excluded r9, the prereg's run order, no silent extra rep and no
-    silently dropped arm. The drop of r9 is asserted against the amendment, so a
-    fourth arm going missing still fails.
+  * **The cell list** must be the registered one — the full 27 cells since the
+    prereg's Amendment 5 re-entered r9 (Amendment 3 had excluded it), the
+    prereg's run order, no silent extra rep and no silently dropped arm. Both
+    directions are asserted against the amendments: an arm may only leave the
+    plan by being named in ``EXCLUDED_CONFIGS``, and r9's re-entry has to bring
+    r9 back under the calibration gate rather than past it.
   * **The preflight** must refuse. Two of its refusals (the frozen
     ``configuration_id`` enum and the absent manifest policy pins) are live in
     this repo right now, so the tests assert against reality rather than against
@@ -43,32 +45,49 @@ def manifest():
 
 
 class RegisteredScope(unittest.TestCase):
-    """18 cells, {W6,W4b,W4} x {r6,r10} x rep1-3 — the prereg as amended."""
+    """27 cells, {W6,W4b,W4} x {r9,r6,r10} x rep1-3 — the prereg as amended."""
 
     def setUp(self) -> None:
         self.cells = T.plan_cells()
 
-    def test_there_are_exactly_eighteen_cells(self) -> None:
-        self.assertEqual(len(self.cells), 18)
+    def test_there_are_exactly_twenty_seven_cells(self) -> None:
+        self.assertEqual(len(self.cells), 27)
 
     def test_the_three_registered_tasks_and_no_others(self) -> None:
         self.assertEqual({c.task_key for c in self.cells}, {"W4", "W6", "W4b"})
 
-    def test_the_two_in_plan_arms_and_no_others(self) -> None:
-        self.assertEqual({c.config_id for c in self.cells}, {"R6", "R10"})
+    def test_the_three_in_plan_arms_and_no_others(self) -> None:
+        self.assertEqual({c.config_id for c in self.cells}, {"R6", "R10", "R9"})
 
-    def test_r9_is_excluded_and_the_exclusion_is_stated_not_silent(self) -> None:
-        """Amendment 3. An arm may leave the plan only by being named as gone."""
-        self.assertNotIn("R9", {c.config_id for c in self.cells})
-        excluded = dict(T.EXCLUDED_CONFIGS)
-        self.assertIn("R9", excluded)
-        self.assertIn("Amendment 3", excluded["R9"])
+    def test_r9_is_re_entered_and_nothing_is_excluded_in_silence(self) -> None:
+        """Amendment 5. An arm may leave the plan only by being named as gone.
 
-    def test_the_excluded_arm_keeps_its_spec_and_manifest_pin(self) -> None:
-        """Excluded from THIS cycle, not retracted: r9 must still load and be pinned.
+        The exclusion list is now empty because r9 came back, not because the
+        mechanism was deleted: anything absent from CONFIGS must still be named
+        in EXCLUDED_CONFIGS, so a fourth arm quietly vanishing still fails here.
+        """
+        self.assertIn("R9", {c.config_id for c in self.cells})
+        self.assertEqual(T.EXCLUDED_CONFIGS, ())
+        named = set(T.CONFIGS) | {c for c, _ in T.EXCLUDED_CONFIGS}
+        from harness.runner.run import TRANSFER_CONFIGS
 
-        If dropping an arm from the plan also quietly unpinned it, the fidelity
-        finding the exclusion produces would cite a spec nothing verifies.
+        self.assertEqual(named, set(TRANSFER_CONFIGS),
+                         "every transplanted arm is either in the plan or named "
+                         "as excluded; neither list may drop one silently")
+
+    def test_the_plan_states_the_exploratory_tier_rather_than_burying_it(self) -> None:
+        """r9's cells are not comparable with r6/r10's, and the plan must say so."""
+        text = T.render_plan(self.cells, T.task_timeouts(), T.task_ids(), [], {},
+                             spend_cap_usd=120.0, dry_run=False, out_root=None,
+                             manifest_path=None)
+        self.assertIn("EXPLORATORY", text)
+        self.assertIn("Amendment 5", text)
+
+    def test_the_re_entered_arm_keeps_its_spec_and_manifest_pin(self) -> None:
+        """r9 was never retracted, and now it bills: it must load and be pinned.
+
+        If the arm's spec were unpinned, no r9 cell could be cited (SPEC 2.1c) —
+        and unlike under Amendment 3, that would now be discovered after spend.
         """
         from harness.runner.run import TRANSFER_CONFIGS, policy_manifest_pin
 
@@ -79,7 +98,7 @@ class RegisteredScope(unittest.TestCase):
         counts = {}
         for c in self.cells:
             counts[(c.task_key, c.config_id)] = counts.get((c.task_key, c.config_id), 0) + 1
-        self.assertEqual(len(counts), 6)
+        self.assertEqual(len(counts), 9)
         self.assertEqual(set(counts.values()), {3})
 
     def test_no_cell_is_duplicated(self) -> None:
@@ -96,10 +115,14 @@ class RegisteredScope(unittest.TestCase):
                          "means the tasks were interleaved")
 
     def test_reps_are_nested_inside_arms_so_a_cut_off_batch_stays_comparable(self) -> None:
-        """Rep-before-arm: any prefix has equal reps of both arms per task."""
-        first_six = self.cells[:6]
-        self.assertEqual([c.rep for c in first_six], [1, 1, 2, 2, 3, 3])
-        self.assertEqual([c.config_id for c in first_six[:2]], ["R6", "R10"])
+        """Rep-before-arm: any prefix has near-equal reps of every arm per task.
+
+        And within a rep the confirmatory pair goes first, so a cut mid-rep
+        costs an exploratory r9 cell before it costs a graded r6/r10 one.
+        """
+        first_nine = self.cells[:9]
+        self.assertEqual([c.rep for c in first_nine], [1, 1, 1, 2, 2, 2, 3, 3, 3])
+        self.assertEqual([c.config_id for c in first_nine[:3]], ["R6", "R10", "R9"])
 
     def test_every_task_directory_exists_and_is_not_a_hidden_dir(self) -> None:
         for _key, rel in T.TASKS:
@@ -107,7 +130,7 @@ class RegisteredScope(unittest.TestCase):
             self.assertNotIn("hidden", rel)
 
     def test_the_cell_index_is_one_based_and_contiguous(self) -> None:
-        self.assertEqual([c.index for c in self.cells], list(range(1, 19)))
+        self.assertEqual([c.index for c in self.cells], list(range(1, 28)))
 
 
 class Timing(unittest.TestCase):
@@ -238,15 +261,19 @@ class Preflight(unittest.TestCase):
             codes = {r.code for r in T.preflight(manifest(), calibration_dir=tmp)}
             self.assertIn("CALIBRATION", codes)
 
-    def test_the_gate_reads_only_the_arms_this_batch_will_run(self) -> None:
-        """r9 is excluded, so r9's report must not gate r6 and r10.
+    def test_the_gate_reads_exactly_the_arms_this_batch_will_run(self) -> None:
+        """The gate list is derived from CONFIGS, so it tracks the amendments.
 
-        The reverse — an in-plan arm silently dropped from the gate — is the
-        expensive mistake, so the strategy list is derived from CONFIGS.
+        Under Amendment 3 that kept r9's failure from gating r6 and r10; under
+        Amendment 5, with r9 back in the plan and about to bill, it must put r9
+        back under the gate. An in-plan arm silently dropped from the gate is
+        the expensive direction, so the derivation is what is pinned.
         """
-        self.assertEqual(T.calibration_strategies(), ["r6", "r10"])
-        detail = " ".join(r.detail for r in self.refusals if r.code == "CALIBRATION")
-        self.assertNotIn("r9", detail)
+        self.assertEqual(T.calibration_strategies(), ["r6", "r10", "r9"])
+        self.assertEqual(T.calibration_strategies(),
+                         [c.lower() for c in T.CONFIGS])
+        self.assertEqual(T.calibration_strategies(("R10",)), ["r10"],
+                         "an arm out of the plan is out of the gate")
 
     def test_the_frozen_schema_enum_blocks_the_arms(self) -> None:
         """R9/R6/R10 are outside the CP-SCHEMA enum; widening it is a human call.
@@ -348,8 +375,9 @@ class CalibrationOverride(unittest.TestCase):
         reason = T.CALIBRATION_OVERRIDE_REASON
         self.assertEqual(
             reason,
-            "Amendment 1+3: (a) pass for all in-plan strategies, (b) waived, "
-            "r9 excluded")
+            "Amendment 1+5: (a) pass for r6/r10 (5/5) and r9 (4/5, Amendment-4 "
+            "evidence repair), (b) waived; r9 runs as an EXPLORATORY arm, never "
+            "pooled or ranked with r6/r10")
 
     def test_the_reason_reaches_the_dataset_marker(self) -> None:
         import tempfile
@@ -478,7 +506,7 @@ class Modes(unittest.TestCase):
         rc, out, err = self._main([])
         self.assertEqual(rc, T.EXIT_PLAN_ONLY)
         self.assertIn("PLAN ONLY", err)
-        self.assertIn("18 registered cells", out)
+        self.assertIn("27 registered cells", out)
 
     def test_live_without_launch_only_prints_the_plan(self) -> None:
         rc, _out, _err = self._main(["--live"])
@@ -514,7 +542,9 @@ class Modes(unittest.TestCase):
         self.assertIn("2026-08-27-transfer-probe.md", text)
         self.assertIn("cp-spend-transfer-probe.md", text)
         self.assertIn("NEW ARM CONDITION", text)
-        self.assertEqual(text.count("pending"), 18)
+        self.assertEqual(text.count("pending"), 27,
+                         "one 'pending' per unsettled cell: 27 since Amendment 5 "
+                         "re-entered r9")
 
 
 class NoStrayWrites(unittest.TestCase):

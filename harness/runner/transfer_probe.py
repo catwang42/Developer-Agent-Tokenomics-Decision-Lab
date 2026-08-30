@@ -1,22 +1,30 @@
-"""Transfer-probe driver — the 18 registered cells, and the gate in front of them.
+"""Transfer-probe driver — the 27 registered cells, and the gate in front of them.
 
 Registered scope (``manifest/preregistrations/2026-08-27-transfer-probe.md``) as
 amended: the base registration is ``{W6, W4b, W4} x {r9, r6, r10} x rep1-3 = 27
-cells``; **Amendment 3** excludes r9 from this cycle, leaving
-``{W6, W4b, W4} x {r6, r10} x rep1-3 = 18 cells``, dataset
+cells``; **Amendment 3** excluded r9 and **Amendment 5** re-entered it, so the
+plan is the full ``{W6, W4b, W4} x {r9, r6, r10} x rep1-3 = 27 cells``, dataset
 ``results/transfer-probe``, spend cap ``$300`` **shared with the calibration path**
 (``manifest/cp-spend-transfer-probe.md``).
 
-r9 is not dropped for being inconvenient: it failed calibration criterion (a) at
-3/5 with a diagnosed mechanism (its evidence gate saw ~30-70 input tokens of
-stderr reconstructed from unit tests against the ~10k tokens of typed evidence
-the source fed from a capture harness that is not vendored — caveat J-11), so it
-is not reproducible from published artifacts. Its calibration failure is
-published as the fidelity finding rather than run as a probe arm.
+r9's route back in is on the record, not quiet. Amendment 3 excluded it for
+failing calibration criterion (a) at 3/5, with a diagnosed mechanism: its
+evidence gate saw ~30-70 input tokens of stderr reconstructed from unit tests
+against the ~10k tokens of typed evidence the source fed from a capture harness
+that is not vendored (caveat J-11). Amendment 4 permitted a repair of the
+evidence path alone and set 5/5 as the re-entry bar; the repair reached 4/5
+(``results/transfer-probe-calibration-amd4``), with the one mismatched cell
+decided by the cheap rung passing before the evidence gate ever fired — i.e. by
+rung-model substitution (J-2), not by the evidence path. Amendment 5, written
+**after** that result was known, admits r9 on that basis as an **EXPLORATORY**
+arm: reported in its own tier, never pooled or ranked with the confirmatory
+r6/r10 cells, every figure labelled "entered by post-result Amendment 5". This
+driver does not enforce that tiering — it is an analysis-side obligation — but
+it states it everywhere it states the plan.
 
 What this module is for
 -----------------------
-Everything that makes a batch of 18 live cells a *registered experiment* rather
+Everything that makes a batch of 27 live cells a *registered experiment* rather
 than a loop: the cell list and its order, the resume rule, the dataset marker,
 and — most of the module — the PREFLIGHT that refuses to start. It deliberately
 owns none of the per-run machinery. Each cell is executed by shelling out to
@@ -38,11 +46,18 @@ Three of the four refusals below are things that would otherwise be discovered
      own unit-test oracle. Until every IN-PLAN strategy has a passing,
      non-dry-run calibration report, a probe result measures an unvalidated
      reimplementation and cannot be attributed to the published strategies at
-     all. The gate reads only the arms this batch will actually run, so
-     excluding r9 (Amendment 3) also removes r9's report from the gate. It can
-     be overridden only by ``--calibration-override``, which is a HUMAN decision
-     that writes its reason into the dataset marker — see
-     :data:`CALIBRATION_OVERRIDE_REASON`.
+     all. The gate reads only the arms this batch will actually run, derived
+     from :data:`CONFIGS`, so re-entering r9 (Amendment 5) also puts r9's report
+     back under the gate. It can be overridden only by
+     ``--calibration-override``, which is a HUMAN decision that writes its
+     reason into the dataset marker — see :data:`CALIBRATION_OVERRIDE_REASON`.
+     KNOWN GAP: the gate reads ONE directory, and r9's Amendment-4 evidence
+     lives in a second one (``results/transfer-probe-calibration-amd4``) while
+     r6/r10's lives in ``results/transfer-probe-calibration``. With the default
+     ``--calibration-dir`` the gate therefore reads r9's superseded 3/5 report.
+     It changes no outcome — every strategy's report says ``fail`` on criterion
+     (b), so the batch runs on the human override either way — but the gate's
+     quoted objection for r9 is the stale one unless a human says otherwise.
   2. **The schema enum.** ``configuration_id`` is frozen under CP-SCHEMA and does
      not contain R9/R6/R10. A run whose id the schema will not accept executes,
      bills, and *then* fails validation at the summary step — 27 times. Widening
@@ -117,30 +132,35 @@ TASKS: Tuple[Tuple[str, str], ...] = (
     ("W4b", "tasks/suite/W4b-zarr-consolidated-order"),
 )
 
-#: Configuration ids as ``run.py --config`` takes them (uppercase), in the
-#: prereg's order. ``TRANSFER_CONFIGS`` in run.py maps these to the spec ids.
-#: R9 was registered here and was removed by Amendment 3; it stays in run.py's
-#: map and keeps its spec, manifest pin and calibration report, because the
-#: exclusion is a scope decision about THIS cycle, not a retraction of the arm.
-CONFIGS: Tuple[str, ...] = ("R6", "R10")
+#: Configuration ids as ``run.py --config`` takes them (uppercase).
+#: ``TRANSFER_CONFIGS`` in run.py maps these to the spec ids. R9 was removed by
+#: Amendment 3 and re-entered by Amendment 5 as an exploratory arm; it is listed
+#: LAST rather than in the prereg's {r9, r6, r10} order so that the confirmatory
+#: pair is bought first — see :func:`plan_cells` for why that matters when a
+#: batch is cut off mid-flight.
+CONFIGS: Tuple[str, ...] = ("R6", "R10", "R9")
 
-#: Excluded by Amendment 3, kept named so the plan can say so out loud rather
-#: than a reader having to notice an absence.
-EXCLUDED_CONFIGS: Tuple[Tuple[str, str], ...] = (
-    ("R9", "Amendment 3: calibration (a) 3/5 with a diagnosed non-reproducibility "
-            "(J-11); published as the fidelity finding instead of run"),
-)
+#: Arms named as gone. EMPTY since Amendment 5 re-entered r9 as an exploratory
+#: arm — nothing is excluded from this cycle now. Kept as a populated-shaped
+#: constant rather than deleted: an arm may only leave the plan by being named
+#: here, so the plan can say it out loud rather than a reader having to notice
+#: an absence.
+EXCLUDED_CONFIGS: Tuple[Tuple[str, str], ...] = ()
 
 REPS: Tuple[int, ...] = (1, 2, 3)
 
 #: The one reason ``--calibration-override`` records. A fixed string, not an
 #: operator-supplied one: the waiver it names is a specific pre-registered
-#: decision (Amendment 1 waives criterion (b); Amendment 3 excludes r9 and lets
-#: r6 and r10 proceed on their 5/5 criterion (a)), and a free-text field would
-#: turn a checkpointed decision into whatever the person at the keyboard typed.
-#: A different waiver needs a different amendment and a different constant.
+#: decision (Amendment 1 waives criterion (b); Amendment 5 admits r9 on its
+#: Amendment-4 repair scoring 4/5 on criterion (a), as an exploratory arm), and
+#: a free-text field would turn a checkpointed decision into whatever the person
+#: at the keyboard typed. A different waiver needs a different amendment and a
+#: different constant — which is why this one replaced the Amendment 1+3 string
+#: outright instead of being widened.
 CALIBRATION_OVERRIDE_REASON = (
-    "Amendment 1+3: (a) pass for all in-plan strategies, (b) waived, r9 excluded"
+    "Amendment 1+5: (a) pass for r6/r10 (5/5) and r9 (4/5, Amendment-4 evidence "
+    "repair), (b) waived; r9 runs as an EXPLORATORY arm, never pooled or ranked "
+    "with r6/r10"
 )
 
 #: House posture, unchanged from screening batch 1 (scripts/screening-batch1-driver.sh):
@@ -183,16 +203,22 @@ class Cell:
 def plan_cells(tasks: Sequence[Tuple[str, str]] = TASKS,
                configs: Sequence[str] = CONFIGS,
                reps: Sequence[int] = REPS) -> List[Cell]:
-    """The 18 cells in the order they will be run.
+    """The 27 cells in the order they will be run.
 
     Task-major (the registered run order), then REP, then arm. The rep-before-arm
     nesting is the one free choice here and it is made for interruption safety:
-    a batch cut off at any point has run the same number of reps of both in-plan
+    a batch cut off at any point has run the same number of reps of all in-plan
     arms on the task in flight, so the arms stay comparable on partial data. The
     alternative (arm-major) would leave, say, three reps of r6 and none of r10 —
     a partial dataset that cannot be read at all. Interruption is the expected
     case, not the exceptional one: the idle reaper on this VM can stop a long
     batch, which is why resume exists (:func:`completed_cells`).
+
+    Within a rep the arm order is r6, r10, r9 (:data:`CONFIGS`). r9 last is the
+    same argument one level down: it is Amendment 5's exploratory arm and is
+    never pooled with the confirmatory pair, so a batch cut off mid-rep should
+    lose the arm whose absence costs least — losing r9's rep3 leaves the graded
+    r6-vs-r10 comparison intact, while losing r10's would not.
     """
     cells: List[Cell] = []
     n = 0
@@ -264,10 +290,12 @@ class Refusal:
 def calibration_strategies(configs: Sequence[str] = CONFIGS) -> List[str]:
     """The strategy ids the gate reads: the in-plan arms, lowercased.
 
-    Derived from the cell list rather than from ``CAL.STRATEGIES`` so that an arm
-    excluded from the batch is also excluded from the gate. Reading all three
-    would make r9's calibration failure — the very reason it is not being run —
-    block the two arms Amendment 3 says proceed.
+    Derived from the cell list rather than from ``CAL.STRATEGIES`` so that the
+    gate covers exactly the arms that will bill: an arm excluded from the batch
+    is excluded from the gate (Amendment 3's r9), and an arm re-entered into the
+    batch is gated again (Amendment 5's r9). The derivation is the invariant —
+    an in-plan arm silently missing from the gate is the expensive direction of
+    this mistake.
     """
     return [c.lower() for c in configs]
 
@@ -572,8 +600,14 @@ def render_plan(cells: Sequence[Cell], timeouts: Dict[str, int],
                  f"(dataset results/{DATASET})")
     lines.append("prereg: manifest/preregistrations/2026-08-27-transfer-probe.md")
     lines.append("CP-SPEND: manifest/cp-spend-transfer-probe.md")
-    for config_id, why in EXCLUDED_CONFIGS:
-        lines.append(f"excluded arm: {config_id} — {why}")
+    if EXCLUDED_CONFIGS:
+        for config_id, why in EXCLUDED_CONFIGS:
+            lines.append(f"excluded arm: {config_id} — {why}")
+    else:
+        lines.append("excluded arms: none — Amendment 5 re-entered r9 as an "
+                     "EXPLORATORY arm (own tier, never pooled or ranked with "
+                     "the confirmatory r6/r10 cells; every r9 figure labelled "
+                     "\"entered by post-result Amendment 5\")")
     lines.append("")
     lines.append(f"profile: {PROFILE.name} — {PROFILE.summary}")
     lines.append("  NEW ARM CONDITION: not comparable with batch-1/batch-2 timing.")
@@ -655,8 +689,12 @@ def write_marker(batch_dir: str, timeouts: Dict[str, int],
             "required.",
             "",
             f"In-plan arms at launch: {', '.join(CONFIGS)}. "
-            f"Excluded: {', '.join(c for c, _ in EXCLUDED_CONFIGS)} "
-            "(see the prereg's Amendment 3).",
+            + (f"Excluded: {', '.join(c for c, _ in EXCLUDED_CONFIGS)} "
+               "(see the prereg's amendments)."
+               if EXCLUDED_CONFIGS else
+               "Excluded: none — Amendment 5 re-entered R9 as an EXPLORATORY arm, "
+               "reported in its own tier and never pooled or ranked with the "
+               "confirmatory R6/R10 cells."),
             "",
         ]
         if gate_reasons:
@@ -667,8 +705,14 @@ def write_marker(batch_dir: str, timeouts: Dict[str, int],
             "The calibration reports were NOT edited. "
             "`results/transfer-probe-calibration/` records verdict `fail` for every "
             "strategy and is the evidence for this waiver, not a contradiction of it: "
-            "the failure is criterion (b), a source-vs-lab price comparison that "
-            "Amendment 1 waived as unpassable under the J-2 model substitution.",
+            "the overall verdict fails on criterion (b), a source-vs-lab price "
+            "comparison that Amendment 1 waived as unpassable under the J-2 model "
+            "substitution. Criterion (a), the one that governs fidelity, passes: "
+            "5/5 for r6 and r10 in that directory. R9's criterion (a) is 4/5 and "
+            "lives in a SEPARATE dataset, `results/transfer-probe-calibration-amd4/` "
+            "(the Amendment-4 evidence-path repair); its superseded 3/5 report is "
+            "still in `results/transfer-probe-calibration/`, so an r9 objection "
+            "quoted above may be the stale one — read the amd4 report for r9.",
             "",
         ]
         text = text + "\n".join(lines)
@@ -813,9 +857,10 @@ def run_probe(*, mode: str, spend_cap_usd: float, manifest_path: str,
 
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
-        description=("Transfer-probe driver: 18 registered cells "
-                     "({W6,W4b,W4} x {r6,r10} x rep1-3, r9 excluded by the prereg's "
-                     "Amendment 3) into results/transfer-probe. "
+        description=("Transfer-probe driver: 27 registered cells "
+                     "({W6,W4b,W4} x {r9,r6,r10} x rep1-3; r9 re-entered by the "
+                     "prereg's Amendment 5 as an EXPLORATORY arm, never pooled with "
+                     "r6/r10) into results/transfer-probe. "
                      "Default mode prints the plan and launches nothing."))
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--plan-only", action="store_true",
