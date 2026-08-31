@@ -181,3 +181,18 @@ those frozen 2026-08-27. Calibration dir:
 results/transfer-probe-calibration-amd4. Spend: up to $120 within the $300
 cap. This amendment was written after seeing the 4/5; that timing is part of
 the record. Authored by Catherine.
+
+## Amendment 6 — recorded 2026-08-31 SGT
+r9 is compared alongside r6 and r10 in all tables and rankings. Reason: its
+single calibration miss (BigCodeBench/147) occurred on a cell where the cheap
+rung passed before r9's evidence gate ran — the lab's cheap rung (Sonnet)
+solved a task the source's cheap rungs (Gemini Flash) did not. That is the
+rung-model substitution (J-2) that r6 and r10 carry equally, not anything
+specific to r9. On every calibration cell where r9's escalation logic actually
+ran, it matched the published behaviour (4/4). Treating one arm differently for
+a shared artifact would be inconsistent. The report states this history in one
+place: r9 calibrated 4/5 against a registered 5/5, and re-entered by Amendment
+5 after that result was known. Rank-preservation is reported twice — with and
+without r9 — so a reader can see the effect of including it. Ladders were not
+run on the easy tasks (pilot, W1) by design: every arm passes them 3/3 in
+batch 1, so a ladder collapses to its first rung there. Authored by Catherine.
