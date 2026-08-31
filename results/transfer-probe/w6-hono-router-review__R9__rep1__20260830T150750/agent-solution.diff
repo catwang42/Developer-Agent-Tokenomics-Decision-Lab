@@ -1,0 +1,13 @@
+
+# untracked files (agent-created), full content below:
+diff --git a/review-report.txt b/review-report.txt
+new file mode 100644
+index 00000000..fb788c71
+--- /dev/null
++++ b/review-report.txt
+@@ -0,0 +1,5 @@
++src/router/reg-exp-router/node.ts:30 — compareKey returns -1 when a is ONLY_WILDCARD_REG_EXP_STR or TAIL_WILDCARD_REG_EXP_STR and b is not TAIL_WILDCARD_REG_EXP_STR, making wildcards sort before literal children; the else-if branch on line 31 returns -1 in the opposite case (literal vs wildcard), producing an inconsistent comparator that breaks sort determinism and allows wildcard routes to shadow more-specific literal routes.
++src/router/reg-exp-router/node.ts:60 — `i <= len - 1` is always true for any valid loop index, so the `*` token always resolves to ONLY_WILDCARD_REG_EXP_STR and the LABEL_REG_EXP_STR branch for a `*` in non-terminal position is unreachable, misclassifying wildcard segments that appear mid-path.
++src/router/reg-exp-router/node.ts:145 — The backslash escape (`\\${k}`) present in the original is replaced with bare `${k}`, so regex meta-characters (e.g. `.`) used as literal path tokens are no longer escaped in the generated regular expression, causing them to match unintended inputs.
++src/router/reg-exp-router/trie.ts:55 — The trie node is inserted with the pre-increment value of `this.#index` (line 54) but `paths[path]` stores the post-increment value `++this.#index`; `#buildMatcher` writes handler data at `handlerData[pathData[0]]` (post-increment slot) while the regex replacement map references the pre-increment slot, so all dynamic-route handlers are stored and retrieved at mismatched indices and never returned.
++src/router/reg-exp-router/router.ts:74 — `this.#tries![method] = this.#tries![METHOD_NAME_ALL]` aliases the new method's trie to the same object as the ALL-methods trie; subsequent `#insertPath(method, p)` calls then mutate the shared trie, corrupting the METHOD_NAME_ALL trie and breaking routing for every method.

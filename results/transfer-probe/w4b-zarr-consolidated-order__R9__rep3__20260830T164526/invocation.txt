@@ -1,0 +1,128 @@
+# Per-run agent-CLI invocation(s) — run artifact, NOT telemetry.
+# Full argv + product version + exit/stdout/stderr per billing leg;
+# credential-bearing values are redacted. Provenance for diagnosis.
+
+## leg: rung0_economical (role: economical)
+product_version: 2.1.233
+cwd: (container: image workdir)
+exit_code: 0
+argv:
+["docker", "run", "--rm", "--name", "lab-agent-w4b-zarr-consolidated-order__r9__rep3__20260830t164526-rung0_economical", "--network", "lab-egress", "-v", "/home/catwangzz_google_com/.config/gcloud:/creds/gcloud:ro", "-v", "/home/catwangzz_google_com/.gemini/antigravity-cli/antigravity-oauth-token:/creds/agy/antigravity-oauth-token:ro", "-v", "/home/catwangzz_google_com/.gemini/antigravity-cli/settings.json:/creds/agy/settings.json:ro", "-v", "/home/catwangzz_google_com/.gemini/antigravity-cli/installation_id:/creds/agy/installation_id:ro", "-v", "lab-subject-work-w4b-zarr-consolidated-order__r9__rep3__20260830t164526:/subject:rw", "-w", "/subject", "-e", "ANTHROPIC_VERTEX_PROJECT_ID=vital-octagon-19612", "-e", "CLAUDE_CODE_USE_VERTEX=1", "-e", "CLOUDSDK_CONFIG=/creds/gcloud", "-e", "CLOUD_ML_REGION=global", "-e", "GOOGLE_APPLICATION_CREDENTIALS=/creds/gcloud/application_default_credentials.json", "-e", "GOOGLE_CLOUD_PROJECT=vital-octagon-19612", "-e", "HTTPS_PROXY=http://lab-egress-proxy:8888", "-e", "HTTP_PROXY=http://lab-egress-proxy:8888", "-e", "NO_PROXY=localhost,127.0.0.1,::1", "-e", "http_proxy=http://lab-egress-proxy:8888", "-e", "https_proxy=http://lab-egress-proxy:8888", "-e", "no_proxy=localhost,127.0.0.1,::1", "lab-subject-agent/w4b-zarr-consolidated-order:a994a4fc972f", "claude", "-p", "`ConsolidatedMetadata` rebuilds a nested node tree from a FLAT mapping of\nslash-separated keys to node metadata. The mapping's key order is arbitrary —\nit is whatever order the keys were persisted in.\n\nNesting is currently order-dependent: for some key orders, children are dropped\nfrom their parent's consolidated metadata and linger as bogus slash-containing\nkeys at the top level, so those nodes cannot be reached through the consolidated\nmetadata at all. The most visible symptom is sibling groups whose names differ\nonly by case.\n\nFind the root cause and fix it so the reconstructed tree is identical for every\npermutation of the same key set. Change only what is necessary; do not introduce\nunrelated diffs, and do not change any test.\n", "--model", "claude-sonnet-4-6@default", "--output-format", "json", "--dangerously-skip-permissions", "--session-id", "51020a80-a99c-4bae-bb4b-1522c8e0b738"]
+stdout:
+{"is_error":false,"duration_api_ms":304346,"num_turns":18,"stop_reason":"end_turn","session_id":"51020a80-a99c-4bae-bb4b-1522c8e0b738","total_cost_usd":1.0055806500000002,"usage":{"input_tokens":17,"cache_creation_input_tokens":112989,"cache_read_input_tokens":863423,"output_tokens":21390,"output_tokens_details":{"thinking_tokens":17357},"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":112989},"inference_geo":"","iterations":[],"speed":"standard"},"modelUsage":{"claude-sonnet-4-6@default":{"inputTokens":560,"outputTokens":21411,"cacheReadInputTokens":863423,"cacheCreationInputTokens":112989,"webSearchRequests":0,"costUSD":1.0055806500000002,"contextWindow":200000,"maxOutputTokens":32000,"canonicalModel":"claude-sonnet-4-6","provider":"vertex"}},"permission_denials":[],"terminal_reason":"completed","fast_mode_state":"off","fast_mode_disabled_reason":"not_first_party","subtype":"success","api_error_status":null,"result":"All 31 tests pass. The fix is correct.\n\n**Root cause:** `itertools.groupby` only groups *consecutive* identical elements. After sorting flat keys by depth, children of case-variant siblings like `\"A\"` and `\"a\"` can interleave in the sorted list (e.g., `[\"A\", \"a\", \"A/x\", \"a/y\", \"A/z\"]`), causing their parent-prefix sequence to alternate (`\"A\", \"a\", \"A\", \"a\", \"A\"`). `groupby` then produces multiple separate groups for the same parent, and the dict comprehension silently discards all but the last — dropping earlier children from the tree entirely.\n\n**Fix:** Replace `itertools.groupby` with a plain accumulation loop (lines 241–245 of `group.py`). By iterating the depth-sorted keys and using a regular dict that preserves first-seen insertion order, all children of each parent are always collected into the same list, regardless of interleaving. Top-down processing order is preserved because the first occurrence of each parent key determines its position in `grouped`.","ttft_ms":2405,"ttft_stream_ms":1646,"time_to_request_ms":135,"type":"result","duration_ms":309621,"uuid":"7d9aa8c2-10d2-4978-884d-cf959fddbd7e"}
+
+stderr:
+
+
+## leg: rung1_economical (role: economical)
+product_version: 2.1.233
+cwd: (container: image workdir)
+exit_code: 0
+argv:
+["docker", "run", "--rm", "--name", "lab-agent-w4b-zarr-consolidated-order__r9__rep3__20260830t164526-rung1_economical", "--network", "lab-egress", "-v", "/home/catwangzz_google_com/.config/gcloud:/creds/gcloud:ro", "-v", "/home/catwangzz_google_com/.gemini/antigravity-cli/antigravity-oauth-token:/creds/agy/antigravity-oauth-token:ro", "-v", "/home/catwangzz_google_com/.gemini/antigravity-cli/settings.json:/creds/agy/settings.json:ro", "-v", "/home/catwangzz_google_com/.gemini/antigravity-cli/installation_id:/creds/agy/installation_id:ro", "-v", "lab-subject-work-w4b-zarr-consolidated-order__r9__rep3__20260830t164526:/subject:rw", "-w", "/subject", "-e", "ANTHROPIC_VERTEX_PROJECT_ID=vital-octagon-19612", "-e", "CLAUDE_CODE_USE_VERTEX=1", "-e", "CLOUDSDK_CONFIG=/creds/gcloud", "-e", "CLOUD_ML_REGION=global", "-e", "GOOGLE_APPLICATION_CREDENTIALS=/creds/gcloud/application_default_credentials.json", "-e", "GOOGLE_CLOUD_PROJECT=vital-octagon-19612", "-e", "HTTPS_PROXY=http://lab-egress-proxy:8888", "-e", "HTTP_PROXY=http://lab-egress-proxy:8888", "-e", "NO_PROXY=localhost,127.0.0.1,::1", "-e", "http_proxy=http://lab-egress-proxy:8888", "-e", "https_proxy=http://lab-egress-proxy:8888", "-e", "no_proxy=localhost,127.0.0.1,::1", "lab-subject-agent/w4b-zarr-consolidated-order:a994a4fc972f", "claude", "-p", "A previous attempt at the task below FAILED its acceptance checks.\nRead the bounded check digest, find the defect, and produce the\nCOMPLETE corrected artefact the task asks for — not a diff, not a\nfragment, and not a description of what you would change.\n\n`ConsolidatedMetadata` rebuilds a nested node tree from a FLAT mapping of\nslash-separated keys to node metadata. The mapping's key order is arbitrary —\nit is whatever order the keys were persisted in.\n\nNesting is currently order-dependent: for some key orders, children are dropped\nfrom their parent's consolidated metadata and linger as bogus slash-containing\nkeys at the top level, so those nodes cannot be reached through the consolidated\nmetadata at all. The most visible symptom is sibling groups whose names differ\nonly by case.\n\nFind the root cause and fix it so the reconstructed tree is identical for every\npermutation of the same key set. Change only what is necessary; do not introduce\nunrelated diffs, and do not change any test.\n\n--- Public Acceptance-Check Digest ---\nP1-public-test: consolidated-metadata nesting is order-independent (upstream PR repro)\nP2-regression: baseline suite (tests/test_metadata)\n\nProduce the complete corrected deliverable.", "--model", "claude-sonnet-4-6@default", "--output-format", "json", "--dangerously-skip-permissions", "--session-id", "3deef4a1-cca2-48a1-850f-3d5c90296f08"]
+stdout:
+{"is_error":false,"duration_api_ms":1087996,"num_turns":50,"stop_reason":"end_turn","session_id":"3deef4a1-cca2-48a1-850f-3d5c90296f08","total_cost_usd":2.6671328999999995,"usage":{"input_tokens":49,"cache_creation_input_tokens":126058,"cache_read_input_tokens":3868808,"output_tokens":68754,"output_tokens_details":{"thinking_tokens":57562},"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":126058},"inference_geo":"","iterations":[],"speed":"standard"},"modelUsage":{"claude-sonnet-4-6@default":{"inputTokens":711,"outputTokens":68776,"cacheReadInputTokens":3868808,"cacheCreationInputTokens":126058,"webSearchRequests":0,"costUSD":2.6671328999999995,"contextWindow":200000,"maxOutputTokens":32000,"canonicalModel":"claude-sonnet-4-6","provider":"vertex"}},"permission_denials":[],"terminal_reason":"completed","fast_mode_state":"off","fast_mode_disabled_reason":"not_first_party","subtype":"success","api_error_status":null,"result":"The fix is complete. Here's a summary of what was done:\n\n**Root cause:** `itertools.groupby` only groups *consecutive* elements with the same key. Since `keys` is sorted by depth (number of `/`), depth-1 children of *different* parents can interleave — e.g., `[\"Group-0\", \"group-0\", \"Group-0/x\", \"group-0/a\", \"Group-0/y\"]`. When `\"group-0/a\"` falls between `\"Group-0/x\"` and `\"Group-0/y\"`, groupby creates three separate groups for `\"Group-0\"` and the dict comprehension keeps only the last one (`[\"Group-0/y\"]`), silently dropping `\"Group-0/x\"` so it lingers as a slash-containing key at the top level.\n\n**Fix (two changes):**\n1. Replaced `itertools.groupby(...)` with a manual accumulator dict that appends every key to its parent's list regardless of position, ensuring all children of a parent are collected together.\n2. Removed the now-unused `import itertools` (line 4) — `accumulate` is still imported via `from itertools import accumulate`.","ttft_ms":4560,"ttft_stream_ms":3006,"time_to_request_ms":131,"type":"result","duration_ms":1112492,"uuid":"decc2a3c-82b6-4882-9996-fb9d77ca17c6"}
+
+stderr:
+
+
+## leg: frontier_strong (role: strong)
+product_version: 2.1.233
+cwd: (container: image workdir)
+exit_code: 0
+argv:
+["docker", "run", "--rm", "--name", "lab-agent-w4b-zarr-consolidated-order__r9__rep3__20260830t164526-frontier_strong", "--network", "lab-egress", "-v", "/home/catwangzz_google_com/.config/gcloud:/creds/gcloud:ro", "-v", "/home/catwangzz_google_com/.gemini/antigravity-cli/antigravity-oauth-token:/creds/agy/antigravity-oauth-token:ro", "-v", "/home/catwangzz_google_com/.gemini/antigravity-cli/settings.json:/creds/agy/settings.json:ro", "-v", "/home/catwangzz_google_com/.gemini/antigravity-cli/installation_id:/creds/agy/installation_id:ro", "-v", "lab-subject-work-w4b-zarr-consolidated-order__r9__rep3__20260830t164526:/subject:rw", "-w", "/subject", "-e", "ANTHROPIC_VERTEX_PROJECT_ID=vital-octagon-19612", "-e", "CLAUDE_CODE_USE_VERTEX=1", "-e", "CLOUDSDK_CONFIG=/creds/gcloud", "-e", "CLOUD_ML_REGION=global", "-e", "GOOGLE_APPLICATION_CREDENTIALS=/creds/gcloud/application_default_credentials.json", "-e", "GOOGLE_CLOUD_PROJECT=vital-octagon-19612", "-e", "HTTPS_PROXY=http://lab-egress-proxy:8888", "-e", "HTTP_PROXY=http://lab-egress-proxy:8888", "-e", "NO_PROXY=localhost,127.0.0.1,::1", "-e", "http_proxy=http://lab-egress-proxy:8888", "-e", "https_proxy=http://lab-egress-proxy:8888", "-e", "no_proxy=localhost,127.0.0.1,::1", "lab-subject-agent/w4b-zarr-consolidated-order:a994a4fc972f", "claude", "-p", "A previous attempt at the task below FAILED its acceptance checks.\nRead the bounded check digest, find the defect, and produce the\nCOMPLETE corrected artefact the task asks for — not a diff, not a\nfragment, and not a description of what you would change.\n\n`ConsolidatedMetadata` rebuilds a nested node tree from a FLAT mapping of\nslash-separated keys to node metadata. The mapping's key order is arbitrary —\nit is whatever order the keys were persisted in.\n\nNesting is currently order-dependent: for some key orders, children are dropped\nfrom their parent's consolidated metadata and linger as bogus slash-containing\nkeys at the top level, so those nodes cannot be reached through the consolidated\nmetadata at all. The most visible symptom is sibling groups whose names differ\nonly by case.\n\nFind the root cause and fix it so the reconstructed tree is identical for every\npermutation of the same key set. Change only what is necessary; do not introduce\nunrelated diffs, and do not change any test.\n\n--- Public Acceptance-Check Digest ---\nP1-public-test: consolidated-metadata nesting is order-independent (upstream PR repro)\nP2-regression: baseline suite (tests/test_metadata)\n\nProduce the complete corrected deliverable.", "--model", "claude-opus-5@default", "--output-format", "json", "--dangerously-skip-permissions", "--session-id", "e3d9a0fb-662e-4b9e-8191-1f8b43d1b459"]
+stdout:
+{"is_error":false,"duration_api_ms":356788,"num_turns":36,"stop_reason":"end_turn","session_id":"e3d9a0fb-662e-4b9e-8191-1f8b43d1b459","total_cost_usd":1.95456275,"usage":{"input_tokens":66,"cache_creation_input_tokens":100321,"cache_read_input_tokens":1367323,"output_tokens":25529,"output_tokens_details":{"thinking_tokens":15749},"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":100321},"inference_geo":"","iterations":[],"speed":"standard"},"modelUsage":{"claude-opus-5@default":{"inputTokens":999,"outputTokens":25556,"cacheReadInputTokens":1367323,"cacheCreationInputTokens":100321,"webSearchRequests":0,"costUSD":1.95456275,"contextWindow":200000,"maxOutputTokens":64000,"canonicalModel":"claude-opus-5","provider":"vertex"}},"permission_denials":[],"terminal_reason":"completed","fast_mode_state":"off","fast_mode_disabled_reason":"not_first_party","subtype":"success","api_error_status":null,"result":"The full-suite background run is still going; here's the state of the deliverable.\n\n## Root cause\n\nTwo independent order dependencies in `ConsolidatedMetadata._flat_to_nested` (`src/zarr/core/group.py:209`):\n\n1. **Children dropped** — `itertools.groupby` only groups *adjacent* equal keys. The input was sorted by depth alone, so a parent's children could appear non-adjacently; the enclosing dict comprehension then let each later run overwrite the earlier one, silently discarding children. Those nodes were never popped out of the flat dict, so they lingered as bogus slash-containing top-level keys (`{\"a\": …, \"b\": …, \"a/x\": …}` → `a/x` unreachable).\n\n2. **Ordering tracked the input** — even with grouping fixed, the reconstructed dicts inherited the arbitrary insertion order of the flat mapping. `to_dict` sorts by `(depth, NFKC-casefold)`, and for siblings differing only by case that key *ties*, so the stable sort fell through to the inherited order and serialized differently per permutation. This is why case-differing siblings were the visible symptom on both counts.\n\nThe previous attempt fixed only (1), which is why placement was correct but the artefact still wasn't permutation-invariant.\n\n## Fix\n\n`_flat_to_nested` now establishes a canonical **total** order up front — `(depth, NFKC-casefold, raw key)`, matching `to_dict`'s ordering with the raw key as tie-breaker — reinserts the mapping in that order, and accumulates children into a `defaultdict(list)` instead of relying on adjacency. `defaultdict` was already imported; the now-unused `import itertools` is dropped (`from itertools import accumulate` on line 9 is separate and still used).\n\n## Verification\n\n- Fuzz over 301 random hierarchies × 12 shuffles each, with case-differing and NFKC-colliding names (`a`/`A`, `ss`/`SS`/`ß`): **0 placement mismatches, 0 dict-order mismatches, 0 `to_dict` mismatches** (before: 0 / 2136 / 706 with the prior attempt; before that, placement broke too).\n- Exhaustive permutations of five hand-built hierarchies: all identical.\n- End-to-end: consolidate a store with `Foo`/`foo`/`FOO`/`bar` siblings, reopen — no slash keys leak to the top level, every path reachable, and `to_dict → from_dict → to_dict` is a fixed point.\n- `tests/test_metadata` (P2 baseline), `tests/test_group.py`, `tests/test_api.py`, `tests/test_cli/test_migrate_v3.py`: **1178 passed, 26 skipped**. `test_to_dict_order`, which asserts exact key ordering, still passes. No test was modified.\n\nOne caveat on completeness: the whole-`tests/` run I kicked off hasn't finished yet, so my regression evidence is the four suites above rather than the entire repo. I'll report the result when it lands.","ttft_ms":2738,"ttft_stream_ms":2226,"time_to_request_ms":130,"type":"result","duration_ms":1094234,"uuid":"ba3a5e9d-235e-40da-98fc-49658c1e1322"}
+
+stderr:
+
+
+## environment (credential-bearing values redacted)
+AI_AGENT=claude-code_2-1-251_agent
+ANACONDA_PYTHON_VERSION=3.10
+ANTHROPIC_DEFAULT_HAIKU_MODEL=claude-haiku-4-5@20251001
+ANTHROPIC_DEFAULT_OPUS_MODEL=claude-opus-5
+ANTHROPIC_DEFAULT_SONNET_MODEL=claude-sonnet-4-5@20250929[1m]
+ANTHROPIC_VERTEX_PROJECT_ID=vital-octagon-19612
+BINARIES_PATH=/opt/deeplearning/binaries
+CLAUDECODE=1
+CLAUDE_CODE_CHILD_SESSION=<redacted>
+CLAUDE_CODE_ENTRYPOINT=cli
+CLAUDE_CODE_EXECPATH=/opt/conda/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe
+CLAUDE_CODE_MESSAGING_SOCKET=/var/tmp/cc-socks/160696.sock
+CLAUDE_CODE_MESSAGING_TOKEN=<redacted>
+CLAUDE_CODE_SESSION_ID=<redacted>
+CLAUDE_CODE_USE_VERTEX=1
+CLAUDE_EFFORT=high
+CLAUDE_PID=160696
+CLOUD_ML_REGION=global
+CONDA_DEFAULT_ENV=base
+CONDA_EXE=/opt/conda/bin/conda
+CONDA_PREFIX=/opt/conda
+CONDA_PREFIX_1=/opt/conda/envs/jupyterlab
+CONDA_PREFIX_2=/opt/conda
+CONDA_PREFIX_3=/opt/conda/envs/jupyterlab
+CONDA_PROMPT_MODIFIER=(base) 
+CONDA_PYTHON_EXE=/opt/conda/bin/python
+CONDA_SHLVL=4
+COREPACK_ENABLE_AUTO_PIN=0
+DL_ANACONDA_HOME=/opt/conda
+DL_BIN_PATH=/opt/deeplearning/bin
+DL_METADATA_PATH=/opt/deeplearning/metadata
+DL_PATH=/opt/deeplearning
+DL_PATH_DEPS=/opt/deeplearning/deps
+ENABLE_MULTI_ENV=true
+ENABLE_MULTI_FRAMEWORK=true
+ENV_URI_FILE_PATH=/opt/deeplearning/metadata/env_uri
+ENV_VERSION_FILE_PATH=/opt/deeplearning/metadata/env_version
+FRAMEWORK_FILE_PATH=/opt/deeplearning/metadata/framework
+GCSFUSE_METADATA_IMAGE_TYPE=DLVM
+GIT_EDITOR=true
+GOOGLE_CLOUD_PROJECT=vital-octagon-19612
+GOOGLE_VM_CONFIG_LOCK_FILE=/root/google_vm_config.lock
+GRPC_FORK_SUPPORT_ENABLED=0
+HOME=/home/catwangzz_google_com
+JUPYTER_DEPS_PATH=/opt/deeplearning/jupyter
+LAB_ALLOW_SPEND=1
+LANG=C.UTF-8
+LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/nccl2/lib:/usr/local/cuda/extras/CUPTI/lib64:/usr/lib/x86_64-linux-gnu/:/opt/conda/lib
+LIT_PROXY_URL=/proxy/%PORT%/
+LOGNAME=catwangzz_google_com
+LS_COLORS=rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:
+MOTD_SHOWN=pam
+MOUNTS_ON_ALL_CONTAINERS=/usr/local/share/ca-certificates,/etc/ssl/certs,/etc/ca-certificates/update.d
+NoDefaultCurrentDirectoryInExePath=1
+OLDPWD=/home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab
+OPAL_PREFIX=/usr
+OS_NAME=DEBIAN_11
+PACKAGE_SOURCE_CODE_PATH=/opt/deeplearning/src/third_party
+PATH=/home/catwangzz_google_com/.local/bin:/home/catwangzz_google_com/.local/bin:/home/catwangzz_google_com/.local/bin:/home/catwangzz_google_com/.local/bin:/opt/conda/bin:/usr/local/cuda/bin:/opt/conda/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games
+POST_STARTUP_SCRIPT_PATH=/opt/c2d/post_start.sh
+PROXY_BIN=/opt/bin
+PWD=/home/catwangzz_google_com/Developer-Agent-Tokenomics-Decision-Lab
+RESTRICTION_TYPE_FILE_PATH=/opt/deeplearning/restriction
+SHELL=/bin/bash
+SHLVL=2
+SRC_PATH=/opt/deeplearning/src
+SSH_AUTH_SOCK=<redacted>
+SSH_CLIENT=172.253.240.6 63064 22
+SSH_CONNECTION=172.253.240.6 63064 10.128.0.90 22
+SSH_TTY=/dev/pts/0
+TENSORBOARD_PROXY_URL=/proxy/%PORT%/
+TERM=screen
+TF_BINARIES_FOLDER=/opt/deeplearning/binaries/tensorflow
+TF_BINARIES_VERSION=2-11
+TITLE_FILE_PATH=/opt/deeplearning/metadata/title
+TMPDIR=/var/tmp
+TMUX=/tmp//tmux-706335951/default,66110,0
+TMUX_PANE=%0
+TUTORIALS_PATH=/opt/deeplearning/workspace/tutorials
+USER=catwangzz_google_com
+VERSION_FILE_PATH=/opt/deeplearning/metadata/version
+VERTEX_PRODUCT=WORKBENCH_INSTANCE
+WORKSPACE_PATH=/opt/deeplearning/workspace
+XML_CATALOG_FILES=file:///opt/conda/etc/xml/catalog file:///etc/xml/catalog
+_=/usr/bin/setsid
+_CE_CONDA=
+_CE_M=
